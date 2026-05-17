@@ -447,11 +447,17 @@ const superApp = {
             const mainApp = document.getElementById('main-app'); if (mainApp) mainApp.classList.remove('hidden');
 
             this.updateNetworkUI(); this.syncOfflineQueue(); this.refreshData(); this.checkShiftStatus(); this.showToast(`Selamat datang, ${user.Username}!`);
-        
+            
+            // --- BAGIAN INI YANG DISEMPURNAKAN ---
+            // 1. TULIS DATA OUTLET KE MEMORI (Wajib agar Jendela CFD Menarik Data)
+            localStorage.setItem('aisnack_active_outlet', this.outlet);
+            
+            // 2. Jalankan Sapaan Layar Utama & Cadangan
             this.updateCFDGreeting(); 
             if (!this.cfdTimer) {
                 this.cfdTimer = setInterval(() => { this.updateCFDGreeting(); }, 60000); 
             }
+            // -------------------------------------
 
         } else { this.showToast('PIN Tidak Dikenali', 'error'); this.clearPin(); }
         this.isProcessing = false;
@@ -482,13 +488,13 @@ const superApp = {
         if (greetTimeEl) greetTimeEl.innerText = ucapanWaktu;
         if (greetOutletEl) greetOutletEl.innerText = `Selamat datang di ${namaOutlet}, silakan pesan di kasir`;
 
-        // 4. UBAH DI LAYAR CFD (MENYEBERANG KE JENDELA KEDUA)
+        // 4. UBAH DI LAYAR CFD (MENYEBERANG KE JENDELA KEDUA SEBAGAI CADANGAN)
         if (this.cfdWindow && !this.cfdWindow.closed) {
             try {
                 const cfdTimeEl = this.cfdWindow.document.getElementById('cfd-greeting-time');
                 const cfdOutletEl = this.cfdWindow.document.getElementById('cfd-greeting-outlet');
                 if (cfdTimeEl) cfdTimeEl.innerText = ucapanWaktu;
-                if (cfdOutletEl) cfdOutletEl.innerText = `Selamat datang di ${namaOutlet}, silahkan pesan di kasir`;
+                if (cfdOutletEl) cfdOutletEl.innerText = `Selamat datang di ${namaOutlet}, silakan pesan di kasir`;
             } catch (e) {
                 console.log("Menunggu layar CFD siap...");
             }

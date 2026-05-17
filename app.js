@@ -253,13 +253,24 @@ const superApp = {
     initCFD: function() {
         document.getElementById('login-screen').classList.add('hidden'); document.getElementById('sidebar').classList.add('hidden'); document.getElementById('main-app').classList.add('hidden');
         const cfdScreen = document.getElementById('cfd-screen'); if (cfdScreen) cfdScreen.classList.remove('hidden');
-        window.addEventListener('storage', (e) => { if (e.key === 'ai_snack_cfd' || e.key === 'cfd_promo_url') { let data = JSON.parse(localStorage.getItem('ai_snack_cfd') || '{}'); if (data.outlet) this.renderCFD(data); } });
+        
+        // Saya juga menambahkan deteksi 'app_logo_url' di sini agar logo di CFD langsung berubah seketika (real-time) saat kasir mengganti logo
+        window.addEventListener('storage', (e) => { 
+            if (e.key === 'ai_snack_cfd' || e.key === 'cfd_promo_url' || e.key === 'app_logo_url') { 
+                let data = JSON.parse(localStorage.getItem('ai_snack_cfd') || '{}'); if (data.outlet) this.renderCFD(data); 
+                let newLogo = localStorage.getItem('app_logo_url'); if (newLogo) this.updateAppLogos(newLogo);
+            } 
+        });
+        
         let initialData = localStorage.getItem('ai_snack_cfd'); if (initialData) this.renderCFD(JSON.parse(initialData));
+        
         let savedBg = localStorage.getItem('cfd_promo_url'); 
         if (savedBg) { const bg = document.getElementById('cfd-promo-bg'); if (bg) bg.style.backgroundImage = `url('${savedBg}')`; }
-    },
-    let savedLogo = localStorage.getItem('app_logo_url');
-    if (savedLogo) { this.updateAppLogos(savedLogo); },
+        
+        // --- LETAK KODINGAN LOGO YANG BENAR (DI DALAM initCFD) ---
+        let savedLogo = localStorage.getItem('app_logo_url');
+        if (savedLogo) { this.updateAppLogos(savedLogo); }
+    }, // <--- Pastikan tanda koma penutup fungsinya ada di sini
 
     renderCFD: function(data) {
         const outNameEl = document.getElementById('cfd-outlet-name'); if (outNameEl) outNameEl.innerText = `Cabang ${data.outlet}`;

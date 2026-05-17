@@ -539,6 +539,9 @@
   </div>
 
   <script>
+    // ========================================================
+    // 1. LOGIKA MAIN APP (KASIR) - Mengatur Jendela & Fokus
+    // ========================================================
     document.addEventListener("visibilitychange", () => {
         if (superApp.cfdWindow && !superApp.cfdWindow.closed) {
             if (document.hidden) {
@@ -566,7 +569,53 @@
             superApp.cfdWindow.focus();
         }
     });
+
+    // ========================================================
+    // 2. LOGIKA LAYAR PELANGGAN (CFD) - Mandiri Menarik Data
+    // ========================================================
+    if (new URLSearchParams(window.location.search).get('mode') === 'cfd') { 
+        console.log("Memulai Monitor Pelanggan (CFD)...");
+
+        // Fungsi Mandiri Penyapa CFD
+        const updateGreetingInternally = () => {
+            const greetTimeEl = document.getElementById('cfd-greeting-time');
+            const greetOutletEl = document.getElementById('cfd-greeting-outlet');
+            if (!greetTimeEl || !greetOutletEl) return;
+
+            // Logika Pembaca Waktu
+            const hour = new Date().getHours();
+            let ucapanWaktu = "Selamat Malam!"; 
+            if (hour >= 5 && hour < 11) ucapanWaktu = "Selamat Pagi!";
+            else if (hour >= 11 && hour < 15) ucapanWaktu = "Selamat Siang!";
+            else if (hour >= 15 && hour < 18) ucapanWaktu = "Selamat Sore!";
+
+            // Tarik Nama Cabang dari Memori Bersama (Suntikan Kasir)
+            let namaOutlet = localStorage.getItem('aisnack_active_outlet') || "Ai-Snack";
+
+            // Tembakkan Teks ke Layar
+            greetTimeEl.innerText = ucapanWaktu;
+            greetOutletEl.innerText = `Selamat datang di ${namaOutlet}, silakan pesan di kasir`;
+        };
+
+        // 1. Panggil saat CFD pertama kali terbuka (jeda 0.5 detik agar siap)
+        setTimeout(updateGreetingInternally, 500);
+
+        // 2. Pasang alarm internal (Cek jam setiap 1 menit)
+        setInterval(updateGreetingInternally, 60000); 
+        
+        // 3. Detektor Perubahan Memori (Merespon jika Kasir pindah Cabang)
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'aisnack_active_outlet') {
+                updateGreetingInternally();
+            }
+        });
+    }
   </script>
+
+  <script src="app.js"></script>
+
+</body>
+</html>
 
   <script src="app.js"></script>
 

@@ -195,6 +195,57 @@ const superApp = {
         }; 
         fileInput.click(); // Pemicu klik fisik otomatis agar popup berkas di PC/HP kasir terbuka
     },
+
+    // Fungsi untuk merubah gambar logo secara serempak di seluruh sudut aplikasi
+    updateAppLogos: function(url) {
+        if (!url) return;
+        document.querySelectorAll('.app-logo-img').forEach(img => {
+            img.src = url;
+        });
+    },
+
+    // Fungsi pengunggah file logo baru langsung menuju Google Drive
+    changeAppLogo: function() {
+        let fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        
+        fileInput.onchange = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+            if (this.isProcessing) return;
+            
+            this.setLoading(true, "Mengunggah Logo Baru ke Google Drive...");
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const base64Data = e.target.result;
+                
+                this.apiPost({
+                    action: 'update_logo_drive',
+                    base64: base64Data,
+                    fileName: file.name,
+                    mimeType: file.type
+                }).then(res => {
+                    if (res.status === 'sukses') {
+                        localStorage.setItem('app_logo_url', res.url);
+                        this.updateAppLogos(res.url); // Ubah visual logo kasir saat itu juga
+                        this.syncStorage(); // Sinkronkan ke layar pelanggan (CFD)
+                        this.setLoading(false);
+                        this.showToast("Logo Aplikasi Berhasil Diperbarui Secara Global!");
+                    } else {
+                        this.setLoading(false);
+                        this.showToast("Gagal menyimpan logo: " + res.pesan, "error");
+                    }
+                }).catch(() => {
+                    this.setLoading(false);
+                    this.showToast("Koneksi internet bermasalah saat upload", "error");
+                });
+            };
+            reader.readAsDataURL(file);
+        };
+        fileInput.click();
+    },
+    
     syncStorage: function(status = 'ordering', antrian = null) {
         if (new URLSearchParams(window.location.search).get('mode') === 'cfd') return;
         localStorage.setItem('ai_snack_cfd', JSON.stringify({ outlet: this.outlet || 'Ai-Snack', items: this.cart, total: this.payTotal, kembali: this.payChange, status: status, antrian: antrian, timestamp: new Date().getTime(), promoUrl: localStorage.getItem('cfd_promo_url') }));
@@ -204,8 +255,12 @@ const superApp = {
         const cfdScreen = document.getElementById('cfd-screen'); if (cfdScreen) cfdScreen.classList.remove('hidden');
         window.addEventListener('storage', (e) => { if (e.key === 'ai_snack_cfd' || e.key === 'cfd_promo_url') { let data = JSON.parse(localStorage.getItem('ai_snack_cfd') || '{}'); if (data.outlet) this.renderCFD(data); } });
         let initialData = localStorage.getItem('ai_snack_cfd'); if (initialData) this.renderCFD(JSON.parse(initialData));
-        let savedBg = localStorage.getItem('cfd_promo_url'); if (savedBg) { const bg = document.getElementById('cfd-promo-bg'); if (bg) bg.style.backgroundImage = `url('${savedBg}')`; }
+        let savedBg = localStorage.getItem('cfd_promo_url'); 
+        if (savedBg) { const bg = document.getElementById('cfd-promo-bg'); if (bg) bg.style.backgroundImage = `url('${savedBg}')`; }
     },
+    let savedLogo = localStorage.getItem('app_logo_url');
+    if (savedLogo) { this.updateAppLogos(savedLogo); }
+
     renderCFD: function(data) {
         const outNameEl = document.getElementById('cfd-outlet-name'); if (outNameEl) outNameEl.innerText = `Cabang ${data.outlet}`;
         if (data.promoUrl) { const bg = document.getElementById('cfd-promo-bg'); if (bg) bg.style.backgroundImage = `url('${data.promoUrl}')`; }
@@ -269,6 +324,11 @@ const superApp = {
                 if (!data || data.status === 'error') throw new Error(data ? data.pesan : "Server Timeout");
 
                 this.db = data; localStorage.setItem('aisnack_db_cache', JSON.stringify(data));
+                let logoData = (this.db.pengaturan || []).find(x => x.Pengaturan === 'Logo_Aplikasi');
+                    if (logoData) {
+                        localStorage.setItem('app_logo_url', logoData.Nilai);
+                        this.updateAppLogos(logoData.Nilai); // Jalankan auto-render logo
+                        }
                 let promoData = (this.db.pengaturan || []).find(x => x.Pengaturan === 'Promo_CFD'); if (promoData) localStorage.setItem('cfd_promo_url', promoData.Nilai);
 
                 let today = new Date(); let yyyy = today.getFullYear(); let mm = String(today.getMonth() + 1).padStart(2, '0'); let dd = String(today.getDate()).padStart(2, '0');
@@ -317,11 +377,13 @@ const superApp = {
                 if (selOut) { selOut.innerHTML = outOptions; selOut.value = this.outlet; selOut.disabled = false; }
                 if (repOut) repOut.innerHTML = outFilters;
                 const btnPromo = document.getElementById('btn-ubah-promo'); if (btnPromo) btnPromo.style.display = 'flex';
+                const btnLogo = document.getElementById('btn-ubah-logo'); if (btnLogo) btnLogo.style.display = 'flex';
             } else {
                 if (adminMenus) adminMenus.classList.add('hidden');
                 if (selOut) { selOut.classList.add('hidden'); selOut.innerHTML = `<option value="${this.outlet}">📍 ${this.outlet}</option>`; selOut.disabled = true; }
                 if (repOut) repOut.classList.add('hidden');
                 const btnPromo = document.getElementById('btn-ubah-promo'); if (btnPromo) btnPromo.style.display = 'none';
+                const btnLogoCancel = document.getElementById('btn-ubah-logo'); if (btnLogoCancel) btnLogoCancel.style.display = 'none';
             }
 
             const ls = document.getElementById('login-screen'); if (ls) ls.classList.add('hidden');

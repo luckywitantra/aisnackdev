@@ -1263,7 +1263,7 @@ const superApp = {
             element.classList.remove('pdf-container'); this.toggleReportTab('trx'); this.showToast("PDF Diunduh!"); 
         });
     },
-    // Fungsi untuk merangkum dan mengirim laporan detail via WhatsApp (Tanpa Nomor Spesifik / Bebas Pilih Grup)
+    
     sendReportToWA: function() {
         // 1. Ambil data rentang tanggal dari filter
         let startDate = document.getElementById('filter-start').value;

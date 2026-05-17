@@ -447,19 +447,42 @@ const superApp = {
             const mainApp = document.getElementById('main-app'); if (mainApp) mainApp.classList.remove('hidden');
 
             this.updateNetworkUI(); this.syncOfflineQueue(); this.refreshData(); this.checkShiftStatus(); this.showToast(`Selamat datang, ${user.Username}!`);
-            
-            // --- TAMBAHAN PEMANGGIL SAPAAN CFD ---
+        
             this.updateCFDGreeting(); 
-            // Memasang timer agar jika kasir login jam 10 pagi dan layar menyala sampai jam 12 siang, 
-            // teksnya otomatis berubah dari "Selamat Pagi" menjadi "Selamat Siang" tanpa perlu refresh.
             if (!this.cfdTimer) {
                 this.cfdTimer = setInterval(() => { this.updateCFDGreeting(); }, 60000); 
             }
-            // -------------------------------------
 
         } else { this.showToast('PIN Tidak Dikenali', 'error'); this.clearPin(); }
         this.isProcessing = false;
     },
+
+    updateCFDGreeting: function() {
+        const greetTimeEl = document.getElementById('cfd-greeting-time');
+        const greetOutletEl = document.getElementById('cfd-greeting-outlet');
+        
+        if (!greetTimeEl || !greetOutletEl) return;
+
+        // 1. Logika Pembaca Waktu
+        const hour = new Date().getHours();
+        let ucapanWaktu = "Selamat Malam!"; 
+        if (hour >= 5 && hour < 11) {
+            ucapanWaktu = "Selamat Pagi!";
+        } else if (hour >= 11 && hour < 15) {
+            ucapanWaktu = "Selamat Siang!";
+        } else if (hour >= 15 && hour < 18) {
+            ucapanWaktu = "Selamat Sore!";
+        }
+
+        // 2. Logika Pembaca Nama Cabang
+        let namaOutlet = this.outlet || "Ai-Snack";
+
+        // 3. Suntikkan ke Layar CFD
+        greetTimeEl.innerText = ucapanWaktu;
+        greetOutletEl.innerText = `Selamat datang di ${namaOutlet}, silahkan pesan di kasir`;
+    },
+    
+    
     // SHIFT & KAS KELUAR
     checkShiftStatus: function() {
         const shiftOutName = document.getElementById('shift-outlet-name'); if (shiftOutName) shiftOutName.innerText = this.outlet;
@@ -1385,33 +1408,6 @@ const superApp = {
         }
     },
 
-    // FUNGSI PENYAPA CFD
-    updateCFDGreeting: function() {
-        const greetTimeEl = document.getElementById('cfd-greeting-time');
-        const greetOutletEl = document.getElementById('cfd-greeting-outlet');
-        
-        if (!greetTimeEl || !greetOutletEl) return;
-
-        // 1. Logika Pembaca Waktu
-        const hour = new Date().getHours();
-        let ucapanWaktu = "Selamat Malam!"; // Default jika jam 18:00 - 04:59
-        if (hour >= 5 && hour < 11) {
-            ucapanWaktu = "Selamat Pagi!";
-        } else if (hour >= 11 && hour < 15) {
-            ucapanWaktu = "Selamat Siang!";
-        } else if (hour >= 15 && hour < 18) {
-            ucapanWaktu = "Selamat Sore!";
-        }
-
-        // 2. Logika Pembaca Nama Cabang
-        // Menggunakan variabel this.outlet yang sudah tersimpan saat kasir login
-        let namaOutlet = this.outlet || "Ai-Snack";
-
-        // 3. Suntikkan ke Layar CFD
-        greetTimeEl.innerText = ucapanWaktu;
-        greetOutletEl.innerText = `Selamat datang di ${namaOutlet}, silakan pesan di kasir`;
-    },
-    
     openDetailTrx: function(trxId) {
         let trx = (this.db.transactions || []).find(x => x.ID_TRX === trxId); if(!trx) return;
         this.activeReprintTrx = trx; let items = []; try { items = JSON.parse(trx.Items_JSON || '[]'); } catch(e){}

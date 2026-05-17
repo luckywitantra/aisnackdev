@@ -1358,14 +1358,12 @@ const superApp = {
         if (modalWa) {
             modalWa.classList.remove('hidden');
             modalWa.classList.add('flex');
-            
-            // --- INI SAKLAR ANIMASI YANG TERLUPA (Tambahkan 4 baris ini) ---
+    
             const modalContent = document.getElementById('modal-wa-confirm-content');
             if (modalContent) {
                 setTimeout(() => modalContent.classList.add('modal-enter-active'), 10);
             }
-            // ---------------------------------------------------------------
-            
+       
             const title = modalWa.querySelector('h3');
             const desc = modalWa.querySelector('p');
             if(title) title.innerText = "Laporan Siap!";

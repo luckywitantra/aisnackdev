@@ -1,89 +1,46 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbzIG5gEXEfMeOiwJUd7SGROqcVWktQnsvQJFgW5HKBE5lXeH1hR6S1fIrCw1xpmLyl-rA/exec"; // <-- PASTIKAN GANTI DENGAN URL API ANDA
+const API_URL = "https://script.google.com/macros/s/AKfycbzIG5gEXEfMeOiwJUd7SGROqcVWktQnsvQJFgW5HKBE5lXeH1hR6S1fIrCw1xpmLyl-rA/exec"; // <-- GANTI DENGAN URL API ANDA
 
 /* ========================================== */
 /* 1. MESIN VIRTUAL KEYBOARD (IN-APP OSK)     */
 /* ========================================== */
 const osKeyboard = {
-    targetElement: null,
-    mode: 'numeric', 
-    isOpen: false,
+    targetElement: null, mode: 'numeric', isOpen: false,
     layouts: {
-        numeric: [
-            ['1', '2', '3'],
-            ['4', '5', '6'],
-            ['7', '8', '9'],
-            ['C', '0', '000']
-        ],
-        text: [
-            ['1','2','3','4','5','6','7','8','9','0'],
-            ['Q','W','E','R','T','Y','U','I','O','P'],
-            ['A','S','D','F','G','H','J','K','L'],
-            ['Z','X','C','V','B','N','M','SPACE']
-        ]
+        numeric: [ ['1', '2', '3'], ['4', '5', '6'], ['7', '8', '9'], ['C', '0', '000'] ],
+        text: [ ['1','2','3','4','5','6','7','8','9','0'], ['Q','W','E','R','T','Y','U','I','O','P'], ['A','S','D','F','G','H','J','K','L'], ['Z','X','C','V','B','N','M','SPACE'] ]
     },
     open: function(elOrId, type = 'text') {
         this.targetElement = typeof elOrId === 'string' ? document.getElementById(elOrId) : elOrId;
         if (!this.targetElement) return;
-
-        this.mode = type;
-        this.isOpen = true;
-        this.render();
-        const vk = document.getElementById('virtual-keyboard');
-        const ov = document.getElementById('virtual-keyboard-overlay');
+        this.mode = type; this.isOpen = true; this.render();
+        const vk = document.getElementById('virtual-keyboard'); const ov = document.getElementById('virtual-keyboard-overlay');
         if (vk) { vk.classList.remove('hidden'); setTimeout(() => vk.classList.remove('translate-y-full'), 10); }
         if (ov) { ov.classList.remove('hidden'); }
     },
     close: function() {
-        this.isOpen = false;
-        const vk = document.getElementById('virtual-keyboard');
-        const ov = document.getElementById('virtual-keyboard-overlay');
+        this.isOpen = false; const vk = document.getElementById('virtual-keyboard'); const ov = document.getElementById('virtual-keyboard-overlay');
         if (vk) { vk.classList.add('translate-y-full'); setTimeout(() => vk.classList.add('hidden'), 300); }
         if (ov) { ov.classList.add('hidden'); }
         this.targetElement = null;
     },
     render: function() {
-        const container = document.getElementById('vk-keys');
-        if (!container) return;
-        let html = '';
-        let rows = this.layouts[this.mode];
+        const container = document.getElementById('vk-keys'); if (!container) return;
+        let html = ''; let rows = this.layouts[this.mode];
         rows.forEach(row => {
             html += `<div class="flex justify-center gap-1 sm:gap-2 w-full mb-1 sm:mb-2">`;
             row.forEach(key => {
-                if (key === 'SPACE') {
-                    html += `<button class="flex-[3] py-3 sm:py-4 bg-white text-slate-800 font-bold rounded-xl shadow-sm border border-slate-200 hover:bg-brand-50 transition active:scale-95" onclick="osKeyboard.insert(' ')">SPASI</button>`;
-                } else if (key === 'C') {
-                    html += `<button class="flex-1 py-3 sm:py-4 bg-red-50 text-red-500 font-bold rounded-xl shadow-sm border border-red-200 hover:bg-red-100 transition active:scale-95" onclick="osKeyboard.clear()">C</button>`;
-                } else {
-                    html += `<button class="flex-1 py-3 sm:py-4 bg-white text-slate-800 font-bold rounded-xl shadow-sm border border-slate-200 hover:bg-brand-50 transition active:scale-95 text-lg" onclick="osKeyboard.insert('${key}')">${key}</button>`;
-                }
+                if (key === 'SPACE') { html += `<button class="flex-[3] py-3 sm:py-4 bg-white text-slate-800 font-bold rounded-xl shadow-sm border border-slate-200 hover:bg-brand-50 transition active:scale-95" onclick="osKeyboard.insert(' ')">SPASI</button>`; } 
+                else if (key === 'C') { html += `<button class="flex-1 py-3 sm:py-4 bg-red-50 text-red-500 font-bold rounded-xl shadow-sm border border-red-200 hover:bg-red-100 transition active:scale-95" onclick="osKeyboard.clear()">C</button>`; } 
+                else { html += `<button class="flex-1 py-3 sm:py-4 bg-white text-slate-800 font-bold rounded-xl shadow-sm border border-slate-200 hover:bg-brand-50 transition active:scale-95 text-lg" onclick="osKeyboard.insert('${key}')">${key}</button>`; }
             });
             html += `</div>`;
         });
-        
-        html += `<div class="flex justify-center gap-2 w-full mt-2">
-                    <button class="flex-1 py-4 bg-slate-200 text-slate-700 font-bold rounded-xl shadow-sm border border-slate-300 hover:bg-slate-300 transition active:scale-95" onclick="osKeyboard.backspace()"><i class="fas fa-backspace"></i> HAPUS</button>
-                    <button class="flex-[2] py-4 bg-brand-500 text-white font-black rounded-xl shadow-md hover:bg-brand-600 transition active:scale-95 text-lg" onclick="osKeyboard.close()"><i class="fas fa-check-circle"></i> SELESAI</button>
-                 </div>`;
+        html += `<div class="flex justify-center gap-2 w-full mt-2"><button class="flex-1 py-4 bg-slate-200 text-slate-700 font-bold rounded-xl shadow-sm border border-slate-300 hover:bg-slate-300 transition active:scale-95" onclick="osKeyboard.backspace()"><i class="fas fa-backspace"></i> HAPUS</button><button class="flex-[2] py-4 bg-brand-500 text-white font-black rounded-xl shadow-md hover:bg-brand-600 transition active:scale-95 text-lg" onclick="osKeyboard.close()"><i class="fas fa-check-circle"></i> SELESAI</button></div>`;
         container.innerHTML = html;
     },
-    insert: function(char) {
-        if (!this.targetElement) return;
-        this.targetElement.value += char;
-        this.targetElement.dispatchEvent(new Event('input', { bubbles: true }));
-        this.targetElement.dispatchEvent(new Event('keyup', { bubbles: true }));
-    },
-    backspace: function() {
-        if (!this.targetElement) return;
-        this.targetElement.value = this.targetElement.value.slice(0, -1);
-        this.targetElement.dispatchEvent(new Event('input', { bubbles: true }));
-        this.targetElement.dispatchEvent(new Event('keyup', { bubbles: true }));
-    },
-    clear: function() {
-        if (!this.targetElement) return;
-        this.targetElement.value = '';
-        this.targetElement.dispatchEvent(new Event('input', { bubbles: true }));
-        this.targetElement.dispatchEvent(new Event('keyup', { bubbles: true }));
-    }
+    insert: function(char) { if (!this.targetElement) return; this.targetElement.value += char; this.targetElement.dispatchEvent(new Event('input', { bubbles: true })); },
+    backspace: function() { if (!this.targetElement) return; this.targetElement.value = this.targetElement.value.slice(0, -1); this.targetElement.dispatchEvent(new Event('input', { bubbles: true })); },
+    clear: function() { if (!this.targetElement) return; this.targetElement.value = ''; this.targetElement.dispatchEvent(new Event('input', { bubbles: true })); }
 };
 
 /* ========================================== */
@@ -96,29 +53,23 @@ const superApp = {
     offlineQueue: [], isOnline: navigator.onLine, cfdWindow: null, isLoadingData: false, isProcessing: false,
     cfdFocusHandlerAdded: false,
 
-    // FORMATTER
-    formatRupiahInput: function(el) {
-        let val = el.value.replace(/[^0-9]/g, '');
-        el.value = val !== '' ? parseInt(val, 10).toLocaleString('id-ID') : '';
-    },
+    // FORMATTER & PARSER
+    formatRupiahInput: function(el) { let val = el.value.replace(/[^0-9]/g, ''); el.value = val !== '' ? parseInt(val, 10).toLocaleString('id-ID') : ''; },
     getNumericValue: function(val) { return parseInt(String(val).replace(/[^0-9]/g, ''), 10) || 0; },
     cleanDateOnly: function(str) {
-        if (!str) return ''; let s = String(str);
-        let match = s.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+        if (!str) return ''; let s = String(str); let match = s.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
         if (match) { let pad = n => String(n).length < 2 ? '0' + n : n; return `${pad(match[1])}/${pad(match[2])}/${match[3]}`; }
         if (s.includes('T')) { let d = new Date(s); if (!isNaN(d.getTime())) { let pad = n => n < 10 ? '0' + n : n; return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`; } }
         return s.split(' ')[0];
     },
     cleanTimeOnly: function(str) {
-        if (!str) return ''; let s = String(str);
-        let match = s.match(/(\d{1,2})[.:](\d{1,2})[.:](\d{1,2})/);
+        if (!str) return ''; let s = String(str); let match = s.match(/(\d{1,2})[.:](\d{1,2})[.:](\d{1,2})/);
         if (match) { let pad = n => String(n).length < 2 ? '0' + n : n; return `${pad(match[1])}.${pad(match[2])}.${pad(match[3])}`; }
         if (s.includes('T') && s.includes('Z')) { let d = new Date(s); if (!isNaN(d.getTime())) { let pad = n => n < 10 ? '0' + n : n; return `${pad(d.getHours())}.${pad(d.getMinutes())}.${pad(d.getSeconds())}`; } }
         let parts = s.split(' '); return parts.length > 1 ? parts[1] : s;
     },
     parseDateId: function(dateStr) {
-        if (!dateStr) return new Date(0); let s = String(dateStr);
-        let match = s.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+        if (!dateStr) return new Date(0); let s = String(dateStr); let match = s.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
         if (match) { let p1 = parseInt(match[1]); let p2 = parseInt(match[2]); let y = parseInt(match[3]); let d = p1, m = p2; if (p2 > 12) { m = p1; d = p2; } return new Date(y, m - 1, d, 0, 0, 0, 0); }
         if (s.includes('T')) { let d = new Date(s); if (!isNaN(d.getTime())) { d.setHours(0, 0, 0, 0); return d; } }
         let fPart = s.split(' ')[0]; let d2 = new Date(fPart); if (!isNaN(d2.getTime())) { d2.setHours(0, 0, 0, 0); return d2; }
@@ -132,7 +83,7 @@ const superApp = {
             const res = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); const data = await res.json();
             if (data && data.status === 'sukses') { this.db = data; localStorage.setItem('aisnack_db_cache', JSON.stringify(data)); this.refreshData(); this.showToast("Data diperbarui!"); } 
             else throw new Error("Gagal");
-        } catch (e) { this.showToast("Gagal menarik data. Periksa internet Anda.", "error"); }
+        } catch (e) { this.showToast("Gagal menarik data.", "error"); }
         this.setLoading(false);
     },
     getEmptyState: function(icon, title, desc) { return `<div class="flex flex-col items-center justify-center h-full p-8 text-center opacity-70"><div class="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center text-4xl text-slate-300 mb-4 mx-auto"><i class="fas ${icon}"></i></div><h4 class="font-black text-slate-600 text-lg mb-1">${title}</h4><p class="text-xs font-bold text-slate-400">${desc}</p></div>`; },
@@ -153,8 +104,6 @@ const superApp = {
         document.documentElement.classList.toggle('dark'); let ic = document.getElementById('dark-icon'); 
         if (ic) { if (document.documentElement.classList.contains('dark')) { ic.classList.replace('fa-moon', 'fa-sun'); ic.classList.replace('text-slate-600', 'text-yellow-400'); } else { ic.classList.replace('fa-sun', 'fa-moon'); ic.classList.replace('text-yellow-400', 'text-slate-600'); } }
     },
-    
-    // OFFLINE SYNC
     apiPost: async function(payload) {
         if (!this.isOnline) { this.offlineQueue.push(payload); localStorage.setItem('aisnack_offline_queue', JSON.stringify(this.offlineQueue)); this.updateNetworkUI(); return { status: 'sukses', is_offline: true, trx_id: payload.trx_id || payload.id_shift }; }
         try { const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) }); return await res.json(); } 
@@ -176,33 +125,22 @@ const superApp = {
         } else { ind.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-50 border border-red-200 transition'; dot.className = 'w-2 h-2 rounded-full bg-red-500'; txt.className = 'text-[10px] font-bold text-red-600 hidden md:inline'; txt.innerText = `Offline (${this.offlineQueue.length} Pending)`; }
     },
 
-    // CFD DUAL MONITOR SMART SYNC
+    // CFD DUAL MONITOR SMART SYNC + ANTRIAN
     openCFD: async function(isAutoRestore = false) {
         localStorage.setItem('cfd_wants_open', 'true');
         try { 
             if ('getScreenDetails' in window) { 
                 const screens = await window.getScreenDetails(); 
                 const extScreen = screens.screens.find(s => s !== screens.currentScreen); 
-                if (extScreen) { 
-                    this.cfdWindow = window.open(window.location.href + '?mode=cfd', 'CFD_WINDOW_AISNACK', `left=${extScreen.availLeft},top=${extScreen.availTop},width=${extScreen.availWidth},height=${extScreen.availHeight},fullscreen=yes`); 
-                    return; 
-                } 
+                if (extScreen) { this.cfdWindow = window.open(window.location.href + '?mode=cfd', 'CFD_WINDOW_AISNACK', `left=${extScreen.availLeft},top=${extScreen.availTop},width=${extScreen.availWidth},height=${extScreen.availHeight},fullscreen=yes`); return; } 
             } 
         } catch (e) {}
         
-        if (!this.cfdWindow || this.cfdWindow.closed) {
-            this.cfdWindow = window.open(window.location.href + '?mode=cfd', 'CFD_WINDOW_AISNACK', `left=${window.screen.width},top=0,width=1024,height=768`);
-        }
-
+        if (!this.cfdWindow || this.cfdWindow.closed) { this.cfdWindow = window.open(window.location.href + '?mode=cfd', 'CFD_WINDOW_AISNACK', `left=${window.screen.width},top=0,width=1024,height=768`); }
         if (this.cfdWindow) {
             this.cfdWindow.focus();
             if (!this.cfdFocusHandlerAdded) {
-                window.addEventListener('focus', () => {
-                    if (this.cfdWindow && !this.cfdWindow.closed && localStorage.getItem('cfd_wants_open') === 'true') {
-                        this.cfdWindow.focus();
-                        this.syncStorage();
-                    }
-                });
+                window.addEventListener('focus', () => { if (this.cfdWindow && !this.cfdWindow.closed && localStorage.getItem('cfd_wants_open') === 'true') { this.cfdWindow.focus(); this.syncStorage(); } });
                 this.cfdFocusHandlerAdded = true;
             }
         }
@@ -223,14 +161,13 @@ const superApp = {
             }; reader.readAsDataURL(file);
         }; fileInput.click();
     },
-    syncStorage: function(status = 'ordering') {
+    syncStorage: function(status = 'ordering', antrian = null) {
         if (new URLSearchParams(window.location.search).get('mode') === 'cfd') return;
-        localStorage.setItem('ai_snack_cfd', JSON.stringify({ outlet: this.outlet || 'Ai-Snack', items: this.cart, total: this.payTotal, kembali: this.payChange, status: status, timestamp: new Date().getTime(), promoUrl: localStorage.getItem('cfd_promo_url') }));
+        localStorage.setItem('ai_snack_cfd', JSON.stringify({ outlet: this.outlet || 'Ai-Snack', items: this.cart, total: this.payTotal, kembali: this.payChange, status: status, antrian: antrian, timestamp: new Date().getTime(), promoUrl: localStorage.getItem('cfd_promo_url') }));
     },
     initCFD: function() {
         document.getElementById('login-screen').classList.add('hidden'); document.getElementById('sidebar').classList.add('hidden'); document.getElementById('main-app').classList.add('hidden');
         const cfdScreen = document.getElementById('cfd-screen'); if (cfdScreen) cfdScreen.classList.remove('hidden');
-        
         window.addEventListener('storage', (e) => { if (e.key === 'ai_snack_cfd' || e.key === 'cfd_promo_url') { let data = JSON.parse(localStorage.getItem('ai_snack_cfd') || '{}'); if (data.outlet) this.renderCFD(data); } });
         let initialData = localStorage.getItem('ai_snack_cfd'); if (initialData) this.renderCFD(JSON.parse(initialData));
         let savedBg = localStorage.getItem('cfd_promo_url'); if (savedBg) { const bg = document.getElementById('cfd-promo-bg'); if (bg) bg.style.backgroundImage = `url('${savedBg}')`; }
@@ -239,8 +176,14 @@ const superApp = {
         const outNameEl = document.getElementById('cfd-outlet-name'); if (outNameEl) outNameEl.innerText = `Cabang ${data.outlet}`;
         if (data.promoUrl) { const bg = document.getElementById('cfd-promo-bg'); if (bg) bg.style.backgroundImage = `url('${data.promoUrl}')`; }
         const cfdStandby = document.getElementById('cfd-standby'); const cfdSuccess = document.getElementById('cfd-success');
-        if (data.status === 'paid') { cfdSuccess.classList.remove('hidden'); document.getElementById('cfd-kembali').innerText = `Rp ${data.kembali.toLocaleString('id-ID')}`; setTimeout(() => { cfdSuccess.classList.add('hidden'); }, 5000); } 
-        else { cfdSuccess.classList.add('hidden'); }
+        
+        if (data.status === 'paid') { 
+            cfdSuccess.classList.remove('hidden'); 
+            // TAMPILKAN NOMOR ANTRIAN DI CFD
+            document.getElementById('cfd-kembali').innerHTML = `${data.kembali.toLocaleString('id-ID')}<br><span class="text-white text-4xl sm:text-5xl mt-6 block drop-shadow-md">NOMOR ANTRIAN ANDA:<br><span class="text-yellow-300 font-black text-6xl sm:text-8xl mt-2 block">${data.antrian || '-'}</span></span>`; 
+            setTimeout(() => { cfdSuccess.classList.add('hidden'); }, 7000); 
+        } else { cfdSuccess.classList.add('hidden'); }
+        
         if (data.items.length === 0 && data.status !== 'paid') { cfdStandby.classList.remove('opacity-0', 'pointer-events-none'); } 
         else {
             cfdStandby.classList.add('opacity-0', 'pointer-events-none'); let html = '';
@@ -254,6 +197,8 @@ const superApp = {
     init: async function() {
         if (new URLSearchParams(window.location.search).get('mode') === 'cfd') { this.initCFD(); return; }
 
+        document.addEventListener("visibilitychange", () => { if (document.hidden && this.cfdWindow && !this.cfdWindow.closed) { this.cfdWindow.close(); } });
+        document.addEventListener("click", () => { if (this.currentUser && localStorage.getItem('cfd_wants_open') === 'true') { if (!this.cfdWindow || this.cfdWindow.closed) { this.openCFD(true); } else { this.cfdWindow.focus(); } } });
         window.addEventListener('beforeunload', () => { if (this.cfdWindow && !this.cfdWindow.closed) this.cfdWindow.close(); });
         window.addEventListener('online', () => { this.isOnline = true; this.syncOfflineQueue(); });
         window.addEventListener('offline', () => { this.isOnline = false; this.updateNetworkUI(); });
@@ -264,12 +209,8 @@ const superApp = {
             const logStat = document.getElementById('login-status');
             let cacheDb = localStorage.getItem('aisnack_db_cache');
             
-            if (cacheDb) {
-                this.db = JSON.parse(cacheDb);
-                if (logStat) { logStat.innerText = 'Data Lokal Siap. Mencari Update Server...'; logStat.className = 'text-[10px] text-orange-500 font-bold uppercase tracking-widest text-center animate-pulse'; }
-            } else {
-                if (logStat) { logStat.innerText = 'Mengunduh Database Google Pertama Kali...'; logStat.className = 'text-[10px] text-brand-500 font-bold uppercase tracking-widest text-center animate-pulse'; }
-            }
+            if (cacheDb) { this.db = JSON.parse(cacheDb); if (logStat) { logStat.innerText = 'Data Lokal Siap. Mencari Update Server...'; logStat.className = 'text-[10px] text-orange-500 font-bold uppercase tracking-widest text-center animate-pulse'; } } 
+            else { if (logStat) { logStat.innerText = 'Mengunduh Database Google Pertama Kali...'; logStat.className = 'text-[10px] text-brand-500 font-bold uppercase tracking-widest text-center animate-pulse'; } }
 
             let fetchPromise = (async () => {
                 let data = null;
@@ -298,31 +239,15 @@ const superApp = {
         }
     },
     addPin: function(num) {
-        if (!this.db || !this.db.users) {
-            this.showToast('Sistem sedang memuat data, mohon tunggu sebentar...', 'warning');
-            return;
-        }
-
-        if (this.pinBuffer.length < 4) {
-            this.pinBuffer += num;
-            const dot = document.getElementById(`dot-${this.pinBuffer.length}`);
-            if (dot) { dot.classList.replace('border-slate-300', 'bg-brand-500'); dot.classList.replace('border-2', 'border-0'); }
-        }
+        if (!this.db || !this.db.users) { this.showToast('Sistem sedang memuat data, mohon tunggu sebentar...', 'warning'); return; }
+        if (this.pinBuffer.length < 4) { this.pinBuffer += num; const dot = document.getElementById(`dot-${this.pinBuffer.length}`); if (dot) { dot.classList.replace('border-slate-300', 'bg-brand-500'); dot.classList.replace('border-2', 'border-0'); } }
         if (this.pinBuffer.length === 4) setTimeout(() => this.processLogin(), 200);
     },
     delPin: function() {
-        if (this.pinBuffer.length > 0) {
-            const dot = document.getElementById(`dot-${this.pinBuffer.length}`);
-            if (dot) { dot.classList.replace('bg-brand-500', 'border-slate-300'); dot.classList.replace('border-0', 'border-2'); }
-            this.pinBuffer = this.pinBuffer.slice(0, -1);
-        }
+        if (this.pinBuffer.length > 0) { const dot = document.getElementById(`dot-${this.pinBuffer.length}`); if (dot) { dot.classList.replace('bg-brand-500', 'border-slate-300'); dot.classList.replace('border-0', 'border-2'); } this.pinBuffer = this.pinBuffer.slice(0, -1); }
     },
     clearPin: function() {
-        this.pinBuffer = '';
-        for (let i = 1; i <= 4; i++) {
-            const dot = document.getElementById(`dot-${i}`);
-            if (dot) { dot.classList.replace('bg-brand-500', 'border-slate-300'); dot.classList.replace('border-0', 'border-2'); }
-        }
+        this.pinBuffer = ''; for (let i = 1; i <= 4; i++) { const dot = document.getElementById(`dot-${i}`); if (dot) { dot.classList.replace('bg-brand-500', 'border-slate-300'); dot.classList.replace('border-0', 'border-2'); } }
     },
     processLogin: function() {
         if (this.isProcessing) return; this.isProcessing = true;
@@ -623,10 +548,7 @@ const superApp = {
     },
     addPayNumpad: function(val) {
         let input = document.getElementById('pay-cash-input');
-        if (input) {
-            let current = this.getNumericValue(input.value);
-            this.setCash(current + val);
-        }
+        if (input) { let current = this.getNumericValue(input.value); this.setCash(current + val); }
     },
     setCash: function(val) {
         let input = document.getElementById('pay-cash-input');
@@ -654,20 +576,36 @@ const superApp = {
             }
         }
     },
+    
+    // PENAMBAHAN SISTEM NOMOR ANTRIAN
     executeCheckout: async function() {
         if (this.isProcessing) return; this.setLoading(true, "Memproses Transaksi...");
-        let trxID = 'TRX' + new Date().getTime();
-        const payload = { action: 'checkout', trx_id: trxID, outlet: this.outlet, kasir: this.currentUser.Username, metode_bayar: this.payMethod, total: this.payTotal, tunai: this.payCash, kembali: this.payChange, items: this.cart, id_shift: this.activeShiftId, tim_operasional: this.activeStaffTeam };
+        
+        let d = new Date(); let pad = (n) => n < 10 ? '0' + n : n;
+        let todayStrLocal = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+        
+        // Hitung Antrian Hari Ini di Cabang Ini
+        let countToday = 0;
+        (this.db.transactions || []).forEach(t => {
+            if (t.Outlet === this.outlet && this.cleanDateOnly(t.Tanggal) === todayStrLocal) { countToday++; }
+        });
+        let noAntrian = countToday + 1; // Jadikan antrian selanjutnya
+
+        let trxID = 'TRX' + d.getTime();
+        const payload = { action: 'checkout', trx_id: trxID, outlet: this.outlet, kasir: this.currentUser.Username, metode_bayar: this.payMethod, total: this.payTotal, tunai: this.payCash, kembali: this.payChange, items: this.cart, id_shift: this.activeShiftId, tim_operasional: this.activeStaffTeam, antrian: noAntrian };
 
         let res = await this.apiPost(payload);
         if (res.status === 'sukses') {
-            this.showToast(`Transaksi Sukses!`);
-            try { await this.printReceipt(res.trx_id, this.outlet, this.payTotal, this.payCash, this.payChange, this.cart, 'Sukses'); } catch (e) {}
-            this.syncStorage('paid');
+            this.showToast(`Transaksi Sukses! No Antrian: ${noAntrian}`);
+            
+            // Masukkan Antrian ke Struk Cetak
+            try { await this.printReceipt(res.trx_id, this.outlet, this.payTotal, this.payCash, this.payChange, this.cart, 'Sukses', null, noAntrian); } catch (e) {}
+            
+            // Masukkan Antrian ke Monitor Pelanggan (CFD)
+            this.syncStorage('paid', noAntrian);
 
             if (res.is_offline) {
-                let d = new Date(); let pad = (n) => n < 10 ? '0' + n : n;
-                this.db.transactions.push({ ID_TRX: res.trx_id, Tanggal: `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`, Waktu: `${pad(d.getHours())}.${pad(d.getMinutes())}.${pad(d.getSeconds())}`, Outlet: this.outlet, Kasir: this.currentUser.Username, Metode_Bayar: this.payMethod, Total_Bayar: this.payTotal, Tunai: this.payCash, Kembalian: this.payChange, Items_JSON: JSON.stringify(this.cart), ID_Shift: this.activeShiftId, Status: 'Sukses' });
+                this.db.transactions.push({ ID_TRX: res.trx_id, Tanggal: todayStrLocal, Waktu: `${pad(d.getHours())}.${pad(d.getMinutes())}.${pad(d.getSeconds())}`, Outlet: this.outlet, Kasir: this.currentUser.Username, Metode_Bayar: this.payMethod, Total_Bayar: this.payTotal, Tunai: this.payCash, Kembalian: this.payChange, Items_JSON: JSON.stringify(this.cart), ID_Shift: this.activeShiftId, Status: 'Sukses', Antrian: noAntrian });
             } else {
                 const refreshRes = await fetch(API_URL, { redirect: 'follow' });
                 this.db = await refreshRes.json();
@@ -780,8 +718,8 @@ const superApp = {
         let hu = ''; let hp = ''; let hum = ''; let hpm = '';
         [...(this.db.masterProduk || [])].sort((a, b) => String(a.Nama_Produk || '').localeCompare(String(b.Nama_Produk || ''))).forEach(m => {
             if (String(m.Kategori || '').toLowerCase() === 'bahan' || String(m.Kategori || '').toLowerCase() === 'pendukung') {
-                let strHtml = `<tr class="border-b border-slate-50"><td class="py-3 px-4 min-w-[150px] whitespace-normal text-slate-800">${m.Nama_Produk}<br><span class="text-[10px] text-slate-400 font-normal">${m.SKU}</span></td><td class="py-3 px-4 text-center"><input type="number" min="0" id="trm-qty-${m.SKU}" class="w-24 border-2 border-slate-200 rounded-lg px-2 py-1 text-center outline-none focus:border-brand-500 bg-white text-slate-800 font-bold" placeholder="0"></td><td class="py-3 px-4"><input type="text" id="trm-note-${m.SKU}" class="w-full border border-slate-200 rounded-lg px-3 py-1 outline-none text-xs text-slate-800 cursor-pointer" readonly onclick="osKeyboard.open('trm-note-${m.SKU}', 'text')" placeholder="Keterangan kurir/kondisi..."></td></tr>`;
-                let strMobile = `<div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3"><h4 class="font-extrabold text-sm text-slate-800">${m.Nama_Produk}</h4><div class="flex gap-2"><input type="number" min="0" id="trm-qty-mob-${m.SKU}" class="w-1/3 border-2 border-slate-200 rounded-xl px-3 py-2 text-center outline-none focus:border-brand-500 bg-white text-slate-800 font-bold text-sm" placeholder="Qty"><input type="text" id="trm-note-mob-${m.SKU}" class="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2 outline-none text-xs text-slate-800 cursor-pointer" readonly onclick="osKeyboard.open('trm-note-mob-${m.SKU}', 'text')" placeholder="Catatan..."></div></div>`;
+                let strHtml = `<tr class="border-b border-slate-50"><td class="py-3 px-4 min-w-[150px] whitespace-normal text-slate-800">${m.Nama_Produk}<br><span class="text-[10px] text-slate-400 font-normal">${m.SKU}</span></td><td class="py-3 px-4 text-center"><input type="text" id="trm-qty-${m.SKU}" class="w-24 border-2 border-slate-200 rounded-lg px-2 py-1 text-center outline-none focus:border-brand-500 bg-white text-slate-800 font-bold cursor-pointer" readonly onclick="osKeyboard.open('trm-qty-${m.SKU}', 'numeric')" placeholder="0"></td><td class="py-3 px-4"><input type="text" id="trm-note-${m.SKU}" class="w-full border border-slate-200 rounded-lg px-3 py-1 outline-none text-xs text-slate-800 cursor-pointer" readonly onclick="osKeyboard.open('trm-note-${m.SKU}', 'text')" placeholder="Keterangan kurir/kondisi..."></td></tr>`;
+                let strMobile = `<div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3"><h4 class="font-extrabold text-sm text-slate-800">${m.Nama_Produk}</h4><div class="flex gap-2"><input type="text" id="trm-qty-mob-${m.SKU}" class="w-1/3 border-2 border-slate-200 rounded-xl px-3 py-2 text-center outline-none focus:border-brand-500 bg-white text-slate-800 font-bold text-sm cursor-pointer" readonly onclick="osKeyboard.open('trm-qty-mob-${m.SKU}', 'numeric')" placeholder="Qty"><input type="text" id="trm-note-mob-${m.SKU}" class="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2 outline-none text-xs text-slate-800 cursor-pointer" readonly onclick="osKeyboard.open('trm-note-mob-${m.SKU}', 'text')" placeholder="Catatan..."></div></div>`;
                 if (String(m.Kategori || '').toLowerCase() === 'bahan') { hu += strHtml; hum += strMobile; } else { hp += strHtml; hpm += strMobile; }
             }
         });
@@ -813,6 +751,7 @@ const superApp = {
 
         const payload = { action: 'terima_barang_kasir', outlet: this.outlet, kasir: this.currentUser.Username, items: items };
         let res = await this.apiPost(payload);
+        
         if (res.status === 'sukses') {
             this.showToast("Berhasil Disimpan di Sistem!");
             this.showWaModal(waText);
@@ -829,8 +768,8 @@ const superApp = {
                 let sData = (this.db.hargaStokOutlet || []).find(x => x.SKU === m.SKU && x.ID_Outlet === this.outlet);
                 let sys = sData ? Number(sData.Stok_Toko) : 0;
 
-                let desk = `<tr class="border-b border-slate-50"><td class="py-3 px-4 min-w-[150px] whitespace-normal text-slate-800">${m.Nama_Produk}<br><span class="text-[10px] text-slate-400 font-normal">${m.SKU}</span></td><td class="py-3 px-4 text-center text-brand-600" id="opn-sys-${m.SKU}">${sys}</td><td class="py-3 px-4 text-center"><input type="number" min="0" id="opn-fisik-${m.SKU}" class="w-20 border-2 border-slate-200 rounded-lg px-2 py-1 text-center outline-none focus:border-brand-500 bg-white text-slate-800" oninput="superApp.calcOpname('${m.SKU}')" placeholder="0"></td><td class="py-3 px-4 text-right font-black text-slate-300" id="opn-selisih-${m.SKU}">-</td><td class="py-3 px-4"><input type="text" id="opn-note-${m.SKU}" class="w-full border border-slate-200 rounded-lg px-2 py-1 outline-none text-xs text-slate-800 cursor-pointer" readonly onclick="osKeyboard.open('opn-note-${m.SKU}', 'text')" placeholder="Kondisi Fisik..."></td></tr>`;
-                let mob = `<div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3"><div class="flex justify-between items-start"><div><h4 class="font-extrabold text-sm text-slate-800">${m.Nama_Produk}</h4><p class="text-[10px] text-slate-400">Sys: <span id="opn-sys-mob-${m.SKU}" class="font-bold text-brand-500">${sys}</span></p></div><span class="font-black text-slate-300 text-lg" id="opn-selisih-mob-${m.SKU}">-</span></div><div class="flex gap-2"><input type="number" min="0" id="opn-fisik-mob-${m.SKU}" class="w-1/3 border-2 border-slate-200 rounded-xl px-3 py-2 text-center outline-none focus:border-brand-500 bg-white text-slate-800 font-bold text-sm" oninput="superApp.calcOpnameMob('${m.SKU}')" placeholder="Fisik"><input type="text" id="opn-note-mob-${m.SKU}" class="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2 outline-none text-xs text-slate-800 cursor-pointer" readonly onclick="osKeyboard.open('opn-note-mob-${m.SKU}', 'text')" placeholder="Catatan Kondisi..."></div></div>`;
+                let desk = `<tr class="border-b border-slate-50"><td class="py-3 px-4 min-w-[150px] whitespace-normal text-slate-800">${m.Nama_Produk}<br><span class="text-[10px] text-slate-400 font-normal">${m.SKU}</span></td><td class="py-3 px-4 text-center text-brand-600" id="opn-sys-${m.SKU}">${sys}</td><td class="py-3 px-4 text-center"><input type="text" id="opn-fisik-${m.SKU}" class="w-20 border-2 border-slate-200 rounded-lg px-2 py-1 text-center outline-none focus:border-brand-500 bg-white text-slate-800 cursor-pointer" readonly onclick="osKeyboard.open('opn-fisik-${m.SKU}', 'numeric')" oninput="superApp.calcOpname('${m.SKU}')" placeholder="0"></td><td class="py-3 px-4 text-right font-black text-slate-300" id="opn-selisih-${m.SKU}">-</td><td class="py-3 px-4"><input type="text" id="opn-note-${m.SKU}" class="w-full border border-slate-200 rounded-lg px-2 py-1 outline-none text-xs text-slate-800 cursor-pointer" readonly onclick="osKeyboard.open('opn-note-${m.SKU}', 'text')" placeholder="Kondisi Fisik..."></td></tr>`;
+                let mob = `<div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3"><div class="flex justify-between items-start"><div><h4 class="font-extrabold text-sm text-slate-800">${m.Nama_Produk}</h4><p class="text-[10px] text-slate-400">Sys: <span id="opn-sys-mob-${m.SKU}" class="font-bold text-brand-500">${sys}</span></p></div><span class="font-black text-slate-300 text-lg" id="opn-selisih-mob-${m.SKU}">-</span></div><div class="flex gap-2"><input type="text" id="opn-fisik-mob-${m.SKU}" class="w-1/3 border-2 border-slate-200 rounded-xl px-3 py-2 text-center outline-none focus:border-brand-500 bg-white text-slate-800 font-bold text-sm cursor-pointer" readonly onclick="osKeyboard.open('opn-fisik-mob-${m.SKU}', 'numeric')" oninput="superApp.calcOpnameMob('${m.SKU}')" placeholder="Fisik"><input type="text" id="opn-note-mob-${m.SKU}" class="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2 outline-none text-xs text-slate-800 cursor-pointer" readonly onclick="osKeyboard.open('opn-note-mob-${m.SKU}', 'text')" placeholder="Catatan Kondisi..."></div></div>`;
 
                 if (String(m.Kategori || '').toLowerCase() === 'bahan') { hu += desk; hum += mob; } else { hp += desk; hpm += mob; }
             }
@@ -885,6 +824,7 @@ const superApp = {
 
         const payload = { action: 'submit_opname', outlet: this.outlet, kasir: this.currentUser.Username, items: items };
         let res = await this.apiPost(payload);
+        
         if (res.status === 'sukses') {
             this.showToast("Opname berhasil Disimpan!");
             this.showWaModal(waText);
@@ -894,7 +834,7 @@ const superApp = {
         this.setLoading(false);
     },
 
-    // AUDIT & BULK APPROVAL (OWNER)
+    // AUDIT & BULK APPROVAL
     toggleAuditTab: function(tab) {
         const co = document.getElementById('audit-content-opname'); if(co) co.classList.add('hidden'); 
         const ct = document.getElementById('audit-content-terima'); if(ct) ct.classList.add('hidden');
@@ -1071,8 +1011,11 @@ const superApp = {
                 let cleanDate = this.cleanDateOnly(t.Tanggal);
                 let cleanTime = this.cleanTimeOnly(t.Waktu);
 
+                // TAMBAHAN ANTRIAN PADA HISTORI
+                let antrianTeks = t.Antrian ? `<span class="text-[10px] font-black bg-blue-100 text-blue-600 px-2 py-0.5 rounded ml-2">Antrian: ${t.Antrian}</span>` : '';
+
                 if(i < 500) {
-                    trxHtml += `<tr class="${rowBg} transition"><td class="py-4 px-5 whitespace-nowrap text-xs"><div class="font-black text-slate-700">${safeID || 'N/A'}</div><div class="text-[10px] text-slate-400 mt-0.5">${cleanDate} ${cleanTime}</div></td><td class="py-4 px-5 whitespace-nowrap text-xs text-slate-700 font-bold">${t.Kasir || t.Outlet}</td><td class="py-4 px-5 whitespace-nowrap text-xs font-black uppercase text-blue-500">${t.Metode_Bayar||'Tunai'}</td><td class="py-4 px-5 whitespace-nowrap">${statBadge}</td><td class="py-4 px-5 whitespace-nowrap text-right font-black ${isCoret}">Rp ${(Number(t.Total_Bayar)||0).toLocaleString('id-ID')}</td><td class="py-4 px-5 whitespace-nowrap text-center" data-html2canvas-ignore="true"><button onclick="superApp.openDetailTrx('${safeID}')" class="bg-white border border-slate-200 hover:border-slate-400 text-slate-600 text-[10px] font-bold px-4 py-2 rounded-lg shadow-sm transition"><i class="fas fa-eye mr-1"></i> Detail</button></td></tr>`;
+                    trxHtml += `<tr class="${rowBg} transition"><td class="py-4 px-5 whitespace-nowrap text-xs"><div class="font-black text-slate-700">${safeID || 'N/A'} ${antrianTeks}</div><div class="text-[10px] text-slate-400 mt-0.5">${cleanDate} ${cleanTime}</div></td><td class="py-4 px-5 whitespace-nowrap text-xs text-slate-700 font-bold">${t.Kasir || t.Outlet}</td><td class="py-4 px-5 whitespace-nowrap text-xs font-black uppercase text-blue-500">${t.Metode_Bayar||'Tunai'}</td><td class="py-4 px-5 whitespace-nowrap">${statBadge}</td><td class="py-4 px-5 whitespace-nowrap text-right font-black ${isCoret}">Rp ${(Number(t.Total_Bayar)||0).toLocaleString('id-ID')}</td><td class="py-4 px-5 whitespace-nowrap text-center" data-html2canvas-ignore="true"><button onclick="superApp.openDetailTrx('${safeID}')" class="bg-white border border-slate-200 hover:border-slate-400 text-slate-600 text-[10px] font-bold px-4 py-2 rounded-lg shadow-sm transition"><i class="fas fa-eye mr-1"></i> Detail</button></td></tr>`;
                 }
                 if (t.Status === 'Sukses') {
                     let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
@@ -1161,8 +1104,9 @@ const superApp = {
         
         let cleanDate = this.cleanDateOnly(trx.Tanggal);
         let cleanTime = this.cleanTimeOnly(trx.Waktu);
+        let antrianNo = trx.Antrian ? `\nANTRIAN: ${trx.Antrian}` : '';
 
-        let strukHtml = `<div class="text-center font-bold mb-4 text-slate-800 border-b-2 border-slate-800 pb-2">=== Ai-Snack ===\nCabang: ${trx.Outlet}\nNo. Resi: ${trx.ID_TRX}\n${cleanDate} ${cleanTime}${statText}</div>`;
+        let strukHtml = `<div class="text-center font-bold mb-4 text-slate-800 border-b-2 border-slate-800 pb-2">=== Ai-Snack ===\nCabang: ${trx.Outlet}\nNo. Resi: ${trx.ID_TRX}${antrianNo}\n${cleanDate} ${cleanTime}${statText}</div>`;
         items.forEach(i => { strukHtml += `<div class="mb-2 text-slate-800 font-bold">${i.nama}\n<div class="flex justify-between font-normal text-slate-600"><span>${i.qty} x Rp ${Number(i.price).toLocaleString('id-ID')}</span><span class="font-bold text-slate-800">Rp ${(i.price * i.qty).toLocaleString('id-ID')}</span></div></div>`; });
         strukHtml += `<div class="border-t-2 border-slate-800 mt-4 pt-2 flex justify-between font-black text-slate-800 text-lg"><span>TOTAL</span><span>Rp ${Number(trx.Total_Bayar).toLocaleString('id-ID')}</span></div>`;
         let tunaiVal = trx.Tunai !== undefined ? trx.Tunai : (trx.Dibayar || 0);
@@ -1179,7 +1123,7 @@ const superApp = {
         let tunaiVal = t.Tunai !== undefined ? t.Tunai : (t.Dibayar || 0);
         let cleanDate = this.cleanDateOnly(t.Tanggal);
         let cleanTime = this.cleanTimeOnly(t.Waktu);
-        try { await this.printReceipt(t.ID_TRX, t.Outlet, t.Total_Bayar, tunaiVal, t.Kembalian, items, t.Status, cleanDate + ' ' + cleanTime); } catch(e) {}
+        try { await this.printReceipt(t.ID_TRX, t.Outlet, t.Total_Bayar, tunaiVal, t.Kembalian, items, t.Status, cleanDate + ' ' + cleanTime, t.Antrian); } catch(e) {}
     },
     promptVoidTrx: function() {
         let pin = prompt("Masukkan PIN Super Admin (Owner) untuk Membatalkan & Mengembalikan Stok:");
@@ -1197,7 +1141,7 @@ const superApp = {
             let tunaiVal = t.Tunai !== undefined ? t.Tunai : (t.Dibayar || 0);
             let cleanDate = this.cleanDateOnly(t.Tanggal);
             let cleanTime = this.cleanTimeOnly(t.Waktu);
-            try { await this.printReceipt(t.ID_TRX, t.Outlet, t.Total_Bayar, tunaiVal, t.Kembalian, items, 'Batal', cleanDate + ' ' + cleanTime); } catch(e){}
+            try { await this.printReceipt(t.ID_TRX, t.Outlet, t.Total_Bayar, tunaiVal, t.Kembalian, items, 'Batal', cleanDate + ' ' + cleanTime, t.Antrian); } catch(e){}
 
             if(!res.is_offline) { const refreshRes = await fetch(API_URL, { redirect: 'follow' }); this.db = await refreshRes.json(); }
             this.refreshData(); this.closeModal('modal-detail');
@@ -1577,14 +1521,15 @@ const superApp = {
             if(this.printerChar) { btn.innerText = 'Connected'; document.getElementById('btn-printer').classList.add('text-green-600', 'border-green-200'); this.showToast(`Printer Terhubung`); }
         } catch (err) { btn.innerText = 'Printer'; this.showToast('Batal mencari printer', 'error'); }
     },
-    printReceipt: async function(id, outlet, total, tunai, kembali, items, status, explicitDate) {
+    printReceipt: async function(id, outlet, total, tunai, kembali, items, status, explicitDate, antrian) {
         if (!this.printerChar) return; 
         try {
             let statStr = status === 'Sukses' ? '' : '\n*** DIBATALKAN ***\n';
             let printTime = explicitDate ? explicitDate : new Date().toLocaleString('id-ID');
+            let antrianStr = antrian ? `\nANTRIAN : ${antrian}` : '';
             
             let str = "\x1B\x61\x01\x1B\x45\x01=== Ai-Snack ===\n\x1B\x45\x00";
-            str += `Cabang: ${outlet}\nNo. Resi: ${id}${statStr}\nKasir: ${this.currentUser.Username}\nMetode: ${this.payMethod}\nWaktu: ${printTime}\n--------------------------------\n\x1B\x61\x00\n`;
+            str += `Cabang: ${outlet}\nNo. Resi: ${id}${antrianStr}${statStr}\nKasir: ${this.currentUser.Username}\nMetode: ${this.payMethod}\nWaktu: ${printTime}\n--------------------------------\n\x1B\x61\x00\n`;
             items.forEach(i => {
                 str += `${i.nama}\n${i.qty} x Rp ${Number(i.price).toLocaleString('id-ID')} = Rp ${(i.price * i.qty).toLocaleString('id-ID')}\n`;
             });

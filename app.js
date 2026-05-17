@@ -126,6 +126,8 @@ const superApp = {
     },
 
     // CFD DUAL MONITOR SMART SYNC + ANTRIAN
+    cfdSuccessTimeout: null, // Tambahkan variabel global untuk menyimpan memori waktu
+
     openCFD: async function(isAutoRestore = false) {
         localStorage.setItem('cfd_wants_open', 'true');
         try { 
@@ -179,20 +181,33 @@ const superApp = {
         
         if (data.status === 'paid') { 
             cfdSuccess.classList.remove('hidden'); 
-            // TAMPILKAN NOMOR ANTRIAN DI CFD
-            document.getElementById('cfd-kembali').innerHTML = `${data.kembali.toLocaleString('id-ID')}<br><span class="text-white text-4xl sm:text-5xl mt-6 block drop-shadow-md">NOMOR ANTRIAN ANDA:<br><span class="text-yellow-300 font-black text-6xl sm:text-8xl mt-2 block">${data.antrian || '-'}</span></span>`; 
-            setTimeout(() => { cfdSuccess.classList.add('hidden'); }, 7000); 
-        } else { cfdSuccess.classList.add('hidden'); }
-        
-        if (data.items.length === 0 && data.status !== 'paid') { cfdStandby.classList.remove('opacity-0', 'pointer-events-none'); } 
-        else {
-            cfdStandby.classList.add('opacity-0', 'pointer-events-none'); let html = '';
-            data.items.forEach(i => { html += `<div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex justify-between items-center"><div><h4 class="font-black text-slate-800 text-lg">${i.nama}</h4><p class="text-slate-500 font-bold">${i.qty} x Rp ${i.price.toLocaleString('id-ID')}</p></div><p class="font-black text-brand-500 text-xl">Rp ${(i.price * i.qty).toLocaleString('id-ID')}</p></div>`; });
-            const listEl = document.getElementById('cfd-cart-list'); if (listEl) listEl.innerHTML = html;
-            const totEl = document.getElementById('cfd-total'); if (totEl) totEl.innerText = `Rp ${data.total.toLocaleString('id-ID')}`;
+            
+            // PERBAIKAN 1: Null Safety pada data kembalian (Mencegah blank screen)
+            let kembalianAman = Number(data.kembali || 0).toLocaleString('id-ID');
+            
+            document.getElementById('cfd-kembali').innerHTML = `Rp ${kembalianAman}<br><span class="text-white text-4xl sm:text-5xl mt-6 block drop-shadow-md">NOMOR ANTRIAN ANDA:<br><span class="text-yellow-300 font-black text-6xl sm:text-8xl mt-2 block">${data.antrian || '-'}</span></span>`; 
+            
+            // PERBAIKAN 2: Mencegah timer bentrok jika transaksi terjadi sangat cepat
+            if(this.cfdSuccessTimeout) clearTimeout(this.cfdSuccessTimeout);
+            
+            this.cfdSuccessTimeout = setTimeout(() => { 
+                cfdSuccess.classList.add('hidden'); 
+            }, 7000); 
+            
+        } else { 
+            cfdSuccess.classList.add('hidden'); 
         }
-    },
-
+        
+        if (data.items && data.items.length === 0 && data.status !== 'paid') { 
+            cfdStandby.classList.remove('opacity-0', 'pointer-events-none'); 
+        } 
+        else if (data.items) {
+            cfdStandby.classList.add('opacity-0', 'pointer-events-none'); let html = '';
+            data.items.forEach(i => { html += `<div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex justify-between items-center"><div><h4 class="font-black text-slate-800 text-lg">${i.nama}</h4><p class="text-slate-500 font-bold">${i.qty} x Rp ${Number(i.price || 0).toLocaleString('id-ID')}</p></div><p class="font-black text-brand-500 text-xl">Rp ${(Number(i.price || 0) * Number(i.qty || 0)).toLocaleString('id-ID')}</p></div>`; });
+            const listEl = document.getElementById('cfd-cart-list'); if (listEl) listEl.innerHTML = html;
+            const totEl = document.getElementById('cfd-total'); if (totEl) totEl.innerText = `Rp ${Number(data.total || 0).toLocaleString('id-ID')}`;
+        }
+    }
     // STARTUP & LOGIN
     init: async function() {
         if (new URLSearchParams(window.location.search).get('mode') === 'cfd') { this.initCFD(); return; }

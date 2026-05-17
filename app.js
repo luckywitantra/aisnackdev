@@ -1,4 +1,4 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbwRss8HzQwPardxTi4Scd-QOUZ2pitnsubY6pqASyLZA7oaagmym61VuFJvWjb91NRhfg/exec"; // <-- GANTI DENGAN URL API ANDA
+const API_URL = "https://script.google.com/macros/s/AKfycbzIG5gEXEfMeOiwJUd7SGROqcVWktQnsvQJFgW5HKBE5lXeH1hR6S1fIrCw1xpmLyl-rA/exec"; // <-- GANTI DENGAN URL API ANDA
 
 /* ========================================== */
 /* 1. MESIN VIRTUAL KEYBOARD (IN-APP)         */
@@ -152,6 +152,50 @@ const superApp = {
     toggleDarkMode: function() { 
         document.documentElement.classList.toggle('dark'); let ic = document.getElementById('dark-icon'); 
         if (ic) { if (document.documentElement.classList.contains('dark')) { ic.classList.replace('fa-moon', 'fa-sun'); ic.classList.replace('text-slate-600', 'text-yellow-400'); } else { ic.classList.replace('fa-sun', 'fa-moon'); ic.classList.replace('text-yellow-400', 'text-slate-600'); } }
+    },
+    showWaModal: function(waText) {
+        // Otomatis salin ke clipboard sebagai langkah awal keamanan
+        try { navigator.clipboard.writeText(waText); } catch (err) { 
+            let txtArea = document.createElement("textarea"); txtArea.value = waText; document.body.appendChild(txtArea); 
+            txtArea.select(); try { document.execCommand("copy"); } catch(e){} document.body.removeChild(txtArea); 
+        }
+
+        let waUrl = `https://wa.me/?text=${encodeURIComponent(waText)}`; 
+
+        const btnGoWa = document.getElementById('btn-go-wa');
+        const btnCopyWa = document.getElementById('btn-copy-wa');
+
+        // Ini mem-bypass Popup Blocker karena window.open dipicu langsung oleh KLIK FISIK kasir
+        if (btnGoWa) {
+            btnGoWa.onclick = () => {
+                let popWin = window.open(waUrl, '_blank'); 
+                if(!popWin || popWin.closed || typeof popWin.closed === 'undefined') {
+                    window.location.href = waUrl; // Fallback paksa pindah tab jika diblokir
+                }
+                this.closeModal('modal-wa-confirm');
+            };
+        }
+
+        // Tombol manual untuk Salin Teks
+        if (btnCopyWa) {
+            btnCopyWa.onclick = () => {
+                try { navigator.clipboard.writeText(waText); } catch (err) { 
+                    let txtArea = document.createElement("textarea"); txtArea.value = waText; document.body.appendChild(txtArea); 
+                    txtArea.select(); try { document.execCommand("copy"); } catch(e){} document.body.removeChild(txtArea); 
+                }
+                this.showToast("Teks Berhasil Disalin!", "success");
+                btnCopyWa.innerHTML = `<i class="fas fa-check"></i> Sudah Tersalin!`;
+                setTimeout(() => { btnCopyWa.innerHTML = `<i class="fas fa-copy"></i> Salin Teks Laporan`; }, 2000);
+            };
+        }
+
+        // Tampilkan Modal UI Cantik
+        const mWa = document.getElementById('modal-wa-confirm'); 
+        const mWac = document.getElementById('modal-wa-confirm-content');
+        if(mWa && mWac) { 
+            mWa.classList.remove('hidden'); 
+            setTimeout(() => mWac.classList.add('modal-enter-active'), 10); 
+        }
     },
     apiPost: async function(payload) {
         if (!this.isOnline) { this.offlineQueue.push(payload); localStorage.setItem('aisnack_offline_queue', JSON.stringify(this.offlineQueue)); this.updateNetworkUI(); return { status: 'sukses', is_offline: true, trx_id: payload.trx_id || payload.id_shift }; }

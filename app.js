@@ -457,13 +457,15 @@ const superApp = {
         this.isProcessing = false;
     },
 
+    // FUNGSI PENYAPA CFD (Mendukung Multi-Window)
     updateCFDGreeting: function() {
-        const greetTimeEl = document.getElementById('cfd-greeting-time');
-        const greetOutletEl = document.getElementById('cfd-greeting-outlet');
-        
-        if (!greetTimeEl || !greetOutletEl) return;
+        // 1. Simpan nama cabang ke memori agar jendela CFD tidak lupa saat di-refresh
+        if (this.outlet) {
+            localStorage.setItem('aisnack_active_outlet', this.outlet);
+        }
+        let namaOutlet = this.outlet || localStorage.getItem('aisnack_active_outlet') || "Ai-Snack";
 
-        // 1. Logika Pembaca Waktu
+        // 2. Logika Pembaca Waktu
         const hour = new Date().getHours();
         let ucapanWaktu = "Selamat Malam!"; 
         if (hour >= 5 && hour < 11) {
@@ -474,12 +476,23 @@ const superApp = {
             ucapanWaktu = "Selamat Sore!";
         }
 
-        // 2. Logika Pembaca Nama Cabang
-        let namaOutlet = this.outlet || "Ai-Snack";
+        // 3. UBAH DI LAYAR UTAMA (KASIR)
+        const greetTimeEl = document.getElementById('cfd-greeting-time');
+        const greetOutletEl = document.getElementById('cfd-greeting-outlet');
+        if (greetTimeEl) greetTimeEl.innerText = ucapanWaktu;
+        if (greetOutletEl) greetOutletEl.innerText = `Selamat datang di ${namaOutlet}, silakan pesan di kasir`;
 
-        // 3. Suntikkan ke Layar CFD
-        greetTimeEl.innerText = ucapanWaktu;
-        greetOutletEl.innerText = `Selamat datang di ${namaOutlet}, silahkan pesan di kasir`;
+        // 4. UBAH DI LAYAR CFD (MENYEBERANG KE JENDELA KEDUA)
+        if (this.cfdWindow && !this.cfdWindow.closed) {
+            try {
+                const cfdTimeEl = this.cfdWindow.document.getElementById('cfd-greeting-time');
+                const cfdOutletEl = this.cfdWindow.document.getElementById('cfd-greeting-outlet');
+                if (cfdTimeEl) cfdTimeEl.innerText = ucapanWaktu;
+                if (cfdOutletEl) cfdOutletEl.innerText = `Selamat datang di ${namaOutlet}, silahkan pesan di kasir`;
+            } catch (e) {
+                console.log("Menunggu layar CFD siap...");
+            }
+        }
     },
     
     

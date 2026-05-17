@@ -317,44 +317,89 @@ const superApp = {
         window.addEventListener('online', () => { this.isOnline = true; this.syncOfflineQueue(); });
         window.addEventListener('offline', () => { this.isOnline = false; this.updateNetworkUI(); });
         
-        try { let queue = localStorage.getItem('aisnack_offline_queue'); this.offlineQueue = queue ? JSON.parse(queue) : []; } catch (e) { this.offlineQueue = []; }
+        try { 
+            let queue = localStorage.getItem('aisnack_offline_queue'); 
+            this.offlineQueue = queue ? JSON.parse(queue) : []; 
+        } catch (e) { 
+            this.offlineQueue = []; 
+        }
 
         try {
             const logStat = document.getElementById('login-status');
             let cacheDb = localStorage.getItem('aisnack_db_cache');
             
-            if (cacheDb) { this.db = JSON.parse(cacheDb); if (logStat) { logStat.innerText = 'Data Lokal Siap. Mencari Update Server...'; logStat.className = 'text-[10px] text-orange-500 font-bold uppercase tracking-widest text-center animate-pulse'; } } 
-            else { if (logStat) { logStat.innerText = 'Mengunduh Database Google Pertama Kali...'; logStat.className = 'text-[10px] text-brand-500 font-bold uppercase tracking-widest text-center animate-pulse'; } }
+            if (cacheDb) { 
+                this.db = JSON.parse(cacheDb); 
+                if (logStat) { 
+                    logStat.innerText = 'Data Lokal Siap. Mencari Update Server...'; 
+                    logStat.className = 'text-[10px] text-orange-500 font-bold uppercase tracking-widest text-center animate-pulse'; 
+                } 
+            } else { 
+                if (logStat) { 
+                    logStat.innerText = 'Mengunduh Database Google Pertama Kali...'; 
+                    logStat.className = 'text-[10px] text-brand-500 font-bold uppercase tracking-widest text-center animate-pulse'; 
+                } 
+            }
 
-            let fetchPromise = (async () => {
+            // Fungsi penarik data yang dirapikan
+            let performFetch = async () => {
                 let data = null;
                 for (let i = 0; i < 3; i++) {
-                    try { const res = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); data = await res.json(); if (data && data.status === 'sukses') break; } 
-                    catch (e) { if (logStat && !this.db) logStat.innerText = `Mencoba ulang koneksi (${i+1}/3)...`; await new Promise(r => setTimeout(r, 2000)); }
+                    try { 
+                        const res = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); 
+                        data = await res.json(); 
+                        if (data && data.status === 'sukses') break; 
+                    } catch (e) { 
+                        if (logStat && !this.db) logStat.innerText = `Mencoba ulang koneksi (${i+1}/3)...`; 
+                        await new Promise(r => setTimeout(r, 2000)); 
+                    }
                 }
                 if (!data || data.status === 'error') throw new Error(data ? data.pesan : "Server Timeout");
 
-                this.db = data; localStorage.setItem('aisnack_db_cache', JSON.stringify(data));
+                // --- PROSES DATA SUKSES ---
+                this.db = data; 
+                localStorage.setItem('aisnack_db_cache', JSON.stringify(data));
+                
+                // Set Logo
                 let logoData = (this.db.pengaturan || []).find(x => x.Pengaturan === 'Logo_Aplikasi');
-                    if (logoData) {
-                        localStorage.setItem('app_logo_url', logoData.Nilai);
-                        this.updateAppLogos(logoData.Nilai); // Jalankan auto-render logo
-                        }
-                let promoData = (this.db.pengaturan || []).find(x => x.Pengaturan === 'Promo_CFD'); if (promoData) localStorage.setItem('cfd_promo_url', promoData.Nilai);
+                if (logoData) {
+                    localStorage.setItem('app_logo_url', logoData.Nilai);
+                    this.updateAppLogos(logoData.Nilai); 
+                }
+                
+                // Set Promo CFD
+                let promoData = (this.db.pengaturan || []).find(x => x.Pengaturan === 'Promo_CFD'); 
+                if (promoData) localStorage.setItem('cfd_promo_url', promoData.Nilai);
 
+                // Set Tanggal Filter Report
                 let today = new Date(); let yyyy = today.getFullYear(); let mm = String(today.getMonth() + 1).padStart(2, '0'); let dd = String(today.getDate()).padStart(2, '0');
-                let todayStr = `${yyyy}-${mm}-${dd}`; const fs = document.getElementById('filter-start'); const fe = document.getElementById('filter-end');
-                if (fs && !fs.value) fs.value = todayStr; if (fe && !fe.value) fe.value = todayStr;
+                let todayStr = `${yyyy}-${mm}-${dd}`; 
+                const fs = document.getElementById('filter-start'); const fe = document.getElementById('filter-end');
+                if (fs && !fs.value) fs.value = todayStr; 
+                if (fe && !fe.value) fe.value = todayStr;
 
-                if (logStat) { logStat.innerText = 'Sistem Terkoneksi. Silakan Masukkan PIN.'; logStat.className = 'text-[10px] text-green-500 font-bold uppercase tracking-widest text-center'; }
-            })();
+                if (logStat) { 
+                    logStat.innerText = 'Sistem Terkoneksi. Silakan Masukkan PIN.'; 
+                    logStat.className = 'text-[10px] text-green-500 font-bold uppercase tracking-widest text-center'; 
+                }
+            };
 
-            if (!cacheDb) await fetchPromise;
+            // Jika tidak ada cache lokal, tunggu sampai download selesai. Jika ada cache, biarkan download berjalan di background.
+            if (!cacheDb) {
+                await performFetch();
+            } else {
+                performFetch(); 
+            }
 
         } catch (err) {
             const logStat = document.getElementById('login-status');
-            if (logStat && this.db) { logStat.innerText = 'Offline Mode Aktif (Gunakan PIN Anda)'; logStat.className = 'text-[10px] text-orange-500 font-bold uppercase tracking-widest text-center'; } 
-            else if (logStat) { logStat.innerText = 'Gagal! Buka aplikasi pertama kali butuh Internet.'; logStat.className = 'text-[10px] text-red-500 font-bold uppercase tracking-widest text-center'; }
+            if (logStat && this.db) { 
+                logStat.innerText = 'Offline Mode Aktif (Gunakan PIN Anda)'; 
+                logStat.className = 'text-[10px] text-orange-500 font-bold uppercase tracking-widest text-center'; 
+            } else if (logStat) { 
+                logStat.innerText = 'Gagal! Buka aplikasi pertama kali butuh Internet.'; 
+                logStat.className = 'text-[10px] text-red-500 font-bold uppercase tracking-widest text-center'; 
+            }
         }
     },
     addPin: function(num) {

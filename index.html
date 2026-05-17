@@ -482,6 +482,29 @@
       <div id="vk-keys" class="flex flex-col items-center w-full max-w-4xl mx-auto"></div>
   </div>
 
+  <div id="modal-wa-confirm" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[9999] hidden flex-col items-center justify-center p-4">
+    <div class="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl modal-enter text-center border-t-8 border-[#25D366]" id="modal-wa-confirm-content">
+      <div class="w-20 h-20 bg-green-100 text-[#25D366] rounded-full flex items-center justify-center text-5xl mx-auto mb-4 animate-bounce shadow-inner">
+        <i class="fab fa-whatsapp"></i>
+      </div>
+      <h3 class="font-extrabold text-2xl mb-2 text-slate-800">Laporan Siap!</h3>
+      <p class="text-slate-500 font-medium text-sm mb-6">Data sudah tersimpan di sistem. Silakan lanjutkan pengiriman laporan ke Owner.</p>
+
+      <div class="flex flex-col gap-3">
+        <button id="btn-go-wa" class="w-full bg-[#25D366] text-white py-4 rounded-xl font-extrabold shadow-lg shadow-green-200 hover:bg-[#20bd5a] transition active:scale-95 text-lg flex items-center justify-center gap-2">
+          <i class="fab fa-whatsapp text-2xl"></i> Buka WhatsApp
+        </button>
+        
+        <button id="btn-copy-wa" class="w-full bg-blue-50 text-blue-600 border-2 border-blue-200 py-3.5 rounded-xl font-bold hover:bg-blue-100 transition active:scale-95 text-sm flex items-center justify-center gap-2">
+          <i class="fas fa-copy"></i> Salin Teks Laporan
+        </button>
+
+        <button onclick="superApp.closeModal('modal-wa-confirm')" class="w-full bg-slate-100 text-slate-500 py-3 rounded-xl font-bold hover:bg-slate-200 transition text-sm mt-2">
+          Selesai / Nanti Saja
+        </button>
+      </div>
+    </div>
+  </div>
  
 
   <script src="app.js"></script>

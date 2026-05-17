@@ -818,14 +818,14 @@ const superApp = {
         this.cart = []; this.renderCart(); this.closeModal('modal-payment'); this.setLoading(false);
     },
 
-   /* === 8. TERIMA BARANG & OPNAME === */
+  /* === 8. TERIMA BARANG & OPNAME === */
     renderTerimaBarang: function() {
         const lbl = document.getElementById('lbl-terima-outlet'); if (lbl) lbl.innerText = this.outlet;
         let hu = ''; let hp = ''; let hum = ''; let hpm = '';
         [...(this.db.masterProduk || [])].sort((a, b) => String(a.Nama_Produk || '').localeCompare(String(b.Nama_Produk || ''))).forEach(m => {
             if (String(m.Kategori || '').toLowerCase() === 'bahan' || String(m.Kategori || '').toLowerCase() === 'pendukung') {
-                let strHtml = `<tr class="border-b border-slate-50"><td class="py-3 px-4 min-w-[150px] whitespace-normal text-slate-800">${m.Nama_Produk}<br><span class="text-[10px] text-slate-400 font-normal">${m.SKU}</span></td><td class="py-3 px-4 text-center"><input type="number" min="0" id="trm-qty-${m.SKU}" class="w-24 border-2 border-slate-200 rounded-lg px-2 py-1 text-center outline-none focus:border-brand-500 bg-white text-slate-800 font-bold cursor-pointer" readonly onclick="osKeyboard.open('trm-qty-${m.SKU}', 'numeric')" placeholder="0"></td><td class="py-3 px-4"><input type="text" id="trm-note-${m.SKU}" class="w-full border border-slate-200 rounded-lg px-3 py-1 outline-none text-xs text-slate-800 cursor-pointer" readonly onclick="osKeyboard.open('trm-note-${m.SKU}', 'text')" placeholder="Keterangan kurir/kondisi..."></td></tr>`;
-                let strMobile = `<div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3"><h4 class="font-extrabold text-sm text-slate-800">${m.Nama_Produk}</h4><div class="flex gap-2"><input type="number" min="0" id="trm-qty-mob-${m.SKU}" class="w-1/3 border-2 border-slate-200 rounded-xl px-3 py-2 text-center outline-none focus:border-brand-500 bg-white text-slate-800 font-bold text-sm cursor-pointer" readonly onclick="osKeyboard.open('trm-qty-mob-${m.SKU}', 'numeric')" placeholder="Qty"><input type="text" id="trm-note-mob-${m.SKU}" class="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2 outline-none text-xs text-slate-800 cursor-pointer" readonly onclick="osKeyboard.open('trm-note-mob-${m.SKU}', 'text')" placeholder="Catatan..."></div></div>`;
+                let strHtml = `<tr class="border-b border-slate-50"><td class="py-3 px-4 min-w-[150px] whitespace-normal text-slate-800">${m.Nama_Produk}<br><span class="text-[10px] text-slate-400 font-normal">${m.SKU}</span></td><td class="py-3 px-4 text-center"><input type="number" min="0" id="trm-qty-${m.SKU}" class="w-24 border-2 border-slate-200 rounded-lg px-2 py-1 text-center outline-none focus:border-brand-500 bg-white text-slate-800 font-bold" placeholder="0"></td><td class="py-3 px-4"><input type="text" id="trm-note-${m.SKU}" class="w-full border border-slate-200 rounded-lg px-3 py-1 outline-none text-xs text-slate-800" placeholder="Keterangan kurir/kondisi..."></td></tr>`;
+                let strMobile = `<div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3"><h4 class="font-extrabold text-sm text-slate-800">${m.Nama_Produk}</h4><div class="flex gap-2"><input type="number" min="0" id="trm-qty-mob-${m.SKU}" class="w-1/3 border-2 border-slate-200 rounded-xl px-3 py-2 text-center outline-none focus:border-brand-500 bg-white text-slate-800 font-bold text-sm" placeholder="Qty"><input type="text" id="trm-note-mob-${m.SKU}" class="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2 outline-none text-xs text-slate-800" placeholder="Catatan..."></div></div>`;
                 if (String(m.Kategori || '').toLowerCase() === 'bahan') { hu += strHtml; hum += strMobile; } else { hp += strHtml; hpm += strMobile; }
             }
         });
@@ -859,29 +859,13 @@ const superApp = {
         let res = await this.apiPost(payload);
         
         if (res.status === 'sukses') {
-            this.showToast("Berhasil dilaporkan ke Owner!");
+            this.showToast("Berhasil Disimpan di Sistem!");
             
-            // AUTO-COPY KE CLIPBOARD SEBAGAI BACKUP UNTUK HP
-            try { await navigator.clipboard.writeText(waText); } 
-            catch (err) { 
-                let txtArea = document.createElement("textarea"); txtArea.value = waText; document.body.appendChild(txtArea); 
-                txtArea.select(); try { document.execCommand("copy"); } catch(e){} document.body.removeChild(txtArea); 
-            }
-
-            // MENGGUNAKAN TIMEOUT AGAR SISTEM TIDAK MEMBLOKIR UI
-            setTimeout(async () => {
-                if (confirm("Laporan otomatis di-Copy ke Clipboard!\n\nIngin buka WhatsApp sekarang?\n(Jika di HP tidak terbuka, silakan Paste/Tempel manual di chat WA Owner)")) { 
-                    let waUrl = `https://wa.me/?text=${encodeURIComponent(waText)}`; 
-                    let popWin = window.open(waUrl, '_blank'); 
-                    // Bypass Popup Blocker: Jika gagal window.open, alihkan halaman saat ini
-                    if(!popWin || popWin.closed || typeof popWin.closed === 'undefined') {
-                        window.location.href = waUrl; 
-                    }
-                }
-                // Lanjutkan proses sinkronisasi setelah WA
-                if (!res.is_offline) { const r = await fetch(API_URL, { redirect: 'follow' }); this.db = await r.json(); this.refreshData(); this.switchMenu('pos'); }
-                else { this.switchMenu('pos'); }
-            }, 300);
+            // Tampilkan Modal WA Cantik
+            this.showWaModal(waText);
+            
+            if (!res.is_offline) { const r = await fetch(API_URL, { redirect: 'follow' }); this.db = await r.json(); this.refreshData(); this.switchMenu('pos'); }
+            else { this.switchMenu('pos'); }
         }
         this.setLoading(false);
     },
@@ -893,8 +877,8 @@ const superApp = {
                 let sData = (this.db.hargaStokOutlet || []).find(x => x.SKU === m.SKU && x.ID_Outlet === this.outlet);
                 let sys = sData ? Number(sData.Stok_Toko) : 0;
 
-                let desk = `<tr class="border-b border-slate-50"><td class="py-3 px-4 min-w-[150px] whitespace-normal text-slate-800">${m.Nama_Produk}<br><span class="text-[10px] text-slate-400 font-normal">${m.SKU}</span></td><td class="py-3 px-4 text-center text-brand-600" id="opn-sys-${m.SKU}">${sys}</td><td class="py-3 px-4 text-center"><input type="number" min="0" id="opn-fisik-${m.SKU}" class="w-20 border-2 border-slate-200 rounded-lg px-2 py-1 text-center outline-none focus:border-brand-500 bg-white text-slate-800 cursor-pointer" readonly onclick="osKeyboard.open('opn-fisik-${m.SKU}', 'numeric')" oninput="superApp.calcOpname('${m.SKU}')" placeholder="0"></td><td class="py-3 px-4 text-right font-black text-slate-300" id="opn-selisih-${m.SKU}">-</td><td class="py-3 px-4"><input type="text" id="opn-note-${m.SKU}" class="w-full border border-slate-200 rounded-lg px-2 py-1 outline-none text-xs text-slate-800 cursor-pointer" readonly onclick="osKeyboard.open('opn-note-${m.SKU}', 'text')" placeholder="Kondisi Fisik..."></td></tr>`;
-                let mob = `<div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3"><div class="flex justify-between items-start"><div><h4 class="font-extrabold text-sm text-slate-800">${m.Nama_Produk}</h4><p class="text-[10px] text-slate-400">Sys: <span id="opn-sys-mob-${m.SKU}" class="font-bold text-brand-500">${sys}</span></p></div><span class="font-black text-slate-300 text-lg" id="opn-selisih-mob-${m.SKU}">-</span></div><div class="flex gap-2"><input type="number" min="0" id="opn-fisik-mob-${m.SKU}" class="w-1/3 border-2 border-slate-200 rounded-xl px-3 py-2 text-center outline-none focus:border-brand-500 bg-white text-slate-800 font-bold text-sm cursor-pointer" readonly onclick="osKeyboard.open('opn-fisik-mob-${m.SKU}', 'numeric')" oninput="superApp.calcOpnameMob('${m.SKU}')" placeholder="Fisik"><input type="text" id="opn-note-mob-${m.SKU}" class="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2 outline-none text-xs text-slate-800 cursor-pointer" readonly onclick="osKeyboard.open('opn-note-mob-${m.SKU}', 'text')" placeholder="Catatan Kondisi..."></div></div>`;
+                let desk = `<tr class="border-b border-slate-50"><td class="py-3 px-4 min-w-[150px] whitespace-normal text-slate-800">${m.Nama_Produk}<br><span class="text-[10px] text-slate-400 font-normal">${m.SKU}</span></td><td class="py-3 px-4 text-center text-brand-600" id="opn-sys-${m.SKU}">${sys}</td><td class="py-3 px-4 text-center"><input type="number" min="0" id="opn-fisik-${m.SKU}" class="w-20 border-2 border-slate-200 rounded-lg px-2 py-1 text-center outline-none focus:border-brand-500 bg-white text-slate-800" oninput="superApp.calcOpname('${m.SKU}')" placeholder="0"></td><td class="py-3 px-4 text-right font-black text-slate-300" id="opn-selisih-${m.SKU}">-</td><td class="py-3 px-4"><input type="text" id="opn-note-${m.SKU}" class="w-full border border-slate-200 rounded-lg px-2 py-1 outline-none text-xs text-slate-800" placeholder="Kondisi Fisik..."></td></tr>`;
+                let mob = `<div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3"><div class="flex justify-between items-start"><div><h4 class="font-extrabold text-sm text-slate-800">${m.Nama_Produk}</h4><p class="text-[10px] text-slate-400">Sys: <span id="opn-sys-mob-${m.SKU}" class="font-bold text-brand-500">${sys}</span></p></div><span class="font-black text-slate-300 text-lg" id="opn-selisih-mob-${m.SKU}">-</span></div><div class="flex gap-2"><input type="number" min="0" id="opn-fisik-mob-${m.SKU}" class="w-1/3 border-2 border-slate-200 rounded-xl px-3 py-2 text-center outline-none focus:border-brand-500 bg-white text-slate-800 font-bold text-sm" oninput="superApp.calcOpnameMob('${m.SKU}')" placeholder="Fisik"><input type="text" id="opn-note-mob-${m.SKU}" class="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2 outline-none text-xs text-slate-800" placeholder="Catatan Kondisi..."></div></div>`;
 
                 if (String(m.Kategori || '').toLowerCase() === 'bahan') { hu += desk; hum += mob; } else { hp += desk; hpm += mob; }
             }
@@ -906,7 +890,7 @@ const superApp = {
     },
     calcOpname: function(sku) {
         const sysEl = document.getElementById(`opn-sys-${sku}`); let sys = parseInt(sysEl ? sysEl.innerText : 0) || 0;
-        let fisikEl = document.getElementById(`opn-fisik-${sku}`); let fisik = this.getNumericValue(fisikEl ? fisikEl.value : 0);
+        let fisikEl = document.getElementById(`opn-fisik-${sku}`); let fisik = parseInt(fisikEl ? fisikEl.value : 0);
         let selEl = document.getElementById(`opn-selisih-${sku}`); if (!selEl) return;
         if (isNaN(fisik) || (fisikEl && fisikEl.value === '')) { selEl.innerText = '-'; selEl.className = 'py-3 px-4 text-right font-black text-slate-300'; return; }
         let selisih = fisik - sys; selEl.innerText = selisih > 0 ? `+${selisih}` : selisih;
@@ -914,7 +898,7 @@ const superApp = {
     },
     calcOpnameMob: function(sku) {
         const sysEl = document.getElementById(`opn-sys-mob-${sku}`); let sys = parseInt(sysEl ? sysEl.innerText : 0) || 0;
-        let fisikEl = document.getElementById(`opn-fisik-mob-${sku}`); let fisik = this.getNumericValue(fisikEl ? fisikEl.value : 0);
+        let fisikEl = document.getElementById(`opn-fisik-mob-${sku}`); let fisik = parseInt(fisikEl ? fisikEl.value : 0);
         let selEl = document.getElementById(`opn-selisih-mob-${sku}`); if (!selEl) return;
         if (isNaN(fisik) || (fisikEl && fisikEl.value === '')) { selEl.innerText = '-'; selEl.className = 'font-black text-slate-300 text-lg'; return; }
         let selisih = fisik - sys; selEl.innerText = selisih > 0 ? `+${selisih}` : selisih;
@@ -935,7 +919,7 @@ const superApp = {
                 if (fisikStr !== '') {
                     let sysDesk = document.getElementById(`opn-sys-${m.SKU}`); let sysMob = document.getElementById(`opn-sys-mob-${m.SKU}`);
                     let sys = parseInt(sysDesk ? sysDesk.innerText : (sysMob ? sysMob.innerText : 0)) || 0;
-                    let fisik = this.getNumericValue(fisikStr);
+                    let fisik = parseInt(fisikStr);
                     let noteDesk = document.getElementById(`opn-note-${m.SKU}`); let noteMob = document.getElementById(`opn-note-mob-${m.SKU}`);
                     let note = noteDesk && noteDesk.value !== '' ? noteDesk.value : (noteMob && noteMob.value !== '' ? noteMob.value : '');
 
@@ -951,28 +935,13 @@ const superApp = {
         let res = await this.apiPost(payload);
         
         if (res.status === 'sukses') {
-            this.showToast("Opname terkirim untuk di Audit Owner!");
+            this.showToast("Opname berhasil Disimpan!");
             
-            // AUTO-COPY KE CLIPBOARD SEBAGAI BACKUP UNTUK HP
-            try { await navigator.clipboard.writeText(waText); } 
-            catch (err) { 
-                let txtArea = document.createElement("textarea"); txtArea.value = waText; document.body.appendChild(txtArea); 
-                txtArea.select(); try { document.execCommand("copy"); } catch(e){} document.body.removeChild(txtArea); 
-            }
-
-            // MENGGUNAKAN TIMEOUT AGAR SISTEM TIDAK MEMBLOKIR UI
-            setTimeout(async () => {
-                if (confirm("Laporan otomatis di-Copy ke Clipboard!\n\nIngin buka WhatsApp sekarang?\n(Jika di HP tidak terbuka, silakan Paste/Tempel manual di chat WA Owner)")) { 
-                    let waUrl = `https://wa.me/?text=${encodeURIComponent(waText)}`; 
-                    let popWin = window.open(waUrl, '_blank'); 
-                    // Bypass Popup Blocker: Jika gagal window.open, alihkan halaman saat ini
-                    if(!popWin || popWin.closed || typeof popWin.closed === 'undefined') {
-                        window.location.href = waUrl; 
-                    }
-                }
-                if (!res.is_offline) { const r = await fetch(API_URL, { redirect: 'follow' }); this.db = await r.json(); this.refreshData(); this.switchMenu('pos'); }
-                else { this.switchMenu('pos'); }
-            }, 300);
+            // Tampilkan Modal WA Cantik
+            this.showWaModal(waText);
+            
+            if (!res.is_offline) { const r = await fetch(API_URL, { redirect: 'follow' }); this.db = await r.json(); this.refreshData(); this.switchMenu('pos'); }
+            else { this.switchMenu('pos'); }
         }
         this.setLoading(false);
     },

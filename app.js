@@ -1,7 +1,7 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbzIG5gEXEfMeOiwJUd7SGROqcVWktQnsvQJFgW5HKBE5lXeH1hR6S1fIrCw1xpmLyl-rA/exec"; // <-- GANTI DENGAN URL API ANDA
+const API_URL = "https://script.google.com/macros/s/AKfycbzIG5gEXEfMeOiwJUd7SGROqcVWktQnsvQJFgW5HKBE5lXeH1hR6S1fIrCw1xpmLyl-rA/exec"; // <-- PASTIKAN GANTI DENGAN URL API ANDA
 
 /* ========================================== */
-/* 1. MESIN VIRTUAL KEYBOARD (IN-APP)         */
+/* 1. MESIN VIRTUAL KEYBOARD (IN-APP OSK)     */
 /* ========================================== */
 const osKeyboard = {
     targetElement: null,
@@ -22,10 +22,7 @@ const osKeyboard = {
         ]
     },
     open: function(elOrId, type = 'text') {
-        // PERBAIKAN: Deteksi pintar. Jika yang masuk adalah string (ID), maka cari elemennya.
         this.targetElement = typeof elOrId === 'string' ? document.getElementById(elOrId) : elOrId;
-        
-        // Jika elemen tetap tidak ditemukan, batalkan eksekusi agar tidak error
         if (!this.targetElement) return;
 
         this.mode = type;
@@ -63,7 +60,6 @@ const osKeyboard = {
             html += `</div>`;
         });
         
-        // Baris Aksi (Hapus & OK)
         html += `<div class="flex justify-center gap-2 w-full mt-2">
                     <button class="flex-1 py-4 bg-slate-200 text-slate-700 font-bold rounded-xl shadow-sm border border-slate-300 hover:bg-slate-300 transition active:scale-95" onclick="osKeyboard.backspace()"><i class="fas fa-backspace"></i> HAPUS</button>
                     <button class="flex-[2] py-4 bg-brand-500 text-white font-black rounded-xl shadow-md hover:bg-brand-600 transition active:scale-95 text-lg" onclick="osKeyboard.close()"><i class="fas fa-check-circle"></i> SELESAI</button>
@@ -74,16 +70,19 @@ const osKeyboard = {
         if (!this.targetElement) return;
         this.targetElement.value += char;
         this.targetElement.dispatchEvent(new Event('input', { bubbles: true }));
+        this.targetElement.dispatchEvent(new Event('keyup', { bubbles: true }));
     },
     backspace: function() {
         if (!this.targetElement) return;
         this.targetElement.value = this.targetElement.value.slice(0, -1);
         this.targetElement.dispatchEvent(new Event('input', { bubbles: true }));
+        this.targetElement.dispatchEvent(new Event('keyup', { bubbles: true }));
     },
     clear: function() {
         if (!this.targetElement) return;
         this.targetElement.value = '';
         this.targetElement.dispatchEvent(new Event('input', { bubbles: true }));
+        this.targetElement.dispatchEvent(new Event('keyup', { bubbles: true }));
     }
 };
 
@@ -95,6 +94,7 @@ const superApp = {
     payTotal: 0, payCash: 0, payChange: 0, payMethod: 'Tunai', activeShiftId: null, activeStaffTeam: [],
     activeReprintTrx: null, currentUser: null, pinBuffer: '', ADMIN_PIN: '1234',
     offlineQueue: [], isOnline: navigator.onLine, cfdWindow: null, isLoadingData: false, isProcessing: false,
+    cfdFocusHandlerAdded: false,
 
     // FORMATTER
     formatRupiahInput: function(el) {
@@ -125,12 +125,12 @@ const superApp = {
         return new Date(0);
     },
 
-    // UTILS
+    // GLOBAL UTILS
     pullFreshData: async function() {
         if (this.isProcessing) return; this.setLoading(true, "Menarik Data Terbaru...");
         try {
             const res = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); const data = await res.json();
-            if (data && data.status === 'sukses') { this.db = data; localStorage.setItem('aisnack_db_cache', JSON.stringify(data)); this.refreshData(); this.showToast("Data berhasil diperbarui!"); } 
+            if (data && data.status === 'sukses') { this.db = data; localStorage.setItem('aisnack_db_cache', JSON.stringify(data)); this.refreshData(); this.showToast("Data diperbarui!"); } 
             else throw new Error("Gagal");
         } catch (e) { this.showToast("Gagal menarik data. Periksa internet Anda.", "error"); }
         this.setLoading(false);
@@ -153,50 +153,8 @@ const superApp = {
         document.documentElement.classList.toggle('dark'); let ic = document.getElementById('dark-icon'); 
         if (ic) { if (document.documentElement.classList.contains('dark')) { ic.classList.replace('fa-moon', 'fa-sun'); ic.classList.replace('text-slate-600', 'text-yellow-400'); } else { ic.classList.replace('fa-sun', 'fa-moon'); ic.classList.replace('text-yellow-400', 'text-slate-600'); } }
     },
-    showWaModal: function(waText) {
-        // Otomatis salin ke clipboard sebagai langkah awal keamanan
-        try { navigator.clipboard.writeText(waText); } catch (err) { 
-            let txtArea = document.createElement("textarea"); txtArea.value = waText; document.body.appendChild(txtArea); 
-            txtArea.select(); try { document.execCommand("copy"); } catch(e){} document.body.removeChild(txtArea); 
-        }
-
-        let waUrl = `https://wa.me/?text=${encodeURIComponent(waText)}`; 
-
-        const btnGoWa = document.getElementById('btn-go-wa');
-        const btnCopyWa = document.getElementById('btn-copy-wa');
-
-        // Ini mem-bypass Popup Blocker karena window.open dipicu langsung oleh KLIK FISIK kasir
-        if (btnGoWa) {
-            btnGoWa.onclick = () => {
-                let popWin = window.open(waUrl, '_blank'); 
-                if(!popWin || popWin.closed || typeof popWin.closed === 'undefined') {
-                    window.location.href = waUrl; // Fallback paksa pindah tab jika diblokir
-                }
-                this.closeModal('modal-wa-confirm');
-            };
-        }
-
-        // Tombol manual untuk Salin Teks
-        if (btnCopyWa) {
-            btnCopyWa.onclick = () => {
-                try { navigator.clipboard.writeText(waText); } catch (err) { 
-                    let txtArea = document.createElement("textarea"); txtArea.value = waText; document.body.appendChild(txtArea); 
-                    txtArea.select(); try { document.execCommand("copy"); } catch(e){} document.body.removeChild(txtArea); 
-                }
-                this.showToast("Teks Berhasil Disalin!", "success");
-                btnCopyWa.innerHTML = `<i class="fas fa-check"></i> Sudah Tersalin!`;
-                setTimeout(() => { btnCopyWa.innerHTML = `<i class="fas fa-copy"></i> Salin Teks Laporan`; }, 2000);
-            };
-        }
-
-        // Tampilkan Modal UI Cantik
-        const mWa = document.getElementById('modal-wa-confirm'); 
-        const mWac = document.getElementById('modal-wa-confirm-content');
-        if(mWa && mWac) { 
-            mWa.classList.remove('hidden'); 
-            setTimeout(() => mWac.classList.add('modal-enter-active'), 10); 
-        }
-    },
+    
+    // OFFLINE SYNC
     apiPost: async function(payload) {
         if (!this.isOnline) { this.offlineQueue.push(payload); localStorage.setItem('aisnack_offline_queue', JSON.stringify(this.offlineQueue)); this.updateNetworkUI(); return { status: 'sukses', is_offline: true, trx_id: payload.trx_id || payload.id_shift }; }
         try { const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) }); return await res.json(); } 
@@ -218,15 +176,41 @@ const superApp = {
         } else { ind.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-50 border border-red-200 transition'; dot.className = 'w-2 h-2 rounded-full bg-red-500'; txt.className = 'text-[10px] font-bold text-red-600 hidden md:inline'; txt.innerText = `Offline (${this.offlineQueue.length} Pending)`; }
     },
 
-    // CFD DUAL MONITOR
-    openCFD: async function() {
-        try { if ('getScreenDetails' in window) { const screens = await window.getScreenDetails(); const extScreen = screens.screens.find(s => s !== screens.currentScreen); if (extScreen) { this.cfdWindow = window.open(window.location.href + '?mode=cfd', 'CFD_WINDOW', `left=${extScreen.availLeft},top=${extScreen.availTop},width=${extScreen.availWidth},height=${extScreen.availHeight},fullscreen=yes`); return; } } } catch (e) {}
-        this.cfdWindow = window.open(window.location.href + '?mode=cfd', 'CFD_WINDOW', `left=${window.screen.width},top=0,width=1024,height=768`);
+    // CFD DUAL MONITOR SMART SYNC
+    openCFD: async function(isAutoRestore = false) {
+        localStorage.setItem('cfd_wants_open', 'true');
+        try { 
+            if ('getScreenDetails' in window) { 
+                const screens = await window.getScreenDetails(); 
+                const extScreen = screens.screens.find(s => s !== screens.currentScreen); 
+                if (extScreen) { 
+                    this.cfdWindow = window.open(window.location.href + '?mode=cfd', 'CFD_WINDOW_AISNACK', `left=${extScreen.availLeft},top=${extScreen.availTop},width=${extScreen.availWidth},height=${extScreen.availHeight},fullscreen=yes`); 
+                    return; 
+                } 
+            } 
+        } catch (e) {}
+        
+        if (!this.cfdWindow || this.cfdWindow.closed) {
+            this.cfdWindow = window.open(window.location.href + '?mode=cfd', 'CFD_WINDOW_AISNACK', `left=${window.screen.width},top=0,width=1024,height=768`);
+        }
+
+        if (this.cfdWindow) {
+            this.cfdWindow.focus();
+            if (!this.cfdFocusHandlerAdded) {
+                window.addEventListener('focus', () => {
+                    if (this.cfdWindow && !this.cfdWindow.closed && localStorage.getItem('cfd_wants_open') === 'true') {
+                        this.cfdWindow.focus();
+                        this.syncStorage();
+                    }
+                });
+                this.cfdFocusHandlerAdded = true;
+            }
+        }
     },
     changePromoImage: function() {
         let fileInput = document.createElement('input'); fileInput.type = 'file'; fileInput.accept = 'image/*';
         fileInput.onchange = (event) => {
-            const file = event.target.files[0]; if (!file) return; if (this.isProcessing) return; this.setLoading(true, "Mengunggah...");
+            const file = event.target.files[0]; if (!file) return; if (this.isProcessing) return; this.setLoading(true, "Mengunggah Promo...");
             const reader = new FileReader();
             reader.onload = (e) => {
                 const img = new Image();
@@ -246,6 +230,7 @@ const superApp = {
     initCFD: function() {
         document.getElementById('login-screen').classList.add('hidden'); document.getElementById('sidebar').classList.add('hidden'); document.getElementById('main-app').classList.add('hidden');
         const cfdScreen = document.getElementById('cfd-screen'); if (cfdScreen) cfdScreen.classList.remove('hidden');
+        
         window.addEventListener('storage', (e) => { if (e.key === 'ai_snack_cfd' || e.key === 'cfd_promo_url') { let data = JSON.parse(localStorage.getItem('ai_snack_cfd') || '{}'); if (data.outlet) this.renderCFD(data); } });
         let initialData = localStorage.getItem('ai_snack_cfd'); if (initialData) this.renderCFD(JSON.parse(initialData));
         let savedBg = localStorage.getItem('cfd_promo_url'); if (savedBg) { const bg = document.getElementById('cfd-promo-bg'); if (bg) bg.style.backgroundImage = `url('${savedBg}')`; }
@@ -268,129 +253,6 @@ const superApp = {
     // STARTUP & LOGIN
     init: async function() {
         if (new URLSearchParams(window.location.search).get('mode') === 'cfd') { this.initCFD(); return; }
-
-        window.addEventListener('beforeunload', () => { if (this.cfdWindow && !this.cfdWindow.closed) this.cfdWindow.close(); });
-        window.addEventListener('online', () => { this.isOnline = true; this.syncOfflineQueue(); });
-        window.addEventListener('offline', () => { this.isOnline = false; this.updateNetworkUI(); });
-        
-        try { let queue = localStorage.getItem('aisnack_offline_queue'); this.offlineQueue = queue ? JSON.parse(queue) : []; } catch (e) { this.offlineQueue = []; }
-
-        try {
-            const logStat = document.getElementById('login-status');
-            let cacheDb = localStorage.getItem('aisnack_db_cache');
-            
-            if (cacheDb) {
-                this.db = JSON.parse(cacheDb);
-                if (logStat) { logStat.innerText = 'Data Lokal Siap. Mencari Update Server...'; logStat.className = 'text-[10px] text-orange-500 font-bold uppercase tracking-widest text-center animate-pulse'; }
-            } else {
-                if (logStat) { logStat.innerText = 'Mengunduh Database Google Pertama Kali...'; logStat.className = 'text-[10px] text-brand-500 font-bold uppercase tracking-widest text-center animate-pulse'; }
-            }
-
-            let fetchPromise = (async () => {
-                let data = null;
-                for (let i = 0; i < 3; i++) {
-                    try { const res = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); data = await res.json(); if (data && data.status === 'sukses') break; } 
-                    catch (e) { if (logStat && !this.db) logStat.innerText = `Mencoba ulang koneksi (${i+1}/3)...`; await new Promise(r => setTimeout(r, 2000)); }
-                }
-                if (!data || data.status === 'error') throw new Error(data ? data.pesan : "Server Timeout");
-
-                this.db = data; localStorage.setItem('aisnack_db_cache', JSON.stringify(data));
-                let promoData = (this.db.pengaturan || []).find(x => x.Pengaturan === 'Promo_CFD'); if (promoData) localStorage.setItem('cfd_promo_url', promoData.Nilai);
-
-                let today = new Date(); let yyyy = today.getFullYear(); let mm = String(today.getMonth() + 1).padStart(2, '0'); let dd = String(today.getDate()).padStart(2, '0');
-                let todayStr = `${yyyy}-${mm}-${dd}`; const fs = document.getElementById('filter-start'); const fe = document.getElementById('filter-end');
-                if (fs && !fs.value) fs.value = todayStr; if (fe && !fe.value) fe.value = todayStr;
-
-                if (logStat) { logStat.innerText = 'Sistem Terkoneksi. Silakan Masukkan PIN.'; logStat.className = 'text-[10px] text-green-500 font-bold uppercase tracking-widest text-center'; }
-            })();
-
-            if (!cacheDb) await fetchPromise;
-
-        } catch (err) {
-            const logStat = document.getElementById('login-status');
-            if (logStat && this.db) { logStat.innerText = 'Offline Mode Aktif (Gunakan PIN Anda)'; logStat.className = 'text-[10px] text-orange-500 font-bold uppercase tracking-widest text-center'; } 
-            else if (logStat) { logStat.innerText = 'Gagal! Buka aplikasi pertama kali butuh Internet.'; logStat.className = 'text-[10px] text-red-500 font-bold uppercase tracking-widest text-center'; }
-        }
-    },
-    addPin: function(num) {
-        if (!this.db || !this.db.users) {
-            this.showToast('Sistem sedang memuat data, mohon tunggu sebentar...', 'warning');
-            return;
-        }
-
-        if (this.pinBuffer.length < 4) {
-            this.pinBuffer += num;
-            const dot = document.getElementById(`dot-${this.pinBuffer.length}`);
-            if (dot) { dot.classList.replace('border-slate-300', 'bg-brand-500'); dot.classList.replace('border-2', 'border-0'); }
-        }
-        if (this.pinBuffer.length === 4) setTimeout(() => this.processLogin(), 200);
-    },
-    delPin: function() {
-        if (this.pinBuffer.length > 0) {
-            const dot = document.getElementById(`dot-${this.pinBuffer.length}`);
-            if (dot) { dot.classList.replace('bg-brand-500', 'border-slate-300'); dot.classList.replace('border-0', 'border-2'); }
-            this.pinBuffer = this.pinBuffer.slice(0, -1);
-        }
-    },
-    clearPin: function() {
-        this.pinBuffer = '';
-        for (let i = 1; i <= 4; i++) {
-            const dot = document.getElementById(`dot-${i}`);
-            if (dot) { dot.classList.replace('bg-brand-500', 'border-slate-300'); dot.classList.replace('border-0', 'border-2'); }
-        }
-    },
-    processLogin: function() {
-        if (this.isProcessing) return; this.isProcessing = true;
-        if (!this.db || !this.db.users) { this.showToast('Koneksi ke Database belum siap. Tunggu Sebentar.', 'error'); this.clearPin(); this.isProcessing = false; return; }
-
-        let user = this.db.users.find(u => String(u.PIN) === String(this.pinBuffer));
-        if (user) {
-            this.currentUser = user; this.outlet = user.Outlet === 'Pusat' ? ((this.db.outlets || [])[0]?.ID_Outlet || 'Penajam') : user.Outlet;
-            const sbRole = document.getElementById('sb-role'); if (sbRole) sbRole.innerText = user.Role;
-            const hInit = document.getElementById('header-initial'); if (hInit) hInit.innerText = user.Username.charAt(0).toUpperCase();
-
-            let isAdmin = String(user.Role).toLowerCase().includes('admin');
-            const adminMenus = document.getElementById('admin-menus'); const selOut = document.getElementById('select-outlet'); const repOut = document.getElementById('report-outlet-filter');
-
-            if (isAdmin) {
-                if (adminMenus) adminMenus.classList.remove('hidden'); if (selOut) selOut.classList.remove('hidden'); if (repOut) repOut.classList.remove('hidden');
-                let outOptions = ''; let outFilters = '<option value="Semua">Semua Outlet</option>';
-                (this.db.outlets || []).forEach(o => { outOptions += `<option value="${o.ID_Outlet}">📍 ${o.Nama_Outlet}</option>`; outFilters += `<option value="${o.ID_Outlet}">Hanya: ${o.Nama_Outlet}</option>`; });
-                if (selOut) { selOut.innerHTML = outOptions; selOut.value = this.outlet; selOut.disabled = false; }
-                if (repOut) repOut.innerHTML = outFilters;
-                const btnPromo = document.getElementById('btn-ubah-promo'); if (btnPromo) btnPromo.style.display = 'flex';
-            } else {
-                if (adminMenus) adminMenus.classList.add('hidden');
-                if (selOut) { selOut.classList.add('hidden'); selOut.innerHTML = `<option value="${this.outlet}">📍 ${this.outlet}</option>`; selOut.disabled = true; }
-                if (repOut) repOut.classList.add('hidden');
-                const btnPromo = document.getElementById('btn-ubah-promo'); if (btnPromo) btnPromo.style.display = 'none';
-            }
-
-            const ls = document.getElementById('login-screen'); if (ls) ls.classList.add('hidden');
-            const sbar = document.getElementById('sidebar'); if (sbar) sbar.classList.remove('hidden');
-            const mainApp = document.getElementById('main-app'); if (mainApp) mainApp.classList.remove('hidden');
-
-            this.updateNetworkUI(); this.syncOfflineQueue(); this.refreshData(); this.checkShiftStatus(); this.showToast(`Selamat datang, ${user.Username}!`);
-        } else { this.showToast('PIN Tidak Dikenali', 'error'); this.clearPin(); }
-        this.isProcessing = false;
-    },
-
-    // STARTUP & LOGIN
-    init: async function() {
-        if (new URLSearchParams(window.location.search).get('mode') === 'cfd') { this.initCFD(); return; }
-
-        document.addEventListener("visibilitychange", () => {
-            if (document.hidden && this.cfdWindow && !this.cfdWindow.closed) {
-                this.cfdWindow.close(); 
-            }
-        });
-
-        document.addEventListener("click", () => {
-            if (this.currentUser && localStorage.getItem('cfd_wants_open') === 'true') {
-                if (!this.cfdWindow || this.cfdWindow.closed) { this.openCFD(true); } 
-                else { this.cfdWindow.focus(); }
-            }
-        });
 
         window.addEventListener('beforeunload', () => { if (this.cfdWindow && !this.cfdWindow.closed) this.cfdWindow.close(); });
         window.addEventListener('online', () => { this.isOnline = true; this.syncOfflineQueue(); });
@@ -498,7 +360,6 @@ const superApp = {
         this.isProcessing = false;
     },
 
-    
     // SHIFT & KAS KELUAR
     checkShiftStatus: function() {
         const shiftOutName = document.getElementById('shift-outlet-name'); if (shiftOutName) shiftOutName.innerText = this.outlet;
@@ -738,7 +599,7 @@ const superApp = {
         this.payTotal = total; this.syncStorage();
     },
 
-    /* === 7. PAYMENT & CHECKOUT === */
+    // PAYMENT
     openPaymentModal: function() {
         if (this.cart.length === 0) return this.showToast("Pilih produk dahulu!", "error");
         const pt = document.getElementById('pay-total'); if (pt) pt.innerText = `Rp ${this.payTotal.toLocaleString('id-ID')}`;
@@ -760,7 +621,6 @@ const superApp = {
             this.setCash('pas');
         }
     },
-    // ---> INI FUNGSI YANG KEMARIN TERHAPUS <---
     addPayNumpad: function(val) {
         let input = document.getElementById('pay-cash-input');
         if (input) {
@@ -768,7 +628,6 @@ const superApp = {
             this.setCash(current + val);
         }
     },
-    // ------------------------------------------
     setCash: function(val) {
         let input = document.getElementById('pay-cash-input');
         if (input) {
@@ -818,14 +677,111 @@ const superApp = {
         this.cart = []; this.renderCart(); this.closeModal('modal-payment'); this.setLoading(false);
     },
 
-  /* === 8. TERIMA BARANG & OPNAME === */
+    // TERIMA BARANG, OPNAME & WA MODAL
+    showWaModal: function(waText) {
+        try { navigator.clipboard.writeText(waText); } catch (err) { 
+            let txtArea = document.createElement("textarea"); txtArea.value = waText; document.body.appendChild(txtArea); 
+            txtArea.select(); try { document.execCommand("copy"); } catch(e){} document.body.removeChild(txtArea); 
+        }
+        let waUrl = `https://wa.me/?text=${encodeURIComponent(waText)}`; 
+        const btnGoWa = document.getElementById('btn-go-wa');
+        const btnCopyWa = document.getElementById('btn-copy-wa');
+
+        if (btnGoWa) {
+            btnGoWa.onclick = () => {
+                let popWin = window.open(waUrl, '_blank'); 
+                if(!popWin || popWin.closed || typeof popWin.closed === 'undefined') {
+                    window.location.href = waUrl; 
+                }
+                this.closeModal('modal-wa-confirm');
+            };
+        }
+        if (btnCopyWa) {
+            btnCopyWa.onclick = () => {
+                try { navigator.clipboard.writeText(waText); } catch (err) { 
+                    let txtArea = document.createElement("textarea"); txtArea.value = waText; document.body.appendChild(txtArea); 
+                    txtArea.select(); try { document.execCommand("copy"); } catch(e){} document.body.removeChild(txtArea); 
+                }
+                this.showToast("Teks Berhasil Disalin!", "success");
+                btnCopyWa.innerHTML = `<i class="fas fa-check"></i> Sudah Tersalin!`;
+                setTimeout(() => { btnCopyWa.innerHTML = `<i class="fas fa-copy"></i> Salin Teks Laporan`; }, 2000);
+            };
+        }
+        const mWa = document.getElementById('modal-wa-confirm'); 
+        const mWac = document.getElementById('modal-wa-confirm-content');
+        if(mWa && mWac) { mWa.classList.remove('hidden'); setTimeout(() => mWac.classList.add('modal-enter-active'), 10); }
+    },
+    openWaHistory: function(type) {
+        const tbody = document.getElementById('wa-history-tbody');
+        if(!tbody) return;
+        let grouped = {};
+        
+        if (type === 'terima') {
+            document.getElementById('wa-history-title').innerText = 'Riwayat Terima Barang';
+            (this.db.mutasi || []).forEach(m => {
+                if (m.Outlet_Tujuan === this.outlet) {
+                    let w = String(m.Waktu);
+                    if(!grouped[w]) grouped[w] = { kasir: m.Kasir, items: [], waktu: w };
+                    let nama = this.db.masterProduk.find(x => x.SKU === m.SKU)?.Nama_Produk || m.SKU;
+                    grouped[w].items.push({ nama: nama, qty: m.Qty, note: m.Keterangan });
+                }
+            });
+        } else {
+            document.getElementById('wa-history-title').innerText = 'Riwayat Opname Fisik';
+            (this.db.opname || []).forEach(o => {
+                if (o.Outlet === this.outlet) {
+                    let w = String(o.Waktu);
+                    if(!grouped[w]) grouped[w] = { kasir: o.Kasir, items: [], waktu: w };
+                    let nama = this.db.masterProduk.find(x => x.SKU === o.SKU)?.Nama_Produk || o.SKU;
+                    grouped[w].items.push({ nama: nama, sys: o.Stok_Sistem, fisik: o.Stok_Fisik, selisih: o.Selisih, note: o.Keterangan_Fisik });
+                }
+            });
+        }
+
+        let arr = Object.values(grouped).sort((a,b) => new Date(this.parseDateId(b.waktu)) - new Date(this.parseDateId(a.waktu)));
+        let html = '';
+        arr.slice(0, 50).forEach(g => { 
+            let safeWaktu = g.waktu.includes('T') ? this.cleanDateOnly(g.waktu) + ' ' + this.cleanTimeOnly(g.waktu) : g.waktu;
+            let btnAction = `<button onclick="superApp.resendWa('${type}', '${encodeURIComponent(g.waktu)}')" class="bg-[#25D366] text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-[#20bd5a] transition"><i class="fab fa-whatsapp mr-1"></i> Kirim</button>`;
+            html += `<tr class="border-b border-slate-50 hover:bg-slate-100 transition"><td class="py-3 px-4 text-xs">${safeWaktu}</td><td class="py-3 px-4 text-xs font-bold">${g.kasir}</td><td class="py-3 px-4 text-center text-xs">${g.items.length} Item</td><td class="py-3 px-4 text-center">${btnAction}</td></tr>`;
+        });
+        
+        tbody.innerHTML = html || `<tr><td colspan="4" class="text-center py-6 text-slate-400 text-xs italic">Belum ada riwayat laporan</td></tr>`;
+        
+        const mod = document.getElementById('modal-wa-history');
+        const modc = document.getElementById('modal-wa-history-content');
+        if(mod && modc) { mod.classList.remove('hidden'); setTimeout(() => modc.classList.add('modal-enter-active'), 10); }
+    },
+    resendWa: function(type, encodedWaktu) {
+        let waktu = decodeURIComponent(encodedWaktu);
+        let waText = '';
+        if (type === 'terima') {
+            waText = `*LAPORAN BARANG DATANG PUSAT*\n📍 Cabang: ${this.outlet}\n📅 Waktu: ${waktu}\n\n*_Mohon cek aplikasi menu Audit untuk memverifikasi agar stok masuk ke sistem_*\n\n`;
+            (this.db.mutasi || []).forEach(m => {
+                if (m.Outlet_Tujuan === this.outlet && String(m.Waktu) === waktu) {
+                    let nama = this.db.masterProduk.find(x => x.SKU === m.SKU)?.Nama_Produk || m.SKU;
+                    waText += `📦 *${nama}*\nQty Diterima: *${m.Qty} Pcs*\nCatatan: ${m.Keterangan || '-'}\n\n`;
+                }
+            });
+        } else {
+            waText = `*LAPORAN OPNAME FISIK & AUDIT*\n📍 Cabang: ${this.outlet}\n📅 Waktu: ${waktu}\n\n*_Mohon cek aplikasi menu Audit Opname untuk menyetujui_*\n\n`;
+            (this.db.opname || []).forEach(o => {
+                if (o.Outlet === this.outlet && String(o.Waktu) === waktu) {
+                    let nama = this.db.masterProduk.find(x => x.SKU === o.SKU)?.Nama_Produk || o.SKU;
+                    waText += `🔹 *${nama}*\nSys: ${o.Stok_Sistem} | Fisik: ${o.Stok_Fisik} | Selisih: *${o.Selisih}*\nCatatan: ${o.Keterangan_Fisik || '-'}\n\n`;
+                }
+            });
+        }
+        this.closeModal('modal-wa-history');
+        this.showWaModal(waText);
+    },
     renderTerimaBarang: function() {
         const lbl = document.getElementById('lbl-terima-outlet'); if (lbl) lbl.innerText = this.outlet;
         let hu = ''; let hp = ''; let hum = ''; let hpm = '';
         [...(this.db.masterProduk || [])].sort((a, b) => String(a.Nama_Produk || '').localeCompare(String(b.Nama_Produk || ''))).forEach(m => {
             if (String(m.Kategori || '').toLowerCase() === 'bahan' || String(m.Kategori || '').toLowerCase() === 'pendukung') {
-                let strHtml = `<tr class="border-b border-slate-50"><td class="py-3 px-4 min-w-[150px] whitespace-normal text-slate-800">${m.Nama_Produk}<br><span class="text-[10px] text-slate-400 font-normal">${m.SKU}</span></td><td class="py-3 px-4 text-center"><input type="number" min="0" id="trm-qty-${m.SKU}" class="w-24 border-2 border-slate-200 rounded-lg px-2 py-1 text-center outline-none focus:border-brand-500 bg-white text-slate-800 font-bold" placeholder="0"></td><td class="py-3 px-4"><input type="text" id="trm-note-${m.SKU}" class="w-full border border-slate-200 rounded-lg px-3 py-1 outline-none text-xs text-slate-800" placeholder="Keterangan kurir/kondisi..."></td></tr>`;
-                let strMobile = `<div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3"><h4 class="font-extrabold text-sm text-slate-800">${m.Nama_Produk}</h4><div class="flex gap-2"><input type="number" min="0" id="trm-qty-mob-${m.SKU}" class="w-1/3 border-2 border-slate-200 rounded-xl px-3 py-2 text-center outline-none focus:border-brand-500 bg-white text-slate-800 font-bold text-sm" placeholder="Qty"><input type="text" id="trm-note-mob-${m.SKU}" class="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2 outline-none text-xs text-slate-800" placeholder="Catatan..."></div></div>`;
+                let strHtml = `<tr class="border-b border-slate-50"><td class="py-3 px-4 min-w-[150px] whitespace-normal text-slate-800">${m.Nama_Produk}<br><span class="text-[10px] text-slate-400 font-normal">${m.SKU}</span></td><td class="py-3 px-4 text-center"><input type="number" min="0" id="trm-qty-${m.SKU}" class="w-24 border-2 border-slate-200 rounded-lg px-2 py-1 text-center outline-none focus:border-brand-500 bg-white text-slate-800 font-bold" placeholder="0"></td><td class="py-3 px-4"><input type="text" id="trm-note-${m.SKU}" class="w-full border border-slate-200 rounded-lg px-3 py-1 outline-none text-xs text-slate-800 cursor-pointer" readonly onclick="osKeyboard.open('trm-note-${m.SKU}', 'text')" placeholder="Keterangan kurir/kondisi..."></td></tr>`;
+                let strMobile = `<div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3"><h4 class="font-extrabold text-sm text-slate-800">${m.Nama_Produk}</h4><div class="flex gap-2"><input type="number" min="0" id="trm-qty-mob-${m.SKU}" class="w-1/3 border-2 border-slate-200 rounded-xl px-3 py-2 text-center outline-none focus:border-brand-500 bg-white text-slate-800 font-bold text-sm" placeholder="Qty"><input type="text" id="trm-note-mob-${m.SKU}" class="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2 outline-none text-xs text-slate-800 cursor-pointer" readonly onclick="osKeyboard.open('trm-note-mob-${m.SKU}', 'text')" placeholder="Catatan..."></div></div>`;
                 if (String(m.Kategori || '').toLowerCase() === 'bahan') { hu += strHtml; hum += strMobile; } else { hp += strHtml; hpm += strMobile; }
             }
         });
@@ -857,13 +813,9 @@ const superApp = {
 
         const payload = { action: 'terima_barang_kasir', outlet: this.outlet, kasir: this.currentUser.Username, items: items };
         let res = await this.apiPost(payload);
-        
         if (res.status === 'sukses') {
             this.showToast("Berhasil Disimpan di Sistem!");
-            
-            // Tampilkan Modal WA Cantik
             this.showWaModal(waText);
-            
             if (!res.is_offline) { const r = await fetch(API_URL, { redirect: 'follow' }); this.db = await r.json(); this.refreshData(); this.switchMenu('pos'); }
             else { this.switchMenu('pos'); }
         }
@@ -877,8 +829,8 @@ const superApp = {
                 let sData = (this.db.hargaStokOutlet || []).find(x => x.SKU === m.SKU && x.ID_Outlet === this.outlet);
                 let sys = sData ? Number(sData.Stok_Toko) : 0;
 
-                let desk = `<tr class="border-b border-slate-50"><td class="py-3 px-4 min-w-[150px] whitespace-normal text-slate-800">${m.Nama_Produk}<br><span class="text-[10px] text-slate-400 font-normal">${m.SKU}</span></td><td class="py-3 px-4 text-center text-brand-600" id="opn-sys-${m.SKU}">${sys}</td><td class="py-3 px-4 text-center"><input type="number" min="0" id="opn-fisik-${m.SKU}" class="w-20 border-2 border-slate-200 rounded-lg px-2 py-1 text-center outline-none focus:border-brand-500 bg-white text-slate-800" oninput="superApp.calcOpname('${m.SKU}')" placeholder="0"></td><td class="py-3 px-4 text-right font-black text-slate-300" id="opn-selisih-${m.SKU}">-</td><td class="py-3 px-4"><input type="text" id="opn-note-${m.SKU}" class="w-full border border-slate-200 rounded-lg px-2 py-1 outline-none text-xs text-slate-800" placeholder="Kondisi Fisik..."></td></tr>`;
-                let mob = `<div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3"><div class="flex justify-between items-start"><div><h4 class="font-extrabold text-sm text-slate-800">${m.Nama_Produk}</h4><p class="text-[10px] text-slate-400">Sys: <span id="opn-sys-mob-${m.SKU}" class="font-bold text-brand-500">${sys}</span></p></div><span class="font-black text-slate-300 text-lg" id="opn-selisih-mob-${m.SKU}">-</span></div><div class="flex gap-2"><input type="number" min="0" id="opn-fisik-mob-${m.SKU}" class="w-1/3 border-2 border-slate-200 rounded-xl px-3 py-2 text-center outline-none focus:border-brand-500 bg-white text-slate-800 font-bold text-sm" oninput="superApp.calcOpnameMob('${m.SKU}')" placeholder="Fisik"><input type="text" id="opn-note-mob-${m.SKU}" class="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2 outline-none text-xs text-slate-800" placeholder="Catatan Kondisi..."></div></div>`;
+                let desk = `<tr class="border-b border-slate-50"><td class="py-3 px-4 min-w-[150px] whitespace-normal text-slate-800">${m.Nama_Produk}<br><span class="text-[10px] text-slate-400 font-normal">${m.SKU}</span></td><td class="py-3 px-4 text-center text-brand-600" id="opn-sys-${m.SKU}">${sys}</td><td class="py-3 px-4 text-center"><input type="number" min="0" id="opn-fisik-${m.SKU}" class="w-20 border-2 border-slate-200 rounded-lg px-2 py-1 text-center outline-none focus:border-brand-500 bg-white text-slate-800" oninput="superApp.calcOpname('${m.SKU}')" placeholder="0"></td><td class="py-3 px-4 text-right font-black text-slate-300" id="opn-selisih-${m.SKU}">-</td><td class="py-3 px-4"><input type="text" id="opn-note-${m.SKU}" class="w-full border border-slate-200 rounded-lg px-2 py-1 outline-none text-xs text-slate-800 cursor-pointer" readonly onclick="osKeyboard.open('opn-note-${m.SKU}', 'text')" placeholder="Kondisi Fisik..."></td></tr>`;
+                let mob = `<div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3"><div class="flex justify-between items-start"><div><h4 class="font-extrabold text-sm text-slate-800">${m.Nama_Produk}</h4><p class="text-[10px] text-slate-400">Sys: <span id="opn-sys-mob-${m.SKU}" class="font-bold text-brand-500">${sys}</span></p></div><span class="font-black text-slate-300 text-lg" id="opn-selisih-mob-${m.SKU}">-</span></div><div class="flex gap-2"><input type="number" min="0" id="opn-fisik-mob-${m.SKU}" class="w-1/3 border-2 border-slate-200 rounded-xl px-3 py-2 text-center outline-none focus:border-brand-500 bg-white text-slate-800 font-bold text-sm" oninput="superApp.calcOpnameMob('${m.SKU}')" placeholder="Fisik"><input type="text" id="opn-note-mob-${m.SKU}" class="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2 outline-none text-xs text-slate-800 cursor-pointer" readonly onclick="osKeyboard.open('opn-note-mob-${m.SKU}', 'text')" placeholder="Catatan Kondisi..."></div></div>`;
 
                 if (String(m.Kategori || '').toLowerCase() === 'bahan') { hu += desk; hum += mob; } else { hp += desk; hpm += mob; }
             }
@@ -890,7 +842,7 @@ const superApp = {
     },
     calcOpname: function(sku) {
         const sysEl = document.getElementById(`opn-sys-${sku}`); let sys = parseInt(sysEl ? sysEl.innerText : 0) || 0;
-        let fisikEl = document.getElementById(`opn-fisik-${sku}`); let fisik = parseInt(fisikEl ? fisikEl.value : 0);
+        let fisikEl = document.getElementById(`opn-fisik-${sku}`); let fisik = this.getNumericValue(fisikEl ? fisikEl.value : 0);
         let selEl = document.getElementById(`opn-selisih-${sku}`); if (!selEl) return;
         if (isNaN(fisik) || (fisikEl && fisikEl.value === '')) { selEl.innerText = '-'; selEl.className = 'py-3 px-4 text-right font-black text-slate-300'; return; }
         let selisih = fisik - sys; selEl.innerText = selisih > 0 ? `+${selisih}` : selisih;
@@ -898,7 +850,7 @@ const superApp = {
     },
     calcOpnameMob: function(sku) {
         const sysEl = document.getElementById(`opn-sys-mob-${sku}`); let sys = parseInt(sysEl ? sysEl.innerText : 0) || 0;
-        let fisikEl = document.getElementById(`opn-fisik-mob-${sku}`); let fisik = parseInt(fisikEl ? fisikEl.value : 0);
+        let fisikEl = document.getElementById(`opn-fisik-mob-${sku}`); let fisik = this.getNumericValue(fisikEl ? fisikEl.value : 0);
         let selEl = document.getElementById(`opn-selisih-mob-${sku}`); if (!selEl) return;
         if (isNaN(fisik) || (fisikEl && fisikEl.value === '')) { selEl.innerText = '-'; selEl.className = 'font-black text-slate-300 text-lg'; return; }
         let selisih = fisik - sys; selEl.innerText = selisih > 0 ? `+${selisih}` : selisih;
@@ -919,7 +871,7 @@ const superApp = {
                 if (fisikStr !== '') {
                     let sysDesk = document.getElementById(`opn-sys-${m.SKU}`); let sysMob = document.getElementById(`opn-sys-mob-${m.SKU}`);
                     let sys = parseInt(sysDesk ? sysDesk.innerText : (sysMob ? sysMob.innerText : 0)) || 0;
-                    let fisik = parseInt(fisikStr);
+                    let fisik = this.getNumericValue(fisikStr);
                     let noteDesk = document.getElementById(`opn-note-${m.SKU}`); let noteMob = document.getElementById(`opn-note-mob-${m.SKU}`);
                     let note = noteDesk && noteDesk.value !== '' ? noteDesk.value : (noteMob && noteMob.value !== '' ? noteMob.value : '');
 
@@ -933,13 +885,9 @@ const superApp = {
 
         const payload = { action: 'submit_opname', outlet: this.outlet, kasir: this.currentUser.Username, items: items };
         let res = await this.apiPost(payload);
-        
         if (res.status === 'sukses') {
             this.showToast("Opname berhasil Disimpan!");
-            
-            // Tampilkan Modal WA Cantik
             this.showWaModal(waText);
-            
             if (!res.is_offline) { const r = await fetch(API_URL, { redirect: 'follow' }); this.db = await r.json(); this.refreshData(); this.switchMenu('pos'); }
             else { this.switchMenu('pos'); }
         }
@@ -1051,7 +999,7 @@ const superApp = {
         const elAsal = document.getElementById('frm-trf-out-asal'); const elSku = document.getElementById('frm-trf-sku'); const elQty = document.getElementById('frm-trf-qty'); const elTujuan = document.getElementById('frm-trf-out-tujuan');
 
         if (!elSku || !elQty || !elTujuan) return;
-        let sku = elSku.value; let qty = this.getNumericValue(elQty.value); let targetOutlet = elTujuan.value; let asalOutlet = elAsal ? elAsal.value : this.outlet;
+        let sku = elSku.value; let qty = parseInt(this.getNumericValue(elQty.value), 10); let targetOutlet = elTujuan.value; let asalOutlet = elAsal ? elAsal.value : this.outlet;
 
         if (asalOutlet === targetOutlet) return this.showToast("Toko asal dan tujuan tidak boleh sama", "error");
         if (!qty || parseInt(qty) <= 0) return this.showToast("Qty tidak valid", "error");
@@ -1072,7 +1020,7 @@ const superApp = {
         } else { this.setLoading(false); }
     },
 
-    /* === 11. REPORT & ANALYTICS === */
+    // LAPORAN & PDF
     toggleReportTab: function(tab) {
         const rt = document.getElementById('report-content-trx'); if(rt) rt.classList.add('hidden'); 
         const rr = document.getElementById('report-content-rekap'); if(rr) rr.classList.add('hidden');
@@ -1438,14 +1386,12 @@ const superApp = {
             }
         });
         if(opt === '') return this.showToast("Semua produk master sudah ada di cabang ini!", "warning");
-        let inputs = `<div><label class="text-xs font-bold text-slate-500 block mb-1">Pilih Master Produk</label><select id="frm-add-out-sku" class="w-full border-2 border-slate-200 rounded-xl px-4 py-3 font-bold text-sm bg-white outline-none text-slate-800 focus:border-brand-500 transition">${opt}</select></div>` + this.makeInput(`Set Harga Jual di Cabang ${this.outlet} (Rp)`, 'edit-hrg', '', 'text', '', false, 'superApp.formatRupiahInput(this)');
+        let inputs = `<div><label class="text-xs font-bold text-slate-500 block mb-1">Pilih Master Produk</label><select id="frm-add-out-sku" class="w-full border-2 border-slate-200 rounded-xl px-4 py-3 font-bold text-sm bg-white outline-none text-slate-800 focus:border-brand-500 transition">${opt}</select></div>` + this.makeInput(`Set Harga Jual di Cabang ${this.outlet} (Rp)`, 'edit-hrg', '', 'number', '', false, '');
         this.buildForm("Tambah Menu ke Cabang", inputs, `superApp.executeEditHarga(document.getElementById('frm-add-out-sku').value)`);
-        setTimeout(() => { let el = document.getElementById('frm-edit-hrg'); if(el) { el.setAttribute('readonly', 'readonly'); el.onclick = () => osKeyboard.open(el, 'numeric'); } }, 100);
     },
     openEditHargaOutlet: function(sku, nama, currHarga) {
-        let inputs = `<div><label class="text-xs font-bold text-slate-500 block mb-1">Produk</label><input type="text" disabled value="${nama}" class="w-full border-2 border-slate-200 bg-slate-100 rounded-xl px-4 py-3 font-bold text-sm outline-none text-slate-600"></div>` + this.makeInput(`Set Harga Jual di Cabang ${this.outlet} (Rp)`, 'edit-hrg', Number(currHarga).toLocaleString('id-ID'), 'text', '', false, 'superApp.formatRupiahInput(this)');
+        let inputs = `<div><label class="text-xs font-bold text-slate-500 block mb-1">Produk</label><input type="text" disabled value="${nama}" class="w-full border-2 border-slate-200 bg-slate-100 rounded-xl px-4 py-3 font-bold text-sm outline-none text-slate-600"></div>` + this.makeInput(`Set Harga Jual di Cabang ${this.outlet} (Rp)`, 'edit-hrg', currHarga, 'number', '', false, '');
         this.buildForm("Pengaturan Harga Cabang", inputs, `superApp.executeEditHarga('${sku}')`);
-        setTimeout(() => { let el = document.getElementById('frm-edit-hrg'); if(el) { el.setAttribute('readonly', 'readonly'); el.onclick = () => osKeyboard.open(el, 'numeric'); } }, 100);
     },
     executeEditHarga: async function(sku) {
         if(this.isProcessing) return;
@@ -1474,7 +1420,6 @@ const superApp = {
         [...(this.db.masterProduk || [])].sort((a,b) => String(a.Nama_Produk||'').localeCompare(String(b.Nama_Produk||''))).forEach(p => { if(String(p.Kategori||'').toLowerCase()==='bahan' || String(p.Kategori||'').toLowerCase()==='pendukung') opt += `<option value="${p.SKU}">${p.Nama_Produk}</option>`; });
         let inputs = `<div><label class="text-xs font-bold text-slate-500 block mb-1">Pilih Bahan Baku Induk</label><select id="frm-rstk-sku" class="w-full border-2 border-slate-200 rounded-xl px-4 py-3 font-bold outline-none text-sm bg-white text-slate-800 focus:border-brand-500 transition">${opt}</select></div>` + this.makeInput('Jumlah Masuk dari Supplier (Pcs)', 'rstk-qty', '', 'number', '', false, '');
         this.buildForm("Pembelian / Restok Gudang", inputs, "superApp.executeRestok()");
-        setTimeout(() => { let el = document.getElementById('frm-rstk-qty'); if(el) { el.setAttribute('readonly', 'readonly'); el.onclick = () => osKeyboard.open(el, 'numeric'); } }, 100);
     },
     executeRestok: async function() {
         if(this.isProcessing) return;
@@ -1515,7 +1460,6 @@ const superApp = {
                      `<div><label class="text-xs font-bold text-slate-500 block mb-1">Tujuan Cabang</label><select id="frm-dist-out" class="w-full border-2 border-slate-200 rounded-xl px-4 py-3 font-bold outline-none text-sm bg-white text-slate-800 focus:border-brand-500 transition">${outletOpts}</select></div>` +
                      this.makeInput('Jumlah Kirim (Pcs)', 'dist-qty', '', 'number', '', false, '');
         this.buildForm("Kirim Stok Gudang -> Cabang", inputs, "superApp.executeDistribusi()");
-        setTimeout(() => { let el = document.getElementById('frm-dist-qty'); if(el) { el.setAttribute('readonly', 'readonly'); el.onclick = () => osKeyboard.open(el, 'numeric'); } }, 100);
     },
     executeDistribusi: async function() {
         if(this.isProcessing) return;
@@ -1611,9 +1555,10 @@ const superApp = {
         if(stafListEl) stafListEl.innerHTML = stafHtml || this.getEmptyState('fa-users', 'Belum Ada Data', 'Kasir belum mencatat penjualan.');
     },
 
-    // SYSTEM UTILS (UI & BLUETOOTH)
+    // UI & BLUETOOTH
     makeInput: function(label, id, val='', type='text', hint='', dis=false, customEvent='') { 
-        return `<div><label class="text-xs font-bold text-slate-500 block mb-1 uppercase tracking-widest">${label}</label><input type="${type}" id="frm-${id}" value="${val}" ${dis?'disabled':''} ${customEvent?'oninput="'+customEvent+'"':''} class="w-full border-2 border-slate-200 rounded-xl px-4 py-3 font-bold focus:border-brand-500 text-sm outline-none bg-white text-slate-800 transition ${dis?'opacity-50':''}">${hint?`<p class="text-[10px] text-slate-400 mt-1">${hint}</p>`:''}</div>`; 
+        let im = (type === 'number' || customEvent.includes('formatRupiah')) ? 'inputmode="numeric"' : '';
+        return `<div><label class="text-xs font-bold text-slate-500 block mb-1 uppercase tracking-widest">${label}</label><input type="${type}" ${im} id="frm-${id}" value="${val}" ${dis?'disabled':''} ${customEvent?'oninput="'+customEvent+'"':''} class="w-full border-2 border-slate-200 rounded-xl px-4 py-3 font-bold focus:border-brand-500 text-sm outline-none bg-white text-slate-800 transition ${dis?'opacity-50':''}">${hint?`<p class="text-[10px] text-slate-400 mt-1">${hint}</p>`:''}</div>`; 
     },
     buildForm: function(title, inputsHtml, actionFunctionStr) {
         const titleEl = document.getElementById('modal-form-title'); if(titleEl) titleEl.innerText = title; 

@@ -259,7 +259,7 @@ const superApp = {
         if (savedBg) { const bg = document.getElementById('cfd-promo-bg'); if (bg) bg.style.backgroundImage = `url('${savedBg}')`; }
     },
     let savedLogo = localStorage.getItem('app_logo_url');
-    if (savedLogo) { this.updateAppLogos(savedLogo); }
+    if (savedLogo) { this.updateAppLogos(savedLogo); },
 
     renderCFD: function(data) {
         const outNameEl = document.getElementById('cfd-outlet-name'); if (outNameEl) outNameEl.innerText = `Cabang ${data.outlet}`;

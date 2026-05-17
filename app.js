@@ -1368,7 +1368,8 @@ const superApp = {
             const desc = modalWa.querySelector('p');
             if(title) title.innerText = "Laporan Siap!";
             if(desc) desc.innerText = "Seluruh rincian jualan, kas, dan audit sudah dirangkum otomatis. Lanjutkan kirim ke Grup WhatsApp?";
-        },
+        }
+    }, 
     
     openDetailTrx: function(trxId) {
         let trx = (this.db.transactions || []).find(x => x.ID_TRX === trxId); if(!trx) return;

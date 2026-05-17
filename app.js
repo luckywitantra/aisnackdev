@@ -148,20 +148,52 @@ const superApp = {
         }
     },
     changePromoImage: function() {
-        let fileInput = document.createElement('input'); fileInput.type = 'file'; fileInput.accept = 'image/*';
+        // Buat elemen input file bayangan di dalam memori browser
+        let fileInput = document.createElement('input'); 
+        fileInput.type = 'file'; 
+        fileInput.accept = 'image/*'; // Hanya menerima file gambar
+        
         fileInput.onchange = (event) => {
-            const file = event.target.files[0]; if (!file) return; if (this.isProcessing) return; this.setLoading(true, "Mengunggah Promo...");
+            const file = event.target.files[0]; 
+            if (!file) return; 
+            if (this.isProcessing) return; 
+            
+            this.setLoading(true, "Mengunggah Gambar ke Google Drive Toko...");
+            
             const reader = new FileReader();
             reader.onload = (e) => {
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement('canvas'); let w = img.width; let h = img.height; const maxW = 1920; 
-                    if (w > maxW) { h = Math.round((h * maxW) / w); w = maxW; } canvas.width = w; canvas.height = h;
-                    const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, w, h); const base64 = canvas.toDataURL('image/jpeg', 0.8);
-                    this.apiPost({ action: 'update_promo', url: base64 }).then(res => { if (res.status === 'sukses') { localStorage.setItem('cfd_promo_url', base64); this.syncStorage(); this.setLoading(false); this.showToast("Promo Diperbarui!"); } }).catch(() => this.setLoading(false));
-                }; img.src = e.target.result;
-            }; reader.readAsDataURL(file);
-        }; fileInput.click();
+                const base64Data = e.target.result;
+                
+                // Tembakkan data gambar langsung ke server Google Drive melalui API
+                this.apiPost({ 
+                    action: 'update_promo_drive', 
+                    base64: base64Data, 
+                    fileName: file.name, 
+                    mimeType: file.type 
+                }).then(res => { 
+                    if (res.status === 'sukses') { 
+                        // Simpan link Google Drive publik tersebut ke memori lokal kasir
+                        localStorage.setItem('cfd_promo_url', res.url); 
+                        this.syncStorage(); 
+                        
+                        // Perbarui visual background jika layar CFD sedang terbuka di PC kasir tersebut
+                        const bg = document.getElementById('cfd-promo-bg'); 
+                        if (bg) bg.style.backgroundImage = `url('${res.url}')`;
+                        
+                        this.setLoading(false); 
+                        this.showToast("Promo Berhasil Ter-upload ke Google Drive & Diperbarui Secara Global!"); 
+                    } else {
+                        this.setLoading(false);
+                        this.showToast("Gagal menyimpan ke Drive: " + res.pesan, "error");
+                    }
+                }).catch(() => {
+                    this.setLoading(false);
+                    this.showToast("Koneksi gagal saat mengunggah laporan", "error");
+                });
+            }; 
+            reader.readAsDataURL(file);
+        }; 
+        fileInput.click(); // Pemicu klik fisik otomatis agar popup berkas di PC/HP kasir terbuka
     },
     syncStorage: function(status = 'ordering', antrian = null) {
         if (new URLSearchParams(window.location.search).get('mode') === 'cfd') return;

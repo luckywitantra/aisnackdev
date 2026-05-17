@@ -1263,6 +1263,108 @@ const superApp = {
             element.classList.remove('pdf-container'); this.toggleReportTab('trx'); this.showToast("PDF Diunduh!"); 
         });
     },
+    // Fungsi untuk merangkum dan mengirim laporan detail via WhatsApp (Tanpa Nomor Spesifik / Bebas Pilih Grup)
+    sendReportToWA: function() {
+        // 1. Ambil data rentang tanggal dari filter
+        let startDate = document.getElementById('filter-start').value;
+        let endDate = document.getElementById('filter-end').value;
+        
+        // 2. Ambil data cabang
+        let outletFilterEl = document.getElementById('report-outlet-filter');
+        let outletName = (!outletFilterEl || outletFilterEl.classList.contains('hidden') || outletFilterEl.value === 'Semua') 
+                         ? (this.currentUser && String(this.currentUser.Role).toLowerCase().includes('admin') ? "Semua Cabang" : this.outlet) 
+                         : outletFilterEl.options[outletFilterEl.selectedIndex].text.replace('Hanya: ', '').replace('📍 ', '');
+
+        // 3. Ambil Ringkasan Angka Utama
+        let totTrx = document.getElementById('rep-total-trx').innerText;
+        let totTunai = document.getElementById('rep-total-tunai').innerText;
+        let totQris = document.getElementById('rep-total-qris').innerText;
+        let totKas = document.getElementById('rep-total-kas').innerText;
+
+        // --- 4. EKSTRAKSI DATA DETAIL DARI TABEL LAYAR ---
+        
+        // A. Ekstrak Rekap Jualan (Item)
+        let rekapTbody = document.getElementById('report-rekap-tbody');
+        let rekapText = '';
+        if (rekapTbody && rekapTbody.rows.length > 0 && rekapTbody.rows[0].cells.length >= 3) {
+            for (let row of rekapTbody.rows) {
+                rekapText += `▪️ ${row.cells[0].innerText} = ${row.cells[1].innerText} (${row.cells[2].innerText})\n`;
+            }
+        } else { rekapText = "▪️ Nihil / Tidak ada penjualan.\n"; }
+
+        // B. Ekstrak Kas Keluar
+        let kasTbody = document.getElementById('report-kas-tbody');
+        let kasText = '';
+        if (kasTbody && kasTbody.rows.length > 0 && kasTbody.rows[0].cells.length >= 4) {
+            for (let row of kasTbody.rows) {
+                kasText += `▪️ ${row.cells[2].innerText} : ${row.cells[3].innerText}\n`; 
+            }
+        } else { kasText = "▪️ Nihil / Tidak ada pengeluaran.\n"; }
+
+        // C. Ekstrak Audit Selisih
+        let auditTbody = document.getElementById('report-selisih-tbody');
+        let auditText = '';
+        if (auditTbody && auditTbody.rows.length > 0 && auditTbody.rows[0].cells.length >= 5) {
+            for (let row of auditTbody.rows) {
+                auditText += `▪️ ${row.cells[1].innerText} (Selisih: ${row.cells[4].innerText}) - ${row.cells[5].innerText}\n`; 
+            }
+        } else { auditText = "▪️ Nihil / Tidak ada audit fisik.\n"; }
+
+        // --- 5. SUSUN TEKS PESAN WHATSAPP ---
+        let text = `*📊 LAPORAN OPERASIONAL AI-SNACK*\n`;
+        text += `📍 Cabang: *${outletName}*\n`;
+        text += `📅 Periode: *${startDate} s/d ${endDate}*\n`;
+        text += `👤 User: ${this.currentUser ? this.currentUser.Username : 'Sistem'}\n`;
+        text += `-----------------------------------\n`;
+        text += `*RINGKASAN KEUANGAN:*\n`;
+        text += `🛒 Total Transaksi : *${totTrx}*\n`;
+        text += `💵 Omset Tunai     : *${totTunai}*\n`;
+        text += `📱 Omset QRIS      : *${totQris}*\n`;
+        text += `💸 Kas Keluar      : *${totKas}*\n`;
+        text += `-----------------------------------\n`;
+        text += `*🛍️ DETAIL ITEM TERJUAL:*\n${rekapText}\n`;
+        text += `*🧾 RINCIAN KAS KELUAR:*\n${kasText}\n`;
+        text += `*⚖️ HASIL AUDIT FISIK:*\n${auditText}\n`;
+        text += `-----------------------------------\n`;
+        text += `_Laporan ditarik secara otomatis dari Sistem POS Ai-Snack._`;
+
+        // 6. Siapkan Link URL (Tanpa Nomor HP untuk Lempar ke Grup)
+        // Penggunaan wa.me/?text= akan memicu WA untuk menanyakan "Kirim ke siapa?"
+        let waUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+
+        const btnGoWa = document.getElementById('btn-go-wa');
+        const btnCopyWa = document.getElementById('btn-copy-wa');
+        const modalWa = document.getElementById('modal-wa-confirm');
+
+        // Sambungkan perintah ke tombol di dalam popup
+        if (btnGoWa) {
+            btnGoWa.onclick = () => { 
+                window.open(waUrl, '_blank'); 
+                this.closeModal('modal-wa-confirm');
+            };
+        }
+        
+        if (btnCopyWa) {
+            btnCopyWa.onclick = () => {
+                navigator.clipboard.writeText(text).then(() => {
+                    this.showToast("Teks laporan berhasil disalin ke memori HP/PC!", "success");
+                }).catch(() => {
+                    this.showToast("Gagal menyalin teks", "error");
+                });
+            };
+        }
+
+        // 7. Tampilkan Popup Animasi WA
+        if (modalWa) {
+            modalWa.classList.remove('hidden');
+            modalWa.classList.add('flex');
+            
+            const title = modalWa.querySelector('h3');
+            const desc = modalWa.querySelector('p');
+            if(title) title.innerText = "Laporan Siap!";
+            if(desc) desc.innerText = "Seluruh rincian jualan, kas, dan audit sudah dirangkum otomatis. Lanjutkan kirim ke Grup WhatsApp?";
+        }
+    },
     openDetailTrx: function(trxId) {
         let trx = (this.db.transactions || []).find(x => x.ID_TRX === trxId); if(!trx) return;
         this.activeReprintTrx = trx; let items = []; try { items = JSON.parse(trx.Items_JSON || '[]'); } catch(e){}

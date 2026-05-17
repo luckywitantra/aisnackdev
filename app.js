@@ -1445,35 +1445,59 @@ const superApp = {
         (this.db.transactions || []).forEach(t => { let d = this.parseDateId(t.Tanggal); if(d < oldestDate) oldestDate = d; });
         let daysActive = Math.ceil((new Date() - oldestDate) / (1000 * 60 * 60 * 24)); if(daysActive < 1) daysActive = 1;
 
-        let warnings = [];
-        (this.db.masterProduk || []).forEach(mp => {
-            if(String(mp.Kategori||'').toLowerCase() === 'pendukung' || String(mp.Kategori||'').toLowerCase() === 'bahan') {
-                let totalMasuk = 0;
-                (this.db.mutasi || []).forEach(m => { if(m.SKU === mp.SKU && (aiOutlet === 'Semua' || m.Outlet_Tujuan === aiOutlet)) totalMasuk += Number(m.Qty)||0; });
-                
-                let sisa = 0;
-                if(aiOutlet === 'Semua') { (this.db.hargaStokOutlet || []).forEach(x => { if(x.SKU === mp.SKU) sisa += Number(x.Stok_Toko)||0; }); } 
-                else { let sData = (this.db.hargaStokOutlet || []).find(x => x.SKU === mp.SKU && x.ID_Outlet === aiOutlet); sisa = sData ? Number(sData.Stok_Toko)||0 : 0; }
-
-                let pemakaian = totalMasuk - sisa; if(pemakaian < 0) pemakaian = 0; 
-                let velocity = pemakaian / daysActive; velocity = Number(velocity) || 0; 
-                let daysRem = velocity > 0 ? (sisa / velocity) : 999;
-                
-                if(daysRem < 4 && sisa > 0) { warnings.push({ sku: mp.SKU, name: mp.Nama_Produk, type: mp.Kategori, vel: velocity, stock: sisa, days: Math.floor(daysRem) }); } 
-                else if (sisa <= 0) { warnings.push({ sku: mp.SKU, name: mp.Nama_Produk, type: mp.Kategori, vel: velocity, stock: 0, days: 0 }); }
-            }
-        });
-
+        // --- REKOMENDASI PERBAIKAN LOGIKA VELOCITY ---
+        // 1. Kumpulkan dulu total barang terjual dari transaksi Sukses
         let productSales = {};
         (this.db.transactions || []).forEach(t => {
             if(t.Status === 'Sukses' && (aiOutlet === 'Semua' || t.Outlet === aiOutlet)) {
                 let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
-                items.forEach(item => { let safeNama = item.nama || 'Unknown'; if(!productSales[safeNama]) productSales[safeNama] = 0; productSales[safeNama] += Number(item.qty)||0; });
+                items.forEach(item => { 
+                    let safeNama = item.nama || 'Unknown'; 
+                    if(!productSales[safeNama]) productSales[safeNama] = 0; 
+                    productSales[safeNama] += Number(item.qty)||0; 
+                });
             }
         });
+
+        let warnings = [];
+        (this.db.masterProduk || []).forEach(mp => {
+            if(String(mp.Kategori||'').toLowerCase() === 'pendukung' || String(mp.Kategori||'').toLowerCase() === 'bahan') {
+                
+                // Cek sisa stok saat ini
+                let sisa = 0;
+                if(aiOutlet === 'Semua') { 
+                    (this.db.hargaStokOutlet || []).forEach(x => { if(x.SKU === mp.SKU) sisa += Number(x.Stok_Toko)||0; }); 
+                } else { 
+                    let sData = (this.db.hargaStokOutlet || []).find(x => x.SKU === mp.SKU && x.ID_Outlet === aiOutlet); 
+                    sisa = sData ? Number(sData.Stok_Toko)||0 : 0; 
+                }
+
+                // 2. Gunakan jumlah barang terjual untuk menghitung Velocity (Bukan Total Masuk - Sisa)
+                // Jika produk adalah bahan mentah, asumsinya 1 Pcs Terjual memotong 1 Pcs Bahan (BOM sederhana)
+                // Jika Anda punya tabel Resep/BOM, logikanya harus disesuaikan di sini.
+                let pemakaianReal = productSales[mp.Nama_Produk] || 0; 
+
+                let velocity = pemakaianReal / daysActive; 
+                velocity = Number(velocity) || 0; 
+                
+                // Jika velocity 0 (belum pernah terjual), asumsi aman (999 hari)
+                let daysRem = velocity > 0 ? (sisa / velocity) : 999;
+                
+                if(daysRem < 4 && sisa > 0) { 
+                    warnings.push({ sku: mp.SKU, name: mp.Nama_Produk, type: mp.Kategori, vel: velocity, stock: sisa, days: Math.floor(daysRem) }); 
+                } else if (sisa <= 0) { 
+                    warnings.push({ sku: mp.SKU, name: mp.Nama_Produk, type: mp.Kategori, vel: velocity, stock: 0, days: 0 }); 
+                }
+            }
+        });
+
         let topSellers = []; 
-        for (const [nama, qty] of Object.entries(productSales)) { let v = Number(qty)/daysActive; topSellers.push({ name: nama, vel: Number(v)||0 }); }
-        topSellers.sort((a,b) => b.vel - a.vel); let top1 = topSellers.length > 0 ? topSellers[0] : {name: '-', vel: 0};
+        for (const [nama, qty] of Object.entries(productSales)) { 
+            let v = Number(qty)/daysActive; 
+            topSellers.push({ name: nama, vel: Number(v)||0 }); 
+        }
+        topSellers.sort((a,b) => b.vel - a.vel); 
+        let top1 = topSellers.length > 0 ? topSellers[0] : {name: '-', vel: 0};
 
         let lblCabang = aiOutlet === 'Semua' ? 'Keseluruhan Cabang' : `Cabang ${aiOutlet}`;
         let trendHtml = top1.vel > 5 ? `<span class="text-green-300 text-sm ml-2 bg-green-900/30 px-2 py-1 rounded-lg"><i class="fas fa-arrow-trend-up"></i> Naik</span>` : `<span class="text-orange-200 text-sm ml-2 bg-orange-900/30 px-2 py-1 rounded-lg"><i class="fas fa-minus"></i> Stabil</span>`;

@@ -239,7 +239,8 @@ const superApp = {
             const listEl = document.getElementById('cfd-cart-list'); if (listEl) listEl.innerHTML = html;
             const totEl = document.getElementById('cfd-total'); if (totEl) totEl.innerText = `Rp ${Number(data.total || 0).toLocaleString('id-ID')}`;
         }
-    }
+    },
+    
     // STARTUP & LOGIN
     init: async function() {
         if (new URLSearchParams(window.location.search).get('mode') === 'cfd') { this.initCFD(); return; }

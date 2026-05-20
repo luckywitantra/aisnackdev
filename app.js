@@ -432,20 +432,26 @@ const superApp = {
             let isAdmin = String(user.Role).toLowerCase().includes('admin');
             const adminMenus = document.getElementById('admin-menus'); const selOut = document.getElementById('select-outlet'); const repOut = document.getElementById('report-outlet-filter');
 
-            if (isAdmin) {
+           if (isAdmin) {
                 if (adminMenus) adminMenus.classList.remove('hidden'); if (selOut) selOut.classList.remove('hidden'); if (repOut) repOut.classList.remove('hidden');
                 let outOptions = ''; let outFilters = '<option value="Semua">Semua Outlet</option>';
                 (this.db.outlets || []).forEach(o => { outOptions += `<option value="${o.ID_Outlet}">📍 ${o.Nama_Outlet}</option>`; outFilters += `<option value="${o.ID_Outlet}">Hanya: ${o.Nama_Outlet}</option>`; });
                 if (selOut) { selOut.innerHTML = outOptions; selOut.value = this.outlet; selOut.disabled = false; }
                 if (repOut) repOut.innerHTML = outFilters;
-                const btnPromo = document.getElementById('btn-ubah-promo'); if (btnPromo) btnPromo.style.display = 'flex';
+                
+                // TAMPILKAN 3 TOMBOL KHUSUS ADMIN (Owner)
+                const btnStandby = document.getElementById('btn-promo-standby'); if (btnStandby) btnStandby.style.display = 'flex';
+                const btnTransaksi = document.getElementById('btn-promo-transaksi'); if (btnTransaksi) btnTransaksi.style.display = 'flex';
                 const btnLogo = document.getElementById('btn-ubah-logo'); if (btnLogo) btnLogo.style.display = 'flex';
             } else {
                 if (adminMenus) adminMenus.classList.add('hidden');
                 if (selOut) { selOut.classList.add('hidden'); selOut.innerHTML = `<option value="${this.outlet}">📍 ${this.outlet}</option>`; selOut.disabled = true; }
                 if (repOut) repOut.classList.add('hidden');
-                const btnPromo = document.getElementById('btn-ubah-promo'); if (btnPromo) btnPromo.style.display = 'none';
-                const btnLogoCancel = document.getElementById('btn-ubah-logo'); if (btnLogoCancel) btnLogoCancel.style.display = 'none';
+                
+                // SEMBUNYIKAN 3 TOMBOL DARI KASIR BIASA
+                const btnStandby = document.getElementById('btn-promo-standby'); if (btnStandby) btnStandby.style.display = 'none';
+                const btnTransaksi = document.getElementById('btn-promo-transaksi'); if (btnTransaksi) btnTransaksi.style.display = 'none';
+                const btnLogo = document.getElementById('btn-ubah-logo'); if (btnLogo) btnLogo.style.display = 'none';
             }
 
             const ls = document.getElementById('login-screen'); if (ls) ls.classList.add('hidden');
@@ -454,18 +460,20 @@ const superApp = {
 
             this.updateNetworkUI(); this.syncOfflineQueue(); this.refreshData(); this.checkShiftStatus(); this.showToast(`Selamat datang, ${user.Username}!`);
             
-            // --- BAGIAN INI YANG DISEMPURNAKAN ---
-            // 1. TULIS DATA OUTLET KE MEMORI (Wajib agar Jendela CFD Menarik Data)
+            // Tulis data ke memori agar CFD tahu cabang yang aktif
             localStorage.setItem('aisnack_active_outlet', this.outlet);
             
-            // 2. Jalankan Sapaan Layar Utama & Cadangan
             this.updateCFDGreeting(); 
             if (!this.cfdTimer) {
                 this.cfdTimer = setInterval(() => { this.updateCFDGreeting(); }, 60000); 
             }
-            // -------------------------------------
 
-        } else { this.showToast('PIN Tidak Dikenali', 'error'); this.clearPin(); }
+            // TAMBAHKAN BARIS INI: Coba auto-connect printer di latar belakang
+            setTimeout(() => { this.autoConnectPrinter(); }, 1500);
+
+        } else { 
+            this.showToast('PIN Tidak Dikenali', 'error'); this.clearPin(); 
+        }
         this.isProcessing = false;
     },
 
@@ -1946,34 +1954,50 @@ const superApp = {
         if(modal && modalContent) { modal.classList.remove('hidden'); setTimeout(() => modalContent.classList.add('modal-enter-active'), 10); }
     },
     connectBluetooth: async function() {
-        // Tandai bahwa kita sedang mencari bluetooth agar CFD tidak mengganggu
+        // 1. Mencegah klik ganda brutal dari kasir yang tidak sabar
+        if (this.isBluetoothSearching) return;
+        
         this.isBluetoothSearching = true; 
         const btnPrinter = document.getElementById('btn-printer');
         const statusPrinter = document.getElementById('printer-status');
         
         try {
-            // 1. Meminta Izin akses perangkat
+            // 2. HARD RESET: Bersihkan sisa koneksi "hantu" sebelum mencari baru
+            if (this.printerDevice && this.printerDevice.gatt.connected) {
+                try { this.printerDevice.gatt.disconnect(); } catch(e) {}
+            }
+            this.printerDevice = null;
+            this.printerCharacteristic = null;
+
+            // 3. Mulai pemindaian perangkat
             const device = await navigator.bluetooth.requestDevice({
-                filters: [{ services: ['000018f0-0000-1000-8000-00805f9b34fb'] }],
-                optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
+                acceptAllDevices: true, 
+                optionalServices: [
+                    '000018f0-0000-1000-8000-00805f9b34fb', // Standar
+                    '0000ff00-0000-1000-8000-00805f9b34fb', // Zjiang / Panda / VSC
+                    '0000e700-0000-1000-8000-00805f9b34fb'  // Eppos / Generic China
+                ]
             });
             
             this.setLoading(true, "Menghubungkan ke Printer...");
 
-            // 2. Melakukan Koneksi ke GATT Server
             const server = await device.gatt.connect();
             
-            // 3. Mendapatkan Service Printer
-            const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
+            let service;
+            try { service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb'); } catch(e) {}
+            if(!service) try { service = await server.getPrimaryService('0000ff00-0000-1000-8000-00805f9b34fb'); } catch(e) {}
+            if(!service) try { service = await server.getPrimaryService('0000e700-0000-1000-8000-00805f9b34fb'); } catch(e) {}
             
-            // 4. Mendapatkan Characteristic untuk Menulis Data (Write)
-            // Umumnya printer thermal menggunakan UUID 2af1 atau yang sama dengan service
-            this.printerCharacteristic = await service.getCharacteristic('00002af1-0000-1000-8000-00805f9b34fb');
-            
-            // Simpan referensi perangkat agar bisa dideteksi jika terputus
+            if(!service) throw new Error("Service Printer tidak ditemukan");
+
+            try { this.printerCharacteristic = await service.getCharacteristic('00002af1-0000-1000-8000-00805f9b34fb'); } catch(e) {}
+            if(!this.printerCharacteristic) try { this.printerCharacteristic = await service.getCharacteristic('0000ff02-0000-1000-8000-00805f9b34fb'); } catch(e) {}
+            if(!this.printerCharacteristic) try { this.printerCharacteristic = await service.getCharacteristic('0000e701-0000-1000-8000-00805f9b34fb'); } catch(e) {}
+
+            if(!this.printerCharacteristic) throw new Error("Characteristic Printer gagal diakses");
+
             this.printerDevice = device;
 
-            // 5. Update UI menjadi Terhubung
             if (btnPrinter) {
                 btnPrinter.classList.replace('text-slate-600', 'text-green-600');
                 btnPrinter.classList.add('bg-green-50', 'border-green-200');
@@ -1983,7 +2007,8 @@ const superApp = {
             this.showToast("Printer Terhubung!", "success");
             this.setLoading(false);
 
-            // Handler jika printer tiba-tiba mati atau keluar jangkauan
+            // 4. Pastikan tidak ada duplikasi pendengar (listener) error
+            device.ongattserverdisconnected = null; 
             device.addEventListener('gattserverdisconnected', () => {
                 this.printerCharacteristic = null;
                 if (statusPrinter) statusPrinter.innerText = "Printer Off";
@@ -1996,18 +2021,85 @@ const superApp = {
             
         } catch (error) {
             this.setLoading(false);
-            console.log("Bluetooth Error:", error);
+            
+            // 5. PENYELAMATAN UTAMA: Nol-kan seluruh memori Bluetooth jika error/batal
+            this.printerDevice = null;
+            this.printerCharacteristic = null;
+            
             if (error.name === 'NotFoundError' || error.message.includes('cancelled')) {
-                this.showToast("Pencarian printer dibatalkan", "warning");
+                this.showToast("Pencarian dibatalkan. Silakan klik tombol Printer lagi.", "warning");
             } else {
-                this.showToast("Gagal menyambungkan printer", "error");
+                this.showToast("Gagal menyambung ke Printer.", "error");
             }
         } finally {
-            // Setelah selesai (berhasil atau batal), kembalikan status ke false
-            // Beri jeda 2 detik agar popup sistem benar-benar hilang sebelum CFD ambil fokus
+            // 6. Beri waktu Chrome membersihkan cache internalnya (2 detik) sebelum bisa diklik lagi
             setTimeout(() => { this.isBluetoothSearching = false; }, 2000);
         }
     },
+    
+    // FUNGSI PENGINGAT & PENYAMBUNG OTOMATIS
+    autoConnectPrinter: async function() {
+        // Cek apakah browser mendukung fitur pengingat Bluetooth
+        if (!navigator.bluetooth || !navigator.bluetooth.getDevices) {
+            console.log("Browser tidak mendukung auto-connect Bluetooth");
+            return;
+        }
+
+        try {
+            // Tarik memori perangkat yang pernah diizinkan oleh kasir
+            const devices = await navigator.bluetooth.getDevices();
+            
+            if (devices.length > 0) {
+                // Ambil printer pertama yang ada di ingatan
+                const device = devices[0];
+                console.log("Mencoba menyambung otomatis ke:", device.name);
+                
+                // Coba lakukan koneksi secara diam-diam (background)
+                const server = await device.gatt.connect();
+                
+                let service;
+                try { service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb'); } catch(e) {}
+                if(!service) try { service = await server.getPrimaryService('0000ff00-0000-1000-8000-00805f9b34fb'); } catch(e) {}
+                if(!service) try { service = await server.getPrimaryService('0000e700-0000-1000-8000-00805f9b34fb'); } catch(e) {}
+                
+                if(!service) throw new Error("Service tidak cocok");
+
+                try { this.printerCharacteristic = await service.getCharacteristic('00002af1-0000-1000-8000-00805f9b34fb'); } catch(e) {}
+                if(!this.printerCharacteristic) try { this.printerCharacteristic = await service.getCharacteristic('0000ff02-0000-1000-8000-00805f9b34fb'); } catch(e) {}
+                if(!this.printerCharacteristic) try { this.printerCharacteristic = await service.getCharacteristic('0000e701-0000-1000-8000-00805f9b34fb'); } catch(e) {}
+
+                if (this.printerCharacteristic) {
+                    this.printerDevice = device;
+                    
+                    // Ubah UI menjadi hijau (Ready)
+                    const btnPrinter = document.getElementById('btn-printer');
+                    const statusPrinter = document.getElementById('printer-status');
+                    if (btnPrinter) {
+                        btnPrinter.classList.replace('text-slate-600', 'text-green-600');
+                        btnPrinter.classList.add('bg-green-50', 'border-green-200');
+                    }
+                    if (statusPrinter) statusPrinter.innerText = "Printer Ready";
+                    
+                    this.showToast("Printer otomatis tersambung!", "success");
+
+                    // Pasang alarm jika printer tiba-tiba dimatikan
+                    device.addEventListener('gattserverdisconnected', () => {
+                        this.printerCharacteristic = null;
+                        if (statusPrinter) statusPrinter.innerText = "Printer Off";
+                        if (btnPrinter) {
+                            btnPrinter.classList.remove('bg-green-50', 'border-green-200');
+                            btnPrinter.classList.replace('text-green-600', 'text-slate-600');
+                        }
+                    });
+                }
+            }
+        } catch (error) {
+            console.log("Auto-connect diblokir browser atau printer mati:", error);
+            // Gagal diam-diam tidak perlu memunculkan error mencolok ke kasir, 
+            // biarkan mereka pakai tombol manual jika auto-connect gagal.
+        }
+    },
+    
     printReceipt: async function(id, outlet, total, tunai, kembali, items, status, explicitDate, antrian) {
         // PERBAIKAN 1: Sesuaikan dengan nama variabel di connectBluetooth
         if (!this.printerCharacteristic) {

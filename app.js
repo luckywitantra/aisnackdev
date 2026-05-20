@@ -809,7 +809,7 @@ const superApp = {
     },
     
     // PENAMBAHAN SISTEM NOMOR ANTRIAN
-   executeCheckout: async function() {
+    executeCheckout: async function() {
         // Kunci tombol agar tidak terklik ganda, tapi jangan pakai layar loading penuh
         if (this.isProcessing) return; 
         this.isProcessing = true;

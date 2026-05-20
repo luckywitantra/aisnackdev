@@ -353,8 +353,46 @@ const superApp = {
         }
     },
     
-    // STARTUP & LOGIN
+   // STARTUP & LOGIN
     init: async function() {
+        // --- 🚀 RADAR UPDATE APLIKASI (SERVICE WORKER) ---
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').then(registration => {
+                registration.addEventListener('updatefound', () => {
+                    const newWorker = registration.installing;
+                    newWorker.addEventListener('statechange', () => {
+                        // Jika ada service worker baru yang terinstal dan siap mengambil alih
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            const banner = document.getElementById('update-banner');
+                            if (banner) {
+                                banner.classList.remove('hidden');
+                                setTimeout(() => {
+                                    banner.classList.remove('translate-y-20', 'opacity-0');
+                                }, 100);
+                            }
+                            
+                            const btn = document.getElementById('btn-update-app');
+                            if (btn) {
+                                btn.onclick = () => {
+                                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                                    newWorker.postMessage({ action: 'skipWaiting' });
+                                };
+                            }
+                        }
+                    });
+                });
+            }).catch(err => console.log('SW Reg Error:', err));
+
+            // Eksekusi muat ulang (reload) saat mesin PWA berhasil diperbarui
+            let refreshing;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (refreshing) return;
+                refreshing = true;
+                window.location.reload();
+            });
+        }
+        // ----------------------------------------------
+
         if (new URLSearchParams(window.location.search).get('mode') === 'cfd') { this.initCFD(); return; }
 
         document.addEventListener("visibilitychange", () => { if (document.hidden && this.cfdWindow && !this.cfdWindow.closed) { this.cfdWindow.close(); } });
@@ -475,7 +513,7 @@ const superApp = {
             let isAdmin = String(user.Role).toLowerCase().includes('admin');
             const adminMenus = document.getElementById('admin-menus'); const selOut = document.getElementById('select-outlet'); const repOut = document.getElementById('report-outlet-filter');
 
-           if (isAdmin) {
+            if (isAdmin) {
                 if (adminMenus) adminMenus.classList.remove('hidden'); if (selOut) selOut.classList.remove('hidden'); if (repOut) repOut.classList.remove('hidden');
                 let outOptions = ''; let outFilters = '<option value="Semua">Semua Outlet</option>';
                 (this.db.outlets || []).forEach(o => { outOptions += `<option value="${o.ID_Outlet}">📍 ${o.Nama_Outlet}</option>`; outFilters += `<option value="${o.ID_Outlet}">Hanya: ${o.Nama_Outlet}</option>`; });
@@ -510,8 +548,6 @@ const superApp = {
             if (!this.cfdTimer) {
                 this.cfdTimer = setInterval(() => { this.updateCFDGreeting(); }, 60000); 
             }
-
-            
 
         } else { 
             this.showToast('PIN Tidak Dikenali', 'error'); this.clearPin(); 

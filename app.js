@@ -120,15 +120,66 @@ const superApp = {
     },
 
     // GLOBAL UTILS
-    pullFreshData: async function() {
-        if (this.isProcessing) return; this.setLoading(true, "Menarik Data Terbaru...");
+    // Tambahkan parameter silent (default false)
+    pullFreshData: async function(silent = false) {
+        if (this.isProcessing && !silent) return; 
+        if (!silent) this.setLoading(true, "Menarik Data Terbaru...");
+        
         try {
-            const res = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); const data = await res.json();
-            if (data && data.status === 'sukses') { this.db = data; localStorage.setItem('aisnack_db_cache', JSON.stringify(data)); this.refreshData(); this.showToast("Data diperbarui!"); } 
-            else throw new Error("Gagal");
-        } catch (e) { this.showToast("Gagal menarik data.", "error"); }
-        this.setLoading(false);
+            const res = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); 
+            const data = await res.json();
+            
+            if (data && data.status === 'sukses') { 
+                
+                // --- 🚀 RADAR PENDETEKSI UPDATE VERSI KODINGAN ---
+                let serverVersion = (data.pengaturan || []).find(x => x.Pengaturan === 'Versi_Aplikasi');
+                if (serverVersion) {
+                    let localVersion = localStorage.getItem('app_version');
+                    
+                    // Jika baru pertama kali buka, simpan versinya
+                    if (!localVersion) {
+                        localStorage.setItem('app_version', serverVersion.Nilai);
+                    } 
+                    // JIKA VERSI DI GOOGLE SHEETS BERBEDA DENGAN DI HP KASIR
+                    else if (localVersion !== serverVersion.Nilai) {
+                        
+                        // 1. Tampilkan Pop-up Pembaruan Paksa
+                        alert(`🚀 UPDATE SISTEM TERSEDIA!\n\nKodingan versi baru (${serverVersion.Nilai}) telah dirilis oleh Owner.\n\nSistem akan dimuat ulang (Refresh) secara otomatis untuk menerapkan pembaruan.`);
+                        
+                        // 2. Perbarui ingatan memori versi di HP
+                        localStorage.setItem('app_version', serverVersion.Nilai);
+                        
+                        // 3. Paksa Service Worker PWA untuk memeriksa pembaruan file cache
+                        if ('serviceWorker' in navigator) {
+                            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                                for(let registration of registrations) { registration.update(); }
+                            });
+                        }
+                        
+                        // 4. Paksa aplikasi memuat ulang (reload) detik itu juga
+                        window.location.reload(true);
+                        return; // Hentikan fungsi ke bawah agar data lama tidak ditimpa
+                    }
+                }
+                // ------------------------------------------------
+                
+                this.db = data; 
+                localStorage.setItem('aisnack_db_cache', JSON.stringify(data)); 
+                
+                // Hanya perbarui layar jika keranjang kosong (tidak mengganggu transaksi)
+                if (this.cart.length === 0) {
+                    this.refreshData(); 
+                }
+                
+                if (!silent) this.showToast("Data diperbarui!"); 
+            } 
+        } catch (e) { 
+            if (!silent) this.showToast("Gagal menarik data.", "error"); 
+        }
+        
+        if (!silent) this.setLoading(false);
     },
+    
     getEmptyState: function(icon, title, desc) { return `<div class="flex flex-col items-center justify-center h-full p-8 text-center opacity-70"><div class="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center text-4xl text-slate-300 mb-4 mx-auto"><i class="fas ${icon}"></i></div><h4 class="font-black text-slate-600 text-lg mb-1">${title}</h4><p class="text-xs font-bold text-slate-400">${desc}</p></div>`; },
     showToast: function(msg, type = 'success') {
         const container = document.getElementById('toast-container'); if (!container) return;
@@ -157,7 +208,7 @@ const superApp = {
         this.showToast("Menyinkronkan data offline...", "warning"); let failedQueue = [];
         for (let i = 0; i < this.offlineQueue.length; i++) { try { await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(this.offlineQueue[i]) }); } catch (e) { failedQueue.push(this.offlineQueue[i]); } }
         this.offlineQueue = failedQueue; localStorage.setItem('aisnack_offline_queue', JSON.stringify(this.offlineQueue));
-        if (this.offlineQueue.length === 0) { this.showToast("Tersinkronisasi!"); try { const res = await fetch(API_URL, { redirect: 'follow' }); this.db = await res.json(); this.refreshData(); } catch (e) {} }
+        if (this.offlineQueue.length === 0) { this.showToast("Tersinkronisasi!"); try { const res = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); this.db = await res.json(); this.refreshData(); } catch (e) {} }
         this.updateNetworkUI();
     },
     updateNetworkUI: function() {
@@ -676,7 +727,7 @@ const superApp = {
                 this.db.kasKeluar.push({ ID_Kas: kasId, Tanggal: `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`, Waktu: `${pad(d.getHours())}.${pad(d.getMinutes())}.${pad(d.getSeconds())}`, Outlet: this.outlet, Kasir: this.currentUser.Username, Nominal: nom, Keterangan: ket, ID_Shift: this.activeShiftId });
             }
             this.closeModal('modal-kas-keluar'); this.showToast("Kas Keluar Tersimpan.");
-            if (!res.is_offline) { const r = await fetch(API_URL, { redirect: 'follow' }); this.db = await r.json(); this.refreshData(); }
+            if (!res.is_offline) { const r = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); this.db = await r.json(); this.refreshData(); }
         }
         this.setLoading(false);
     },
@@ -1111,7 +1162,7 @@ const superApp = {
         if (res.status === 'sukses') {
             this.showToast("Berhasil Disimpan di Sistem!");
             this.showWaModal(waText);
-            if (!res.is_offline) { const r = await fetch(API_URL, { redirect: 'follow' }); this.db = await r.json(); this.refreshData(); this.switchMenu('pos'); }
+            if (!res.is_offline) { const r = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); this.db = await r.json(); this.refreshData(); this.switchMenu('pos'); }
             else { this.switchMenu('pos'); }
         }
         this.setLoading(false);
@@ -1242,7 +1293,7 @@ const superApp = {
         if (res.status === 'sukses') {
             this.showToast("Opname berhasil Disimpan!");
             this.showWaModal(waText);
-            if (!res.is_offline) { const r = await fetch(API_URL, { redirect: 'follow' }); this.db = await r.json(); this.refreshData(); this.switchMenu('pos'); }
+            if (!res.is_offline) { const r = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); this.db = await r.json(); this.refreshData(); this.switchMenu('pos'); }
             else { this.switchMenu('pos'); }
         }
         this.setLoading(false);
@@ -1315,7 +1366,7 @@ const superApp = {
                 await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'bulk_approve_mutasi', items: items, status_app: status }) });
             }
             this.showToast(`Proses Masal Selesai!`);
-            const res = await fetch(API_URL, { redirect: 'follow' }); this.db = await res.json(); this.refreshData();
+            const res = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); this.db = await res.json(); this.refreshData();
         } catch (e) { this.showToast("Gagal memproses", "error"); }
         this.setLoading(false);
     },
@@ -1369,7 +1420,7 @@ const superApp = {
 
         if (res.status === 'sukses') {
             this.closeModal('modal-form'); this.showToast("Transfer dikirim! Menunggu Penerimaan di toko tujuan.");
-            if (!res.is_offline) { const r = await fetch(API_URL, { redirect: 'follow' }); this.db = await r.json(); }
+            if (!res.is_offline) { const r = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); this.db = await r.json(); }
             this.refreshData();
         } else { this.setLoading(false); }
     },
@@ -1670,7 +1721,7 @@ const superApp = {
             let cleanTime = this.cleanTimeOnly(t.Waktu);
             try { await this.printReceipt(t.ID_TRX, t.Outlet, t.Total_Bayar, tunaiVal, t.Kembalian, items, 'Batal', cleanDate + ' ' + cleanTime, t.Antrian); } catch(e){}
 
-            if(!res.is_offline) { const refreshRes = await fetch(API_URL, { redirect: 'follow' }); this.db = await refreshRes.json(); }
+            if(!res.is_offline) { const refreshRes = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); this.db = await refreshRes.json(); }
             this.refreshData(); this.closeModal('modal-detail');
         }
         this.setLoading(false);
@@ -1896,7 +1947,7 @@ const superApp = {
         let res = await this.apiPost(payload);
         if(res.status === 'sukses') {
             this.closeModal('modal-form'); 
-            if(!res.is_offline) { const r = await fetch(API_URL, { redirect: 'follow' }); this.db = await r.json(); }
+            if(!res.is_offline) { const r = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); this.db = await r.json(); }
             this.refreshData(); 
         }
         this.setLoading(false);
@@ -1907,7 +1958,7 @@ const superApp = {
         this.setLoading(true, "Menghapus dari Cabang...");
         const payload = { action: 'delete_outlet_product', sku: sku, outlet: this.outlet };
         let res = await this.apiPost(payload);
-        if(res.status === 'sukses') { this.showToast("Dihapus dari cabang."); if(!res.is_offline) { const r = await fetch(API_URL, { redirect: 'follow' }); this.db = await r.json(); this.refreshData(); } }
+        if(res.status === 'sukses') { this.showToast("Dihapus dari cabang."); if(!res.is_offline) { const r = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); this.db = await r.json(); this.refreshData(); } }
         this.setLoading(false);
     },
     openRestokModal: function() {
@@ -1926,7 +1977,7 @@ const superApp = {
         
         if(res.status === 'sukses') {
             this.closeModal('modal-form'); 
-            if(!res.is_offline) { const r = await fetch(API_URL, { redirect: 'follow' }); this.db = await r.json(); }
+            if(!res.is_offline) { const r = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); this.db = await r.json(); }
             this.refreshData(); 
         }
         this.setLoading(false);
@@ -1967,7 +2018,7 @@ const superApp = {
         
         if(res.status === 'sukses') {
             this.closeModal('modal-form'); 
-            if(!res.is_offline) { const r = await fetch(API_URL, { redirect: 'follow' }); this.db = await r.json(); }
+            if(!res.is_offline) { const r = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); this.db = await r.json(); }
             this.refreshData(); 
         }
         this.setLoading(false);
@@ -1993,7 +2044,7 @@ const superApp = {
         let res = await this.apiPost(payload);
         if(res.status === 'sukses') {
             this.closeModal('modal-form'); 
-            if(!res.is_offline) { const r = await fetch(API_URL, { redirect: 'follow' }); this.db = await r.json(); }
+            if(!res.is_offline) { const r = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); this.db = await r.json(); }
             this.refreshData(); 
         }
         this.setLoading(false);
@@ -2003,7 +2054,7 @@ const superApp = {
         if(!confirm(`Yakin hapus data ini?`)) return; this.setLoading(true, "Menghapus...");
         const payload = { action: 'delete', sheetName: sheet, id: id };
         let res = await this.apiPost(payload);
-        if(!res.is_offline) { const r = await fetch(API_URL, { redirect: 'follow' }); this.db = await r.json(); this.refreshData(); }
+        if(!res.is_offline) { const r = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); this.db = await r.json(); this.refreshData(); }
         this.setLoading(false);
     },
 
@@ -2228,3 +2279,10 @@ const superApp = {
 };
 
 window.onload = () => superApp.init();
+
+// Tambahkan ini di bawah window.onload = () => superApp.init();
+setInterval(() => {
+    if (superApp.isOnline) {
+        superApp.pullFreshData(); // Memaksa tarik data setiap 5 menit (300.000 ms)
+    }
+}, 300000);

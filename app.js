@@ -335,34 +335,54 @@ const superApp = {
     },
     
     syncStorage: function(status = 'ordering', antrian = null) {
-        if (new URLSearchParams(window.location.search).get('mode') === 'cfd') return;
-        
-        // Kunci Data Paid
-        if (status === 'paid') {
-            this._lastPaidTotal = this.payTotal;
-            this._lastPaidChange = this.payChange;
+    if (new URLSearchParams(window.location.search).get('mode') === 'cfd') return;
+
+    // 1. Kunci Data Paid (untuk menghindari data berubah saat kasir bergerak cepat)
+    if (status === 'paid') {
+        this._lastPaidTotal = this.payTotal;
+        this._lastPaidChange = this.payChange;
+    }
+
+    let sentTotal = status === 'paid' ? this._lastPaidTotal : this.payTotal;
+    let sentChange = status === 'paid' ? this._lastPaidChange : this.payChange;
+
+    // 2. Ambil promo spesifik berdasarkan cabang aktif
+    // Menggunakan fallback ke 'Umum' jika promo cabang belum diset
+    let promoStandby = localStorage.getItem(`cfd_promo_standby_${this.outlet}`) || 
+                       localStorage.getItem('cfd_promo_standby_Umum') || 
+                       ''; // Default kosong jika tidak ada
+                       
+    let promoTransaksi = localStorage.getItem(`cfd_promo_transaksi_${this.outlet}`) || 
+                         localStorage.getItem('cfd_promo_transaksi_Umum') || 
+                         '';
+
+    // 3. Bersihkan sisa promo 'Umum' atau kunci lama dari localStorage kasir
+    // agar memori kasir tetap ringan
+    this.cleanupOldPromoKeys();
+
+    // 4. Kirim data ke CFD
+    localStorage.setItem('ai_snack_cfd', JSON.stringify({ 
+        outlet: this.outlet || 'Ai-Snack', 
+        items: this.cart, 
+        total: sentTotal, 
+        kembali: sentChange, 
+        status: status, 
+        antrian: antrian, 
+        timestamp: new Date().getTime(), 
+        promoStandbyUrl: promoStandby, 
+        promoScreenUrl: promoTransaksi 
+    }));
+},
+
+// Fungsi tambahan untuk membersihkan kunci lama (opsional tapi disarankan)
+cleanupOldPromoKeys: function() {
+    const oldKeys = ['cfd_promo_standby', 'cfd_promo_transaksi'];
+    oldKeys.forEach(key => {
+        if (localStorage.getItem(key)) {
+            localStorage.removeItem(key); // Hapus kunci lama agar tidak bentrok
         }
-
-        let sentTotal = status === 'paid' ? this._lastPaidTotal : this.payTotal;
-        let sentChange = status === 'paid' ? this._lastPaidChange : this.payChange;
-
-        // --- 🚀 PERBAIKAN: MEMBACA PROMO KHUSUS CABANG ---
-        let spesifikStandby = localStorage.getItem(`cfd_promo_standby_${this.outlet}`) || localStorage.getItem('cfd_promo_standby');
-        let spesifikScreen = localStorage.getItem(`cfd_promo_transaksi_${this.outlet}`) || localStorage.getItem('cfd_promo_transaksi');
-        // -------------------------------------------------
-
-        localStorage.setItem('ai_snack_cfd', JSON.stringify({ 
-            outlet: this.outlet || 'Ai-Snack', 
-            items: this.cart, 
-            total: sentTotal, 
-            kembali: sentChange, 
-            status: status, 
-            antrian: antrian, 
-            timestamp: new Date().getTime(), 
-            promoStandbyUrl: spesifikStandby, 
-            promoScreenUrl: spesifikScreen 
-        }));
-    },
+    });
+}
     
    initCFD: function() {
         document.getElementById('login-screen').classList.add('hidden'); document.getElementById('sidebar').classList.add('hidden'); document.getElementById('main-app').classList.add('hidden');

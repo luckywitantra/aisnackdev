@@ -1234,25 +1234,49 @@ const superApp = {
     }
     this.setLoading(false);
 },
-    renderOpname: function() {
-        const lbl = document.getElementById('lbl-opname-outlet'); if (lbl) lbl.innerText = this.outlet;
-        let hu = ''; let hp = ''; let hum = ''; let hpm = '';
-        [...(this.db.masterProduk || [])].sort((a, b) => String(a.Nama_Produk || '').localeCompare(String(b.Nama_Produk || ''))).forEach(m => {
-            if (String(m.Kategori || '').toLowerCase() === 'bahan' || String(m.Kategori || '').toLowerCase() === 'pendukung') {
-                let sData = (this.db.hargaStokOutlet || []).find(x => x.SKU === m.SKU && x.ID_Outlet === this.outlet);
-                let sys = sData ? Number(sData.Stok_Toko) : 0;
+   renderOpname: function() {
+    const lbl = document.getElementById('lbl-opname-outlet'); if (lbl) lbl.innerText = this.outlet;
+    let hu = ''; let hp = ''; let hum = ''; let hpm = '';
+    
+    [...(this.db.masterProduk || [])].sort((a, b) => String(a.Nama_Produk || '').localeCompare(String(b.Nama_Produk || ''))).forEach(m => {
+        if (String(m.Kategori || '').toLowerCase() === 'bahan' || String(m.Kategori || '').toLowerCase() === 'pendukung') {
+            let sData = (this.db.hargaStokOutlet || []).find(x => x.SKU === m.SKU && x.ID_Outlet === this.outlet);
+            let sys = sData ? Number(sData.Stok_Toko) : 0;
 
-                let desk = `<tr class="border-b border-slate-50"><td class="py-3 px-4 min-w-[150px] whitespace-normal text-slate-800">${m.Nama_Produk}<br><span class="text-[10px] text-slate-400 font-normal">${m.SKU}</span></td><td class="py-3 px-4 text-center text-brand-600" id="opn-sys-${m.SKU}">${sys}</td><td class="py-3 px-4 text-center"><input type="text" id="opn-fisik-${m.SKU}" class="w-20 border-2 border-slate-200 rounded-lg px-2 py-1 text-center outline-none focus:border-brand-500 bg-white text-slate-800 cursor-pointer" readonly onclick="osKeyboard.open('opn-fisik-${m.SKU}', 'numeric')" oninput="superApp.calcOpname('${m.SKU}')" placeholder="0"></td><td class="py-3 px-4 text-right font-black text-slate-300" id="opn-selisih-${m.SKU}">-</td><td class="py-3 px-4"><input type="text" id="opn-note-${m.SKU}" class="w-full border border-slate-200 rounded-lg px-2 py-1 outline-none text-xs text-slate-800 cursor-pointer" readonly onclick="osKeyboard.open('opn-note-${m.SKU}', 'text')" placeholder="Kondisi Fisik..."></td></tr>`;
-                let mob = `<div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3"><div class="flex justify-between items-start"><div><h4 class="font-extrabold text-sm text-slate-800">${m.Nama_Produk}</h4><p class="text-[10px] text-slate-400">Sys: <span id="opn-sys-mob-${m.SKU}" class="font-bold text-brand-500">${sys}</span></p></div><span class="font-black text-slate-300 text-lg" id="opn-selisih-mob-${m.SKU}">-</span></div><div class="flex gap-2"><input type="text" id="opn-fisik-mob-${m.SKU}" class="w-1/3 border-2 border-slate-200 rounded-xl px-3 py-2 text-center outline-none focus:border-brand-500 bg-white text-slate-800 font-bold text-sm cursor-pointer" readonly onclick="osKeyboard.open('opn-fisik-mob-${m.SKU}', 'numeric')" oninput="superApp.calcOpnameMob('${m.SKU}')" placeholder="Fisik"><input type="text" id="opn-note-mob-${m.SKU}" class="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2 outline-none text-xs text-slate-800 cursor-pointer" readonly onclick="osKeyboard.open('opn-note-mob-${m.SKU}', 'text')" placeholder="Catatan Kondisi..."></div></div>`;
+            // 🚀 PERUBAHAN UTAMA: Menambahkan value="${sys}" pada input agar langsung terisi stok sistem
+            let desk = `<tr class="border-b border-slate-50">
+                <td class="py-3 px-4 min-w-[150px] whitespace-normal text-slate-800">${m.Nama_Produk}<br><span class="text-[10px] text-slate-400 font-normal">${m.SKU}</span></td>
+                <td class="py-3 px-4 text-center text-brand-600" id="opn-sys-${m.SKU}">${sys}</td>
+                <td class="py-3 px-4 text-center">
+                    <input type="text" id="opn-fisik-${m.SKU}" class="w-20 border-2 border-slate-200 rounded-lg px-2 py-1 text-center outline-none focus:border-brand-500 bg-white text-slate-800 cursor-pointer" value="${sys}" readonly onclick="osKeyboard.open('opn-fisik-${m.SKU}', 'numeric')" oninput="superApp.calcOpname('${m.SKU}')">
+                </td>
+                <td class="py-3 px-4 text-right font-black text-slate-300" id="opn-selisih-${m.SKU}">0</td>
+                <td class="py-3 px-4"><input type="text" id="opn-note-${m.SKU}" class="w-full border border-slate-200 rounded-lg px-2 py-1 outline-none text-xs text-slate-800 cursor-pointer" readonly onclick="osKeyboard.open('opn-note-${m.SKU}', 'text')" placeholder="Kondisi Fisik..."></td>
+            </tr>`;
+            
+            let mob = `<div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h4 class="font-extrabold text-sm text-slate-800">${m.Nama_Produk}</h4>
+                        <p class="text-[10px] text-slate-400">Sys: <span id="opn-sys-mob-${m.SKU}" class="font-bold text-brand-500">${sys}</span></p>
+                    </div>
+                    <span class="font-black text-slate-300 text-lg" id="opn-selisih-mob-${m.SKU}">0</span>
+                </div>
+                <div class="flex gap-2">
+                    <input type="text" id="opn-fisik-mob-${m.SKU}" class="w-1/3 border-2 border-slate-200 rounded-xl px-3 py-2 text-center outline-none focus:border-brand-500 bg-white text-slate-800 font-bold text-sm cursor-pointer" value="${sys}" readonly onclick="osKeyboard.open('opn-fisik-mob-${m.SKU}', 'numeric')" oninput="superApp.calcOpnameMob('${m.SKU}')">
+                    <input type="text" id="opn-note-mob-${m.SKU}" class="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2 outline-none text-xs text-slate-800 cursor-pointer" readonly onclick="osKeyboard.open('opn-note-mob-${m.SKU}', 'text')" placeholder="Catatan...">
+                </div>
+            </div>`;
 
-                if (String(m.Kategori || '').toLowerCase() === 'bahan') { hu += desk; hum += mob; } else { hp += desk; hpm += mob; }
-            }
-        });
+            if (String(m.Kategori || '').toLowerCase() === 'bahan') { hu += desk; hum += mob; } else { hp += desk; hpm += mob; }
+        }
+    });
 
-        const tU = document.getElementById('opname-tbody-utama'); if (tU) tU.innerHTML = hu || this.getEmptyState('fa-box-open', 'Belum Ada Bahan', 'Tambahkan bahan di menu gudang');
-        const tP = document.getElementById('opname-tbody-pendukung'); if (tP) tP.innerHTML = hp || this.getEmptyState('fa-box-open', 'Belum Ada Barang', 'Tambahkan pendukung di gudang');
-        const mobCards = document.getElementById('opname-mobile-cards'); if (mobCards) mobCards.innerHTML = `<h4 class="font-extrabold text-brand-600 mt-2 mb-2 bg-brand-50 p-3 rounded-xl border border-brand-100 text-sm">A. Bahan Utama</h4>` + (hum || '<p class="text-xs text-center">Kosong</p>') + `<h4 class="font-extrabold text-slate-600 mt-6 mb-2 bg-slate-100 p-3 rounded-xl border border-slate-200 text-sm">B. Pendukung & Packaging</h4>` + (hpm || '<p class="text-xs text-center">Kosong</p>');
-    },
+    const tU = document.getElementById('opname-tbody-utama'); if (tU) tU.innerHTML = hu || this.getEmptyState('fa-box-open', 'Belum Ada Bahan', 'Tambahkan bahan di menu gudang');
+    const tP = document.getElementById('opname-tbody-pendukung'); if (tP) tP.innerHTML = hp || this.getEmptyState('fa-box-open', 'Belum Ada Barang', 'Tambahkan pendukung di gudang');
+    const mobCards = document.getElementById('opname-mobile-cards'); if (mobCards) mobCards.innerHTML = `<h4 class="font-extrabold text-brand-600 mt-2 mb-2 bg-brand-50 p-3 rounded-xl border border-brand-100 text-sm">A. Bahan Utama</h4>` + (hum || '<p class="text-xs text-center">Kosong</p>') + `<h4 class="font-extrabold text-slate-600 mt-6 mb-2 bg-slate-100 p-3 rounded-xl border border-slate-200 text-sm">B. Pendukung & Packaging</h4>` + (hpm || '<p class="text-xs text-center">Kosong</p>');
+},
+    
     calcOpname: function(sku) {
         const sysEl = document.getElementById(`opn-sys-${sku}`); let sys = parseInt(sysEl ? sysEl.innerText : 0) || 0;
         let fisikEl = document.getElementById(`opn-fisik-${sku}`); let fisik = this.getNumericValue(fisikEl ? fisikEl.value : 0);
@@ -1321,51 +1345,70 @@ const superApp = {
 
         return waText;
     },
-   submitOpname: async function() {
-        if (this.isProcessing) return;
-        if (!confirm("Kirim Opname ke Owner? Stok fisik akan diverifikasi (Audit) terlebih dahulu sebelum dirubah pada sistem.")) return;
-        this.setLoading(true, "Menyimpan & Mengirim Audit...");
-        
-        let itemsToSubmit = [];
-        let itemsForWa = [];
+  submitOpname: async function() {
+    if (this.isProcessing) return;
+    if (!confirm("Kirim Opname ke Owner? Stok fisik akan diverifikasi (Audit) terlebih dahulu sebelum dirubah pada sistem.")) return;
+    this.setLoading(true, "Menyimpan & Mengirim Audit...");
+    
+    let itemsToSubmit = [];
+    let itemsForWa = [];
 
-        (this.db.masterProduk || []).forEach(m => {
-            if (String(m.Kategori || '').toLowerCase() === 'bahan' || String(m.Kategori || '').toLowerCase() === 'pendukung') {
-                let inputDesk = document.getElementById(`opn-fisik-${m.SKU}`); let inputMob = document.getElementById(`opn-fisik-mob-${m.SKU}`);
-                let fisikStr = inputDesk && inputDesk.value !== '' ? inputDesk.value : (inputMob && inputMob.value !== '' ? inputMob.value : '');
+    (this.db.masterProduk || []).forEach(m => {
+        if (String(m.Kategori || '').toLowerCase() === 'bahan' || String(m.Kategori || '').toLowerCase() === 'pendukung') {
+            // 1. Ambil nilai input
+            let inputDesk = document.getElementById(`opn-fisik-${m.SKU}`); 
+            let inputMob = document.getElementById(`opn-fisik-mob-${m.SKU}`);
+            let fisikStr = inputDesk && inputDesk.value !== '' ? inputDesk.value : (inputMob && inputMob.value !== '' ? inputMob.value : '');
 
-                if (fisikStr !== '') {
-                    let sysDesk = document.getElementById(`opn-sys-${m.SKU}`); let sysMob = document.getElementById(`opn-sys-mob-${m.SKU}`);
-                    let sys = parseInt(sysDesk ? sysDesk.innerText : (sysMob ? sysMob.innerText : 0)) || 0;
-                    let fisik = this.getNumericValue(fisikStr);
-                    let noteDesk = document.getElementById(`opn-note-${m.SKU}`); let noteMob = document.getElementById(`opn-note-mob-${m.SKU}`);
-                    let note = noteDesk && noteDesk.value !== '' ? noteDesk.value : (noteMob && noteMob.value !== '' ? noteMob.value : '');
+            // 2. Ambil nilai stok sistem sebagai default
+            let sysDesk = document.getElementById(`opn-sys-${m.SKU}`); 
+            let sysMob = document.getElementById(`opn-sys-mob-${m.SKU}`);
+            let sys = parseInt(sysDesk ? sysDesk.innerText : (sysMob ? sysMob.innerText : 0)) || 0;
 
-                    // Data untuk dikirim ke Google Sheets
-                    itemsToSubmit.push({ sku: m.SKU, sistem: sys, fisik: fisik, selisih: fisik - sys, catatan: note });
-                    // Data mentah untuk diolah fungsi Helper WA
-                    itemsForWa.push({ sku: m.SKU, nama: m.Nama_Produk, kategori: m.Kategori, sys: sys, fisik: fisik, selisih: fisik - sys, note: note });
-                }
+            // 🚀 LOGIKA BARU: Jika fisikStr kosong, pakai nilai sys. 
+            // Jadi semua barang akan terkirim, entah berubah atau tidak.
+            let fisik = fisikStr !== '' ? this.getNumericValue(fisikStr) : sys;
+
+            let noteDesk = document.getElementById(`opn-note-${m.SKU}`); 
+            let noteMob = document.getElementById(`opn-note-mob-${m.SKU}`);
+            let note = noteDesk && noteDesk.value !== '' ? noteDesk.value : (noteMob && noteMob.value !== '' ? noteMob.value : '');
+
+            // 3. Simpan data untuk WA (tetap kirim semua item)
+            itemsForWa.push({ sku: m.SKU, nama: m.Nama_Produk, kategori: m.Kategori, sys: sys, fisik: fisik, selisih: fisik - sys, note: note });
+            
+            // 4. Kirim ke Sheet hanya jika ada perubahan (agar database tidak membengkak)
+            // ATAU jika Anda ingin Owner melihat semua log meskipun tidak ada perubahan, 
+            // hapus baris 'if (fisik !== sys)' ini.
+            if (fisik !== sys) {
+                itemsToSubmit.push({ sku: m.SKU, sistem: sys, fisik: fisik, selisih: fisik - sys, catatan: note });
             }
-        });
-        
-        if (itemsToSubmit.length === 0) { this.setLoading(false); return this.showToast("Tidak ada stok yang dihitung!", "error"); }
-
-        // Memanggil Helper untuk mencetak teks WA yang sudah disortir & dianalisa AI
-        let waText = this.buildOpnameWaText(this.outlet, this.currentUser.Username, new Date().toLocaleString('id-ID'), itemsForWa);
-
-        const payload = { action: 'submit_opname', outlet: this.outlet, kasir: this.currentUser.Username, items: itemsToSubmit };
-        let res = await this.apiPost(payload);
-        
-        if (res.status === 'sukses') {
-            this.showToast("Opname berhasil Disimpan!");
-            this.showWaModal(waText);
-            if (!res.is_offline) { const r = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); this.db = await r.json(); this.refreshData(); this.switchMenu('pos'); }
-            else { this.switchMenu('pos'); }
         }
-        this.setLoading(false);
-    },
+    });
+    
+    if (itemsToSubmit.length === 0) { 
+        this.setLoading(false); 
+        return this.showToast("Tidak ada perubahan stok untuk dilaporkan!", "warning"); 
+    }
 
+    let waText = this.buildOpnameWaText(this.outlet, this.currentUser.Username, new Date().toLocaleString('id-ID'), itemsForWa);
+
+    const payload = { action: 'submit_opname', outlet: this.outlet, kasir: this.currentUser.Username, items: itemsToSubmit };
+    let res = await this.apiPost(payload);
+    
+    if (res.status === 'sukses') {
+        this.showToast("Opname berhasil Disimpan!");
+        this.showWaModal(waText);
+        if (!res.is_offline) { 
+            const r = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); 
+            this.db = await r.json(); 
+            this.refreshData(); 
+            this.switchMenu('pos'); 
+        } else { 
+            this.switchMenu('pos'); 
+        }
+    }
+    this.setLoading(false);
+},
     // AUDIT & BULK APPROVAL
     toggleAuditTab: function(tab) {
         const co = document.getElementById('audit-content-opname'); if(co) co.classList.add('hidden'); 

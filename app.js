@@ -375,30 +375,33 @@ const superApp = {
         if (data.promoScreenUrl) { const bg2 = document.getElementById('cfd-bg-screen'); if (bg2) bg2.style.backgroundImage = `url('${data.promoScreenUrl}')`; }
         const cfdStandby = document.getElementById('cfd-standby'); const cfdSuccess = document.getElementById('cfd-success');
         
+        // --- JIKA PEMBAYARAN SUKSES ---
         if (data.status === 'paid') { 
             cfdSuccess.classList.remove('hidden'); 
+            cfdStandby.classList.add('opacity-0', 'pointer-events-none'); 
             
-            // PERBAIKAN 1: Null Safety pada data kembalian (Mencegah blank screen)
             let kembalianAman = Number(data.kembali || 0).toLocaleString('id-ID');
-            
             document.getElementById('cfd-kembali').innerHTML = `Rp ${kembalianAman}<br><span class="text-white text-4xl sm:text-5xl mt-6 block drop-shadow-md">NOMOR ANTRIAN ANDA:<br><span class="text-yellow-300 font-black text-6xl sm:text-8xl mt-2 block">${data.antrian || '-'}</span></span>`; 
             
-            // PERBAIKAN 2: Mencegah timer bentrok jika transaksi terjadi sangat cepat
             if(this.cfdSuccessTimeout) clearTimeout(this.cfdSuccessTimeout);
-            
             this.cfdSuccessTimeout = setTimeout(() => { 
                 cfdSuccess.classList.add('hidden'); 
+                cfdStandby.classList.remove('opacity-0', 'pointer-events-none');
             }, 7000); 
             
-        } else { 
-            cfdSuccess.classList.add('hidden'); 
-        }
+            return; // 🚀 HENTIKAN KODE DI SINI! Agar keranjang tidak digambar ulang.
+        } 
         
-        if (data.items && data.items.length === 0 && data.status !== 'paid') { 
+        // --- JIKA TRANSAKSI NORMAL / NORMAL BARU ---
+        cfdSuccess.classList.add('hidden'); 
+        if(this.cfdSuccessTimeout) clearTimeout(this.cfdSuccessTimeout);
+        
+        if (data.items && data.items.length === 0) { 
             cfdStandby.classList.remove('opacity-0', 'pointer-events-none'); 
         } 
         else if (data.items) {
-            cfdStandby.classList.add('opacity-0', 'pointer-events-none'); let html = '';
+            cfdStandby.classList.add('opacity-0', 'pointer-events-none'); 
+            let html = '';
             data.items.forEach(i => { html += `<div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex justify-between items-center"><div><h4 class="font-black text-slate-800 text-lg">${i.nama}</h4><p class="text-slate-500 font-bold">${i.qty} x Rp ${Number(i.price || 0).toLocaleString('id-ID')}</p></div><p class="font-black text-brand-500 text-xl">Rp ${(Number(i.price || 0) * Number(i.qty || 0)).toLocaleString('id-ID')}</p></div>`; });
             const listEl = document.getElementById('cfd-cart-list'); if (listEl) listEl.innerHTML = html;
             const totEl = document.getElementById('cfd-total'); if (totEl) totEl.innerText = `Rp ${Number(data.total || 0).toLocaleString('id-ID')}`;
@@ -900,7 +903,7 @@ const superApp = {
         setTimeout(() => { const cont = document.getElementById('cart-container'); if (cont) cont.scrollTop = cont.scrollHeight; }, 50);
     },
     changeQty: function(idx, val) { this.cart[idx].qty += val; if (this.cart[idx].qty <= 0) this.cart.splice(idx, 1); this.renderCart(); },
-    renderCart: function() {
+   renderCart: function() {
         const cont = document.getElementById('cart-container'); let total = 0, items = 0, html = ''; if (!cont) return;
         this.cart.forEach((i, idx) => {
             total += (i.price * i.qty); items += i.qty;
@@ -914,7 +917,9 @@ const superApp = {
         
         const totalEl = document.getElementById('total-price'); if (totalEl) totalEl.innerText = `Rp ${total.toLocaleString('id-ID')}`;
         const badge = document.getElementById('cart-badge'); if (badge) badge.innerText = `${items} Item`;
-        this.payTotal = total; this.syncStorage();
+        this.payTotal = total; 
+        
+        this.syncStorage(); // KEMBALIKAN KE NORMAL
     },
 
     // PAYMENT
@@ -972,55 +977,58 @@ const superApp = {
     
     // PENAMBAHAN SISTEM NOMOR ANTRIAN
     executeCheckout: async function() {
-        // Kunci tombol agar tidak terklik ganda, tapi jangan pakai layar loading penuh
         if (this.isProcessing) return; 
         this.isProcessing = true;
         
         let d = new Date(); let pad = (n) => n < 10 ? '0' + n : n;
         let todayStrLocal = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
         
-        // Hitung Antrian Hari Ini
         let countToday = 0;
         (this.db.transactions || []).forEach(t => {
             if (t.Outlet === this.outlet && this.cleanDateOnly(t.Tanggal) === todayStrLocal) { countToday++; }
         });
         let noAntrian = countToday + 1;
-
         let trxID = 'TRX' + d.getTime();
+        
         const payload = { action: 'checkout', trx_id: trxID, outlet: this.outlet, kasir: this.currentUser.Username, metode_bayar: this.payMethod, total: this.payTotal, tunai: this.payCash, kembali: this.payChange, items: this.cart, id_shift: this.activeShiftId, tim_operasional: this.activeStaffTeam, antrian: noAntrian };
 
-        // 1. CETAK STRUK & UPDATE LAYAR CFD (INSTAN)
-        try { 
-            await this.printReceipt(trxID, this.outlet, this.payTotal, this.payCash, this.payChange, this.cart, 'Sukses', null, noAntrian); 
-        } catch (e) {
-            console.log("Printer belum siap atau dibatalkan");
-        }
-        this.syncStorage('paid', noAntrian);
-
-        // 2. CATAT KE MEMORI LOKAL SECARA PAKSA (OPTIMISTIC UI)
+        try { await this.printReceipt(trxID, this.outlet, this.payTotal, this.payCash, this.payChange, this.cart, 'Sukses', null, noAntrian); } catch (e) { console.log("Printer belum siap"); }
+        
         if (!this.db.transactions) this.db.transactions = [];
         this.db.transactions.push({ 
-            ID_TRX: trxID, Tanggal: todayStrLocal, 
-            Waktu: `${pad(d.getHours())}.${pad(d.getMinutes())}.${pad(d.getSeconds())}`, 
+            ID_TRX: trxID, Tanggal: todayStrLocal, Waktu: `${pad(d.getHours())}.${pad(d.getMinutes())}.${pad(d.getSeconds())}`, 
             Outlet: this.outlet, Kasir: this.currentUser.Username, Metode_Bayar: this.payMethod, 
             Total_Bayar: this.payTotal, Tunai: this.payCash, Kembalian: this.payChange, 
-            Items_JSON: JSON.stringify(this.cart), ID_Shift: this.activeShiftId, 
-            Status: 'Sukses', Antrian: noAntrian 
+            Items_JSON: JSON.stringify(this.cart), ID_Shift: this.activeShiftId, Status: 'Sukses', Antrian: noAntrian 
         });
-        
-        // Amankan memori lokal agar tidak hilang jika di-refresh
         localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
-        
-        // Perbarui layar rekap & histori saat itu juga
         this.refreshData(); 
-        
         this.showToast(`Transaksi Sukses! No Antrian: ${noAntrian}`);
 
-        // 3. BERSIHKAN LAYAR KASIR (0 DETIK - SIAP LAYANI PELANGGAN BERIKUTNYA)
+        // --- 🚀 KUNCI PERBAIKAN ALUR CFD ---
+        // 1. Simpan angka total & kembalian ke kapsul
+        this._lastPaidTotal = this.payTotal;
+        this._lastPaidChange = this.payChange;
+
+        // 2. Bersihkan keranjang kasir SEKARANG JUGA (CFD akan mendapat sinyal keranjang kosong)
         this.cart = []; 
         this.renderCart(); 
+
+        // 3. Tembakkan sinyal 'PAID' sebagai kata terakhir ke CFD
+        this.syncStorage('paid', noAntrian); 
+        
         this.closeModal('modal-payment'); 
-        this.isProcessing = false; // Buka kunci tombol untuk pelanggan selanjutnya
+        this.isProcessing = false;
+        // ------------------------------------
+
+        this.apiPost(payload).then(res => {
+            if (res && res.status !== 'sukses' && !res.is_offline) {
+               this.offlineQueue.push(payload);
+               localStorage.setItem('aisnack_offline_queue', JSON.stringify(this.offlineQueue));
+               this.updateNetworkUI();
+            }
+        }).catch(err => { console.log("Masuk ke antrean offline."); });
+    },
 
         // ========================================================
         // 4. SILENT BACKGROUND SYNC (Proses Gaib Tanpa Ditunggu Kasir)

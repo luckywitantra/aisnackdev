@@ -2319,8 +2319,15 @@ const superApp = {
 window.onload = () => superApp.init();
 // Tambahkan ini di bawah window.onload = () => superApp.init();
 setInterval(() => {
-    // Hanya menarik data jika sedang online dan keranjang kasir sedang kosong
-    if (superApp.isOnline && superApp.cart.length === 0) {
-        superApp.pullFreshData(true); // HARUS ADA 'true' AGAR BERJALAN GAIB (SILENT)
+    // 1. Cek apakah layar utama POS (Kasir) sedang aktif / terbuka
+    const viewPos = document.getElementById('view-pos');
+    const isPosActive = viewPos && !viewPos.classList.contains('hidden');
+
+    // 2. HANYA tarik data gaib jika: 
+    // - Internet nyala
+    // - Keranjang kosong (tidak ganggu transaksi)
+    // - Staf sedang standby di halaman POS (bukan di halaman Opname/Terima Barang)
+    if (superApp.isOnline && superApp.cart.length === 0 && isPosActive) {
+        superApp.pullFreshData(true); 
     }
 }, 300000);

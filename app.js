@@ -3,6 +3,9 @@ const API_URL = "https://script.google.com/macros/s/AKfycbzIG5gEXEfMeOiwJUd7SGRO
 /* ========================================== */
 /* 1. MESIN VIRTUAL KEYBOARD (IN-APP OSK)     */
 /* ========================================== */
+/* ========================================== */
+/* 1. MESIN VIRTUAL KEYBOARD (IN-APP OSK)     */
+/* ========================================== */
 const osKeyboard = {
     targetElement: null, mode: 'numeric', isOpen: false,
     layouts: {
@@ -12,6 +15,12 @@ const osKeyboard = {
     open: function(elOrId, type = 'text') {
         this.targetElement = typeof elOrId === 'string' ? document.getElementById(elOrId) : elOrId;
         if (!this.targetElement) return;
+        
+        // 🚀 PERBAIKAN 1: Pastikan elemen terkunci di memori browser HP
+        if (this.targetElement.id) {
+            this.targetElement = document.getElementById(this.targetElement.id);
+        }
+
         this.mode = type; this.isOpen = true; this.render();
         const vk = document.getElementById('virtual-keyboard'); const ov = document.getElementById('virtual-keyboard-overlay');
         if (vk) { vk.classList.remove('hidden'); setTimeout(() => vk.classList.remove('translate-y-full'), 10); }
@@ -38,9 +47,28 @@ const osKeyboard = {
         html += `<div class="flex justify-center gap-2 w-full mt-2"><button class="flex-1 py-4 bg-slate-200 text-slate-700 font-bold rounded-xl shadow-sm border border-slate-300 hover:bg-slate-300 transition active:scale-95" onclick="osKeyboard.backspace()"><i class="fas fa-backspace"></i> HAPUS</button><button class="flex-[2] py-4 bg-brand-500 text-white font-black rounded-xl shadow-md hover:bg-brand-600 transition active:scale-95 text-lg" onclick="osKeyboard.close()"><i class="fas fa-check-circle"></i> SELESAI</button></div>`;
         container.innerHTML = html;
     },
-    insert: function(char) { if (!this.targetElement) return; this.targetElement.value += char; this.targetElement.dispatchEvent(new Event('input', { bubbles: true })); },
-    backspace: function() { if (!this.targetElement) return; this.targetElement.value = this.targetElement.value.slice(0, -1); this.targetElement.dispatchEvent(new Event('input', { bubbles: true })); },
-    clear: function() { if (!this.targetElement) return; this.targetElement.value = ''; this.targetElement.dispatchEvent(new Event('input', { bubbles: true })); }
+    insert: function(char) { 
+        if (!this.targetElement) return; 
+
+        // 🚀 PERBAIKAN 2: Jika isi inputannya persis angka "0" saja, hapus dulu!
+        // Ini memastikan saat user ngetik "5", jadinya "5", bukan "05"
+        if (this.targetElement.value === '0') {
+            this.targetElement.value = '';
+        }
+
+        this.targetElement.value += char; 
+        this.targetElement.dispatchEvent(new Event('input', { bubbles: true })); 
+    },
+    backspace: function() { 
+        if (!this.targetElement) return; 
+        this.targetElement.value = this.targetElement.value.slice(0, -1); 
+        this.targetElement.dispatchEvent(new Event('input', { bubbles: true })); 
+    },
+    clear: function() { 
+        if (!this.targetElement) return; 
+        this.targetElement.value = ''; 
+        this.targetElement.dispatchEvent(new Event('input', { bubbles: true })); 
+    }
 };
 
 /* ========================================== */
@@ -1234,16 +1262,22 @@ const superApp = {
     }
     this.setLoading(false);
 },
-   renderOpname: function() {
+  renderOpname: function() {
     const lbl = document.getElementById('lbl-opname-outlet'); if (lbl) lbl.innerText = this.outlet;
     let hu = ''; let hp = ''; let hum = ''; let hpm = '';
     
+    // Simpan data sys untuk disuntikkan ulang nanti
+    let autoFillData = []; 
+
     [...(this.db.masterProduk || [])].sort((a, b) => String(a.Nama_Produk || '').localeCompare(String(b.Nama_Produk || ''))).forEach(m => {
         if (String(m.Kategori || '').toLowerCase() === 'bahan' || String(m.Kategori || '').toLowerCase() === 'pendukung') {
             let sData = (this.db.hargaStokOutlet || []).find(x => x.SKU === m.SKU && x.ID_Outlet === this.outlet);
             let sys = sData ? Number(sData.Stok_Toko) : 0;
 
-            // 🚀 PERUBAHAN UTAMA: Menambahkan value="${sys}" pada input agar langsung terisi stok sistem
+            // Simpan ID elemen dan valuenya ke array
+            autoFillData.push({ idDesk: `opn-fisik-${m.SKU}`, idMob: `opn-fisik-mob-${m.SKU}`, val: sys });
+
+            // (Kode HTML Anda tetap sama, value="${sys}" biarkan saja di situ)
             let desk = `<tr class="border-b border-slate-50">
                 <td class="py-3 px-4 min-w-[150px] whitespace-normal text-slate-800">${m.Nama_Produk}<br><span class="text-[10px] text-slate-400 font-normal">${m.SKU}</span></td>
                 <td class="py-3 px-4 text-center text-brand-600" id="opn-sys-${m.SKU}">${sys}</td>
@@ -1275,6 +1309,17 @@ const superApp = {
     const tU = document.getElementById('opname-tbody-utama'); if (tU) tU.innerHTML = hu || this.getEmptyState('fa-box-open', 'Belum Ada Bahan', 'Tambahkan bahan di menu gudang');
     const tP = document.getElementById('opname-tbody-pendukung'); if (tP) tP.innerHTML = hp || this.getEmptyState('fa-box-open', 'Belum Ada Barang', 'Tambahkan pendukung di gudang');
     const mobCards = document.getElementById('opname-mobile-cards'); if (mobCards) mobCards.innerHTML = `<h4 class="font-extrabold text-brand-600 mt-2 mb-2 bg-brand-50 p-3 rounded-xl border border-brand-100 text-sm">A. Bahan Utama</h4>` + (hum || '<p class="text-xs text-center">Kosong</p>') + `<h4 class="font-extrabold text-slate-600 mt-6 mb-2 bg-slate-100 p-3 rounded-xl border border-slate-200 text-sm">B. Pendukung & Packaging</h4>` + (hpm || '<p class="text-xs text-center">Kosong</p>');
+
+    // 🚀 KUNCI PERBAIKAN 3: Eksekusi injeksi value manual setelah DOM ter-render
+    // Ini adalah 'obat kuat' untuk masalah browser HP
+    setTimeout(() => {
+        autoFillData.forEach(item => {
+            let elDesk = document.getElementById(item.idDesk);
+            let elMob = document.getElementById(item.idMob);
+            if (elDesk) elDesk.value = item.val;
+            if (elMob) elMob.value = item.val;
+        });
+    }, 50); // Jeda 50ms sangat cukup agar HP sadar ada tabel baru
 },
     
     calcOpname: function(sku) {

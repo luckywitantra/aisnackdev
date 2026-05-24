@@ -369,38 +369,52 @@ const superApp = {
     },
     
     renderCFD: function(data) {
+        // --- 🚀 PERISAI RACE CONDITION ---
+        // Jika layar sukses sedang tayang, dan server mengirim update "keranjang kosong", ABAIKAN.
+        // Biarkan layar sukses tayang sampai waktu 7 detik habis.
+        if (this.isShowingSuccess && data.status !== 'paid' && data.items && data.items.length === 0) {
+            return; 
+        }
+        // ---------------------------------
+
         const outNameEl = document.getElementById('cfd-outlet-name'); if (outNameEl) outNameEl.innerText = `Cabang ${data.outlet}`;
         if (data.promoStandbyUrl) { const bg1 = document.getElementById('cfd-bg-standby'); if (bg1) bg1.style.backgroundImage = `url('${data.promoStandbyUrl}')`; }
         if (data.promoScreenUrl) { const bg2 = document.getElementById('cfd-bg-screen'); if (bg2) bg2.style.backgroundImage = `url('${data.promoScreenUrl}')`; }
         const cfdStandby = document.getElementById('cfd-standby'); const cfdSuccess = document.getElementById('cfd-success');
         
         if (data.status === 'paid') { 
+            this.isShowingSuccess = true; // Kunci perisai menyala
             cfdSuccess.classList.remove('hidden'); 
+            cfdStandby.classList.add('opacity-0', 'pointer-events-none'); // Sembunyikan layar lain
             
-            // PERBAIKAN 1: Null Safety pada data kembalian (Mencegah blank screen)
             let kembalianAman = Number(data.kembali || 0).toLocaleString('id-ID');
-            
             document.getElementById('cfd-kembali').innerHTML = `Rp ${kembalianAman}<br><span class="text-white text-4xl sm:text-5xl mt-6 block drop-shadow-md">NOMOR ANTRIAN ANDA:<br><span class="text-yellow-300 font-black text-6xl sm:text-8xl mt-2 block">${data.antrian || '-'}</span></span>`; 
             
-            // PERBAIKAN 2: Mencegah timer bentrok jika transaksi terjadi sangat cepat
             if(this.cfdSuccessTimeout) clearTimeout(this.cfdSuccessTimeout);
             
             this.cfdSuccessTimeout = setTimeout(() => { 
                 cfdSuccess.classList.add('hidden'); 
+                this.isShowingSuccess = false; // Buka perisai
+                // Otomatis kembali ke layar promosi (Standby)
+                cfdStandby.classList.remove('opacity-0', 'pointer-events-none');
             }, 7000); 
             
         } else { 
+            // Jika kasir menginput produk baru (pelanggan selanjutnya), langsung matikan layar sukses!
+            this.isShowingSuccess = false; 
+            if(this.cfdSuccessTimeout) clearTimeout(this.cfdSuccessTimeout);
             cfdSuccess.classList.add('hidden'); 
-        }
-        
-        if (data.items && data.items.length === 0 && data.status !== 'paid') { 
-            cfdStandby.classList.remove('opacity-0', 'pointer-events-none'); 
-        } 
-        else if (data.items) {
-            cfdStandby.classList.add('opacity-0', 'pointer-events-none'); let html = '';
-            data.items.forEach(i => { html += `<div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex justify-between items-center"><div><h4 class="font-black text-slate-800 text-lg">${i.nama}</h4><p class="text-slate-500 font-bold">${i.qty} x Rp ${Number(i.price || 0).toLocaleString('id-ID')}</p></div><p class="font-black text-brand-500 text-xl">Rp ${(Number(i.price || 0) * Number(i.qty || 0)).toLocaleString('id-ID')}</p></div>`; });
-            const listEl = document.getElementById('cfd-cart-list'); if (listEl) listEl.innerHTML = html;
-            const totEl = document.getElementById('cfd-total'); if (totEl) totEl.innerText = `Rp ${Number(data.total || 0).toLocaleString('id-ID')}`;
+            
+            if (data.items && data.items.length === 0) { 
+                cfdStandby.classList.remove('opacity-0', 'pointer-events-none'); 
+            } 
+            else if (data.items) {
+                cfdStandby.classList.add('opacity-0', 'pointer-events-none'); 
+                let html = '';
+                data.items.forEach(i => { html += `<div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex justify-between items-center"><div><h4 class="font-black text-slate-800 text-lg">${i.nama}</h4><p class="text-slate-500 font-bold">${i.qty} x Rp ${Number(i.price || 0).toLocaleString('id-ID')}</p></div><p class="font-black text-brand-500 text-xl">Rp ${(Number(i.price || 0) * Number(i.qty || 0)).toLocaleString('id-ID')}</p></div>`; });
+                const listEl = document.getElementById('cfd-cart-list'); if (listEl) listEl.innerHTML = html;
+                const totEl = document.getElementById('cfd-total'); if (totEl) totEl.innerText = `Rp ${Number(data.total || 0).toLocaleString('id-ID')}`;
+            }
         }
     },
     

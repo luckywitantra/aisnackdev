@@ -1390,7 +1390,7 @@ const superApp = {
 
         return waText;
     },
- submitOpname: async function() {
+submitOpname: async function() {
     if (this.isProcessing) return;
     if (!confirm("Kirim Opname ke Owner? Stok fisik akan diverifikasi (Audit) terlebih dahulu sebelum dirubah pada sistem.")) return;
     this.setLoading(true, "Menyimpan & Mengirim Audit...");
@@ -1398,30 +1398,45 @@ const superApp = {
     let itemsToSubmit = [];
     let itemsForWa = [];
 
-    // 🚀 DETEKSI LAYAR: Cek apakah kasir pakai HP atau Laptop/Tablet
-    // Batas Tailwind 'md' adalah 768px
-    let isMobile = window.innerWidth < 768;
-
     (this.db.masterProduk || []).forEach(m => {
         if (String(m.Kategori || '').toLowerCase() === 'bahan' || String(m.Kategori || '').toLowerCase() === 'pendukung') {
             
-            // 🚀 PERBAIKAN: Ambil elemen hanya dari tampilan yang SEDANG AKTIF
-            let inputEl = isMobile ? document.getElementById(`opn-fisik-mob-${m.SKU}`) : document.getElementById(`opn-fisik-${m.SKU}`);
-            let sysEl = isMobile ? document.getElementById(`opn-sys-mob-${m.SKU}`) : document.getElementById(`opn-sys-${m.SKU}`);
-            let noteEl = isMobile ? document.getElementById(`opn-note-mob-${m.SKU}`) : document.getElementById(`opn-note-${m.SKU}`);
+            // 1. 🚀 AMBIL DATA SISTEM DARI DATABASE (100% Akurat, bebas dari error pembacaan HTML)
+            let sData = (this.db.hargaStokOutlet || []).find(x => x.SKU === m.SKU && x.ID_Outlet === this.outlet);
+            let sys = sData ? Number(sData.Stok_Toko) : 0;
 
-            let fisikStr = inputEl ? inputEl.value : '';
-            let sys = parseInt(sysEl ? sysEl.innerText : 0) || 0;
+            // 2. Ambil elemen input dari kedua versi tampilan
+            let inputDesk = document.getElementById(`opn-fisik-${m.SKU}`); 
+            let inputMob = document.getElementById(`opn-fisik-mob-${m.SKU}`);
+            let noteDesk = document.getElementById(`opn-note-${m.SKU}`); 
+            let noteMob = document.getElementById(`opn-note-mob-${m.SKU}`);
 
-            // Jika fisik kosong (walaupun jarang karena sudah diisi otomatis), pakai sistem
-            let fisik = fisikStr !== '' ? this.getNumericValue(fisikStr) : sys;
-            let note = noteEl ? noteEl.value : '';
+            // 3. Baca isian angka kasir (Jika kosong, anggap sama dengan nilai sistem)
+            let valDesk = inputDesk && inputDesk.value !== '' ? this.getNumericValue(inputDesk.value) : sys;
+            let valMob = inputMob && inputMob.value !== '' ? this.getNumericValue(inputMob.value) : sys;
 
-            // Simpan log lengkap untuk Laporan WA
+            // 4. 🚀 DETEKSI OTOMATIS: Kasir ngetik di HP atau di Laptop?
+            let fisik = sys;
+            let note = '';
+
+            if (valMob !== sys) {
+                // Berarti angka di HP berubah!
+                fisik = valMob;
+                note = noteMob ? noteMob.value : '';
+            } else if (valDesk !== sys) {
+                // Berarti angka di Laptop berubah!
+                fisik = valDesk;
+                note = noteDesk ? noteDesk.value : '';
+            } else {
+                // Angka tidak berubah, tapi siapa tahu kasir kasih catatan tambahan
+                note = (noteMob && noteMob.value !== '') ? noteMob.value : (noteDesk && noteDesk.value !== '' ? noteDesk.value : '');
+            }
+
+            // 5. Masukkan ke list untuk dilaporkan ke Owner via WA (semua barang dikirim)
             itemsForWa.push({ sku: m.SKU, nama: m.Nama_Produk, kategori: m.Kategori, sys: sys, fisik: fisik, selisih: fisik - sys, note: note });
             
-            // Hanya data yang berbeda dari sistem yang dikirim ke Database Google
-            if (fisik !== sys) {
+            // 6. Masukkan ke list Database JIKA ADA PERUBAHAN (baik fisik maupun catatan)
+            if (fisik !== sys || note !== '') {
                 itemsToSubmit.push({ sku: m.SKU, sistem: sys, fisik: fisik, selisih: fisik - sys, catatan: note });
             }
         }
@@ -1429,7 +1444,7 @@ const superApp = {
     
     if (itemsToSubmit.length === 0) { 
         this.setLoading(false); 
-        return this.showToast("Tidak ada perubahan stok untuk dilaporkan!", "warning"); 
+        return this.showToast("Tidak ada perubahan stok atau catatan untuk dilaporkan!", "warning"); 
     }
 
     let waText = this.buildOpnameWaText(this.outlet, this.currentUser.Username, new Date().toLocaleString('id-ID'), itemsForWa);

@@ -1347,46 +1347,56 @@ const superApp = {
         const vBtn = document.getElementById(`tab-audit-${tab}`); if(vBtn) vBtn.className = 'px-5 py-2.5 bg-white text-slate-800 rounded-lg text-sm font-bold shadow-sm whitespace-nowrap transition border border-slate-200';
     },
     renderAudit: function() {
-        const tbodyOp = document.getElementById('audit-opname-tbody');
-        if (tbodyOp) {
-            let html = '';
-            (this.db.opname || []).forEach(op => {
-                if (op.Status_Approval === 'Pending') {
-                    let itemName = this.db.masterProduk.find(m => m.SKU === op.SKU)?.Nama_Produk || op.SKU || 'Unknown';
-                    let selColor = op.Selisih < 0 ? 'text-red-500' : (op.Selisih > 0 ? 'text-green-500' : 'text-slate-500');
-                    let wStr = this.cleanDateOnly(op.Waktu) + ' ' + this.cleanTimeOnly(op.Waktu);
+    const tbodyOp = document.getElementById('audit-opname-tbody');
+    if (tbodyOp) {
+        let html = '';
+        (this.db.opname || []).forEach(op => {
+            if (op.Status_Approval === 'Pending') {
+                let itemName = this.db.masterProduk.find(m => m.SKU === op.SKU)?.Nama_Produk || op.SKU || 'Unknown';
+                let selColor = op.Selisih < 0 ? 'text-red-500' : (op.Selisih > 0 ? 'text-green-500' : 'text-slate-500');
+                let wStr = this.cleanDateOnly(op.Waktu) + ' ' + this.cleanTimeOnly(op.Waktu);
 
-                    html += `<tr class="border-b border-slate-50 hover:bg-slate-50 transition"><td class="py-3 px-4 text-center w-12"><input type="checkbox" class="cb-audit-opname w-5 h-5 rounded cursor-pointer accent-brand-500" value="${op.Waktu}|${op.SKU}|${op.Outlet}|${op.Stok_Fisik}" onchange="superApp.checkBulkAudit()"></td><td class="py-3 px-4 text-xs whitespace-nowrap">${wStr}</td><td class="py-3 px-4 text-xs whitespace-nowrap">${op.Outlet}<br><span class="text-brand-500">${op.Kasir}</span></td><td class="py-3 px-4 text-xs font-bold whitespace-normal min-w-[150px]">${itemName}</td><td class="py-3 px-4 text-center text-xs whitespace-nowrap">Sys: ${op.Stok_Sistem} <i class="fas fa-arrow-right mx-1 text-slate-300"></i> Fisik: ${op.Stok_Fisik}</td><td class="py-3 px-4 text-right font-black ${selColor}">${op.Selisih > 0 ? '+'+op.Selisih : op.Selisih}</td><td class="py-3 px-4 text-xs italic whitespace-normal min-w-[150px]">${op.Keterangan_Fisik || '-'}</td></tr>`;
-                }
-            });
-            tbodyOp.innerHTML = html || `<tr><td colspan="7" class="text-center py-6 h-32">${this.getEmptyState('fa-clipboard-check', 'Audit Bersih', 'Tidak ada laporan opname yang pending')}</td></tr>`;
-        }
+                html += `<tr class="border-b border-slate-50 hover:bg-slate-50 transition">
+                    <td class="py-3 px-4 text-center w-12"><input type="checkbox" class="cb-audit-opname w-5 h-5 rounded cursor-pointer accent-brand-500" value="${op.Waktu}|${op.SKU}|${op.Outlet}|${op.Stok_Fisik}" onchange="superApp.checkBulkAudit()"></td>
+                    <td class="py-3 px-4 text-xs whitespace-nowrap">${wStr}</td>
+                    <td class="py-3 px-4 text-xs whitespace-nowrap">${op.Outlet}<br><span class="text-brand-500">${op.Kasir}</span></td>
+                    <td class="py-3 px-4 text-xs font-bold whitespace-normal min-w-[150px]">${itemName}</td>
+                    <td class="py-3 px-4 text-center text-xs whitespace-nowrap">Sys: ${op.Stok_Sistem} <i class="fas fa-arrow-right mx-1 text-slate-300"></i> Fisik: ${op.Stok_Fisik}</td>
+                    <td class="py-3 px-4 text-right font-black ${selColor}">${op.Selisih > 0 ? '+'+op.Selisih : op.Selisih}</td>
+                    <td class="py-3 px-4 text-xs italic whitespace-normal min-w-[150px]">${op.Keterangan_Fisik || '-'}</td>
+                </tr>`;
+            }
+        });
+        tbodyOp.innerHTML = html || `<tr><td colspan="7" class="text-center py-6 h-32">${this.getEmptyState('fa-clipboard-check', 'Audit Bersih', 'Tidak ada laporan opname yang pending')}</td></tr>`;
+    }
 
-      const tbodyTr = document.getElementById('audit-terima-tbody');
+    const tbodyTr = document.getElementById('audit-terima-tbody');
     if (tbodyTr) {
         let html = '';
-        // Kita hitung dulu berapa kali tiap outlet sudah melakukan mutasi hari ini
         let mutasiHistoryHariIni = {};
+
         (this.db.mutasi || []).forEach(mt => {
-            if (mt.Status_Approval === 'Disetujui') {
-                let tanggal = this.cleanDateOnly(mt.Waktu);
-                let key = `${mt.Outlet_Tujuan}_${tanggal}`;
-                mutasiHistoryHariIni[key] = (mutasiHistoryHariIni[key] || 0) + 1;
+            if (mt.Status_Approval === 'Disetujui' && mt.Waktu) {
+                let tgl = this.cleanDateOnly(mt.Waktu);
+                // Pastikan key valid
+                if (tgl) {
+                    let key = `${mt.Outlet_Tujuan}_${tgl}`;
+                    mutasiHistoryHariIni[key] = (mutasiHistoryHariIni[key] || 0) + 1;
+                }
             }
         });
 
         (this.db.mutasi || []).forEach(mt => {
             if (mt.Status_Approval === 'Pending') {
                 let itemName = this.db.masterProduk.find(m => m.SKU === mt.SKU)?.Nama_Produk || mt.SKU || 'Unknown';
-                let safeWaktu = String(mt.Waktu || ''); 
-                let wStr = safeWaktu.includes('T') ? this.cleanDateOnly(safeWaktu) + ' ' + this.cleanTimeOnly(safeWaktu) : safeWaktu;
-                
-                // 🚀 DETEKSI DUPLIKAT: Cek apakah hari ini sudah ada yang disetujui?
-                let tanggal = this.cleanDateOnly(mt.Waktu);
-                let key = `${mt.Outlet_Tujuan}_${tanggal}`;
+                let tgl = this.cleanDateOnly(mt.Waktu);
+                let key = `${mt.Outlet_Tujuan}_${tgl}`;
                 let sudahAda = mutasiHistoryHariIni[key] || 0;
+                
                 let warningBadge = sudahAda > 0 ? 
                     `<span class="text-[10px] font-black bg-red-100 text-red-600 px-2 py-0.5 rounded shadow-sm animate-pulse block mt-1">⚠️ Sudah ${sudahAda}x kirim hari ini!</span>` : '';
+
+                let wStr = mt.Waktu ? (this.cleanDateOnly(mt.Waktu) + ' ' + this.cleanTimeOnly(mt.Waktu)) : '-';
 
                 html += `<tr class="border-b border-slate-50 hover:bg-slate-50 transition">
                     <td class="py-3 px-4 text-center w-12"><input type="checkbox" class="cb-audit-terima w-5 h-5 rounded cursor-pointer accent-brand-500" value="${mt.ID_Mutasi}" onchange="superApp.checkBulkAudit()"></td>
@@ -1401,7 +1411,7 @@ const superApp = {
         tbodyTr.innerHTML = html || `<tr><td colspan="6" class="text-center py-6 h-32">${this.getEmptyState('fa-box-open', 'Audit Bersih', 'Tidak ada penerimaan barang yang pending')}</td></tr>`;
     }
     this.checkBulkAudit();
-},
+}
     checkBulkAudit: function() {
         let opChecked = document.querySelectorAll('.cb-audit-opname:checked').length;
         let trChecked = document.querySelectorAll('.cb-audit-terima:checked').length;

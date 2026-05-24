@@ -1390,7 +1390,7 @@ const superApp = {
 
         return waText;
     },
-  submitOpname: async function() {
+ submitOpname: async function() {
     if (this.isProcessing) return;
     if (!confirm("Kirim Opname ke Owner? Stok fisik akan diverifikasi (Audit) terlebih dahulu sebelum dirubah pada sistem.")) return;
     this.setLoading(true, "Menyimpan & Mengirim Audit...");
@@ -1398,32 +1398,29 @@ const superApp = {
     let itemsToSubmit = [];
     let itemsForWa = [];
 
+    // 🚀 DETEKSI LAYAR: Cek apakah kasir pakai HP atau Laptop/Tablet
+    // Batas Tailwind 'md' adalah 768px
+    let isMobile = window.innerWidth < 768;
+
     (this.db.masterProduk || []).forEach(m => {
         if (String(m.Kategori || '').toLowerCase() === 'bahan' || String(m.Kategori || '').toLowerCase() === 'pendukung') {
-            // 1. Ambil nilai input
-            let inputDesk = document.getElementById(`opn-fisik-${m.SKU}`); 
-            let inputMob = document.getElementById(`opn-fisik-mob-${m.SKU}`);
-            let fisikStr = inputDesk && inputDesk.value !== '' ? inputDesk.value : (inputMob && inputMob.value !== '' ? inputMob.value : '');
+            
+            // 🚀 PERBAIKAN: Ambil elemen hanya dari tampilan yang SEDANG AKTIF
+            let inputEl = isMobile ? document.getElementById(`opn-fisik-mob-${m.SKU}`) : document.getElementById(`opn-fisik-${m.SKU}`);
+            let sysEl = isMobile ? document.getElementById(`opn-sys-mob-${m.SKU}`) : document.getElementById(`opn-sys-${m.SKU}`);
+            let noteEl = isMobile ? document.getElementById(`opn-note-mob-${m.SKU}`) : document.getElementById(`opn-note-${m.SKU}`);
 
-            // 2. Ambil nilai stok sistem sebagai default
-            let sysDesk = document.getElementById(`opn-sys-${m.SKU}`); 
-            let sysMob = document.getElementById(`opn-sys-mob-${m.SKU}`);
-            let sys = parseInt(sysDesk ? sysDesk.innerText : (sysMob ? sysMob.innerText : 0)) || 0;
+            let fisikStr = inputEl ? inputEl.value : '';
+            let sys = parseInt(sysEl ? sysEl.innerText : 0) || 0;
 
-            // 🚀 LOGIKA BARU: Jika fisikStr kosong, pakai nilai sys. 
-            // Jadi semua barang akan terkirim, entah berubah atau tidak.
+            // Jika fisik kosong (walaupun jarang karena sudah diisi otomatis), pakai sistem
             let fisik = fisikStr !== '' ? this.getNumericValue(fisikStr) : sys;
+            let note = noteEl ? noteEl.value : '';
 
-            let noteDesk = document.getElementById(`opn-note-${m.SKU}`); 
-            let noteMob = document.getElementById(`opn-note-mob-${m.SKU}`);
-            let note = noteDesk && noteDesk.value !== '' ? noteDesk.value : (noteMob && noteMob.value !== '' ? noteMob.value : '');
-
-            // 3. Simpan data untuk WA (tetap kirim semua item)
+            // Simpan log lengkap untuk Laporan WA
             itemsForWa.push({ sku: m.SKU, nama: m.Nama_Produk, kategori: m.Kategori, sys: sys, fisik: fisik, selisih: fisik - sys, note: note });
             
-            // 4. Kirim ke Sheet hanya jika ada perubahan (agar database tidak membengkak)
-            // ATAU jika Anda ingin Owner melihat semua log meskipun tidak ada perubahan, 
-            // hapus baris 'if (fisik !== sys)' ini.
+            // Hanya data yang berbeda dari sistem yang dikirim ke Database Google
             if (fisik !== sys) {
                 itemsToSubmit.push({ sku: m.SKU, sistem: sys, fisik: fisik, selisih: fisik - sys, catatan: note });
             }
@@ -1454,6 +1451,7 @@ const superApp = {
     }
     this.setLoading(false);
 },
+    
     // AUDIT & BULK APPROVAL
     toggleAuditTab: function(tab) {
         const co = document.getElementById('audit-content-opname'); if(co) co.classList.add('hidden'); 

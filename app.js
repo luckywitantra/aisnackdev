@@ -2326,18 +2326,15 @@ submitOpname: async function() {
         if(modal && modalContent) { modal.classList.remove('hidden'); setTimeout(() => modalContent.classList.add('modal-enter-active'), 10); }
     },
     connectBluetooth: async function(isAuto = false) {
-        // 1. Kunci pengaman dari kasir yang menekan tombol berkali-kali
         if (this.isBluetoothSearching) return;
         this.isBluetoothSearching = true; 
         
         const btnPrinter = document.getElementById('btn-printer');
         const statusPrinter = document.getElementById('printer-status');
         
-        // JANGAN tampilkan loading jika ini hanya pancingan otomatis
         if (!isAuto) this.setLoading(true, "Mengecek Printer...");
 
         try {
-            // 2. HARD RESET: Bersihkan memori hantu dari sisa koneksi sebelumnya
             if (this.printerDevice && this.printerDevice.gatt.connected) {
                 try { this.printerDevice.gatt.disconnect(); } catch(e) {}
             }
@@ -2347,75 +2344,67 @@ submitOpname: async function() {
             let device = null;
             let server = null;
 
-            // 3. SMART RECONNECT: Coba masuk diam-diam tanpa pop-up browser
+            // 3. SMART RECONNECT: Cek ingatan browser (Tanpa Pop-up)
             if (navigator.bluetooth && navigator.bluetooth.getDevices) {
                 const devices = await navigator.bluetooth.getDevices();
                 if (devices.length > 0) {
+                    device = devices[0]; // 🚀 KUNCI: Tetap ingat perangkatnya!
                     try {
-                        device = devices[0];
-                        server = await device.gatt.connect(); // Bangunkan printer!
+                        server = await device.gatt.connect(); 
                     } catch (e) {
-                        console.log("Printer lama mati/error, melupakan device...", e);
-                        if (device.forget) await device.forget(); 
-                        device = null; 
+                        console.log("Gagal menyambung seketika. Printer mungkin mati atau sleep.");
                         server = null;
+                        // KITA HAPUS device.forget() AGAR INGATAN TIDAK HILANG!
                     }
                 }
             }
 
-            // 4. JIKA INGATAN KOSONG/GAGAL
+            // 4. JIKA KONEKSI AWAL GAGAL ATAU BELUM PERNAH PAIRING
             if (!server) {
-                // 🚀 JIKA AUTO-CONNECT GAGAL, BATALKAN DIAM-DIAM. Jangan paksa muncul pop-up!
                 if (isAuto) {
+                    // Jika ini proses auto-connect saat login, batalkan diam-diam
                     this.isBluetoothSearching = false;
                     return; 
                 }
 
-                this.setLoading(true, "Mencari Perangkat Baru...");
-                device = await navigator.bluetooth.requestDevice({
-                    acceptAllDevices: true, 
-                    optionalServices: [
-                        '000018f0-0000-1000-8000-00805f9b34fb', // Standar
-                        '0000ff00-0000-1000-8000-00805f9b34fb', // Zjiang / Panda / VSC
-                        '0000e700-0000-1000-8000-00805f9b34fb', // Eppos
-                        '0000fee7-0000-1000-8000-00805f9b34fb', // Beberapa Iware / Xprinter
-                        'e7810a71-73ae-499d-8c15-faa9aef0c3f2'  // BLE Serial khusus
-                    ]
-                });
-                this.setLoading(true, "Mengawinkan Perangkat...");
-                server = await device.gatt.connect();
+                // 🚀 PENCEGAHAN SCAN ULANG: 
+                // Jika kasir klik tombol MANUAL, tapi kita masih punya ingatan 'device', 
+                // paksa sambung ulang ke device tersebut tanpa buka pop-up scan!
+                if (device) {
+                    this.setLoading(true, "Menyambungkan kembali...");
+                    try {
+                        server = await device.gatt.connect();
+                    } catch(e) {
+                        console.log("Tetap gagal, harus scan perangkat baru.");
+                        server = null;
+                    }
+                }
+
+                // Jika benar-benar gagal atau ingatan kosong, BARU buka pop-up Scan
+                if (!server) {
+                    this.setLoading(true, "Mencari Perangkat Baru...");
+                    device = await navigator.bluetooth.requestDevice({
+                        acceptAllDevices: true, 
+                        optionalServices: [
+                            '000018f0-0000-1000-8000-00805f9b34fb', '0000ff00-0000-1000-8000-00805f9b34fb',
+                            '0000e700-0000-1000-8000-00805f9b34fb', '0000fee7-0000-1000-8000-00805f9b34fb',
+                            'e7810a71-73ae-499d-8c15-faa9aef0c3f2'
+                        ]
+                    });
+                    this.setLoading(true, "Mengawinkan Perangkat...");
+                    server = await device.gatt.connect();
+                }
             }
 
-            // 5. DETEKSI OTOMATIS (ULTIMATE): Cari pintu data yang cocok dengan merk printer
             let service;
-            const serviceUUIDs = [
-                '000018f0-0000-1000-8000-00805f9b34fb',
-                '0000ff00-0000-1000-8000-00805f9b34fb',
-                '0000e700-0000-1000-8000-00805f9b34fb',
-                '0000fee7-0000-1000-8000-00805f9b34fb',
-                'e7810a71-73ae-499d-8c15-faa9aef0c3f2'
-            ];
-
-            for (let uuid of serviceUUIDs) {
-                try { service = await server.getPrimaryService(uuid); if(service) break; } catch(e) {}
-            }
+            const serviceUUIDs = ['000018f0-0000-1000-8000-00805f9b34fb', '0000ff00-0000-1000-8000-00805f9b34fb', '0000e700-0000-1000-8000-00805f9b34fb', '0000fee7-0000-1000-8000-00805f9b34fb', 'e7810a71-73ae-499d-8c15-faa9aef0c3f2'];
+            for (let uuid of serviceUUIDs) { try { service = await server.getPrimaryService(uuid); if(service) break; } catch(e) {} }
             if(!service) throw new Error("Service Printer tidak ditemukan");
 
-            // 6. DETEKSI CHARACTERISTIC OTOMATIS (ULTIMATE)
-            const charUUIDs = [
-                '00002af1-0000-1000-8000-00805f9b34fb',
-                '0000ff02-0000-1000-8000-00805f9b34fb',
-                '0000e701-0000-1000-8000-00805f9b34fb',
-                '0000fec8-0000-1000-8000-00805f9b34fb', // Pasangan fee7
-                'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f'  // Pasangan e781
-            ];
-
-            for (let uuid of charUUIDs) {
-                try { this.printerCharacteristic = await service.getCharacteristic(uuid); if(this.printerCharacteristic) break; } catch(e) {}
-            }
+            const charUUIDs = ['00002af1-0000-1000-8000-00805f9b34fb', '0000ff02-0000-1000-8000-00805f9b34fb', '0000e701-0000-1000-8000-00805f9b34fb', '0000fec8-0000-1000-8000-00805f9b34fb', 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f'];
+            for (let uuid of charUUIDs) { try { this.printerCharacteristic = await service.getCharacteristic(uuid); if(this.printerCharacteristic) break; } catch(e) {} }
             if(!this.printerCharacteristic) throw new Error("Characteristic gagal diakses");
 
-            // --- SUKSES MENYAMBUNG ---
             this.printerDevice = device;
             if (btnPrinter) {
                 btnPrinter.classList.replace('text-slate-600', 'text-green-600');
@@ -2426,7 +2415,6 @@ submitOpname: async function() {
             if (!isAuto) this.showToast("Printer Terhubung & Siap Cetak!", "success");
             if (!isAuto) this.setLoading(false);
 
-            // Mencegah double-listener error
             device.ongattserverdisconnected = null; 
             device.addEventListener('gattserverdisconnected', () => {
                 this.printerCharacteristic = null;
@@ -2441,19 +2429,17 @@ submitOpname: async function() {
         } catch (error) {
             if (!isAuto) this.setLoading(false);
             
-            // PENYELAMATAN ERROR: Bersihkan memori agar tombol bisa ditekan ulang!
-            this.printerDevice = null;
+            // JANGAN HAPUS INGATAN (Jangan set this.printerDevice = null secara permanen jika error)
             this.printerCharacteristic = null;
             
             if (!isAuto) {
                 if (error.name === 'NotFoundError' || error.message.includes('cancelled')) {
                     this.showToast("Pencarian dibatalkan.", "warning");
                 } else {
-                    this.showToast("Gagal menyambung ke Printer.", "error");
+                    this.showToast("Gagal menyambung. Pastikan printer menyala.", "error");
                 }
             }
         } finally {
-            // Beri jeda sistem 2 detik sebelum tombol boleh ditekan ulang
             setTimeout(() => { this.isBluetoothSearching = false; }, 2000);
         }
     },

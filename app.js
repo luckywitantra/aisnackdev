@@ -524,12 +524,23 @@ const superApp = {
                 }
                 
                 // Set DUAL Promo CFD
-                let pStandby = (this.db.pengaturan || []).find(x => x.Pengaturan === 'Promo_Standby');
-                if (pStandby) localStorage.setItem('cfd_promo_standby', pStandby.Nilai);
-                
-                let pTransaksi = (this.db.pengaturan || []).find(x => x.Pengaturan === 'Promo_Transaksi');
-                if (pTransaksi) localStorage.setItem('cfd_promo_transaksi', pTransaksi.Nilai);
+                // --- 🚀 KUNCI PERBAIKAN: SEDOT SEMUA PROMO PER CABANG ---
+// Kita akan memuat SEMUA promo ke localStorage, lalu sistem di syncStorage 
+// yang akan memilih mana yang cocok untuk outlet yang sedang aktif.
 
+(this.db.pengaturan || []).forEach(p => {
+    // Memeriksa pengaturan yang diawali dengan 'Promo_Standby_'
+    if (p.Pengaturan.startsWith('Promo_Standby_')) {
+        let namaCabang = p.Pengaturan.replace('Promo_Standby_', '');
+        localStorage.setItem(`cfd_promo_standby_${namaCabang}`, p.Nilai);
+    }
+    // Memeriksa pengaturan yang diawali dengan 'Promo_Transaksi_'
+    if (p.Pengaturan.startsWith('Promo_Transaksi_')) {
+        let namaCabang = p.Pengaturan.replace('Promo_Transaksi_', '');
+        localStorage.setItem(`cfd_promo_transaksi_${namaCabang}`, p.Nilai);
+    }
+});
+// ---------------------------------------------------------
                 // Set Tanggal Filter Report
                 let today = new Date(); let yyyy = today.getFullYear(); let mm = String(today.getMonth() + 1).padStart(2, '0'); let dd = String(today.getDate()).padStart(2, '0');
                 let todayStr = `${yyyy}-${mm}-${dd}`; 

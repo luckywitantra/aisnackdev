@@ -263,11 +263,14 @@ const superApp = {
                     mimeType: file.type 
                 }).then(res => { 
                     if (res.status === 'sukses') { 
-                        const storageKey = type === 'standby' ? 'cfd_promo_standby' : 'cfd_promo_transaksi';
+                        // --- 🚀 KUNCI PERBAIKAN: SIMPAN BERDASARKAN CABANG ---
+                        const storageKey = type === 'standby' ? `cfd_promo_standby_${this.outlet}` : `cfd_promo_transaksi_${this.outlet}`;
                         localStorage.setItem(storageKey, res.url); 
+                        // -----------------------------------------------------
+
                         this.syncStorage(); 
                         this.setLoading(false); 
-                        this.showToast(`Promo ${type.toUpperCase()} Berhasil Diperbarui!`); 
+                        this.showToast(`Promo ${type.toUpperCase()} Cabang ${this.outlet} Berhasil Diperbarui!`); 
                     } else {
                         this.setLoading(false);
                         this.showToast("Gagal upload: " + res.pesan, "error");
@@ -334,10 +337,7 @@ const superApp = {
     syncStorage: function(status = 'ordering', antrian = null) {
         if (new URLSearchParams(window.location.search).get('mode') === 'cfd') return;
         
-        // --- 🚀 KUNCI PERBAIKAN: KAPSULISASI DATA PAID ---
-        // Jika statusnya paid, kita KUNCI (simpan paksa) angka total dan kembali yang SAAT INI
-        // Karena jika kita bergantung pada this.payChange di saat kasir bergerak cepat, 
-        // this.payChange bisa saja sudah kembali jadi 0.
+        // Kunci Data Paid
         if (status === 'paid') {
             this._lastPaidTotal = this.payTotal;
             this._lastPaidChange = this.payChange;
@@ -345,7 +345,11 @@ const superApp = {
 
         let sentTotal = status === 'paid' ? this._lastPaidTotal : this.payTotal;
         let sentChange = status === 'paid' ? this._lastPaidChange : this.payChange;
-        // ------------------------------------------------
+
+        // --- 🚀 PERBAIKAN: MEMBACA PROMO KHUSUS CABANG ---
+        let spesifikStandby = localStorage.getItem(`cfd_promo_standby_${this.outlet}`) || localStorage.getItem('cfd_promo_standby');
+        let spesifikScreen = localStorage.getItem(`cfd_promo_transaksi_${this.outlet}`) || localStorage.getItem('cfd_promo_transaksi');
+        // -------------------------------------------------
 
         localStorage.setItem('ai_snack_cfd', JSON.stringify({ 
             outlet: this.outlet || 'Ai-Snack', 
@@ -355,8 +359,8 @@ const superApp = {
             status: status, 
             antrian: antrian, 
             timestamp: new Date().getTime(), 
-            promoStandbyUrl: localStorage.getItem('cfd_promo_standby'),
-            promoScreenUrl: localStorage.getItem('cfd_promo_transaksi')
+            promoStandbyUrl: spesifikStandby, 
+            promoScreenUrl: spesifikScreen 
         }));
     },
     
@@ -2318,8 +2322,8 @@ window.onload = () => superApp.init();
 
 // Tambahkan ini di bawah window.onload = () => superApp.init();
 setInterval(() => {
-    if (superApp.isOnline) {
-        superApp.pullFreshData(); // Memaksa tarik data setiap 5 menit (300.000 ms)
+    // Hanya menarik data jika sedang online dan keranjang kasir sedang kosong
+    if (superApp.isOnline && superApp.cart.length === 0) {
+        superApp.pullFreshData(true); // HARUS ADA 'true' AGAR BERJALAN GAIB (SILENT)
     }
-}, 300000);
-
+}, 300000);    

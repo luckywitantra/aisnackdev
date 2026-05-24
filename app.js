@@ -382,7 +382,7 @@ cleanupOldPromoKeys: function() {
             localStorage.removeItem(key); // Hapus kunci lama agar tidak bentrok
         }
     });
-}
+},
     
    initCFD: function() {
         document.getElementById('login-screen').classList.add('hidden'); document.getElementById('sidebar').classList.add('hidden'); document.getElementById('main-app').classList.add('hidden');

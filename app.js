@@ -1480,13 +1480,11 @@ submitOpname: async function() {
         const vBtn = document.getElementById(`tab-audit-${tab}`); if(vBtn) vBtn.className = 'px-5 py-2.5 bg-white text-slate-800 rounded-lg text-sm font-bold shadow-sm whitespace-nowrap transition border border-slate-200';
     },
 
-    // 🚀 FUNGSI YANG HILANG SEBELUMNYA SUDAH SAYA TAMBAHKAN DI SINI:
     toggleAllAuditCb: function(type, isChecked) {
         let cbs = document.querySelectorAll(`.cb-audit-${type}`); 
         cbs.forEach(cb => cb.checked = isChecked); 
         this.checkBulkAudit();
     },
-    // ========================================================
 
     renderAudit: function() {
         const tbodyOp = document.getElementById('audit-opname-tbody');

@@ -2317,10 +2317,10 @@ const superApp = {
 };
 
 window.onload = () => superApp.init();
-
 // Tambahkan ini di bawah window.onload = () => superApp.init();
 setInterval(() => {
-    if (superApp.isOnline) {
-        superApp.pullFreshData(); // Memaksa tarik data setiap 5 menit (300.000 ms)
+    // Hanya menarik data jika sedang online dan keranjang kasir sedang kosong
+    if (superApp.isOnline && superApp.cart.length === 0) {
+        superApp.pullFreshData(true); // HARUS ADA 'true' AGAR BERJALAN GAIB (SILENT)
     }
 }, 300000);

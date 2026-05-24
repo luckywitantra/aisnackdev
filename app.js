@@ -1483,7 +1483,8 @@ const superApp = {
         tbodyTr.innerHTML = html || `<tr><td colspan="6" class="text-center py-6 h-32">${this.getEmptyState('fa-box-open', 'Audit Bersih', 'Tidak ada penerimaan barang yang pending')}</td></tr>`;
     }
     this.checkBulkAudit();
-}
+},
+    
     checkBulkAudit: function() {
         let opChecked = document.querySelectorAll('.cb-audit-opname:checked').length;
         let trChecked = document.querySelectorAll('.cb-audit-terima:checked').length;

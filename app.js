@@ -333,11 +333,25 @@ const superApp = {
     
     syncStorage: function(status = 'ordering', antrian = null) {
         if (new URLSearchParams(window.location.search).get('mode') === 'cfd') return;
+        
+        // --- 🚀 KUNCI PERBAIKAN: KAPSULISASI DATA PAID ---
+        // Jika statusnya paid, kita KUNCI (simpan paksa) angka total dan kembali yang SAAT INI
+        // Karena jika kita bergantung pada this.payChange di saat kasir bergerak cepat, 
+        // this.payChange bisa saja sudah kembali jadi 0.
+        if (status === 'paid') {
+            this._lastPaidTotal = this.payTotal;
+            this._lastPaidChange = this.payChange;
+        }
+
+        let sentTotal = status === 'paid' ? this._lastPaidTotal : this.payTotal;
+        let sentChange = status === 'paid' ? this._lastPaidChange : this.payChange;
+        // ------------------------------------------------
+
         localStorage.setItem('ai_snack_cfd', JSON.stringify({ 
             outlet: this.outlet || 'Ai-Snack', 
             items: this.cart, 
-            total: this.payTotal, 
-            kembali: this.payChange, 
+            total: sentTotal, 
+            kembali: sentChange, 
             status: status, 
             antrian: antrian, 
             timestamp: new Date().getTime(), 

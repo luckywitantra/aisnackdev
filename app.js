@@ -383,52 +383,41 @@ const superApp = {
     },
     
     renderCFD: function(data) {
-        // --- 🚀 PERISAI RACE CONDITION ---
-        // Jika layar sukses sedang tayang, dan server mengirim update "keranjang kosong", ABAIKAN.
-        // Biarkan layar sukses tayang sampai waktu 7 detik habis.
-        if (this.isShowingSuccess && data.status !== 'paid' && data.items && data.items.length === 0) {
-            return; 
-        }
-        // ---------------------------------
-
         const outNameEl = document.getElementById('cfd-outlet-name'); if (outNameEl) outNameEl.innerText = `Cabang ${data.outlet}`;
         if (data.promoStandbyUrl) { const bg1 = document.getElementById('cfd-bg-standby'); if (bg1) bg1.style.backgroundImage = `url('${data.promoStandbyUrl}')`; }
         if (data.promoScreenUrl) { const bg2 = document.getElementById('cfd-bg-screen'); if (bg2) bg2.style.backgroundImage = `url('${data.promoScreenUrl}')`; }
         const cfdStandby = document.getElementById('cfd-standby'); const cfdSuccess = document.getElementById('cfd-success');
         
+        // --- JIKA PEMBAYARAN SUKSES ---
         if (data.status === 'paid') { 
-            this.isShowingSuccess = true; // Kunci perisai menyala
             cfdSuccess.classList.remove('hidden'); 
-            cfdStandby.classList.add('opacity-0', 'pointer-events-none'); // Sembunyikan layar lain
+            cfdStandby.classList.add('opacity-0', 'pointer-events-none'); 
             
             let kembalianAman = Number(data.kembali || 0).toLocaleString('id-ID');
             document.getElementById('cfd-kembali').innerHTML = `Rp ${kembalianAman}<br><span class="text-white text-4xl sm:text-5xl mt-6 block drop-shadow-md">NOMOR ANTRIAN ANDA:<br><span class="text-yellow-300 font-black text-6xl sm:text-8xl mt-2 block">${data.antrian || '-'}</span></span>`; 
             
             if(this.cfdSuccessTimeout) clearTimeout(this.cfdSuccessTimeout);
-            
             this.cfdSuccessTimeout = setTimeout(() => { 
                 cfdSuccess.classList.add('hidden'); 
-                this.isShowingSuccess = false; // Buka perisai
-                // Otomatis kembali ke layar promosi (Standby)
                 cfdStandby.classList.remove('opacity-0', 'pointer-events-none');
             }, 7000); 
             
-        } else { 
-            // Jika kasir menginput produk baru (pelanggan selanjutnya), langsung matikan layar sukses!
-            this.isShowingSuccess = false; 
-            if(this.cfdSuccessTimeout) clearTimeout(this.cfdSuccessTimeout);
-            cfdSuccess.classList.add('hidden'); 
-            
-            if (data.items && data.items.length === 0) { 
-                cfdStandby.classList.remove('opacity-0', 'pointer-events-none'); 
-            } 
-            else if (data.items) {
-                cfdStandby.classList.add('opacity-0', 'pointer-events-none'); 
-                let html = '';
-                data.items.forEach(i => { html += `<div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex justify-between items-center"><div><h4 class="font-black text-slate-800 text-lg">${i.nama}</h4><p class="text-slate-500 font-bold">${i.qty} x Rp ${Number(i.price || 0).toLocaleString('id-ID')}</p></div><p class="font-black text-brand-500 text-xl">Rp ${(Number(i.price || 0) * Number(i.qty || 0)).toLocaleString('id-ID')}</p></div>`; });
-                const listEl = document.getElementById('cfd-cart-list'); if (listEl) listEl.innerHTML = html;
-                const totEl = document.getElementById('cfd-total'); if (totEl) totEl.innerText = `Rp ${Number(data.total || 0).toLocaleString('id-ID')}`;
-            }
+            return; // 🚀 HENTIKAN KODE DI SINI! Agar keranjang tidak digambar ulang.
+        } 
+        
+        // --- JIKA TRANSAKSI NORMAL / NORMAL BARU ---
+        cfdSuccess.classList.add('hidden'); 
+        if(this.cfdSuccessTimeout) clearTimeout(this.cfdSuccessTimeout);
+        
+        if (data.items && data.items.length === 0) { 
+            cfdStandby.classList.remove('opacity-0', 'pointer-events-none'); 
+        } 
+        else if (data.items) {
+            cfdStandby.classList.add('opacity-0', 'pointer-events-none'); 
+            let html = '';
+            data.items.forEach(i => { html += `<div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex justify-between items-center"><div><h4 class="font-black text-slate-800 text-lg">${i.nama}</h4><p class="text-slate-500 font-bold">${i.qty} x Rp ${Number(i.price || 0).toLocaleString('id-ID')}</p></div><p class="font-black text-brand-500 text-xl">Rp ${(Number(i.price || 0) * Number(i.qty || 0)).toLocaleString('id-ID')}</p></div>`; });
+            const listEl = document.getElementById('cfd-cart-list'); if (listEl) listEl.innerHTML = html;
+            const totEl = document.getElementById('cfd-total'); if (totEl) totEl.innerText = `Rp ${Number(data.total || 0).toLocaleString('id-ID')}`;
         }
     },
     
@@ -943,12 +932,7 @@ const superApp = {
         const badge = document.getElementById('cart-badge'); if (badge) badge.innerText = `${items} Item`;
         this.payTotal = total; 
         
-        // --- 🚀 KUNCI PERBAIKAN CFD ---
-        // Hanya kirim sinkronisasi ke CFD jika tidak sedang dicegah oleh proses checkout
-        if (!this.skipCfdSync) {
-            this.syncStorage();
-        }
-        // -------------------------------
+        this.syncStorage(); // KEMBALIKAN KE NORMAL
     },
 
     // PAYMENT
@@ -1016,58 +1000,46 @@ const superApp = {
             if (t.Outlet === this.outlet && this.cleanDateOnly(t.Tanggal) === todayStrLocal) { countToday++; }
         });
         let noAntrian = countToday + 1;
-
         let trxID = 'TRX' + d.getTime();
+        
         const payload = { action: 'checkout', trx_id: trxID, outlet: this.outlet, kasir: this.currentUser.Username, metode_bayar: this.payMethod, total: this.payTotal, tunai: this.payCash, kembali: this.payChange, items: this.cart, id_shift: this.activeShiftId, tim_operasional: this.activeStaffTeam, antrian: noAntrian };
 
-        try { 
-            await this.printReceipt(trxID, this.outlet, this.payTotal, this.payCash, this.payChange, this.cart, 'Sukses', null, noAntrian); 
-        } catch (e) {
-            console.log("Printer belum siap atau dibatalkan");
-        }
-        
-        // 1. KIRIM SINYAL 'PAID' KE CFD
-        this.syncStorage('paid', noAntrian);
-
-        // 2. TAHAN SINKRONISASI RENDER CART BERIKUTNYA SELAMA 1 DETIK
-        // Ini memastikan CFD punya waktu membaca sinyal 'paid' sebelum keranjang dikosongkan
-        this.skipCfdSync = true; 
+        try { await this.printReceipt(trxID, this.outlet, this.payTotal, this.payCash, this.payChange, this.cart, 'Sukses', null, noAntrian); } catch (e) { console.log("Printer belum siap"); }
         
         if (!this.db.transactions) this.db.transactions = [];
         this.db.transactions.push({ 
-            ID_TRX: trxID, Tanggal: todayStrLocal, 
-            Waktu: `${pad(d.getHours())}.${pad(d.getMinutes())}.${pad(d.getSeconds())}`, 
+            ID_TRX: trxID, Tanggal: todayStrLocal, Waktu: `${pad(d.getHours())}.${pad(d.getMinutes())}.${pad(d.getSeconds())}`, 
             Outlet: this.outlet, Kasir: this.currentUser.Username, Metode_Bayar: this.payMethod, 
             Total_Bayar: this.payTotal, Tunai: this.payCash, Kembalian: this.payChange, 
-            Items_JSON: JSON.stringify(this.cart), ID_Shift: this.activeShiftId, 
-            Status: 'Sukses', Antrian: noAntrian 
+            Items_JSON: JSON.stringify(this.cart), ID_Shift: this.activeShiftId, Status: 'Sukses', Antrian: noAntrian 
         });
-        
         localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
         this.refreshData(); 
         this.showToast(`Transaksi Sukses! No Antrian: ${noAntrian}`);
 
+        // --- 🚀 KUNCI PERBAIKAN ALUR CFD ---
+        // 1. Simpan angka total & kembalian ke kapsul
+        this._lastPaidTotal = this.payTotal;
+        this._lastPaidChange = this.payChange;
+
+        // 2. Bersihkan keranjang kasir SEKARANG JUGA (CFD akan mendapat sinyal keranjang kosong)
         this.cart = []; 
-        this.renderCart(); // Sekarang ini tidak akan mengirim sinyal ke CFD karena skipCfdSync = true
+        this.renderCart(); 
+
+        // 3. Tembakkan sinyal 'PAID' sebagai kata terakhir ke CFD
+        this.syncStorage('paid', noAntrian); 
+        
         this.closeModal('modal-payment'); 
         this.isProcessing = false;
+        // ------------------------------------
 
-        // 3. LEPASKAN TAHANAN CFD SETELAH 1 DETIK
-        // (Atau jika kasir langsung klik menu baru, skipCfdSync akan otomatis mati di fungsi addToCart)
-        setTimeout(() => {
-             this.skipCfdSync = false;
-        }, 1000);
-
-        // ========================================================
         this.apiPost(payload).then(res => {
             if (res && res.status !== 'sukses' && !res.is_offline) {
                this.offlineQueue.push(payload);
                localStorage.setItem('aisnack_offline_queue', JSON.stringify(this.offlineQueue));
                this.updateNetworkUI();
             }
-        }).catch(err => {
-            console.log("Silent Sync tertunda, masuk ke antrean offline.");
-        });
+        }).catch(err => { console.log("Masuk ke antrean offline."); });
     },
 
     // TERIMA BARANG, OPNAME & WA MODAL

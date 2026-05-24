@@ -1172,39 +1172,68 @@ const superApp = {
         const tP = document.getElementById('terima-tbody-pendukung'); if (tP) tP.innerHTML = hp || this.getEmptyState('fa-box-open', 'Belum Ada Barang', 'Tambahkan pendukung di gudang');
         const tMob = document.getElementById('terima-mobile-cards'); if (tMob) tMob.innerHTML = `<h4 class="font-extrabold text-brand-600 mt-2 mb-2 bg-brand-50 p-3 rounded-xl border border-brand-100 text-sm">A. Bahan Utama</h4>` + (hum || '<p class="text-xs text-center">Kosong</p>') + `<h4 class="font-extrabold text-slate-600 mt-6 mb-2 bg-slate-100 p-3 rounded-xl border border-slate-200 text-sm">B. Pendukung & Packaging</h4>` + (hpm || '<p class="text-xs text-center">Kosong</p>');
     },
-    submitTerimaBarang: async function() {
-        if (this.isProcessing) return;
-        if (!confirm("Kirim Laporan Barang Datang ke Owner? Stok tidak akan bertambah hingga di-Setujui.")) return;
-        this.setLoading(true, "Menyimpan...");
-        let items = [];
-        let waText = `*LAPORAN BARANG DATANG PUSAT*\n📍 Cabang: ${this.outlet}\n👤 Kasir: ${this.currentUser.Username}\n📅 Waktu: ${new Date().toLocaleString('id-ID')}\n\n*_Mohon cek aplikasi menu Audit untuk memverifikasi agar stok masuk ke sistem_*\n\n`;
+   submitTerimaBarang: async function() {
+    if (this.isProcessing) return;
+    
+    // 1. Kumpulkan data dan hitung total item
+    let items = [];
+    let waText = `*LAPORAN BARANG DATANG PUSAT*\n📍 Cabang: ${this.outlet}\n👤 Kasir: ${this.currentUser.Username}\n📅 Waktu: ${new Date().toLocaleString('id-ID')}\n\n*_Mohon cek aplikasi menu Audit untuk memverifikasi agar stok masuk ke sistem_*\n\n`;
 
-        (this.db.masterProduk || []).forEach(m => {
-            if (String(m.Kategori || '').toLowerCase() === 'bahan' || String(m.Kategori || '').toLowerCase() === 'pendukung') {
-                let inputDesk = document.getElementById(`trm-qty-${m.SKU}`); let inputMob = document.getElementById(`trm-qty-mob-${m.SKU}`);
-                let qtyStr = inputDesk && inputDesk.value !== '' ? inputDesk.value : (inputMob && inputMob.value !== '' ? inputMob.value : '');
+    (this.db.masterProduk || []).forEach(m => {
+        if (String(m.Kategori || '').toLowerCase() === 'bahan' || String(m.Kategori || '').toLowerCase() === 'pendukung') {
+            let inputDesk = document.getElementById(`trm-qty-${m.SKU}`); 
+            let inputMob = document.getElementById(`trm-qty-mob-${m.SKU}`);
+            let qtyStr = inputDesk && inputDesk.value !== '' ? inputDesk.value : (inputMob && inputMob.value !== '' ? inputMob.value : '');
 
-                if (qtyStr !== '' && parseInt(this.getNumericValue(qtyStr)) > 0) {
-                    let noteDesk = document.getElementById(`trm-note-${m.SKU}`); let noteMob = document.getElementById(`trm-note-mob-${m.SKU}`);
-                    let note = noteDesk && noteDesk.value !== '' ? noteDesk.value : (noteMob && noteMob.value !== '' ? noteMob.value : '');
-                    items.push({ sku: m.SKU, qty: parseInt(this.getNumericValue(qtyStr)), catatan: note });
-                    waText += `📦 *${m.Nama_Produk}*\nQty Diterima: *${qtyStr} Pcs*\nCatatan: ${note || '-'}\n\n`;
-                }
+            if (qtyStr !== '' && parseInt(this.getNumericValue(qtyStr)) > 0) {
+                let noteDesk = document.getElementById(`trm-note-${m.SKU}`); 
+                let noteMob = document.getElementById(`trm-note-mob-${m.SKU}`);
+                let note = noteDesk && noteDesk.value !== '' ? noteDesk.value : (noteMob && noteMob.value !== '' ? noteMob.value : '');
+                
+                items.push({ sku: m.SKU, nama: m.Nama_Produk, qty: parseInt(this.getNumericValue(qtyStr)), catatan: note });
+                waText += `📦 *${m.Nama_Produk}*\nQty Diterima: *${qtyStr} Pcs*\nCatatan: ${note || '-'}\n\n`;
             }
-        });
-        if (items.length === 0) { this.setLoading(false); return this.showToast("Tidak ada barang masuk yang diinput!", "error"); }
-
-        const payload = { action: 'terima_barang_kasir', outlet: this.outlet, kasir: this.currentUser.Username, items: items };
-        let res = await this.apiPost(payload);
-        
-        if (res.status === 'sukses') {
-            this.showToast("Berhasil Disimpan di Sistem!");
-            this.showWaModal(waText);
-            if (!res.is_offline) { const r = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); this.db = await r.json(); this.refreshData(); this.switchMenu('pos'); }
-            else { this.switchMenu('pos'); }
         }
-        this.setLoading(false);
-    },
+    });
+
+    if (items.length === 0) return this.showToast("Tidak ada barang masuk yang diinput!", "error");
+
+    // 2. 🚀 CEK DUPLIKAT (PENCEGAHAN INPUT GANDA)
+    let d = new Date(); let pad = (n) => n < 10 ? '0' + n : n;
+    let todayStrLocal = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+    
+    let sudahInputHariIni = this.db.mutasi.some(m => 
+        m.Outlet_Tujuan === this.outlet && 
+        this.cleanDateOnly(m.Waktu) === todayStrLocal &&
+        m.Status_Approval === 'Pending' // Hanya cek yang masih pending/belum diproses
+    );
+
+    if (sudahInputHariIni) {
+        let konfirmasi = confirm("⚠️ PERINGATAN: Cabang ini sudah memiliki laporan 'Barang Datang' yang sedang menunggu otorisasi hari ini. Yakin ingin menambah input baru?");
+        if (!konfirmasi) return; 
+    }
+
+    if (!confirm("Kirim Laporan Barang Datang ke Owner? Stok tidak akan bertambah hingga di-Setujui.")) return;
+    
+    this.setLoading(true, "Menyimpan...");
+
+    const payload = { action: 'terima_barang_kasir', outlet: this.outlet, kasir: this.currentUser.Username, items: items };
+    let res = await this.apiPost(payload);
+    
+    if (res.status === 'sukses') {
+        this.showToast("Berhasil Disimpan di Sistem!");
+        this.showWaModal(waText);
+        
+        // Refresh data agar database lokal update
+        if (!res.is_offline) { 
+            const r = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); 
+            this.db = await r.json(); 
+            this.refreshData(); 
+        }
+        this.switchMenu('pos');
+    }
+    this.setLoading(false);
+},
     renderOpname: function() {
         const lbl = document.getElementById('lbl-opname-outlet'); if (lbl) lbl.innerText = this.outlet;
         let hu = ''; let hp = ''; let hum = ''; let hpm = '';

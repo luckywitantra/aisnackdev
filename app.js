@@ -1,4 +1,5 @@
 const API_URL = "https://script.google.com/macros/s/AKfycbzIG5gEXEfMeOiwJUd7SGROqcVWktQnsvQJFgW5HKBE5lXeH1hR6S1fIrCw1xpmLyl-rA/exec"; // <-- GANTI DENGAN URL API ANDA
+
 /* ========================================== */
 /* 1. MESIN VIRTUAL KEYBOARD (IN-APP OSK)     */
 /* ========================================== */
@@ -263,14 +264,11 @@ const superApp = {
                     mimeType: file.type 
                 }).then(res => { 
                     if (res.status === 'sukses') { 
-                        // --- 🚀 KUNCI PERBAIKAN: SIMPAN BERDASARKAN CABANG ---
-                        const storageKey = type === 'standby' ? `cfd_promo_standby_${this.outlet}` : `cfd_promo_transaksi_${this.outlet}`;
+                        const storageKey = type === 'standby' ? 'cfd_promo_standby' : 'cfd_promo_transaksi';
                         localStorage.setItem(storageKey, res.url); 
-                        // -----------------------------------------------------
-
                         this.syncStorage(); 
                         this.setLoading(false); 
-                        this.showToast(`Promo ${type.toUpperCase()} Cabang ${this.outlet} Berhasil Diperbarui!`); 
+                        this.showToast(`Promo ${type.toUpperCase()} Berhasil Diperbarui!`); 
                     } else {
                         this.setLoading(false);
                         this.showToast("Gagal upload: " + res.pesan, "error");
@@ -335,54 +333,19 @@ const superApp = {
     },
     
     syncStorage: function(status = 'ordering', antrian = null) {
-    if (new URLSearchParams(window.location.search).get('mode') === 'cfd') return;
-
-    // 1. Kunci Data Paid (untuk menghindari data berubah saat kasir bergerak cepat)
-    if (status === 'paid') {
-        this._lastPaidTotal = this.payTotal;
-        this._lastPaidChange = this.payChange;
-    }
-
-    let sentTotal = status === 'paid' ? this._lastPaidTotal : this.payTotal;
-    let sentChange = status === 'paid' ? this._lastPaidChange : this.payChange;
-
-    // 2. Ambil promo spesifik berdasarkan cabang aktif
-    // Menggunakan fallback ke 'Umum' jika promo cabang belum diset
-    let promoStandby = localStorage.getItem(`cfd_promo_standby_${this.outlet}`) || 
-                       localStorage.getItem('cfd_promo_standby_Umum') || 
-                       ''; // Default kosong jika tidak ada
-                       
-    let promoTransaksi = localStorage.getItem(`cfd_promo_transaksi_${this.outlet}`) || 
-                         localStorage.getItem('cfd_promo_transaksi_Umum') || 
-                         '';
-
-    // 3. Bersihkan sisa promo 'Umum' atau kunci lama dari localStorage kasir
-    // agar memori kasir tetap ringan
-    this.cleanupOldPromoKeys();
-
-    // 4. Kirim data ke CFD
-    localStorage.setItem('ai_snack_cfd', JSON.stringify({ 
-        outlet: this.outlet || 'Ai-Snack', 
-        items: this.cart, 
-        total: sentTotal, 
-        kembali: sentChange, 
-        status: status, 
-        antrian: antrian, 
-        timestamp: new Date().getTime(), 
-        promoStandbyUrl: promoStandby, 
-        promoScreenUrl: promoTransaksi 
-    }));
-},
-
-// Fungsi tambahan untuk membersihkan kunci lama (opsional tapi disarankan)
-cleanupOldPromoKeys: function() {
-    const oldKeys = ['cfd_promo_standby', 'cfd_promo_transaksi'];
-    oldKeys.forEach(key => {
-        if (localStorage.getItem(key)) {
-            localStorage.removeItem(key); // Hapus kunci lama agar tidak bentrok
-        }
-    });
-},
+        if (new URLSearchParams(window.location.search).get('mode') === 'cfd') return;
+        localStorage.setItem('ai_snack_cfd', JSON.stringify({ 
+            outlet: this.outlet || 'Ai-Snack', 
+            items: this.cart, 
+            total: this.payTotal, 
+            kembali: this.payChange, 
+            status: status, 
+            antrian: antrian, 
+            timestamp: new Date().getTime(), 
+            promoStandbyUrl: localStorage.getItem('cfd_promo_standby'),
+            promoScreenUrl: localStorage.getItem('cfd_promo_transaksi')
+        }));
+    },
     
    initCFD: function() {
         document.getElementById('login-screen').classList.add('hidden'); document.getElementById('sidebar').classList.add('hidden'); document.getElementById('main-app').classList.add('hidden');
@@ -412,33 +375,30 @@ cleanupOldPromoKeys: function() {
         if (data.promoScreenUrl) { const bg2 = document.getElementById('cfd-bg-screen'); if (bg2) bg2.style.backgroundImage = `url('${data.promoScreenUrl}')`; }
         const cfdStandby = document.getElementById('cfd-standby'); const cfdSuccess = document.getElementById('cfd-success');
         
-        // --- JIKA PEMBAYARAN SUKSES ---
         if (data.status === 'paid') { 
             cfdSuccess.classList.remove('hidden'); 
-            cfdStandby.classList.add('opacity-0', 'pointer-events-none'); 
             
+            // PERBAIKAN 1: Null Safety pada data kembalian (Mencegah blank screen)
             let kembalianAman = Number(data.kembali || 0).toLocaleString('id-ID');
+            
             document.getElementById('cfd-kembali').innerHTML = `Rp ${kembalianAman}<br><span class="text-white text-4xl sm:text-5xl mt-6 block drop-shadow-md">NOMOR ANTRIAN ANDA:<br><span class="text-yellow-300 font-black text-6xl sm:text-8xl mt-2 block">${data.antrian || '-'}</span></span>`; 
             
+            // PERBAIKAN 2: Mencegah timer bentrok jika transaksi terjadi sangat cepat
             if(this.cfdSuccessTimeout) clearTimeout(this.cfdSuccessTimeout);
+            
             this.cfdSuccessTimeout = setTimeout(() => { 
                 cfdSuccess.classList.add('hidden'); 
-                cfdStandby.classList.remove('opacity-0', 'pointer-events-none');
             }, 7000); 
             
-            return; // 🚀 HENTIKAN KODE DI SINI! Agar keranjang tidak digambar ulang.
-        } 
+        } else { 
+            cfdSuccess.classList.add('hidden'); 
+        }
         
-        // --- JIKA TRANSAKSI NORMAL / NORMAL BARU ---
-        cfdSuccess.classList.add('hidden'); 
-        if(this.cfdSuccessTimeout) clearTimeout(this.cfdSuccessTimeout);
-        
-        if (data.items && data.items.length === 0) { 
+        if (data.items && data.items.length === 0 && data.status !== 'paid') { 
             cfdStandby.classList.remove('opacity-0', 'pointer-events-none'); 
         } 
         else if (data.items) {
-            cfdStandby.classList.add('opacity-0', 'pointer-events-none'); 
-            let html = '';
+            cfdStandby.classList.add('opacity-0', 'pointer-events-none'); let html = '';
             data.items.forEach(i => { html += `<div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex justify-between items-center"><div><h4 class="font-black text-slate-800 text-lg">${i.nama}</h4><p class="text-slate-500 font-bold">${i.qty} x Rp ${Number(i.price || 0).toLocaleString('id-ID')}</p></div><p class="font-black text-brand-500 text-xl">Rp ${(Number(i.price || 0) * Number(i.qty || 0)).toLocaleString('id-ID')}</p></div>`; });
             const listEl = document.getElementById('cfd-cart-list'); if (listEl) listEl.innerHTML = html;
             const totEl = document.getElementById('cfd-total'); if (totEl) totEl.innerText = `Rp ${Number(data.total || 0).toLocaleString('id-ID')}`;
@@ -544,23 +504,12 @@ cleanupOldPromoKeys: function() {
                 }
                 
                 // Set DUAL Promo CFD
-                // --- 🚀 KUNCI PERBAIKAN: SEDOT SEMUA PROMO PER CABANG ---
-// Kita akan memuat SEMUA promo ke localStorage, lalu sistem di syncStorage 
-// yang akan memilih mana yang cocok untuk outlet yang sedang aktif.
+                let pStandby = (this.db.pengaturan || []).find(x => x.Pengaturan === 'Promo_Standby');
+                if (pStandby) localStorage.setItem('cfd_promo_standby', pStandby.Nilai);
+                
+                let pTransaksi = (this.db.pengaturan || []).find(x => x.Pengaturan === 'Promo_Transaksi');
+                if (pTransaksi) localStorage.setItem('cfd_promo_transaksi', pTransaksi.Nilai);
 
-(this.db.pengaturan || []).forEach(p => {
-    // Memeriksa pengaturan yang diawali dengan 'Promo_Standby_'
-    if (p.Pengaturan.startsWith('Promo_Standby_')) {
-        let namaCabang = p.Pengaturan.replace('Promo_Standby_', '');
-        localStorage.setItem(`cfd_promo_standby_${namaCabang}`, p.Nilai);
-    }
-    // Memeriksa pengaturan yang diawali dengan 'Promo_Transaksi_'
-    if (p.Pengaturan.startsWith('Promo_Transaksi_')) {
-        let namaCabang = p.Pengaturan.replace('Promo_Transaksi_', '');
-        localStorage.setItem(`cfd_promo_transaksi_${namaCabang}`, p.Nilai);
-    }
-});
-// ---------------------------------------------------------
                 // Set Tanggal Filter Report
                 let today = new Date(); let yyyy = today.getFullYear(); let mm = String(today.getMonth() + 1).padStart(2, '0'); let dd = String(today.getDate()).padStart(2, '0');
                 let todayStr = `${yyyy}-${mm}-${dd}`; 
@@ -951,7 +900,7 @@ cleanupOldPromoKeys: function() {
         setTimeout(() => { const cont = document.getElementById('cart-container'); if (cont) cont.scrollTop = cont.scrollHeight; }, 50);
     },
     changeQty: function(idx, val) { this.cart[idx].qty += val; if (this.cart[idx].qty <= 0) this.cart.splice(idx, 1); this.renderCart(); },
-   renderCart: function() {
+    renderCart: function() {
         const cont = document.getElementById('cart-container'); let total = 0, items = 0, html = ''; if (!cont) return;
         this.cart.forEach((i, idx) => {
             total += (i.price * i.qty); items += i.qty;
@@ -965,9 +914,7 @@ cleanupOldPromoKeys: function() {
         
         const totalEl = document.getElementById('total-price'); if (totalEl) totalEl.innerText = `Rp ${total.toLocaleString('id-ID')}`;
         const badge = document.getElementById('cart-badge'); if (badge) badge.innerText = `${items} Item`;
-        this.payTotal = total; 
-        
-        this.syncStorage(); // KEMBALIKAN KE NORMAL
+        this.payTotal = total; this.syncStorage();
     },
 
     // PAYMENT
@@ -1022,59 +969,74 @@ cleanupOldPromoKeys: function() {
             }
         }
     },
-
+    
+    // PENAMBAHAN SISTEM NOMOR ANTRIAN
     executeCheckout: async function() {
+        // Kunci tombol agar tidak terklik ganda, tapi jangan pakai layar loading penuh
         if (this.isProcessing) return; 
         this.isProcessing = true;
         
         let d = new Date(); let pad = (n) => n < 10 ? '0' + n : n;
         let todayStrLocal = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
         
+        // Hitung Antrian Hari Ini
         let countToday = 0;
         (this.db.transactions || []).forEach(t => {
             if (t.Outlet === this.outlet && this.cleanDateOnly(t.Tanggal) === todayStrLocal) { countToday++; }
         });
         let noAntrian = countToday + 1;
+
         let trxID = 'TRX' + d.getTime();
-        
         const payload = { action: 'checkout', trx_id: trxID, outlet: this.outlet, kasir: this.currentUser.Username, metode_bayar: this.payMethod, total: this.payTotal, tunai: this.payCash, kembali: this.payChange, items: this.cart, id_shift: this.activeShiftId, tim_operasional: this.activeStaffTeam, antrian: noAntrian };
 
-        try { await this.printReceipt(trxID, this.outlet, this.payTotal, this.payCash, this.payChange, this.cart, 'Sukses', null, noAntrian); } catch (e) { console.log("Printer belum siap"); }
-        
+        // 1. CETAK STRUK & UPDATE LAYAR CFD (INSTAN)
+        try { 
+            await this.printReceipt(trxID, this.outlet, this.payTotal, this.payCash, this.payChange, this.cart, 'Sukses', null, noAntrian); 
+        } catch (e) {
+            console.log("Printer belum siap atau dibatalkan");
+        }
+        this.syncStorage('paid', noAntrian);
+
+        // 2. CATAT KE MEMORI LOKAL SECARA PAKSA (OPTIMISTIC UI)
         if (!this.db.transactions) this.db.transactions = [];
         this.db.transactions.push({ 
-            ID_TRX: trxID, Tanggal: todayStrLocal, Waktu: `${pad(d.getHours())}.${pad(d.getMinutes())}.${pad(d.getSeconds())}`, 
+            ID_TRX: trxID, Tanggal: todayStrLocal, 
+            Waktu: `${pad(d.getHours())}.${pad(d.getMinutes())}.${pad(d.getSeconds())}`, 
             Outlet: this.outlet, Kasir: this.currentUser.Username, Metode_Bayar: this.payMethod, 
             Total_Bayar: this.payTotal, Tunai: this.payCash, Kembalian: this.payChange, 
-            Items_JSON: JSON.stringify(this.cart), ID_Shift: this.activeShiftId, Status: 'Sukses', Antrian: noAntrian 
+            Items_JSON: JSON.stringify(this.cart), ID_Shift: this.activeShiftId, 
+            Status: 'Sukses', Antrian: noAntrian 
         });
+        
+        // Amankan memori lokal agar tidak hilang jika di-refresh
         localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
+        
+        // Perbarui layar rekap & histori saat itu juga
         this.refreshData(); 
+        
         this.showToast(`Transaksi Sukses! No Antrian: ${noAntrian}`);
 
-        // --- 🚀 KUNCI PERBAIKAN ALUR CFD ---
-        // 1. Simpan angka total & kembalian ke kapsul
-        this._lastPaidTotal = this.payTotal;
-        this._lastPaidChange = this.payChange;
-
-        // 2. Bersihkan keranjang kasir SEKARANG JUGA (CFD akan mendapat sinyal keranjang kosong)
+        // 3. BERSIHKAN LAYAR KASIR (0 DETIK - SIAP LAYANI PELANGGAN BERIKUTNYA)
         this.cart = []; 
         this.renderCart(); 
-
-        // 3. Tembakkan sinyal 'PAID' sebagai kata terakhir ke CFD
-        this.syncStorage('paid', noAntrian); 
-        
         this.closeModal('modal-payment'); 
-        this.isProcessing = false;
-        // ------------------------------------
+        this.isProcessing = false; // Buka kunci tombol untuk pelanggan selanjutnya
 
+        // ========================================================
+        // 4. SILENT BACKGROUND SYNC (Proses Gaib Tanpa Ditunggu Kasir)
+        // ========================================================
         this.apiPost(payload).then(res => {
+            // Jika sukses, Google Sheets sudah menerima data.
+            // Jika gagal secara aneh dari server (tapi internet nyala), lempar ke antrean offline.
             if (res && res.status !== 'sukses' && !res.is_offline) {
                this.offlineQueue.push(payload);
                localStorage.setItem('aisnack_offline_queue', JSON.stringify(this.offlineQueue));
                this.updateNetworkUI();
             }
-        }).catch(err => { console.log("Masuk ke antrean offline."); });
+        }).catch(err => {
+            // Jika error koneksi, apiPost sudah otomatis memasukkannya ke offlineQueue.
+            console.log("Silent Sync tertunda, masuk ke antrean offline.");
+        });
     },
 
     // TERIMA BARANG, OPNAME & WA MODAL
@@ -2353,8 +2315,7 @@ window.onload = () => superApp.init();
 
 // Tambahkan ini di bawah window.onload = () => superApp.init();
 setInterval(() => {
-    // Hanya menarik data jika sedang online dan keranjang kasir sedang kosong
-    if (superApp.isOnline && superApp.cart.length === 0) {
-        superApp.pullFreshData(true); // HARUS ADA 'true' AGAR BERJALAN GAIB (SILENT)
+    if (superApp.isOnline) {
+        superApp.pullFreshData(); // Memaksa tarik data setiap 5 menit (300.000 ms)
     }
-}, 300000);    
+}, 300000);

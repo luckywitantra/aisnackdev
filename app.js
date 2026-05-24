@@ -236,7 +236,7 @@ const superApp = {
         if (this.cfdWindow) {
             this.cfdWindow.focus();
             if (!this.cfdFocusHandlerAdded) {
-                window.addEventListener('focus', () => { if (this.cfdWindow && !this.cfdWindow.closed && localStorage.getItem('cfd_wants_open') === 'true') { this.cfdWindow.focus(); this.syncStorage(); } });
+                window.addEventListener('focus', () => { if (this.cfdWindow && !this.cfdWindow.closed && localStorage.getItem('cfd_wants_open') === 'true') { this.syncStorage(); } });
                 this.cfdFocusHandlerAdded = true;
             }
         }
@@ -447,7 +447,7 @@ const superApp = {
         if (new URLSearchParams(window.location.search).get('mode') === 'cfd') { this.initCFD(); return; }
 
         document.addEventListener("visibilitychange", () => { if (document.hidden && this.cfdWindow && !this.cfdWindow.closed) { this.cfdWindow.close(); } });
-        document.addEventListener("click", () => { if (this.currentUser && localStorage.getItem('cfd_wants_open') === 'true') { if (!this.cfdWindow || this.cfdWindow.closed) { this.openCFD(true); } else { this.cfdWindow.focus(); } } });
+        document.addEventListener("click", () => { if (this.currentUser && localStorage.getItem('cfd_wants_open') === 'true') { if (!this.cfdWindow || this.cfdWindow.closed) { this.openCFD(true); } } });
         window.addEventListener('beforeunload', () => { if (this.cfdWindow && !this.cfdWindow.closed) this.cfdWindow.close(); });
         window.addEventListener('online', () => { this.isOnline = true; this.syncOfflineQueue(); });
         window.addEventListener('offline', () => { this.isOnline = false; this.updateNetworkUI(); });
@@ -629,7 +629,7 @@ const superApp = {
         const greetTimeEl = document.getElementById('cfd-greeting-time');
         const greetOutletEl = document.getElementById('cfd-greeting-outlet');
         if (greetTimeEl) greetTimeEl.innerText = ucapanWaktu;
-        if (greetOutletEl) greetOutletEl.innerText = `Selamat datang di ${namaOutlet}, silakan pesan di kasir`;
+        if (greetOutletEl) greetOutletEl.innerText = `Selamat datang di Ai-CHA ${namaOutlet}, silakan pesan di kasir`;
 
         // 4. UBAH DI LAYAR CFD (MENYEBERANG KE JENDELA KEDUA SEBAGAI CADANGAN)
         if (this.cfdWindow && !this.cfdWindow.closed) {
@@ -637,7 +637,7 @@ const superApp = {
                 const cfdTimeEl = this.cfdWindow.document.getElementById('cfd-greeting-time');
                 const cfdOutletEl = this.cfdWindow.document.getElementById('cfd-greeting-outlet');
                 if (cfdTimeEl) cfdTimeEl.innerText = ucapanWaktu;
-                if (cfdOutletEl) cfdOutletEl.innerText = `Selamat datang di ${namaOutlet}, silakan pesan di kasir`;
+                if (cfdOutletEl) cfdOutletEl.innerText = `Selamat datang di Ai-CHA ${namaOutlet}, silakan pesan di kasir`;
             } catch (e) {
                 console.log("Menunggu layar CFD siap...");
             }
@@ -731,18 +731,39 @@ const superApp = {
         }
         this.setLoading(false);
     },
-    promptTutupShift: function() {
+   promptTutupShift: function() {
         const setAkhir = document.getElementById('shift-setoran-akhir'); if (setAkhir) setAkhir.value = '';
-        let shiftData = (this.db.shifts || []).find(s => s.ID_Shift === this.activeShiftId);
-        let modal = shiftData ? Number(shiftData.Modal_Awal) : 0;
-        let salesTunai = 0; let totalKasKeluar = 0;
+        
+        // 1. Dapatkan Tanggal Hari Ini Sesuai Format Server
+        let d = new Date(); let pad = (n) => n < 10 ? '0' + n : n;
+        let todayStrLocal = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 
-        (this.db.transactions || []).forEach(t => {
-            let t_tunai = t.Tunai !== undefined ? t.Tunai : (t.Dibayar || 0);
-            if (t.ID_Shift === this.activeShiftId && t.Status === 'Sukses' && String(t.Metode_Bayar || '').toUpperCase() === 'TUNAI') salesTunai += Number(t.Total_Bayar);
+        let modal = 0; let salesTunai = 0; let totalKasKeluar = 0;
+
+        // 2. Jumlahkan semua Modal Awal dalam 1 HARI PENUH (Bisa jadi kasir input modal > 1 kali)
+        (this.db.shifts || []).forEach(s => {
+            if (s.Outlet === this.outlet && s.Tanggal === todayStrLocal) {
+                modal += Number(s.Modal_Awal || 0);
+            }
         });
-        (this.db.kasKeluar || []).forEach(k => { if (k.ID_Shift === this.activeShiftId) totalKasKeluar += Number(k.Nominal); });
 
+        // 3. Jumlahkan semua Penjualan TUNAI dalam 1 HARI PENUH (Abaikan ID Shift)
+        (this.db.transactions || []).forEach(t => {
+            let t_date = this.cleanDateOnly(t.Tanggal);
+            if (t.Outlet === this.outlet && t_date === todayStrLocal && t.Status === 'Sukses' && String(t.Metode_Bayar || '').toUpperCase() === 'TUNAI') {
+                salesTunai += Number(t.Total_Bayar);
+            }
+        });
+
+        // 4. Jumlahkan semua Kas Keluar dalam 1 HARI PENUH
+        (this.db.kasKeluar || []).forEach(k => { 
+            let k_date = this.cleanDateOnly(k.Tanggal);
+            if (k.Outlet === this.outlet && k_date === todayStrLocal) {
+                totalKasKeluar += Number(k.Nominal); 
+            }
+        });
+
+        // Kalkulasi Uang Fisik yang harusnya ada di Laci hari ini
         let expected = modal + salesTunai - totalKasKeluar;
 
         const tMod = document.getElementById('ts-modal'); if (tMod) tMod.innerText = `Rp ${modal.toLocaleString('id-ID')}`;
@@ -753,26 +774,37 @@ const superApp = {
         const modalTutup = document.getElementById('modal-tutup-shift'); const modalTutupContent = document.getElementById('modal-tutup-shift-content');
         if (modalTutup && modalTutupContent) { modalTutup.classList.remove('hidden'); setTimeout(() => modalTutupContent.classList.add('modal-enter-active'), 10); }
     },
+    
     executeTutupShift: async function() {
         if (this.isProcessing) return;
         let setAkhirEl = document.getElementById('shift-setoran-akhir'); let setor = setAkhirEl ? this.getNumericValue(setAkhirEl.value) : 0;
         if (setor === 0 && (!setAkhirEl || setAkhirEl.value === '')) return this.showToast("Hitung uang fisik di laci!", "error");
 
-        let shiftData = (this.db.shifts || []).find(s => s.ID_Shift === this.activeShiftId);
-        let modal = shiftData ? Number(shiftData.Modal_Awal) : 0;
-        let salesTunai = 0; let totalKasKeluar = 0;
+        let d = new Date(); let pad = (n) => n < 10 ? '0' + n : n;
+        let todayStrLocal = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 
-        (this.db.transactions || []).forEach(t => { if (t.ID_Shift === this.activeShiftId && t.Status === 'Sukses' && String(t.Metode_Bayar || '').toUpperCase() === 'TUNAI') salesTunai += Number(t.Total_Bayar); });
-        (this.db.kasKeluar || []).forEach(k => { if (k.ID_Shift === this.activeShiftId) totalKasKeluar += Number(k.Nominal); });
+        let modal = 0; let salesTunai = 0; let totalKasKeluar = 0;
 
-        let expected = modal + salesTunai - totalKasKeluar; let selisih = setor - expected;
+        // Lakukan kalkulasi ulang saat eksekusi agar data sangat akurat
+        (this.db.shifts || []).forEach(s => { if (s.Outlet === this.outlet && s.Tanggal === todayStrLocal) modal += Number(s.Modal_Awal || 0); });
+        (this.db.transactions || []).forEach(t => { 
+            let t_date = this.cleanDateOnly(t.Tanggal);
+            if (t.Outlet === this.outlet && t_date === todayStrLocal && t.Status === 'Sukses' && String(t.Metode_Bayar || '').toUpperCase() === 'TUNAI') salesTunai += Number(t.Total_Bayar); 
+        });
+        (this.db.kasKeluar || []).forEach(k => { 
+            let k_date = this.cleanDateOnly(k.Tanggal);
+            if (k.Outlet === this.outlet && k_date === todayStrLocal) totalKasKeluar += Number(k.Nominal); 
+        });
+
+        let expected = modal + salesTunai - totalKasKeluar; 
+        let selisih = setor - expected;
 
         this.setLoading(true, "Merekap Penjualan Hari Ini...");
         const payload = { action: 'tutup_shift', id_shift: this.activeShiftId, setoran_akhir: setor, selisih: selisih };
         let res = await this.apiPost(payload);
 
         if (res.status === 'sukses') {
-            alert(`SHIFT DITUTUP!\nUang Sistem: Rp ${expected.toLocaleString('id-ID')}\nUang Fisik (Setoran): Rp ${setor.toLocaleString('id-ID')}\nSelisih: Rp ${selisih.toLocaleString('id-ID')}`);
+            alert(`REKAP HARIAN DITUTUP!\n\nUang Sistem (1 Hari): Rp ${expected.toLocaleString('id-ID')}\nUang Fisik (Setoran): Rp ${setor.toLocaleString('id-ID')}\nSelisih: Rp ${selisih.toLocaleString('id-ID')}`);
             location.reload();
         }
         this.setLoading(false);
@@ -2286,3 +2318,4 @@ setInterval(() => {
         superApp.pullFreshData(); // Memaksa tarik data setiap 5 menit (300.000 ms)
     }
 }, 300000);
+

@@ -1362,24 +1362,46 @@ const superApp = {
             tbodyOp.innerHTML = html || `<tr><td colspan="7" class="text-center py-6 h-32">${this.getEmptyState('fa-clipboard-check', 'Audit Bersih', 'Tidak ada laporan opname yang pending')}</td></tr>`;
         }
 
-        const tbodyTr = document.getElementById('audit-terima-tbody');
-        if (tbodyTr) {
-            let html = '';
-            (this.db.mutasi || []).forEach(mt => {
-                if (mt.Status_Approval === 'Pending') {
-                    let itemName = this.db.masterProduk.find(m => m.SKU === mt.SKU)?.Nama_Produk || mt.SKU || 'Unknown';
-                    let safeWaktu = String(mt.Waktu || ''); let wStr = safeWaktu.includes('T') ? this.cleanDateOnly(safeWaktu) + ' ' + this.cleanTimeOnly(safeWaktu) : safeWaktu;
+      const tbodyTr = document.getElementById('audit-terima-tbody');
+    if (tbodyTr) {
+        let html = '';
+        // Kita hitung dulu berapa kali tiap outlet sudah melakukan mutasi hari ini
+        let mutasiHistoryHariIni = {};
+        (this.db.mutasi || []).forEach(mt => {
+            if (mt.Status_Approval === 'Disetujui') {
+                let tanggal = this.cleanDateOnly(mt.Waktu);
+                let key = `${mt.Outlet_Tujuan}_${tanggal}`;
+                mutasiHistoryHariIni[key] = (mutasiHistoryHariIni[key] || 0) + 1;
+            }
+        });
 
-                    html += `<tr class="border-b border-slate-50 hover:bg-slate-50 transition"><td class="py-3 px-4 text-center w-12"><input type="checkbox" class="cb-audit-terima w-5 h-5 rounded cursor-pointer accent-brand-500" value="${mt.ID_Mutasi}" onchange="superApp.checkBulkAudit()"></td><td class="py-3 px-4 text-xs whitespace-nowrap">${wStr}</td><td class="py-3 px-4 text-xs whitespace-nowrap">${mt.Outlet_Tujuan}<br><span class="text-brand-500">${mt.Kasir || '-'}</span></td><td class="py-3 px-4 text-xs font-bold whitespace-normal min-w-[150px]">${itemName}</td><td class="py-3 px-4 text-center text-sm font-black text-brand-500 whitespace-nowrap">${mt.Qty} Pcs</td><td class="py-3 px-4 text-xs italic whitespace-normal min-w-[150px]">${mt.Keterangan || '-'}</td></tr>`;
-                }
-            });
-            tbodyTr.innerHTML = html || `<tr><td colspan="6" class="text-center py-6 h-32">${this.getEmptyState('fa-box-open', 'Audit Bersih', 'Tidak ada penerimaan barang yang pending')}</td></tr>`;
-        }
-        this.checkBulkAudit();
-    },
-    toggleAllAuditCb: function(type, isChecked) {
-        let cbs = document.querySelectorAll(`.cb-audit-${type}`); cbs.forEach(cb => cb.checked = isChecked); this.checkBulkAudit();
-    },
+        (this.db.mutasi || []).forEach(mt => {
+            if (mt.Status_Approval === 'Pending') {
+                let itemName = this.db.masterProduk.find(m => m.SKU === mt.SKU)?.Nama_Produk || mt.SKU || 'Unknown';
+                let safeWaktu = String(mt.Waktu || ''); 
+                let wStr = safeWaktu.includes('T') ? this.cleanDateOnly(safeWaktu) + ' ' + this.cleanTimeOnly(safeWaktu) : safeWaktu;
+                
+                // 🚀 DETEKSI DUPLIKAT: Cek apakah hari ini sudah ada yang disetujui?
+                let tanggal = this.cleanDateOnly(mt.Waktu);
+                let key = `${mt.Outlet_Tujuan}_${tanggal}`;
+                let sudahAda = mutasiHistoryHariIni[key] || 0;
+                let warningBadge = sudahAda > 0 ? 
+                    `<span class="text-[10px] font-black bg-red-100 text-red-600 px-2 py-0.5 rounded shadow-sm animate-pulse block mt-1">⚠️ Sudah ${sudahAda}x kirim hari ini!</span>` : '';
+
+                html += `<tr class="border-b border-slate-50 hover:bg-slate-50 transition">
+                    <td class="py-3 px-4 text-center w-12"><input type="checkbox" class="cb-audit-terima w-5 h-5 rounded cursor-pointer accent-brand-500" value="${mt.ID_Mutasi}" onchange="superApp.checkBulkAudit()"></td>
+                    <td class="py-3 px-4 text-xs whitespace-nowrap">${wStr}</td>
+                    <td class="py-3 px-4 text-xs whitespace-nowrap">${mt.Outlet_Tujuan}<br><span class="text-brand-500">${mt.Kasir || '-'}</span>${warningBadge}</td>
+                    <td class="py-3 px-4 text-xs font-bold whitespace-normal min-w-[150px]">${itemName}</td>
+                    <td class="py-3 px-4 text-center text-sm font-black text-brand-500 whitespace-nowrap">${mt.Qty} Pcs</td>
+                    <td class="py-3 px-4 text-xs italic whitespace-normal min-w-[150px]">${mt.Keterangan || '-'}</td>
+                </tr>`;
+            }
+        });
+        tbodyTr.innerHTML = html || `<tr><td colspan="6" class="text-center py-6 h-32">${this.getEmptyState('fa-box-open', 'Audit Bersih', 'Tidak ada penerimaan barang yang pending')}</td></tr>`;
+    }
+    this.checkBulkAudit();
+},
     checkBulkAudit: function() {
         let opChecked = document.querySelectorAll('.cb-audit-opname:checked').length;
         let trChecked = document.querySelectorAll('.cb-audit-terima:checked').length;

@@ -913,7 +913,7 @@ const superApp = {
         setTimeout(() => { const cont = document.getElementById('cart-container'); if (cont) cont.scrollTop = cont.scrollHeight; }, 50);
     },
     changeQty: function(idx, val) { this.cart[idx].qty += val; if (this.cart[idx].qty <= 0) this.cart.splice(idx, 1); this.renderCart(); },
-    renderCart: function() {
+   renderCart: function() {
         const cont = document.getElementById('cart-container'); let total = 0, items = 0, html = ''; if (!cont) return;
         this.cart.forEach((i, idx) => {
             total += (i.price * i.qty); items += i.qty;
@@ -927,7 +927,14 @@ const superApp = {
         
         const totalEl = document.getElementById('total-price'); if (totalEl) totalEl.innerText = `Rp ${total.toLocaleString('id-ID')}`;
         const badge = document.getElementById('cart-badge'); if (badge) badge.innerText = `${items} Item`;
-        this.payTotal = total; this.syncStorage();
+        this.payTotal = total; 
+        
+        // --- 🚀 KUNCI PERBAIKAN CFD ---
+        // Hanya kirim sinkronisasi ke CFD jika tidak sedang dicegah oleh proses checkout
+        if (!this.skipCfdSync) {
+            this.syncStorage();
+        }
+        // -------------------------------
     },
 
     // PAYMENT
@@ -982,17 +989,14 @@ const superApp = {
             }
         }
     },
-    
-    // PENAMBAHAN SISTEM NOMOR ANTRIAN
+
     executeCheckout: async function() {
-        // Kunci tombol agar tidak terklik ganda, tapi jangan pakai layar loading penuh
         if (this.isProcessing) return; 
         this.isProcessing = true;
         
         let d = new Date(); let pad = (n) => n < 10 ? '0' + n : n;
         let todayStrLocal = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
         
-        // Hitung Antrian Hari Ini
         let countToday = 0;
         (this.db.transactions || []).forEach(t => {
             if (t.Outlet === this.outlet && this.cleanDateOnly(t.Tanggal) === todayStrLocal) { countToday++; }
@@ -1002,15 +1006,19 @@ const superApp = {
         let trxID = 'TRX' + d.getTime();
         const payload = { action: 'checkout', trx_id: trxID, outlet: this.outlet, kasir: this.currentUser.Username, metode_bayar: this.payMethod, total: this.payTotal, tunai: this.payCash, kembali: this.payChange, items: this.cart, id_shift: this.activeShiftId, tim_operasional: this.activeStaffTeam, antrian: noAntrian };
 
-        // 1. CETAK STRUK & UPDATE LAYAR CFD (INSTAN)
         try { 
             await this.printReceipt(trxID, this.outlet, this.payTotal, this.payCash, this.payChange, this.cart, 'Sukses', null, noAntrian); 
         } catch (e) {
             console.log("Printer belum siap atau dibatalkan");
         }
+        
+        // 1. KIRIM SINYAL 'PAID' KE CFD
         this.syncStorage('paid', noAntrian);
 
-        // 2. CATAT KE MEMORI LOKAL SECARA PAKSA (OPTIMISTIC UI)
+        // 2. TAHAN SINKRONISASI RENDER CART BERIKUTNYA SELAMA 1 DETIK
+        // Ini memastikan CFD punya waktu membaca sinyal 'paid' sebelum keranjang dikosongkan
+        this.skipCfdSync = true; 
+        
         if (!this.db.transactions) this.db.transactions = [];
         this.db.transactions.push({ 
             ID_TRX: trxID, Tanggal: todayStrLocal, 
@@ -1021,33 +1029,29 @@ const superApp = {
             Status: 'Sukses', Antrian: noAntrian 
         });
         
-        // Amankan memori lokal agar tidak hilang jika di-refresh
         localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
-        
-        // Perbarui layar rekap & histori saat itu juga
         this.refreshData(); 
-        
         this.showToast(`Transaksi Sukses! No Antrian: ${noAntrian}`);
 
-        // 3. BERSIHKAN LAYAR KASIR (0 DETIK - SIAP LAYANI PELANGGAN BERIKUTNYA)
         this.cart = []; 
-        this.renderCart(); 
+        this.renderCart(); // Sekarang ini tidak akan mengirim sinyal ke CFD karena skipCfdSync = true
         this.closeModal('modal-payment'); 
-        this.isProcessing = false; // Buka kunci tombol untuk pelanggan selanjutnya
+        this.isProcessing = false;
+
+        // 3. LEPASKAN TAHANAN CFD SETELAH 1 DETIK
+        // (Atau jika kasir langsung klik menu baru, skipCfdSync akan otomatis mati di fungsi addToCart)
+        setTimeout(() => {
+             this.skipCfdSync = false;
+        }, 1000);
 
         // ========================================================
-        // 4. SILENT BACKGROUND SYNC (Proses Gaib Tanpa Ditunggu Kasir)
-        // ========================================================
         this.apiPost(payload).then(res => {
-            // Jika sukses, Google Sheets sudah menerima data.
-            // Jika gagal secara aneh dari server (tapi internet nyala), lempar ke antrean offline.
             if (res && res.status !== 'sukses' && !res.is_offline) {
                this.offlineQueue.push(payload);
                localStorage.setItem('aisnack_offline_queue', JSON.stringify(this.offlineQueue));
                this.updateNetworkUI();
             }
         }).catch(err => {
-            // Jika error koneksi, apiPost sudah otomatis memasukkannya ke offlineQueue.
             console.log("Silent Sync tertunda, masuk ke antrean offline.");
         });
     },

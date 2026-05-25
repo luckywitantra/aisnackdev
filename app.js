@@ -2322,6 +2322,23 @@ submitOpname: async function() {
         const modal = document.getElementById('modal-form'); const modalContent = document.getElementById('modal-form-content');
         if(modal && modalContent) { modal.classList.remove('hidden'); setTimeout(() => modalContent.classList.add('modal-enter-active'), 10); }
     },
+
+    laporStrukDicetak: async function(idTrx) {
+        try {
+            // 1. Kirim laporan ke Google Sheets di latar belakang tanpa mengganggu kasir
+            this.apiPost({ action: 'update_status_cetak', id_transaksi: idTrx });
+            
+            // 2. Update database lokal secara langsung agar tanda merah hilang
+            let trx = (this.db.transaksi || []).find(t => t.ID_TRX === idTrx);
+            if (trx) {
+                trx.Status_Cetak = 'Sudah';
+            }
+        } catch (e) {
+            console.log("Gagal mengirim laporan status cetak ke server", e);
+        }
+    },
+
+    
     connectBluetooth: async function(isAuto = false) {
         if (this.isBluetoothSearching) return;
         this.isBluetoothSearching = true; 
@@ -2464,7 +2481,7 @@ submitOpname: async function() {
         }
     },
     
-    printReceipt: async function(id, outlet, total, tunai, kembali, items, status, explicitDate, antrian) {
+printReceipt: async function(id, outlet, total, tunai, kembali, items, status, explicitDate, antrian) {
         // PERBAIKAN 1: Sesuaikan dengan nama variabel di connectBluetooth
         if (!this.printerCharacteristic) {
             this.showToast("Printer belum terhubung!", "error");
@@ -2497,13 +2514,18 @@ submitOpname: async function() {
                 // PERBAIKAN 3: Kirim ke printerCharacteristic
                 await this.printerCharacteristic.writeValue(data.slice(i, i + chunkSize));
             }
+
+            // 🚀 FITUR DETEKSI STRUK: Lapor ke server hanya jika pengiriman data sukses 100%
+            if (id && status === 'Sukses') {
+                this.laporStrukDicetak(id);
+            }
+
         } catch(e) { 
             console.error("Gagal Cetak:", e);
             this.showToast("Gagal mencetak struk", "error");
             throw e; 
         }
     }
-};
 
 window.onload = () => superApp.init();
 // Tambahkan ini di bawah window.onload = () => superApp.init();

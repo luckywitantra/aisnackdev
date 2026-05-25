@@ -19,6 +19,11 @@
             document.write('<style>#login-screen, #sidebar, #main-app { display: none !important; }</style>');
         }
     </script>
+  <style>
+    /* Menyembunyikan garis scrollbar pada menu geser */
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
 </head>
 <body class="text-slate-800 h-[100dvh] flex overflow-hidden relative transition-colors duration-300 bg-slate-50">
 

@@ -2365,6 +2365,25 @@ submitOpname: async function() {
         }
     },
 
+
+    toggleMobileCart: function() {
+        const aside = document.getElementById('cart-aside');
+        const overlay = document.getElementById('mobile-cart-overlay');
+        const floatingBtn = document.getElementById('floating-cart-btn');
+        
+        if (aside.classList.contains('translate-y-full')) {
+            // Membuka Keranjang
+            aside.classList.remove('translate-y-full');
+            overlay.classList.remove('hidden');
+            if(floatingBtn) floatingBtn.classList.add('translate-y-full'); // Sembunyikan tombol mengambang
+        } else {
+            // Menutup Keranjang
+            aside.classList.add('translate-y-full');
+            overlay.classList.add('hidden');
+            if(floatingBtn) floatingBtn.classList.remove('translate-y-full');
+        }
+    },
+
     
     connectBluetooth: async function(isAuto = false) {
         if (this.isBluetoothSearching) return;

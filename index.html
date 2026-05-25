@@ -161,14 +161,7 @@
       
       <div id="view-pos" class="app-view flex flex-col md:flex-row h-full gap-4 lg:gap-6 min-h-0 transition-all duration-300 relative">
         <div class="flex-1 flex flex-col min-h-0 pb-16 md:pb-0"> 
-          
-          <div class="flex overflow-x-auto gap-2 pb-2 mb-2 hide-scrollbar w-full shrink-0">
-              <button class="whitespace-nowrap px-5 py-2 bg-brand-500 text-white font-bold rounded-full text-xs shadow-sm">Semua</button>
-              <button class="whitespace-nowrap px-5 py-2 bg-white border border-slate-200 text-slate-600 font-bold rounded-full text-xs">Ai-Snack</button>
-              <button class="whitespace-nowrap px-5 py-2 bg-white border border-slate-200 text-slate-600 font-bold rounded-full text-xs">Ai-Ice Kristal</button>
-              <button class="whitespace-nowrap px-5 py-2 bg-white border border-slate-200 text-slate-600 font-bold rounded-full text-xs">Pendukung</button>
-          </div>
-
+        
           <div class="mb-4 relative shrink-0">
              <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
              <input type="text" readonly onclick="osKeyboard.open('product-search-input', 'text')" id="product-search-input" placeholder="Sentuh untuk Cari Produk..." class="w-full bg-white border border-slate-200 rounded-2xl pl-12 pr-4 py-3.5 font-bold text-sm shadow-sm outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 text-slate-800 transition cursor-pointer" oninput="superApp.filterProducts(this.value)">

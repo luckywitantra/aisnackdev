@@ -271,24 +271,49 @@
         </div>
       </div>
 
-      <div id="view-report" class="app-view hidden flex-col lg:min-h-[80vh] min-h-max gap-4">
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4 shrink-0">
-            <div class="flex gap-2 bg-white p-1.5 rounded-xl shadow-inner border border-slate-200 overflow-x-auto w-full md:w-auto custom-scroll">
-                <button onclick="superApp.toggleReportTab('trx')" id="tab-trx" class="px-5 py-2.5 bg-white text-slate-800 rounded-lg text-sm font-bold shadow-sm whitespace-nowrap transition">Histori Transaksi</button>
-                <button onclick="superApp.toggleReportTab('rekap')" id="tab-rekap" class="px-5 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg text-sm font-bold whitespace-nowrap transition">Rekap Jualan</button>
-                <button onclick="superApp.toggleReportTab('kas')" id="tab-kas" class="px-5 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg text-sm font-bold whitespace-nowrap transition">Kas Keluar</button>
-                <button onclick="superApp.toggleReportTab('selisih')" id="tab-selisih" class="px-5 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg text-sm font-bold whitespace-nowrap transition">Audit Selisih</button>
-            </div>
-            <div class="flex gap-2 flex-wrap items-center w-full md:w-auto">
-                <input type="text" id="filter-search-trx" placeholder="Cari Resi..." class="flex-1 md:w-auto bg-white border border-slate-200 rounded-xl px-4 py-2.5 font-bold text-sm text-slate-700 outline-none shadow-sm focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition cursor-pointer" readonly onclick="osKeyboard.open('filter-search-trx', 'text')" oninput="superApp.renderReport()">
-                <input type="date" id="filter-start" class="bg-white border border-slate-200 rounded-xl px-3 py-2.5 font-bold text-sm text-slate-700 outline-none shadow-sm" onchange="superApp.renderReport()">
+      <div id="view-report" class="app-view hidden flex-col lg:min-h-[80vh] min-h-max gap-4 pb-20 md:pb-0">
+        
+    <div class="flex justify-between items-center mb-2 shrink-0 md:hidden">
+        <h3 class="font-extrabold text-2xl text-slate-800">Laporan</h3>
+        <button onclick="superApp.toggleReportFilter()" class="bg-white border border-slate-200 px-4 py-2 rounded-xl shadow-sm text-slate-600 font-bold text-sm">
+            <i class="fas fa-filter mr-2"></i> Filter
+        </button>
+    </div>
+
+    <div id="mobile-filter-modal" class="fixed inset-x-0 bottom-0 bg-white rounded-t-[2rem] shadow-[0_-20px_40px_rgba(0,0,0,0.2)] p-6 z-[70] transform translate-y-full transition-transform duration-300 md:static md:translate-y-0 md:bg-transparent md:shadow-none md:p-0 md:flex md:flex-col lg:flex-row lg:justify-between lg:items-center md:gap-4 shrink-0 w-full">
+        
+        <div class="flex justify-between items-center mb-5 md:hidden border-b border-slate-100 pb-3">
+            <h3 class="font-extrabold text-lg">Sesuaikan Laporan</h3>
+            <button onclick="superApp.toggleReportFilter()" class="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500"><i class="fas fa-times"></i></button>
+        </div>
+
+        <div class="flex gap-2 bg-slate-50 md:bg-white p-1.5 rounded-xl shadow-inner md:shadow-none border border-slate-200 overflow-x-auto w-full md:w-auto custom-scroll mb-4 md:mb-0">
+            <button onclick="superApp.toggleReportTab('trx')" id="tab-trx" class="px-5 py-2.5 bg-white text-slate-800 rounded-lg text-sm font-bold shadow-sm whitespace-nowrap transition">Histori Transaksi</button>
+            <button onclick="superApp.toggleReportTab('rekap')" id="tab-rekap" class="px-5 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg text-sm font-bold whitespace-nowrap transition">Rekap Jualan</button>
+            <button onclick="superApp.toggleReportTab('kas')" id="tab-kas" class="px-5 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg text-sm font-bold whitespace-nowrap transition">Kas Keluar</button>
+            <button onclick="superApp.toggleReportTab('selisih')" id="tab-selisih" class="px-5 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg text-sm font-bold whitespace-nowrap transition">Audit Selisih</button>
+        </div>
+        
+        <div class="flex flex-col md:flex-row gap-3 md:gap-2 flex-wrap items-center w-full md:w-auto">
+            <input type="text" id="filter-search-trx" placeholder="Cari Resi..." class="w-full md:w-auto bg-slate-50 md:bg-white border border-slate-200 rounded-xl px-4 py-2.5 font-bold text-sm text-slate-700 outline-none focus:border-brand-500 transition cursor-pointer" readonly onclick="osKeyboard.open('filter-search-trx', 'text')" oninput="superApp.renderReport()">
+            
+            <div class="flex items-center gap-2 w-full md:w-auto">
+                <input type="date" id="filter-start" class="flex-1 md:w-auto bg-slate-50 md:bg-white border border-slate-200 rounded-xl px-3 py-2.5 font-bold text-sm text-slate-700 outline-none shadow-sm" onchange="superApp.renderReport()">
                 <span class="text-slate-400 font-bold">-</span>
-                <input type="date" id="filter-end" class="bg-white border border-slate-200 rounded-xl px-3 py-2.5 font-bold text-sm text-slate-700 outline-none shadow-sm" onchange="superApp.renderReport()">
-                <select id="report-outlet-filter" class="bg-white border border-slate-200 rounded-xl px-4 py-2.5 font-bold text-sm outline-none shadow-sm hidden text-slate-800" onchange="superApp.renderReport()"></select>
-                <button onclick="superApp.exportPDF()" class="bg-slate-900 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg hover:bg-slate-800 transition hover:-translate-y-1"><i class="fas fa-file-pdf text-red-400"></i></button>
-                <button onclick="superApp.sendReportToWA()" class="bg-[#25D366] text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-green-200 hover:bg-[#20bd5a] transition hover:-translate-y-1 flex items-center gap-2" title="Kirim Laporan ke WA Owner"><i class="fab fa-whatsapp text-lg"></i><span class="hidden md:inline">Lapor Owner</span></button>
+                <input type="date" id="filter-end" class="flex-1 md:w-auto bg-slate-50 md:bg-white border border-slate-200 rounded-xl px-3 py-2.5 font-bold text-sm text-slate-700 outline-none shadow-sm" onchange="superApp.renderReport()">
+            </div>
+            
+            <select id="report-outlet-filter" class="w-full md:w-auto bg-slate-50 md:bg-white border border-slate-200 rounded-xl px-4 py-2.5 font-bold text-sm outline-none shadow-sm hidden text-slate-800" onchange="superApp.renderReport()"></select>
+            
+            <div class="flex gap-2 w-full md:w-auto mt-2 md:mt-0">
+                <button onclick="superApp.exportPDF()" class="flex-1 md:flex-none bg-slate-900 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg hover:bg-slate-800 transition flex justify-center items-center"><i class="fas fa-file-pdf text-red-400 text-lg"></i></button>
+                <button onclick="superApp.sendReportToWA()" class="flex-[3] md:flex-none bg-[#25D366] text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-green-200 hover:bg-[#20bd5a] transition flex items-center justify-center gap-2" title="Kirim Laporan ke WA Owner"><i class="fab fa-whatsapp text-lg"></i><span class="hidden md:inline">Lapor Owner</span></button>
             </div>
         </div>
+        
+        <button onclick="superApp.toggleReportFilter()" class="w-full bg-brand-500 text-white font-extrabold py-3.5 rounded-xl mt-6 md:hidden active:scale-95 transition">TERAPKAN & TUTUP</button>
+    </div>
+        
         <div id="pdf-export-area" class="bg-white rounded-[2rem] shadow-sm border border-slate-100 p-6 lg:p-8 flex-1 flex flex-col min-h-0 relative">
             <div class="text-center mb-8 border-b border-slate-100 pb-6 shrink-0"><h2 class="text-3xl font-black uppercase tracking-widest text-slate-800 mb-1">Laporan Operasional</h2><p class="text-slate-500 font-bold text-sm" id="report-title-label"></p><p class="text-[10px] font-bold text-slate-400 mt-1 uppercase" id="report-date-label"></p></div>
             
@@ -589,6 +614,53 @@
       </div>
       <div id="vk-keys" class="flex flex-col items-center w-full max-w-4xl mx-auto"></div>
   </div>
+
+<div class="fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 shadow-[0_-10px_30px_rgba(0,0,0,0.08)] flex justify-around p-2 pb-safe md:hidden z-[60]" id="bottom-nav-bar">
+      <button onclick="superApp.switchMenu('pos')" class="flex flex-col items-center justify-center p-2 text-brand-500 w-full nav-mobile-btn transition-colors" data-target="pos">
+          <i class="fas fa-cash-register text-xl mb-1"></i><span class="text-[9px] font-extrabold tracking-wide">POS</span>
+      </button>
+      <button onclick="superApp.switchMenu('terima')" class="flex flex-col items-center justify-center p-2 text-slate-400 w-full hover:text-brand-500 nav-mobile-btn transition-colors" data-target="terima">
+          <i class="fas fa-boxes-packing text-xl mb-1"></i><span class="text-[9px] font-extrabold tracking-wide">Terima</span>
+      </button>
+      <button onclick="superApp.switchMenu('opname')" class="flex flex-col items-center justify-center p-2 text-slate-400 w-full hover:text-brand-500 nav-mobile-btn transition-colors" data-target="opname">
+          <i class="fas fa-clipboard-check text-xl mb-1"></i><span class="text-[9px] font-extrabold tracking-wide">Opname</span>
+      </button>
+      <button onclick="superApp.toggleSidebar()" class="flex flex-col items-center justify-center p-2 text-slate-400 w-full hover:text-brand-500 transition-colors">
+          <i class="fas fa-bars text-xl mb-1"></i><span class="text-[9px] font-extrabold tracking-wide">Menu</span>
+      </button>
+  </div>
+
+  <div id="modal-giant-numpad" class="fixed inset-0 bg-white z-[9999] hidden flex-col transition-transform transform translate-y-full duration-300">
+      <div class="p-5 bg-brand-500 text-white flex justify-between items-center shadow-md shrink-0">
+          <h3 class="font-extrabold text-xl">Input Hitung Fisik</h3>
+          <button onclick="superApp.closeGiantNumpad()" class="text-white text-2xl w-10 h-10 flex items-center justify-center active:scale-90 transition"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="p-6 text-center flex-1 flex flex-col justify-center bg-slate-50">
+          <p class="text-sm font-bold text-slate-400 mb-1" id="gn-title">Nama Item</p>
+          <p class="text-xs text-brand-500 font-extrabold mb-6" id="gn-subtitle">Sistem: 0</p>
+          
+          <div class="text-6xl font-black text-slate-800 mb-8 border-b-4 border-slate-200 pb-4 w-3/4 mx-auto" id="gn-display">0</div>
+          
+          <div class="grid grid-cols-3 gap-3 md:gap-4 w-full max-w-sm mx-auto">
+              <button class="py-5 bg-white shadow-sm border border-slate-100 text-3xl font-bold rounded-2xl active:bg-slate-200 active:scale-95 transition" onclick="superApp.typeGiantNumpad('1')">1</button>
+              <button class="py-5 bg-white shadow-sm border border-slate-100 text-3xl font-bold rounded-2xl active:bg-slate-200 active:scale-95 transition" onclick="superApp.typeGiantNumpad('2')">2</button>
+              <button class="py-5 bg-white shadow-sm border border-slate-100 text-3xl font-bold rounded-2xl active:bg-slate-200 active:scale-95 transition" onclick="superApp.typeGiantNumpad('3')">3</button>
+              <button class="py-5 bg-white shadow-sm border border-slate-100 text-3xl font-bold rounded-2xl active:bg-slate-200 active:scale-95 transition" onclick="superApp.typeGiantNumpad('4')">4</button>
+              <button class="py-5 bg-white shadow-sm border border-slate-100 text-3xl font-bold rounded-2xl active:bg-slate-200 active:scale-95 transition" onclick="superApp.typeGiantNumpad('5')">5</button>
+              <button class="py-5 bg-white shadow-sm border border-slate-100 text-3xl font-bold rounded-2xl active:bg-slate-200 active:scale-95 transition" onclick="superApp.typeGiantNumpad('6')">6</button>
+              <button class="py-5 bg-white shadow-sm border border-slate-100 text-3xl font-bold rounded-2xl active:bg-slate-200 active:scale-95 transition" onclick="superApp.typeGiantNumpad('7')">7</button>
+              <button class="py-5 bg-white shadow-sm border border-slate-100 text-3xl font-bold rounded-2xl active:bg-slate-200 active:scale-95 transition" onclick="superApp.typeGiantNumpad('8')">8</button>
+              <button class="py-5 bg-white shadow-sm border border-slate-100 text-3xl font-bold rounded-2xl active:bg-slate-200 active:scale-95 transition" onclick="superApp.typeGiantNumpad('9')">9</button>
+              <button class="py-5 bg-red-50 text-red-500 text-2xl font-bold rounded-2xl active:bg-red-100 active:scale-95 transition border border-red-100" onclick="superApp.clearGiantNumpad()">C</button>
+              <button class="py-5 bg-white shadow-sm border border-slate-100 text-3xl font-bold rounded-2xl active:bg-slate-200 active:scale-95 transition" onclick="superApp.typeGiantNumpad('0')">0</button>
+              <button class="py-5 bg-slate-800 text-white text-2xl font-bold rounded-2xl active:bg-slate-900 active:scale-95 transition shadow-md" onclick="superApp.delGiantNumpad()"><i class="fas fa-backspace"></i></button>
+          </div>
+      </div>
+      <div class="p-5 shrink-0 bg-white shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
+          <button onclick="superApp.saveGiantNumpad()" class="w-full bg-brand-500 text-white py-4 rounded-xl font-extrabold text-lg shadow-[0_8px_20px_rgba(249,115,22,0.3)] active:scale-95 transition">SELESAI</button>
+      </div>
+  </div>
+  
 
 <!-- 1. PANGGIL APP.JS TERLEBIH DAHULU -->
   <script src="app.js"></script>

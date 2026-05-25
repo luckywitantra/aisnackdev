@@ -3,9 +3,6 @@ const API_URL = "https://script.google.com/macros/s/AKfycbzIG5gEXEfMeOiwJUd7SGRO
 /* ========================================== */
 /* 1. MESIN VIRTUAL KEYBOARD (IN-APP OSK)     */
 /* ========================================== */
-/* ========================================== */
-/* 1. MESIN VIRTUAL KEYBOARD (IN-APP OSK)     */
-/* ========================================== */
 const osKeyboard = {
     targetElement: null, mode: 'numeric', isOpen: false,
     layouts: {
@@ -2523,3 +2520,6 @@ setInterval(() => {
         superApp.pullFreshData(true); 
     }
 }, 300000);
+
+
+

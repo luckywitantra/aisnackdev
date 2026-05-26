@@ -2580,6 +2580,37 @@ submitOpname: async function() {
         // Cetak elemen HTML Lencana
         return `<span class="px-2 py-0.5 rounded md:rounded-md text-[10px] md:text-xs font-black border shadow-sm whitespace-nowrap ${colorClass}">${safeName}</span>`;
     },
+
+    applyOutletTheme: function() {
+        let safeName = String(this.outlet || '').toLowerCase();
+        let root = document.documentElement;
+
+        if (safeName.includes('penajam')) { 
+            // Tema Penajam: BIRU
+            root.style.setProperty('--brand-50', '#eff6ff');
+            root.style.setProperty('--brand-100', '#dbeafe');
+            root.style.setProperty('--brand-500', '#3b82f6');
+            root.style.setProperty('--brand-600', '#2563eb');
+        } else if (safeName.includes('babulu')) { 
+            // Tema Babulu: HIJAU
+            root.style.setProperty('--brand-50', '#f0fdf4');
+            root.style.setProperty('--brand-100', '#dcfce7');
+            root.style.setProperty('--brand-500', '#22c55e');
+            root.style.setProperty('--brand-600', '#16a34a');
+        } else if (safeName.includes('batu kajang')) { 
+            // Tema Batu Kajang: UNGU
+            root.style.setProperty('--brand-50', '#faf5ff');
+            root.style.setProperty('--brand-100', '#f3e8ff');
+            root.style.setProperty('--brand-500', '#a855f7');
+            root.style.setProperty('--brand-600', '#9333ea');
+        } else { 
+            // Tema Sepaku / Default: ORANYE
+            root.style.setProperty('--brand-50', '#fff7ed');
+            root.style.setProperty('--brand-100', '#ffedd5');
+            root.style.setProperty('--brand-500', '#f97316');
+            root.style.setProperty('--brand-600', '#ea580c');
+        }
+    },
     
     connectBluetooth: async function(isAuto = false) {
         if (this.isBluetoothSearching) return;

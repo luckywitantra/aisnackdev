@@ -889,47 +889,66 @@ const superApp = {
     },
     changeOutlet: function(val) { this.outlet = val; this.cart = []; this.renderCart(); this.checkShiftStatus(); this.refreshData(); },
     switchMenu: function(menu) {
-        // 1. Sembunyikan semua halaman & reset warna tombol Desktop
         document.querySelectorAll('.app-view').forEach(el => el.classList.add('hidden'));
+        
+        // 🚀 PEMETAAN WARNA KHUSUS UNTUK SETIAP MENU
+        const colors = {
+            'pos': 'text-brand-500',      // Oranye
+            'terima': 'text-green-600',   // Hijau
+            'opname': 'text-purple-600',  // Ungu
+            'report': 'text-blue-600',    // Biru
+            'audit': 'text-indigo-600',   // Nila
+            'ai': 'text-pink-600',        // Merah Muda
+            'gudang': 'text-emerald-600', // Hijau Tua
+            'outlet': 'text-teal-600',    // Teal (Biru Kehijauan)
+            'staf': 'text-amber-600'      // Kuning
+        };
+        const allColors = Object.values(colors);
+
+        // 1. Reset Warna Sidebar (PC)
         document.querySelectorAll('.nav-btn').forEach(b => { 
-            b.classList.remove('nav-active'); 
+            b.classList.remove('nav-active', 'bg-slate-50', ...allColors); 
             b.classList.add('text-slate-500'); 
+            let icon = b.querySelector('i');
+            if(icon) { icon.classList.remove(...allColors); icon.classList.add('text-slate-400'); }
         });
 
-        // 2. Aktifkan tombol sidebar yang dipilih (Desktop)
+        // 2. Aktifkan Warna Sidebar Terpilih
         const activeNav = document.getElementById(`nav-${menu}`); 
         if (activeNav) { 
-            activeNav.classList.add('nav-active'); 
+            let targetColor = colors[menu] || 'text-brand-500';
+            activeNav.classList.add('nav-active', 'bg-slate-50', targetColor); 
             activeNav.classList.remove('text-slate-500'); 
+            let icon = activeNav.querySelector('i');
+            if(icon) { icon.classList.remove('text-slate-400'); icon.classList.add(targetColor); }
         }
-        
-        // 3. Tampilkan halaman yang dipilih
+
         const activeView = document.getElementById(`view-${menu}`); 
         if (activeView) activeView.classList.remove('hidden');
 
-        // 4. Ubah Judul Halaman di Header
         const titles = { 'pos': 'Point of Sale', 'opname': 'Opname Fisik Stok', 'terima': 'Penerimaan Barang', 'audit': 'Audit Laporan', 'report': 'Laporan Terpadu', 'ai': 'Asisten AI', 'gudang': 'Gudang Pusat', 'master': 'Master Varian POS', 'outlet': 'Cabang & Harga Khusus', 'staf': 'Kinerja Karyawan' };
         const pageTitle = document.getElementById('page-title'); 
         if (pageTitle) pageTitle.innerText = titles[menu] || 'Aplikasi';
 
-        // 5. 🚀 PERBAIKAN: Tutup otomatis sidebar di HP HANYA JIKA sedang terbuka
+        // 3. Tutup Sidebar otomatis jika dibuka di HP
         const sidebar = document.getElementById('sidebar');
         if (window.innerWidth < 1024 && sidebar && !sidebar.classList.contains('-translate-x-full')) {
             this.toggleSidebar();
         }
 
-        // 6. 🚀 FITUR BARU: Update warna tombol Navigasi Bawah (Mobile Tab Bar)
+        // 4. Reset & Aktifkan Warna Menu Bawah (HP)
         document.querySelectorAll('.nav-mobile-btn').forEach(btn => {
-            if(btn.dataset.target === menu) {
-                btn.classList.add('text-brand-500');
+            let target = btn.dataset.target;
+            btn.classList.remove(...allColors);
+            if(target === menu) {
+                btn.classList.add(colors[target] || 'text-brand-500');
                 btn.classList.remove('text-slate-400');
             } else {
-                btn.classList.remove('text-brand-500');
                 btn.classList.add('text-slate-400');
             }
         });
 
-        // 7. Render ulang data sesuai halaman yang dituju
+        // Render Data Berdasarkan Halaman
         if (menu === 'pos' && !this.activeShiftId) this.checkShiftStatus();
         if (menu === 'report' && typeof this.renderReport === 'function') this.renderReport();
         if (menu === 'opname' && typeof this.renderOpname === 'function') this.renderOpname();
@@ -938,6 +957,7 @@ const superApp = {
         if (menu === 'ai' && typeof this.generateAIReport === 'function') this.generateAIReport();
         if (menu === 'staf' && typeof this.renderStaf === 'function') this.renderStaf();
     },
+    
     filterProducts: function(key) {
         let pList = document.getElementById('product-list');
         if (pList) {

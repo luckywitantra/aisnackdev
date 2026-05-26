@@ -889,17 +889,47 @@ const superApp = {
     },
     changeOutlet: function(val) { this.outlet = val; this.cart = []; this.renderCart(); this.checkShiftStatus(); this.refreshData(); },
     switchMenu: function(menu) {
+        // 1. Sembunyikan semua halaman & reset warna tombol Desktop
         document.querySelectorAll('.app-view').forEach(el => el.classList.add('hidden'));
-        document.querySelectorAll('.nav-btn').forEach(b => { b.classList.remove('nav-active'); b.classList.add('text-slate-500'); });
+        document.querySelectorAll('.nav-btn').forEach(b => { 
+            b.classList.remove('nav-active'); 
+            b.classList.add('text-slate-500'); 
+        });
 
-        const activeNav = document.getElementById(`nav-${menu}`); if (activeNav) { activeNav.classList.add('nav-active'); activeNav.classList.remove('text-slate-500'); }
-        const activeView = document.getElementById(`view-${menu}`); if (activeView) activeView.classList.remove('hidden');
+        // 2. Aktifkan tombol sidebar yang dipilih (Desktop)
+        const activeNav = document.getElementById(`nav-${menu}`); 
+        if (activeNav) { 
+            activeNav.classList.add('nav-active'); 
+            activeNav.classList.remove('text-slate-500'); 
+        }
+        
+        // 3. Tampilkan halaman yang dipilih
+        const activeView = document.getElementById(`view-${menu}`); 
+        if (activeView) activeView.classList.remove('hidden');
 
+        // 4. Ubah Judul Halaman di Header
         const titles = { 'pos': 'Point of Sale', 'opname': 'Opname Fisik Stok', 'terima': 'Penerimaan Barang', 'audit': 'Audit Laporan', 'report': 'Laporan Terpadu', 'ai': 'Asisten AI', 'gudang': 'Gudang Pusat', 'master': 'Master Varian POS', 'outlet': 'Cabang & Harga Khusus', 'staf': 'Kinerja Karyawan' };
-        const pageTitle = document.getElementById('page-title'); if (pageTitle) pageTitle.innerText = titles[menu] || 'Aplikasi';
+        const pageTitle = document.getElementById('page-title'); 
+        if (pageTitle) pageTitle.innerText = titles[menu] || 'Aplikasi';
 
-        if (window.innerWidth < 1024) this.toggleSidebar();
+        // 5. 🚀 PERBAIKAN: Tutup otomatis sidebar di HP HANYA JIKA sedang terbuka
+        const sidebar = document.getElementById('sidebar');
+        if (window.innerWidth < 1024 && sidebar && !sidebar.classList.contains('-translate-x-full')) {
+            this.toggleSidebar();
+        }
 
+        // 6. 🚀 FITUR BARU: Update warna tombol Navigasi Bawah (Mobile Tab Bar)
+        document.querySelectorAll('.nav-mobile-btn').forEach(btn => {
+            if(btn.dataset.target === menu) {
+                btn.classList.add('text-brand-500');
+                btn.classList.remove('text-slate-400');
+            } else {
+                btn.classList.remove('text-brand-500');
+                btn.classList.add('text-slate-400');
+            }
+        });
+
+        // 7. Render ulang data sesuai halaman yang dituju
         if (menu === 'pos' && !this.activeShiftId) this.checkShiftStatus();
         if (menu === 'report' && typeof this.renderReport === 'function') this.renderReport();
         if (menu === 'opname' && typeof this.renderOpname === 'function') this.renderOpname();

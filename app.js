@@ -2476,6 +2476,67 @@ submitOpname: async function() {
         }
     },
 
+    gnTarget: null,
+    
+    toggleReportFilter: function() {
+        const modal = document.getElementById('mobile-filter-modal');
+        if(modal.classList.contains('translate-y-full')) {
+            modal.classList.remove('translate-y-full');
+        } else {
+            modal.classList.add('translate-y-full');
+        }
+    },
+
+    openGiantNumpad: function(targetId, title, subtitle) {
+        this.gnTarget = document.getElementById(targetId);
+        document.getElementById('gn-title').innerText = title;
+        document.getElementById('gn-subtitle').innerText = subtitle;
+        
+        // Ambil nilai awal, jika 0 jadikan kosong agar siap diketik
+        let initialVal = this.gnTarget ? (this.gnTarget.value || '0') : '0';
+        document.getElementById('gn-display').innerText = initialVal;
+        
+        const modal = document.getElementById('modal-giant-numpad');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        setTimeout(() => modal.classList.remove('translate-y-full'), 10);
+    },
+    
+    closeGiantNumpad: function() {
+        const modal = document.getElementById('modal-giant-numpad');
+        modal.classList.add('translate-y-full');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            this.gnTarget = null;
+        }, 300);
+    },
+    
+    typeGiantNumpad: function(char) {
+        let disp = document.getElementById('gn-display');
+        if (disp.innerText === '0') disp.innerText = '';
+        disp.innerText += char;
+    },
+    
+    delGiantNumpad: function() {
+        let disp = document.getElementById('gn-display');
+        disp.innerText = disp.innerText.slice(0, -1);
+        if (disp.innerText === '') disp.innerText = '0';
+    },
+
+    clearGiantNumpad: function() {
+        document.getElementById('gn-display').innerText = '0';
+    },
+    
+    saveGiantNumpad: function() {
+        if (this.gnTarget) {
+            this.gnTarget.value = document.getElementById('gn-display').innerText;
+            // Paksa sistem untuk memicu perhitungan otomatis (seperti calcOpname)
+            this.gnTarget.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        this.closeGiantNumpad();
+    },
+
     
     connectBluetooth: async function(isAuto = false) {
         if (this.isBluetoothSearching) return;

@@ -154,14 +154,24 @@
         <button onclick="superApp.connectBluetooth()" id="btn-printer" class="flex bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 rounded-xl px-3 lg:px-4 py-2 font-bold text-sm shadow-sm items-center gap-2 shrink-0 transition"><i class="fas fa-print"></i> <span id="printer-status" class="hidden sm:inline">Printer</span></button>
         <select id="select-outlet" class="bg-white border border-slate-200 rounded-xl px-3 py-2 font-bold text-sm outline-none shadow-sm focus:border-brand-500 hidden md:block text-slate-800 shrink-0 transition" onchange="superApp.changeOutlet(this.value)"></select>
         <div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center font-bold text-slate-600 shadow-inner shrink-0" id="header-initial">A</div>
+        
+        <button onclick="location.reload()" class="md:hidden w-10 h-10 bg-red-50 text-red-500 hover:bg-red-100 rounded-full flex items-center justify-center shadow-sm shrink-0 transition active:scale-95" title="Keluar / Logout"><i class="fas fa-power-off"></i></button>
       </div>
     </header>
 
     <div class="flex-1 overflow-y-auto w-full relative p-4 lg:p-6 custom-scroll" id="main-content-scroll">
       
       <div id="view-pos" class="app-view flex flex-col md:flex-row h-full gap-4 lg:gap-6 min-h-0 transition-all duration-300 relative">
-        <div class="flex-1 flex flex-col min-h-0 pb-16 md:pb-0"> 
         
+        <div class="flex-1 flex flex-col min-h-0 pb-[140px] md:pb-0"> 
+          
+          <div class="flex overflow-x-auto gap-2 pb-2 mb-2 hide-scrollbar w-full shrink-0">
+              <button class="whitespace-nowrap px-5 py-2 bg-brand-500 text-white font-bold rounded-full text-xs shadow-sm">Semua</button>
+              <button class="whitespace-nowrap px-5 py-2 bg-white border border-slate-200 text-slate-600 font-bold rounded-full text-xs">Ai-Snack</button>
+              <button class="whitespace-nowrap px-5 py-2 bg-white border border-slate-200 text-slate-600 font-bold rounded-full text-xs">Ai-Ice Kristal</button>
+              <button class="whitespace-nowrap px-5 py-2 bg-white border border-slate-200 text-slate-600 font-bold rounded-full text-xs">Pendukung</button>
+          </div>
+
           <div class="mb-4 relative shrink-0">
              <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
              <input type="text" readonly onclick="osKeyboard.open('product-search-input', 'text')" id="product-search-input" placeholder="Sentuh untuk Cari Produk..." class="w-full bg-white border border-slate-200 rounded-2xl pl-12 pr-4 py-3.5 font-bold text-sm shadow-sm outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 text-slate-800 transition cursor-pointer" oninput="superApp.filterProducts(this.value)">
@@ -170,9 +180,9 @@
           <div class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 overflow-y-auto pb-6 content-start flex-1 min-h-0 custom-scroll" id="product-list"></div>
         </div>
         
-        <div id="mobile-cart-overlay" class="fixed inset-0 bg-slate-900/60 z-[60] hidden md:hidden backdrop-blur-sm transition-opacity" onclick="superApp.toggleMobileCart()"></div>
+        <div id="mobile-cart-overlay" class="fixed inset-0 bg-slate-900/60 z-[70] hidden md:hidden backdrop-blur-sm transition-opacity" onclick="superApp.toggleMobileCart()"></div>
         
-        <aside id="cart-aside" class="fixed md:static bottom-0 left-0 w-full md:w-[320px] lg:w-[380px] bg-white border-t md:border border-slate-200 rounded-t-[2.5rem] md:rounded-[2rem] flex flex-col shadow-[0_-15px_40px_rgba(0,0,0,0.15)] md:shadow-lg h-[85dvh] md:h-full shrink-0 z-[70] md:z-auto transition-transform duration-300 transform translate-y-full md:translate-y-0">
+        <aside id="cart-aside" class="fixed md:static bottom-0 left-0 w-full md:w-[320px] lg:w-[380px] bg-white border-t md:border border-slate-200 rounded-t-[2.5rem] md:rounded-[2rem] flex flex-col shadow-[0_-15px_40px_rgba(0,0,0,0.15)] md:shadow-lg h-[85dvh] md:h-full shrink-0 z-[80] md:z-auto transition-transform duration-300 transform translate-y-full md:translate-y-0">
           
           <div class="w-full flex justify-center pt-3 pb-1 md:hidden shrink-0 cursor-pointer" onclick="superApp.toggleMobileCart()">
               <div class="w-12 h-1.5 bg-slate-200 rounded-full"></div>
@@ -192,8 +202,8 @@
           </div>
         </aside>
 
-        <div class="fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] p-3 md:hidden z-50 transition-transform" id="floating-cart-btn">
-            <button onclick="superApp.toggleMobileCart()" class="w-full bg-slate-900 text-white rounded-xl py-3.5 px-5 flex justify-between items-center active:scale-95 transition shadow-lg">
+        <div class="fixed bottom-[70px] left-0 w-full bg-transparent p-3 md:hidden z-[50] transition-transform" id="floating-cart-btn">
+            <button onclick="superApp.toggleMobileCart()" class="w-full bg-slate-900 text-white rounded-2xl py-3.5 px-5 flex justify-between items-center active:scale-95 transition shadow-[0_10px_25px_rgba(0,0,0,0.25)] border border-slate-700">
                 <div class="flex items-center gap-3">
                     <i class="fas fa-shopping-bag text-brand-500 text-lg"></i>
                     <div class="bg-slate-700 px-2 py-0.5 rounded-md text-xs font-bold" id="mobile-cart-qty">0 Item</div>

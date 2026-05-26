@@ -858,9 +858,13 @@ const superApp = {
     },
 
     // POS CORE
-    refreshData: function() {
-        const hSub = document.getElementById('header-subtitle'); if (hSub) hSub.innerText = `${this.outlet}`;
-        const lOutManage = document.getElementById('label-outlet-manage'); if (lOutManage) lOutManage.innerText = this.outlet;
+  refreshData: function() {
+        // 🚀 Terapkan Lencana Warna di Header POS dan Label Manajemen Outlet
+        const hSub = document.getElementById('header-subtitle'); 
+        if (hSub) hSub.innerHTML = this.getOutletBadge(this.outlet);
+        
+        const lOutManage = document.getElementById('label-outlet-manage'); 
+        if (lOutManage) lOutManage.innerHTML = this.getOutletBadge(this.outlet);
 
         this.filteredProducts = [];
         if (this.db && this.db.masterProduk) {

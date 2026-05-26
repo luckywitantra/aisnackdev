@@ -107,7 +107,7 @@
         <button class="lg:hidden text-slate-400 text-2xl" onclick="superApp.toggleSidebar()"><i class="fas fa-times"></i></button>
     </div>
     
-    <nav class="space-y-1 px-4 overflow-y-auto flex-1 custom-scroll flex flex-col gap-1" id="sidebar-nav">
+   <nav class="flex-1 overflow-y-auto custom-scroll px-4 flex flex-col gap-1 py-2">
         <p class="px-4 text-[10px] font-black text-slate-300 uppercase tracking-widest mt-2 mb-2 shrink-0">Aplikasi Kasir</p>
         <button onclick="superApp.switchMenu('pos')" id="nav-pos" class="nav-btn nav-active w-full flex items-center p-3 rounded-2xl transition group shrink-0"><i class="fas fa-cash-register w-8 text-slate-400 group-hover:text-brand-500 transition"></i><span class="font-bold text-sm ml-3">Point of Sale</span></button>
         <button onclick="superApp.openKasKeluar()" class="w-full flex items-center p-3 rounded-2xl text-red-500 hover:bg-red-50 transition group shrink-0"><i class="fas fa-money-bill-transfer w-8 group-hover:text-red-600 transition"></i><span class="font-bold text-sm ml-3">Input Kas Keluar</span></button>
@@ -124,7 +124,8 @@
             <button onclick="superApp.switchMenu('staf')" id="nav-staf" class="nav-btn w-full flex items-center p-3 rounded-2xl text-slate-500 hover:bg-slate-50 transition group"><i class="fas fa-users-gear w-8 text-slate-400 group-hover:text-brand-500 transition"></i><span class="font-bold text-sm ml-3">Kinerja Karyawan</span></button>
         </div>
     </nav>
-    <div class="px-6 mt-2 pt-4 border-t border-slate-100 flex flex-col gap-2 shrink-0 pb-6">
+
+    <div class="px-4 py-4 border-t border-slate-100 flex flex-col gap-2 shrink-0 bg-white z-10 pb-24 md:pb-6">
         <button onclick="superApp.promptTutupShift()" class="w-full py-3 bg-brand-50 text-brand-600 font-bold rounded-xl hover:bg-brand-100 transition text-sm shadow-sm"><i class="fas fa-door-closed mr-2"></i>Tutup Shift</button>
         <button onclick="location.reload()" class="w-full py-3 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-red-50 hover:text-red-500 transition text-sm shadow-sm"><i class="fas fa-power-off mr-2"></i>Keluar / Logout</button>
     </div>

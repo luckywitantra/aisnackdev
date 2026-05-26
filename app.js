@@ -1,5 +1,6 @@
 const API_URL = "https://script.google.com/macros/s/AKfycbzIG5gEXEfMeOiwJUd7SGROqcVWktQnsvQJFgW5HKBE5lXeH1hR6S1fIrCw1xpmLyl-rA/exec"; // <-- GANTI DENGAN URL API ANDA
 
+
 /* ========================================== */
 /* 1. MESIN VIRTUAL KEYBOARD (IN-APP OSK)     */
 /* ========================================== */
@@ -1672,13 +1673,11 @@ submitOpname: async function() {
         const tbtn = document.getElementById(`tab-${tab}`); if(tbtn) tbtn.className = 'px-5 py-2.5 bg-white text-slate-800 rounded-lg text-sm font-bold shadow-sm whitespace-nowrap transition border border-slate-200';
     },
     
-    renderReport: function() {
+   renderReport: function() {
         const rof = document.getElementById('report-outlet-filter');
         let filterVal = rof ? rof.value : this.outlet;
         
-        // Cek apakah user adalah admin
         let isAdmin = this.currentUser && String(this.currentUser.Role).toLowerCase().includes('admin');
-        
         if(isAdmin && rof) { filterVal = rof.value; } else { filterVal = this.outlet; }
         
         let dStartEl = document.getElementById('filter-start'); let dEndEl = document.getElementById('filter-end');
@@ -1694,7 +1693,10 @@ submitOpname: async function() {
 
         let totalRev = 0, totalTunai = 0, totalQris = 0, countTrx = 0, totalKas = 0, trxHtml = ''; let productSales = {};
         
-        [...(this.db.transactions || [])].reverse().forEach((t, i) => {
+        let renderedRowsTrx = 0; 
+        
+        // --- 1. RENDER HISTORI TRANSAKSI ---
+        [...(this.db.transactions || [])].reverse().forEach((t) => {
             let trxDate = this.parseDateId(t.Tanggal);
             if((filterVal === 'Semua' || t.Outlet === filterVal) && trxDate >= dateStart && trxDate <= dateEnd) {
                 
@@ -1706,36 +1708,34 @@ submitOpname: async function() {
                     if(String(t.Metode_Bayar||'').toUpperCase() === 'QRIS') totalQris += Number(t.Total_Bayar) || 0; else totalTunai += Number(t.Total_Bayar) || 0;
                 }
                 
-                let statBadge = t.Status === 'Sukses' ? `<span class="bg-green-100 text-green-600 px-3 py-1 rounded-full text-[10px] font-bold">Sukses</span>` : `<span class="bg-red-100 text-red-600 px-3 py-1 rounded-full text-[10px] font-bold">Batal</span>`;
+                let statBadge = t.Status === 'Sukses' ? `<span class="bg-green-100 text-green-600 px-2 py-0.5 rounded text-[10px] font-bold">Sukses</span>` : `<span class="bg-red-100 text-red-600 px-2 py-0.5 rounded text-[10px] font-bold">Batal</span>`;
                 let isCoret = t.Status === 'Sukses' ? 'text-brand-500' : 'text-slate-400 line-through';
-                let rowBg = t.Status === 'Sukses' ? 'border-b border-slate-50 hover:bg-slate-50' : 'row-void';
+                let rowBg = t.Status === 'Sukses' ? 'hover:bg-slate-50' : 'bg-slate-50 opacity-80';
                 
                 let cleanDate = this.cleanDateOnly(t.Tanggal);
                 let cleanTime = this.cleanTimeOnly(t.Waktu);
-
-                let antrianTeks = t.Antrian ? `<span class="text-[10px] font-black bg-blue-100 text-blue-600 px-2 py-0.5 rounded">Antrian: ${t.Antrian}</span>` : '';
-
-                // 🚀 FITUR DETEKSI STRUK: Memunculkan badge merah jika belum dicetak
+                let antrianTeks = t.Antrian ? `<span class="text-[10px] font-black bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded">Q:${t.Antrian}</span>` : '';
+                
                 let statusCetak = t.Status_Cetak || 'Belum';
                 let warningStruk = (isAdmin && t.Status === 'Sukses' && statusCetak !== 'Sudah') 
-                    ? `<span class="text-[9px] font-black bg-red-100 text-red-600 px-2 py-0.5 rounded shadow-sm animate-pulse border border-red-200" title="Struk Belum Dicetak!">🚨 NO PRINT</span>` 
-                    : '';
+                    ? `<span class="text-[9px] font-black bg-red-100 text-red-600 px-1.5 py-0.5 rounded shadow-sm animate-pulse border border-red-200" title="Struk Belum Dicetak!">🚨 NO PRINT</span>` : '';
 
-                if(i < 500) {
-                    // Penyesuaian HTML dengan flex-wrap dan gap-1 agar lencana/badge tersusun rapi
-                    trxHtml += `<tr class="${rowBg} transition">
-                        <td class="py-4 px-5 whitespace-nowrap text-xs">
-                            <div class="font-black text-slate-700 flex flex-wrap items-center gap-1">${safeID || 'N/A'} ${antrianTeks} ${warningStruk}</div>
+                if(renderedRowsTrx < 1000) {
+                    trxHtml += `<tr class="${rowBg} transition border-b border-slate-100">
+                        <td class="py-3 px-3 md:px-5 whitespace-nowrap text-xs">
+                            <div class="font-black text-slate-700 flex items-center gap-1">${safeID || 'N/A'} ${antrianTeks} ${warningStruk}</div>
                             <div class="text-[10px] text-slate-400 mt-0.5">${cleanDate} ${cleanTime}</div>
                         </td>
-                        <td class="py-4 px-5 whitespace-nowrap text-xs text-slate-700 font-bold">${t.Kasir || t.Outlet}</td>
-                        <td class="py-4 px-5 whitespace-nowrap text-xs font-black uppercase text-blue-500">${t.Metode_Bayar||'Tunai'}</td>
-                        <td class="py-4 px-5 whitespace-nowrap">${statBadge}</td>
-                        <td class="py-4 px-5 whitespace-nowrap text-right font-black ${isCoret}">Rp ${(Number(t.Total_Bayar)||0).toLocaleString('id-ID')}</td>
-                        <td class="py-4 px-5 whitespace-nowrap text-center" data-html2canvas-ignore="true">
-                            <button onclick="superApp.openDetailTrx('${safeID}')" class="bg-white border border-slate-200 hover:border-slate-400 text-slate-600 text-[10px] font-bold px-4 py-2 rounded-lg shadow-sm transition"><i class="fas fa-eye mr-1"></i> Detail</button>
+                        <td class="py-3 px-3 md:px-5 whitespace-nowrap text-xs text-slate-700 font-bold">${t.Kasir || t.Outlet}</td>
+                        <td class="py-3 px-3 md:px-5 whitespace-nowrap text-xs font-black uppercase text-blue-500">
+                            <span class="mr-2">${t.Metode_Bayar||'Tunai'}</span>${statBadge}
+                        </td>
+                        <td class="py-3 px-3 md:px-5 whitespace-nowrap text-right font-black ${isCoret}">Rp ${(Number(t.Total_Bayar)||0).toLocaleString('id-ID')}</td>
+                        <td class="py-3 px-3 md:px-5 whitespace-nowrap text-center" data-html2canvas-ignore="true">
+                            <button onclick="superApp.openDetailTrx('${safeID}')" class="bg-white border border-slate-200 hover:border-slate-400 text-slate-600 text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-sm transition active:scale-95"><i class="fas fa-eye mr-1"></i> Detail</button>
                         </td>
                     </tr>`;
+                    renderedRowsTrx++;
                 }
                 
                 if (t.Status === 'Sukses') {
@@ -1755,50 +1755,85 @@ submitOpname: async function() {
         const rtrQ = document.getElementById('rep-total-qris'); if(rtrQ) rtrQ.innerText = `Rp ${totalQris.toLocaleString('id-ID')}`;
         const rtb = document.getElementById('report-trx-tbody'); if(rtb) rtb.innerHTML = trxHtml || `<tr><td colspan="6" class="text-center py-12 h-32">${this.getEmptyState('fa-file-invoice', 'Tidak Ada Transaksi', 'Belum ada transaksi di rentang tanggal/resi ini')}</td></tr>`;
 
+        // --- 2. RENDER REKAP JUALAN ---
         let rekapHtml = '';
-        for (const [nama, data] of Object.entries(productSales)) { rekapHtml += `<tr class="border-b border-slate-50 hover:bg-slate-50 transition"><td class="py-4 px-5 whitespace-normal min-w-[150px] text-slate-700 font-bold">${nama}</td><td class="py-4 px-5 whitespace-nowrap text-center font-black text-slate-700 bg-slate-50/50">${data.qty} Pcs</td><td class="py-4 px-5 whitespace-nowrap text-right font-black text-green-600">Rp ${data.rev.toLocaleString('id-ID')}</td></tr>`; }
+        for (const [nama, data] of Object.entries(productSales)) { 
+            rekapHtml += `<tr class="transition border-b border-slate-100 hover:bg-slate-50">
+                <td class="py-3 px-3 md:px-5 whitespace-nowrap text-slate-700 font-bold min-w-[150px]">${nama}</td>
+                <td class="py-3 px-3 md:px-5 whitespace-nowrap text-center font-black text-slate-700 bg-slate-50/50">${data.qty} Pcs</td>
+                <td class="py-3 px-3 md:px-5 whitespace-nowrap text-right font-black text-green-600">Rp ${data.rev.toLocaleString('id-ID')}</td>
+            </tr>`; 
+        }
         const rreb = document.getElementById('report-rekap-tbody'); if(rreb) rreb.innerHTML = rekapHtml || `<tr><td colspan="3" class="text-center py-12 h-32">${this.getEmptyState('fa-box-open', 'Belum Ada Penjualan', 'Data rekapitulasi kosong')}</td></tr>`;
         
-        let mutasiHtml = '';
-        [...(this.db.mutasi || [])].reverse().forEach((m, i) => {
+        // --- 3. RENDER MUTASI STOK ---
+        let mutasiHtml = ''; let renderedRowsMut = 0;
+        [...(this.db.mutasi || [])].reverse().forEach((m) => {
             let safeWaktu = String(m.Waktu || '');
             let mDate = this.parseDateId(safeWaktu.split(' ')[0]);
             if((filterVal === 'Semua' || m.Outlet_Tujuan === filterVal) && mDate >= dateStart && mDate <= dateEnd) {
                 let mWaktuStr = safeWaktu.includes('T') ? this.cleanDateOnly(safeWaktu) + ' ' + this.cleanTimeOnly(safeWaktu) : safeWaktu;
-                if(i < 100) mutasiHtml += `<tr class="border-b border-slate-50 hover:bg-slate-50 transition"><td class="py-4 px-5 whitespace-nowrap text-xs text-slate-500">${mWaktuStr}</td><td class="py-4 px-5 whitespace-nowrap text-slate-700 font-bold">${m.SKU || '-'}</td><td class="py-4 px-5 whitespace-nowrap font-bold text-brand-600"><i class="fas fa-location-dot mr-1"></i>${m.Outlet_Tujuan || '-'}</td><td class="py-4 px-5 whitespace-nowrap text-right font-black bg-blue-50/30 text-blue-700">${m.Qty || 0} Pcs</td><td class="py-4 px-5 whitespace-normal min-w-[150px] text-xs italic text-slate-500">${m.Keterangan || '-'}</td></tr>`;
+                if(renderedRowsMut < 500) {
+                    mutasiHtml += `<tr class="transition border-b border-slate-100 hover:bg-slate-50">
+                        <td class="py-3 px-3 md:px-5 whitespace-nowrap text-xs text-slate-500">${mWaktuStr}</td>
+                        <td class="py-3 px-3 md:px-5 whitespace-nowrap text-slate-700 font-bold">${m.SKU || '-'}</td>
+                        <td class="py-3 px-3 md:px-5 whitespace-nowrap font-bold text-brand-600"><i class="fas fa-location-dot mr-1 hidden md:inline"></i>${m.Outlet_Tujuan || '-'}</td>
+                        <td class="py-3 px-3 md:px-5 whitespace-nowrap text-right font-black bg-blue-50/30 text-blue-700 rounded">${m.Qty || 0} Pcs</td>
+                        <td class="py-3 px-3 md:px-5 whitespace-nowrap text-xs italic text-slate-500 max-w-[150px] md:max-w-[250px] truncate" title="${m.Keterangan || '-'}">${m.Keterangan || '-'}</td>
+                    </tr>`;
+                    renderedRowsMut++;
+                }
             }
         });
         const rmb = document.getElementById('report-mutasi-tbody'); if(rmb) rmb.innerHTML = mutasiHtml || `<tr><td colspan="5" class="text-center py-12 h-32">${this.getEmptyState('fa-truck', 'Belum Ada Mutasi', 'Tidak ada data distribusi di rentang ini')}</td></tr>`;
 
-        let kasHtml = '';
-        [...(this.db.kasKeluar || [])].reverse().forEach((k, i) => {
+        // --- 4. RENDER KAS KELUAR ---
+        let kasHtml = ''; let renderedRowsKas = 0;
+        [...(this.db.kasKeluar || [])].reverse().forEach((k) => {
             let kDate = this.parseDateId(k.Tanggal);
             if((filterVal === 'Semua' || k.Outlet === filterVal) && kDate >= dateStart && kDate <= dateEnd) {
                 totalKas += Number(k.Nominal) || 0;
                 let kDateStr = this.cleanDateOnly(k.Tanggal);
                 let kTimeStr = this.cleanTimeOnly(k.Waktu);
-                if(i < 100) kasHtml += `<tr class="border-b border-slate-50 hover:bg-slate-50 transition"><td class="py-4 px-5 whitespace-nowrap text-xs text-slate-500">${kDateStr} ${kTimeStr}</td><td class="py-4 px-5 whitespace-nowrap font-bold text-slate-700">${k.Outlet} <span class="text-xs text-slate-400">(${k.Kasir})</span></td><td class="py-4 px-5 whitespace-normal min-w-[150px] font-medium text-slate-600">${k.Keterangan}</td><td class="py-4 px-5 whitespace-nowrap text-right font-black text-red-500 bg-red-50/30">- Rp ${(Number(k.Nominal)||0).toLocaleString('id-ID')}</td></tr>`;
+                if(renderedRowsKas < 500) {
+                    kasHtml += `<tr class="transition border-b border-slate-100 hover:bg-slate-50">
+                        <td class="py-3 px-3 md:px-5 whitespace-nowrap text-xs text-slate-500">${kDateStr} ${kTimeStr}</td>
+                        <td class="py-3 px-3 md:px-5 whitespace-nowrap font-bold text-slate-700">${k.Outlet} <span class="text-[10px] text-slate-400 font-normal">(${k.Kasir})</span></td>
+                        <td class="py-3 px-3 md:px-5 whitespace-nowrap font-medium text-slate-600 max-w-[150px] md:max-w-[250px] truncate" title="${k.Keterangan}">${k.Keterangan}</td>
+                        <td class="py-3 px-3 md:px-5 whitespace-nowrap text-right font-black text-red-500 bg-red-50/30 rounded">- Rp ${(Number(k.Nominal)||0).toLocaleString('id-ID')}</td>
+                    </tr>`;
+                    renderedRowsKas++;
+                }
             }
         });
         const repKas = document.getElementById('rep-total-kas'); if(repKas) repKas.innerText = `Rp ${totalKas.toLocaleString('id-ID')}`;
         const kBody = document.getElementById('report-kas-tbody'); if(kBody) kBody.innerHTML = kasHtml || `<tr><td colspan="4" class="text-center py-12 h-32">${this.getEmptyState('fa-wallet', 'Tidak Ada Kas Keluar', 'Belum ada pengeluaran dicatat')}</td></tr>`;
         
-        let selisihHtml = '';
-        [...(this.db.opname || [])].reverse().forEach((op, i) => {
+        // --- 5. RENDER AUDIT SELISIH ---
+        let selisihHtml = ''; let renderedRowsOp = 0;
+        [...(this.db.opname || [])].reverse().forEach((op) => {
             let safeWaktu = String(op.Waktu || '');
             let opDate = this.parseDateId(safeWaktu.split(' ')[0]);
             if((filterVal === 'Semua' || op.Outlet === filterVal) && opDate >= dateStart && opDate <= dateEnd) {
                 let itemName = this.db.masterProduk.find(m => m.SKU === op.SKU)?.Nama_Produk || op.SKU || 'Unknown';
                 let selColor = op.Selisih < 0 ? 'text-red-500' : (op.Selisih > 0 ? 'text-green-500' : 'text-slate-500');
                 let badge = '';
-                if(op.Status_Approval === 'Pending') badge = '<span class="bg-yellow-100 text-yellow-600 px-3 py-1 rounded-full text-[10px] font-bold"><i class="fas fa-clock mr-1"></i>Pending</span>';
-                else if(op.Status_Approval === 'Disetujui') badge = '<span class="bg-green-100 text-green-600 px-3 py-1 rounded-full text-[10px] font-bold"><i class="fas fa-check mr-1"></i>Disetujui</span>';
-                else badge = '<span class="bg-red-100 text-red-600 px-3 py-1 rounded-full text-[10px] font-bold"><i class="fas fa-times mr-1"></i>Ditolak</span>';
+                if(op.Status_Approval === 'Pending') badge = '<span class="bg-yellow-100 text-yellow-600 px-2 py-0.5 rounded text-[10px] font-bold">Pending</span>';
+                else if(op.Status_Approval === 'Disetujui') badge = '<span class="bg-green-100 text-green-600 px-2 py-0.5 rounded text-[10px] font-bold">Disetujui</span>';
+                else badge = '<span class="bg-red-100 text-red-600 px-2 py-0.5 rounded text-[10px] font-bold">Ditolak</span>';
                 
                 let opWaktuStr = safeWaktu.includes('T') ? this.cleanDateOnly(safeWaktu) + ' ' + this.cleanTimeOnly(safeWaktu) : safeWaktu;
 
-                if(i < 500) {
-                    selisihHtml += `<tr class="border-b border-slate-50 hover:bg-slate-50 transition"><td class="py-4 px-5 whitespace-nowrap text-xs text-slate-500">${opWaktuStr}</td><td class="py-4 px-5 whitespace-normal min-w-[150px] font-bold text-slate-700">${itemName}</td><td class="py-4 px-5 whitespace-nowrap text-xs font-bold">${op.Outlet} <span class="text-slate-400">(${op.Kasir})</span></td><td class="py-4 px-5 whitespace-nowrap text-center text-xs font-medium text-slate-500 bg-slate-50/50 rounded-lg">Sys: ${op.Stok_Sistem} <i class="fas fa-arrow-right mx-2 text-slate-300"></i> Fis: ${op.Stok_Fisik}</td><td class="py-4 px-5 whitespace-nowrap text-right font-black ${selColor} text-lg">${op.Selisih > 0 ? '+'+op.Selisih : op.Selisih}</td><td class="py-4 px-5 whitespace-nowrap text-center">${badge}</td></tr>`;
+                if(renderedRowsOp < 500) {
+                    selisihHtml += `<tr class="transition border-b border-slate-100 hover:bg-slate-50">
+                        <td class="py-3 px-3 md:px-5 whitespace-nowrap text-xs text-slate-500">${opWaktuStr}</td>
+                        <td class="py-3 px-3 md:px-5 whitespace-nowrap font-bold text-slate-700 max-w-[150px] truncate" title="${itemName}">${itemName}</td>
+                        <td class="py-3 px-3 md:px-5 whitespace-nowrap text-xs font-bold">${op.Outlet} <span class="text-[10px] text-slate-400 font-normal">(${op.Kasir})</span></td>
+                        <td class="py-3 px-3 md:px-5 whitespace-nowrap text-xs font-medium text-slate-500 bg-slate-50/50 rounded-lg">Sys: ${op.Stok_Sistem} <i class="fas fa-arrow-right mx-1 text-slate-300"></i> Fis: ${op.Stok_Fisik}</td>
+                        <td class="py-3 px-3 md:px-5 whitespace-nowrap text-right font-black ${selColor} text-sm">${op.Selisih > 0 ? '+'+op.Selisih : op.Selisih}</td>
+                        <td class="py-3 px-3 md:px-5 whitespace-nowrap text-center">${badge}</td>
+                    </tr>`;
+                    renderedRowsOp++;
                 }
             }
         });
@@ -2377,10 +2412,15 @@ submitOpname: async function() {
             // 1. Kirim laporan ke Google Sheets di latar belakang tanpa mengganggu kasir
             this.apiPost({ action: 'update_status_cetak', id_transaksi: idTrx });
             
-            // 2. Update database lokal secara langsung agar tanda merah hilang
-            let trx = (this.db.transaksi || []).find(t => t.ID_TRX === idTrx);
+            // 2. 🚀 PERBAIKAN TYPO: Menggunakan "transactions" bukan "transaksi"
+            let trx = (this.db.transactions || []).find(t => String(t.ID_TRX) === String(idTrx));
             if (trx) {
                 trx.Status_Cetak = 'Sudah';
+                
+                // 3. Simpan perubahan ke memori HP agar saat pindah menu tidak me-reset status
+                if (typeof this.syncStorage === 'function') {
+                    this.syncStorage(); 
+                }
             }
         } catch (e) {
             console.log("Gagal mengirim laporan status cetak ke server", e);

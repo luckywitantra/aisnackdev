@@ -1117,8 +1117,10 @@ const superApp = {
         
         const payload = { action: 'checkout', trx_id: trxID, outlet: this.outlet, kasir: this.currentUser.Username, metode_bayar: this.payMethod, total: this.payTotal, tunai: this.payCash, kembali: this.payChange, items: this.cart, id_shift: this.activeShiftId, tim_operasional: this.activeStaffTeam, antrian: noAntrian };
 
+        // 1. PRINT STRUK (Prioritas Utama)
         try { await this.printReceipt(trxID, this.outlet, this.payTotal, this.payCash, this.payChange, this.cart, 'Sukses', null, noAntrian); } catch (e) { console.log("Printer belum siap"); }
         
+        // 2. UPDATE MEMORI LOKAL SECARA INSTAN
         if (!this.db.transactions) this.db.transactions = [];
         this.db.transactions.push({ 
             ID_TRX: trxID, Tanggal: todayStrLocal, Waktu: `${pad(d.getHours())}.${pad(d.getMinutes())}.${pad(d.getSeconds())}`, 
@@ -1130,27 +1132,46 @@ const superApp = {
         this.refreshData(); 
         this.showToast(`Transaksi Sukses! No Antrian: ${noAntrian}`);
 
-        // --- 🚀 KUNCI PERBAIKAN ALUR CFD ---
-        // 1. Simpan angka total & kembalian ke kapsul
+        // 3. KUNCI PERBAIKAN ALUR CFD
         this._lastPaidTotal = this.payTotal;
         this._lastPaidChange = this.payChange;
-
-        // 2. Bersihkan keranjang kasir SEKARANG JUGA (CFD akan mendapat sinyal keranjang kosong)
         this.cart = []; 
         this.renderCart(); 
-
-        // 3. Tembakkan sinyal 'PAID' sebagai kata terakhir ke CFD
         this.syncStorage('paid', noAntrian); 
-        
         this.closeModal('modal-payment'); 
+        
+        // 🚀 4. LEPASKAN KUNCI KASIR SEKARANG JUGA (Non-Blocking)
         this.isProcessing = false;
-        // ------------------------------------
 
+        // 🚀 5. SINKRONISASI SERVER DI LATAR BELAKANG (Fire & Forget)
         this.apiPost(payload).then(res => {
-            if (res && res.status !== 'sukses' && !res.is_offline) {
-               this.offlineQueue.push(payload);
-               localStorage.setItem('aisnack_offline_queue', JSON.stringify(this.offlineQueue));
-               this.updateNetworkUI();
+            // A. Jika sukses terkirim ke Google Sheets
+            if (res && res.status === 'sukses' && !res.is_offline) {
+                // Tarik data terbaru secara diam-diam
+                fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data && data.status === 'sukses') {
+                            this.db = data;
+                            localStorage.setItem('aisnack_db_cache', JSON.stringify(data));
+                            
+                            // 💡 PENTING: Hanya update UI HP Kasir JIKA keranjang sedang kosong
+                            // Ini memastikan aplikasi tidak "berkedip" saat kasir sedang sibuk menginput pelanggan berikutnya
+                            if (this.cart.length === 0) {
+                                this.refreshData();
+                            }
+                        }
+                    }).catch(e => console.log("Gagal tarik background, aman karena memori lokal sudah tercatat."));
+            } 
+            // B. Jika Gagal dari sisi Server (bukan jaringan putus)
+            else if (res && res.status !== 'sukses' && !res.is_offline) {
+               // Pastikan tidak terjadi double push (karena apiPost kadang sudah mem-push)
+               let isAlreadyQueued = this.offlineQueue.some(q => q.trx_id === payload.trx_id);
+               if (!isAlreadyQueued) {
+                   this.offlineQueue.push(payload);
+                   localStorage.setItem('aisnack_offline_queue', JSON.stringify(this.offlineQueue));
+                   this.updateNetworkUI();
+               }
             }
         }).catch(err => { console.log("Masuk ke antrean offline."); });
     },

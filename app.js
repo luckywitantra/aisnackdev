@@ -2434,52 +2434,71 @@ submitOpname: async function() {
 
     // STAF & KINERJA
    renderStaf: function() {
-        // --- 1. SETUP FILTER OUTLET ---
+        // 🚀 1. PENGAMAN UTAMA: Mencegah error diam-diam jika database belum siap
+        if (!this.db) return; 
+
+        // --- 2. SETUP FILTER OUTLET ---
         const filterEl = document.getElementById('staf-filter-outlet');
         if(filterEl && filterEl.options.length <= 1) {
             let opts = '<option value="Semua">Semua Cabang</option>';
             (this.db.outlets || []).forEach(o => opts += `<option value="${o.ID_Outlet}">${o.Nama_Outlet}</option>`);
             filterEl.innerHTML = opts;
             
-            // Kunci filter jika bukan Admin/Owner
-            let isAdmin = this.currentUser && String(this.currentUser.Role).toLowerCase().includes('admin');
-            if(!isAdmin) { filterEl.value = this.outlet; filterEl.disabled = true; }
+            // 🚀 PERBAIKAN: Deteksi Admin ATAU Owner agar dropdown tidak terkunci
+            let roleStr = this.currentUser ? String(this.currentUser.Role).toLowerCase() : '';
+            let isAdmin = roleStr.includes('admin') || roleStr.includes('owner');
+            
+            if(!isAdmin) { 
+                filterEl.value = this.outlet; 
+                filterEl.disabled = true; 
+            } else {
+                filterEl.value = this.outlet; // Secara default arahkan ke cabang yang sedang login
+            }
         }
         let selOut = filterEl ? filterEl.value : 'Semua';
 
-        // --- 2. SETUP FILTER TANGGAL ---
+        // --- 3. SETUP FILTER TANGGAL ---
         const dStartEl = document.getElementById('filter-start-staf');
         const dEndEl = document.getElementById('filter-end-staf');
-        let today = new Date();
         
-        // Default: Tanggal 1 bulan ini sampai hari ini
-        if (dStartEl && !dStartEl.value) dStartEl.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
-        if (dEndEl && !dEndEl.value) dEndEl.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        let today = new Date();
+        let yyyy = today.getFullYear(); 
+        let mm = String(today.getMonth() + 1).padStart(2, '0'); 
+        let dd = String(today.getDate()).padStart(2, '0');
 
-        let dateStart = dStartEl && dStartEl.value ? new Date(dStartEl.value + "T00:00:00") : new Date(0);
-        let dateEnd = dEndEl && dEndEl.value ? new Date(dEndEl.value + "T23:59:59") : new Date(8640000000000000);
+        // Default: Tanggal 1 bulan ini sampai hari ini
+        if (dStartEl && !dStartEl.value) dStartEl.value = `${yyyy}-${mm}-01`;
+        if (dEndEl && !dEndEl.value) dEndEl.value = `${yyyy}-${mm}-${dd}`;
+
+        let dStart = dStartEl ? dStartEl.value : ''; 
+        let dEnd = dEndEl ? dEndEl.value : '';
+        let dateStart = dStart ? new Date(dStart + "T00:00:00") : new Date(0);
+        let dateEnd = dEnd ? new Date(dEnd + "T23:59:59") : new Date(8640000000000000);
 
         let outletSales = {}; 
         let staffData = {};
 
-        // --- 3. DAFTARKAN SEMUA STAF OPERASIONAL ---
-        // (Wajib tampil semua di tabel meskipun omsetnya 0)
+        // --- 4. DAFTARKAN SEMUA STAF OPERASIONAL ---
         (this.db.users || []).forEach(u => {
             if(!String(u.Role).toLowerCase().includes('owner')) {
                  staffData[u.Username] = { name: u.Username, role: u.Role, outlet: u.Outlet, sales: 0, trxCount: 0, batalCount: 0 };
             }
         });
 
-        // --- 4. KALKULASI DATA TRANSAKSI ---
+        // --- 5. KALKULASI DATA TRANSAKSI ---
         (this.db.transactions || []).forEach(t => {
             let trxDate = this.parseDateId(t.Tanggal);
-            if(trxDate >= dateStart && trxDate <= dateEnd) {
+            
+            // 🚀 PERBAIKAN: Hanya hitung transaksi yang sesuai dengan Filter Tanggal & Cabang yang Dipilih!
+            if(trxDate >= dateStart && trxDate <= dateEnd && (selOut === 'Semua' || t.Outlet === selOut)) {
                 let out = t.Outlet; 
                 let kasir = t.Kasir; 
                 let bayar = Number(t.Total_Bayar) || 0;
 
-                // Daftarkan nama otomatis jika kasir belum ada di master user
-                if(!staffData[kasir]) staffData[kasir] = { name: kasir, role: 'Staf', outlet: out, sales: 0, trxCount: 0, batalCount: 0 };
+                // Daftarkan otomatis jika ada kasir siluman (belum masuk db users tapi ada di transaksi)
+                if(!staffData[kasir]) {
+                    staffData[kasir] = { name: kasir, role: 'Staf', outlet: out, sales: 0, trxCount: 0, batalCount: 0 };
+                }
 
                 if (t.Status === 'Sukses') {
                     if(!outletSales[out]) outletSales[out] = 0; 
@@ -2496,7 +2515,7 @@ submitOpname: async function() {
         let maxOutletSales = 0;
         Object.values(outletSales).forEach(v => { if(v > maxOutletSales) maxOutletSales = v; });
 
-        // --- 5. RENDER LEADERBOARD CABANG ---
+        // --- 6. RENDER LEADERBOARD CABANG ---
         let outHtml = '';
         let outArr = Object.keys(outletSales).map(k => ({name: k, sales: outletSales[k]})).sort((a,b) => b.sales - a.sales);
         outArr.forEach((o, i) => {
@@ -2507,23 +2526,30 @@ submitOpname: async function() {
         const outListEl = document.getElementById('staf-outlet-leaderboard');
         if(outListEl) outListEl.innerHTML = outHtml || this.getEmptyState('fa-store', 'Belum Ada Transaksi', 'Di rentang tanggal ini.');
 
-        // --- 6. RENDER TOP 3 KARYAWAN (CARD) ---
-        let stafArr = Object.values(staffData).filter(s => selOut === 'Semua' || s.outlet === selOut).sort((a,b) => b.sales - a.sales);
+        // --- 7. RENDER KARTU TOP 3 KARYAWAN ---
+        // 🚀 PERBAIKAN: Tetap tampilkan staf jika ia terdaftar di Pusat ATAU dia punya transaksi di cabang tersebut!
+        let stafArr = Object.values(staffData).filter(s => 
+            selOut === 'Semua' || 
+            s.outlet === selOut || 
+            s.outlet === 'Pusat' || 
+            s.trxCount > 0 || 
+            s.batalCount > 0
+        ).sort((a,b) => b.sales - a.sales);
+
         let top3Html = '';
         let maxStaffSales = stafArr.length > 0 ? stafArr[0].sales : 0;
         
-        stafArr.slice(0, 3).forEach((s, i) => {
-            if (s.sales > 0) {
-                let pct = maxStaffSales > 0 ? (s.sales / maxStaffSales) * 100 : 0;
-                let roleColor = String(s.role).toLowerCase().includes('senior') ? 'text-orange-600 bg-orange-50 border-orange-200' : 'text-slate-500 bg-slate-50 border-slate-200';
-                
-                top3Html += `<div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-3 hover:-translate-y-1 transition duration-300"><div class="flex justify-between items-center"><div class="flex items-center gap-4"><div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-black text-sm border border-blue-100">${i+1}</div><div><h4 class="font-bold text-sm text-slate-800">${s.name}</h4><div class="mt-1 flex items-center gap-1">${this.getOutletBadge(s.outlet)} <span class="px-2 py-0.5 border rounded text-[9px] font-black uppercase ${roleColor}">${s.role}</span></div></div></div><div class="text-right"><h4 class="font-black text-brand-600 text-lg">Rp ${s.sales.toLocaleString('id-ID')}</h4></div></div><div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden shadow-inner"><div class="bg-blue-500 h-2 rounded-full transition-all duration-1000" style="width: ${pct}%"></div></div></div>`;
-            }
+        // Filter lagi: Hanya yang omsetnya LEBIH DARI 0 yang bisa masuk daftar TOP 3
+        stafArr.filter(s => s.sales > 0).slice(0, 3).forEach((s, i) => {
+            let pct = maxStaffSales > 0 ? (s.sales / maxStaffSales) * 100 : 0;
+            let roleColor = String(s.role).toLowerCase().includes('senior') ? 'text-orange-600 bg-orange-50 border-orange-200' : 'text-slate-500 bg-slate-50 border-slate-200';
+            
+            top3Html += `<div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-3 hover:-translate-y-1 transition duration-300"><div class="flex justify-between items-center"><div class="flex items-center gap-4"><div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-black text-sm border border-blue-100">${i+1}</div><div><h4 class="font-bold text-sm text-slate-800">${s.name}</h4><div class="mt-1 flex items-center gap-1">${this.getOutletBadge(s.outlet)} <span class="px-2 py-0.5 border rounded text-[9px] font-black uppercase ${roleColor}">${s.role}</span></div></div></div><div class="text-right"><h4 class="font-black text-brand-600 text-lg">Rp ${s.sales.toLocaleString('id-ID')}</h4></div></div><div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden shadow-inner"><div class="bg-blue-500 h-2 rounded-full transition-all duration-1000" style="width: ${pct}%"></div></div></div>`;
         });
-        const stafListEl = document.getElementById('staf-top-employee');
-        if(stafListEl) stafListEl.innerHTML = top3Html || this.getEmptyState('fa-users', 'Belum Ada Peringkat', 'Tidak ada data di tanggal ini.');
+        const stafTopEl = document.getElementById('staf-top-employee');
+        if(stafTopEl) stafTopEl.innerHTML = top3Html || this.getEmptyState('fa-users', 'Belum Ada Peringkat', 'Belum ada omset terekam.');
 
-        // --- 7. RENDER TABEL DETAIL (SELURUH STAF) ---
+        // --- 8. RENDER TABEL DETAIL (SELURUH STAF) ---
         let detailHtml = '';
         stafArr.forEach(s => {
             let atv = s.trxCount > 0 ? Math.round(s.sales / s.trxCount) : 0; // Average Transaction Value
@@ -2533,7 +2559,7 @@ submitOpname: async function() {
             detailHtml += `<tr class="border-b border-slate-50 hover:bg-slate-50 transition">
                 <td class="py-4 px-5 whitespace-nowrap">
                     <div class="font-bold text-slate-800 text-sm mb-1">${s.name} <span class="text-[9px] ml-2 px-1.5 py-0.5 rounded border uppercase font-black ${roleColor}">${s.role}</span></div>
-                    <div>${this.getOutletBadge(s.outlet)}</div>
+                    <div class="mt-0.5">${this.getOutletBadge(s.outlet)}</div>
                 </td>
                 <td class="py-4 px-5 text-right font-black text-brand-600">Rp ${s.sales.toLocaleString('id-ID')}</td>
                 <td class="py-4 px-5 text-center font-bold text-slate-600">${s.trxCount} <span class="text-[10px] text-slate-400 font-normal">Struk</span></td>

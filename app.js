@@ -1567,9 +1567,9 @@ submitOpname: async function() {
                     let wStr = this.cleanDateOnly(op.Waktu) + ' ' + this.cleanTimeOnly(op.Waktu);
 
                     html += `<tr class="border-b border-slate-50 hover:bg-slate-50 transition">
-                        <td class="py-3 px-4 text-center w-12"><input type="checkbox" class="cb-audit-opname w-5 h-5 rounded cursor-pointer accent-brand-500" value="${op.Waktu}|${op.SKU}|${op.Outlet}|${op.Stok_Fisik}" onchange="superApp.checkBulkAudit()"></td>
+                        <td class="py-3 px-4 text-center w-12"><input type="checkbox" class="cb-audit-opname w-5 h-5 rounded cursor-pointer accent-brand-500" value="${op.Waktu}|${op.SKU}|${this.getOutletBadge(op.Outlet)}|${op.Stok_Fisik}" onchange="superApp.checkBulkAudit()"></td>
                         <td class="py-3 px-4 text-xs whitespace-nowrap">${wStr}</td>
-                        <td class="py-3 px-4 text-xs whitespace-nowrap">${op.Outlet}<br><span class="text-brand-500">${op.Kasir}</span></td>
+                        <td class="py-3 px-4 text-xs whitespace-nowrap">${this.getOutletBadge(op.Outlet)}<br><span class="text-brand-500">${op.Kasir}</span></td>
                         <td class="py-3 px-4 text-xs font-bold whitespace-normal min-w-[150px]">${itemName}</td>
                         <td class="py-3 px-4 text-center text-xs whitespace-nowrap">Sys: ${op.Stok_Sistem} <i class="fas fa-arrow-right mx-1 text-slate-300"></i> Fisik: ${op.Stok_Fisik}</td>
                         <td class="py-3 px-4 text-right font-black ${selColor}">${op.Selisih > 0 ? '+'+op.Selisih : op.Selisih}</td>
@@ -1590,7 +1590,7 @@ submitOpname: async function() {
                     let tgl = this.cleanDateOnly(mt.Waktu);
                     // Pastikan key valid
                     if (tgl) {
-                        let key = `${mt.Outlet_Tujuan}_${tgl}`;
+                        let key = `${this.getOutletBadge(mt.Outlet_Tujuan)}_${tgl}`;
                         mutasiHistoryHariIni[key] = (mutasiHistoryHariIni[key] || 0) + 1;
                     }
                 }
@@ -1600,7 +1600,7 @@ submitOpname: async function() {
                 if (mt.Status_Approval === 'Pending') {
                     let itemName = this.db.masterProduk.find(m => m.SKU === mt.SKU)?.Nama_Produk || mt.SKU || 'Unknown';
                     let tgl = this.cleanDateOnly(mt.Waktu);
-                    let key = `${mt.Outlet_Tujuan}_${tgl}`;
+                    let key = `${this.getOutletBadge(mt.Outlet_Tujuan)}_${tgl}`;
                     let sudahAda = mutasiHistoryHariIni[key] || 0;
                     
                     let warningBadge = sudahAda > 0 ? 
@@ -1611,7 +1611,7 @@ submitOpname: async function() {
                     html += `<tr class="border-b border-slate-50 hover:bg-slate-50 transition">
                         <td class="py-3 px-4 text-center w-12"><input type="checkbox" class="cb-audit-terima w-5 h-5 rounded cursor-pointer accent-brand-500" value="${mt.ID_Mutasi}" onchange="superApp.checkBulkAudit()"></td>
                         <td class="py-3 px-4 text-xs whitespace-nowrap">${wStr}</td>
-                        <td class="py-3 px-4 text-xs whitespace-nowrap">${mt.Outlet_Tujuan}<br><span class="text-brand-500">${mt.Kasir || '-'}</span>${warningBadge}</td>
+                        <td class="py-3 px-4 text-xs whitespace-nowrap">${this.getOutletBadge(mt.Outlet_Tujuan)}<br><span class="text-brand-500">${mt.Kasir || '-'}</span>${warningBadge}</td>
                         <td class="py-3 px-4 text-xs font-bold whitespace-normal min-w-[150px]">${itemName}</td>
                         <td class="py-3 px-4 text-center text-sm font-black text-brand-500 whitespace-nowrap">${mt.Qty} Pcs</td>
                         <td class="py-3 px-4 text-xs italic whitespace-normal min-w-[150px]">${mt.Keterangan || '-'}</td>
@@ -1848,7 +1848,7 @@ submitOpname: async function() {
                 if(renderedRowsKas < 500) {
                     kasHtml += `<tr class="transition border-b border-slate-100 hover:bg-slate-50">
                         <td class="py-3 px-3 md:px-5 whitespace-nowrap text-xs text-slate-500">${kDateStr} ${kTimeStr}</td>
-                        <td class="py-3 px-3 md:px-5 whitespace-nowrap font-bold text-slate-700">${k.Outlet} <span class="text-[10px] text-slate-400 font-normal">(${k.Kasir})</span></td>
+                        <td class="py-3 px-3 md:px-5 whitespace-nowrap font-bold text-slate-700">${this.getOutletBadge(k.Outlet)} <span class="text-[10px] text-slate-400 font-normal">(${k.Kasir})</span></td>
                         <td class="py-3 px-3 md:px-5 whitespace-nowrap font-medium text-slate-600 max-w-[150px] md:max-w-[250px] truncate" title="${k.Keterangan}">${k.Keterangan}</td>
                         <td class="py-3 px-3 md:px-5 whitespace-nowrap text-right font-black text-red-500 bg-red-50/30 rounded">- Rp ${(Number(k.Nominal)||0).toLocaleString('id-ID')}</td>
                     </tr>`;
@@ -1878,7 +1878,7 @@ submitOpname: async function() {
                     selisihHtml += `<tr class="transition border-b border-slate-100 hover:bg-slate-50">
                         <td class="py-3 px-3 md:px-5 whitespace-nowrap text-xs text-slate-500">${opWaktuStr}</td>
                         <td class="py-3 px-3 md:px-5 whitespace-nowrap font-bold text-slate-700 max-w-[150px] truncate" title="${itemName}">${itemName}</td>
-                        <td class="py-3 px-3 md:px-5 whitespace-nowrap text-xs font-bold">${op.Outlet} <span class="text-[10px] text-slate-400 font-normal">(${op.Kasir})</span></td>
+                        <td class="py-3 px-3 md:px-5 whitespace-nowrap text-xs font-bold">${this.getOutletBadge(op.Outlet)} <span class="text-[10px] text-slate-400 font-normal">(${op.Kasir})</span></td>
                         <td class="py-3 px-3 md:px-5 whitespace-nowrap text-xs font-medium text-slate-500 bg-slate-50/50 rounded-lg">Sys: ${op.Stok_Sistem} <i class="fas fa-arrow-right mx-1 text-slate-300"></i> Fis: ${op.Stok_Fisik}</td>
                         <td class="py-3 px-3 md:px-5 whitespace-nowrap text-right font-black ${selColor} text-sm">${op.Selisih > 0 ? '+'+op.Selisih : op.Selisih}</td>
                         <td class="py-3 px-3 md:px-5 whitespace-nowrap text-center">${badge}</td>
@@ -2438,7 +2438,7 @@ submitOpname: async function() {
         let stafArr = Object.keys(staffSales).map(k => ({name: k, ...staffSales[k]})).filter(s => selOut === 'Semua' || s.outlet === selOut).sort((a,b) => b.sales - a.sales);
         stafArr.forEach((s, i) => {
             let pct = maxStaffSales > 0 ? (s.sales / maxStaffSales) * 100 : 0;
-            stafHtml += `<div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-3 hover:-translate-y-1 transition duration-300"><div class="flex justify-between items-center"><div class="flex items-center gap-4"><div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-black text-sm border border-blue-100">${i+1}</div><div><h4 class="font-bold text-sm text-slate-800">${s.name}</h4><p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5"><i class="fas fa-location-dot text-brand-500 mr-1"></i>${s.outlet}</p></div></div><div class="text-right"><h4 class="font-black text-brand-600 text-lg">Rp ${s.sales.toLocaleString('id-ID')}</h4></div></div><div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden shadow-inner"><div class="bg-blue-500 h-2 rounded-full transition-all duration-1000" style="width: ${pct}%"></div></div></div>`;
+            stafHtml += `<div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-3 hover:-translate-y-1 transition duration-300"><div class="flex justify-between items-center"><div class="flex items-center gap-4"><div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-black text-sm border border-blue-100">${i+1}</div><div><h4 class="font-bold text-sm text-slate-800">${s.name}</h4><p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5"><i class="fas fa-location-dot text-brand-500 mr-1"></i>${this.getOutletBadge(s.outlet)}</p></div></div><div class="text-right"><h4 class="font-black text-brand-600 text-lg">Rp ${s.sales.toLocaleString('id-ID')}</h4></div></div><div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden shadow-inner"><div class="bg-blue-500 h-2 rounded-full transition-all duration-1000" style="width: ${pct}%"></div></div></div>`;
         });
         const stafListEl = document.getElementById('staf-employee-list');
         if(stafListEl) stafListEl.innerHTML = stafHtml || this.getEmptyState('fa-users', 'Belum Ada Data', 'Kasir belum mencatat penjualan.');
@@ -2557,6 +2557,25 @@ submitOpname: async function() {
         this.closeGiantNumpad();
     },
 
+    getOutletBadge: function(outletName) {
+        let safeName = String(outletName || '-').trim();
+        let colorClass = 'bg-slate-100 text-slate-600 border-slate-200'; // Warna Default (Abu-abu)
+
+        // Pemetakan warna khusus untuk setiap cabang
+        let lowerName = safeName.toLowerCase();
+        if (lowerName.includes('penajam')) {
+            colorClass = 'bg-blue-50 text-blue-600 border-blue-200';
+        } else if (lowerName.includes('babulu')) {
+            colorClass = 'bg-green-50 text-green-600 border-green-200';
+        } else if (lowerName.includes('batu kajang')) {
+            colorClass = 'bg-purple-50 text-purple-600 border-purple-200';
+        } else if (lowerName.includes('sepaku')) {
+            colorClass = 'bg-orange-50 text-orange-600 border-orange-200';
+        }
+
+        // Cetak elemen HTML Lencana
+        return `<span class="px-2 py-0.5 rounded md:rounded-md text-[10px] md:text-xs font-black border shadow-sm whitespace-nowrap ${colorClass}">${safeName}</span>`;
+    },
     
     connectBluetooth: async function(isAuto = false) {
         if (this.isBluetoothSearching) return;

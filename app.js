@@ -858,14 +858,18 @@ const superApp = {
     },
 
     // POS CORE
-  refreshData: function() {
-        // 🚀 Terapkan Lencana Warna di Header POS dan Label Manajemen Outlet
+ refreshData: function() {
+        // 🚀 1. PASTIKAN TEMA WARNA TERAPLIKASI SESUAI CABANG AKTIF
+        this.applyOutletTheme();
+
+        // 2. Terapkan Lencana Warna di Header POS dan Label Manajemen Outlet
         const hSub = document.getElementById('header-subtitle'); 
         if (hSub) hSub.innerHTML = this.getOutletBadge(this.outlet);
         
         const lOutManage = document.getElementById('label-outlet-manage'); 
         if (lOutManage) lOutManage.innerHTML = this.getOutletBadge(this.outlet);
 
+        // 3. Proses Produk
         this.filteredProducts = [];
         if (this.db && this.db.masterProduk) {
             this.db.masterProduk.forEach(master => {
@@ -882,6 +886,7 @@ const superApp = {
         }
         this.filteredProducts.sort((a, b) => String(a.nama || '').localeCompare(String(b.nama || '')));
 
+        // 4. Render Semua Menu
         if (document.getElementById('product-list')) this.renderProducts();
         if (typeof this.renderReport === 'function') this.renderReport();
         if (typeof this.renderGudang === 'function') this.renderGudang();
@@ -891,6 +896,7 @@ const superApp = {
         if (typeof this.renderTerimaBarang === 'function') this.renderTerimaBarang();
         if (typeof this.generateAIReport === 'function') this.generateAIReport();
     },
+    
     changeOutlet: function(val) { this.outlet = val; this.cart = []; this.renderCart(); this.checkShiftStatus(); this.refreshData(); },
     switchMenu: function(menu) {
         document.querySelectorAll('.app-view').forEach(el => el.classList.add('hidden'));

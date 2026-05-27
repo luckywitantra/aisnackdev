@@ -6,8 +6,19 @@ const API_URL = "https://script.google.com/macros/s/AKfycbzIG5gEXEfMeOiwJUd7SGRO
 const osKeyboard = {
     targetElement: null, mode: 'numeric', isOpen: false,
     layouts: {
-        numeric: [ ['1', '2', '3'], ['4', '5', '6'], ['7', '8', '9'], ['C', '0', '000'] ],
-        text: [ ['1','2','3','4','5','6','7','8','9','0'], ['Q','W','E','R','T','Y','U','I','O','P'], ['A','S','D','F','G','H','J','K','L'], ['Z','X','C','V','B','N','M','SPACE'] ]
+        numeric: [ 
+            ['1', '2', '3'], 
+            ['4', '5', '6'], 
+            ['7', '8', '9'], 
+            ['C', '0', '000'] 
+        ],
+        text: [ 
+            ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'], 
+            ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'], 
+            ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', '.'], 
+            ['Z', 'X', 'C', 'V', 'B', 'N', 'M', ',', '@'],
+            ['SPACE'] 
+        ]
     },
     open: function(elOrId, type = 'text') {
         this.targetElement = typeof elOrId === 'string' ? document.getElementById(elOrId) : elOrId;
@@ -39,22 +50,22 @@ const osKeyboard = {
         // 🚀 Desain Enterprise: Gunakan grid yang konsisten
         rows.forEach(row => {
             html += `<div class="flex justify-center gap-2 w-full mb-2">`;
-            row.forEach(key => {
-                // Styling Tombol
-                let btnClass = "flex-1 py-4 bg-white text-slate-800 font-black rounded-2xl shadow-[0_4px_0_rgba(203,213,225,1)] border border-slate-200 active:shadow-none active:translate-y-[4px] transition-all text-xl";
-                
-                // Styling Khusus Tombol "C" (Clear)
-                if (key === 'C') {
-                    btnClass = "flex-1 py-4 bg-red-50 text-red-500 font-black rounded-2xl shadow-[0_4px_0_rgba(254,205,211,1)] border border-red-100 active:shadow-none active:translate-y-[4px] transition-all text-lg";
-                }
-                // Styling Tombol "SPACE"
-                else if (key === 'SPACE') {
-                    html += `<button class="flex-[3] py-4 bg-white text-slate-800 font-bold rounded-2xl shadow-[0_4px_0_rgba(203,213,225,1)] border border-slate-200 active:shadow-none active:translate-y-[4px] transition-all" onclick="osKeyboard.insert(' ')">SPASI</button>`;
-                    return;
-                }
-
-                html += `<button class="${btnClass}" onclick="osKeyboard.insert('${key}')">${key}</button>`;
-            });
+            // Di dalam fungsi render:
+rows.forEach(key => {
+    // Tombol Spasi sekarang berdiri sendiri sebagai baris bawah
+    if (key === 'SPACE') { 
+        html += `<div class="flex justify-center w-full mb-1 sm:mb-2">
+                    <button class="flex-[3] py-4 bg-white text-slate-800 font-bold rounded-2xl shadow-[0_4px_0_rgba(203,213,225,1)] border border-slate-200 active:shadow-none active:translate-y-[4px] transition-all" onclick="osKeyboard.insert(' ')">SPASI</button>
+                 </div>`;
+    } 
+    // Tombol lainnya (termasuk simbol baru)
+    else if (key === 'C') { 
+        html += `<button class="flex-1 py-4 bg-red-50 text-red-500 font-black rounded-2xl shadow-[0_4px_0_rgba(254,205,211,1)] border border-red-100 active:shadow-none active:translate-y-[4px] transition-all text-lg" onclick="osKeyboard.clear()">C</button>`; 
+    } 
+    else { 
+        html += `<button class="flex-1 py-4 bg-white text-slate-800 font-black rounded-2xl shadow-[0_4px_0_rgba(203,213,225,1)] border border-slate-200 active:shadow-none active:translate-y-[4px] transition-all text-lg" onclick="osKeyboard.insert('${key}')">${key}</button>`; 
+    }
+});
             html += `</div>`;
         });
 

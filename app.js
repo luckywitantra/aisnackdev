@@ -2218,176 +2218,201 @@ submitOpname: async function() {
 
     // AI ASSISTANT
    generateAIReport: function() {
-        if (!this.db) return;
+        // Jika data belum ditarik, cegah error
+        if (!this.db || !this.db.transactions) return; 
         
-        // 1. Setup Filter Cabang
-        const filterOutEl = document.getElementById('ai-filter-outlet');
-        if(filterOutEl && filterOutEl.options.length <= 1) {
-            let opts = '<option value="Semua">Semua Cabang (Kumulatif)</option>';
-            (this.db.outlets || []).forEach(o => opts += `<option value="${o.ID_Outlet}">${o.Nama_Outlet}</option>`);
-            filterOutEl.innerHTML = opts;
-            
-            // Kunci jika bukan Owner/Admin
-            let roleStr = this.currentUser ? String(this.currentUser.Role).toLowerCase() : '';
-            let isAdmin = roleStr.includes('admin') || roleStr.includes('owner');
-            if(!isAdmin) { filterOutEl.value = this.outlet; filterOutEl.disabled = true; }
-            else { filterOutEl.value = this.outlet; }
-        }
-        let selOut = filterOutEl ? filterOutEl.value : 'Semua';
-
-        // 2. Setup Filter Tanggal (Default: Hari Ini)
+        // 1. Setup Filter Tanggal (Set ke hari ini jika kosong)
         const filterDateEl = document.getElementById('ai-filter-date');
         let today = new Date();
-        let yyyy = today.getFullYear(); let mm = String(today.getMonth() + 1).padStart(2, '0'); let dd = String(today.getDate()).padStart(2, '0');
+        let yyyy = today.getFullYear(); 
+        let mm = String(today.getMonth() + 1).padStart(2, '0'); 
+        let dd = String(today.getDate()).padStart(2, '0');
         
         if (filterDateEl && !filterDateEl.value) filterDateEl.value = `${yyyy}-${mm}-${dd}`; 
         let selDate = filterDateEl ? filterDateEl.value : `${yyyy}-${mm}-${dd}`;
         
-        // Ubah format YYYY-MM-DD ke format lokal database (DD/MM/YYYY)
-        let [sY, sM, sD] = selDate.split('-');
-        let dateTarget = `${sD}/${sM}/${sY}`;
+        // Konversi YYYY-MM-DD ke DD/MM/YYYY (Format standar aplikasi Anda)
+        let parts = selDate.split('-');
+        let dateTarget = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : '';
 
-        // 3. Siapkan Variabel Penampung Data
-        let totalVisitors = 0;
-        let totalOmset = 0;
-        let hourlyData = {}; // Menyimpan data dari jam 00 - 23
+        // 2. Setup Filter Cabang
+        const filterOutEl = document.getElementById('ai-filter-outlet');
+        if(filterOutEl && filterOutEl.options.length <= 1) {
+            let opts = '<option value="Semua">Semua Cabang (Kumulatif)</option>';
+            // Ekstrak nama cabang unik dari transaksi jika this.db.outlets kosong
+            let uniqueOutlets = [...new Set((this.db.transactions || []).map(t => t.Outlet))];
+            uniqueOutlets.forEach(o => {
+                if(o) opts += `<option value="${o}">${o}</option>`;
+            });
+            filterOutEl.innerHTML = opts;
+            
+            let roleStr = this.currentUser ? String(this.currentUser.Role).toLowerCase() : '';
+            let isAdmin = roleStr.includes('admin') || roleStr.includes('owner');
+            if(!isAdmin) { filterOutEl.value = this.outlet; filterOutEl.disabled = true; }
+        }
+        let selOut = filterOutEl ? filterOutEl.value : 'Semua';
+
+        // 3. Siapkan Variabel Penampung
+        let totalVisitors = 0; let totalOmset = 0;
+        let hourlyData = {}; 
         let paymentData = { 'Tunai': 0, 'QRIS': 0, 'Lainnya': 0 };
         let productSales = {};
+        
+        // Objek untuk Komparasi Antar Cabang
+        let compareData = {};
 
-        // 4. Proses Kalkulasi Transaksi
+        // 4. Looping Transaksi
         (this.db.transactions || []).forEach(t => {
-            if (t.Status === 'Sukses' && this.cleanDateOnly(t.Tanggal) === dateTarget) {
-                if (selOut === 'Semua' || t.Outlet === selOut) {
-                    let bayar = Number(t.Total_Bayar) || 0;
+            // Pastikan format tanggal dibersihkan sebelum dicocokkan
+            let trxDate = this.cleanDateOnly(t.Tanggal);
+            
+            if (t.Status === 'Sukses' && trxDate === dateTarget) {
+                let bayar = Number(t.Total_Bayar) || 0;
+                let outletName = t.Outlet || 'Tidak Diketahui';
+
+                // --- A. Kumpulkan Data Untuk Tabel Komparasi ---
+                if (!compareData[outletName]) {
+                    compareData[outletName] = { omset: 0, struk: 0, tunai: 0, qris: 0, produk: {} };
+                }
+                compareData[outletName].omset += bayar;
+                compareData[outletName].struk += 1;
+                let metodCmp = String(t.Metode_Bayar || 'Tunai').toUpperCase();
+                if (metodCmp.includes('QRIS')) compareData[outletName].qris += bayar;
+                else compareData[outletName].tunai += bayar;
+
+                // Hitung menu cabang
+                let itemsCmp = [];
+                try { itemsCmp = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
+                itemsCmp.forEach(i => {
+                    if(!compareData[outletName].produk[i.nama]) compareData[outletName].produk[i.nama] = 0;
+                    compareData[outletName].produk[i.nama] += Number(i.qty);
+                });
+
+                // --- B. Kumpulkan Data Filter Utama (Kumulatif / Spesifik) ---
+                if (selOut === 'Semua' || outletName === selOut) {
                     totalOmset += bayar;
                     totalVisitors++;
 
-                    // A. Ekstrak Jam (Misal "14.30.00" -> 14)
                     let jam = 0;
-                    if (t.Waktu) {
-                        let parts = String(t.Waktu).split('.');
-                        if(parts.length > 0) jam = parseInt(parts[0]);
-                    }
+                    if (t.Waktu) jam = parseInt(String(t.Waktu).split('.')[0]) || 0;
                     if (!hourlyData[jam]) hourlyData[jam] = { omset: 0, count: 0 };
                     hourlyData[jam].omset += bayar;
                     hourlyData[jam].count++;
 
-                    // B. Kalkulasi Metode Pembayaran
-                    let metod = String(t.Metode_Bayar || 'Tunai').toUpperCase();
-                    if (metod.includes('QRIS')) paymentData['QRIS'] += bayar;
-                    else if (metod.includes('TUNAI')) paymentData['Tunai'] += bayar;
+                    if (metodCmp.includes('QRIS')) paymentData['QRIS'] += bayar;
+                    else if (metodCmp.includes('TUNAI')) paymentData['Tunai'] += bayar;
                     else paymentData['Lainnya'] += bayar;
 
-                    // C. Kalkulasi Produk Terlaris
-                    try {
-                        let items = JSON.parse(t.Items_JSON || '[]');
-                        items.forEach(item => {
-                            if(!productSales[item.nama]) productSales[item.nama] = 0;
-                            productSales[item.nama] += item.qty;
-                        });
-                    } catch(e){}
+                    itemsCmp.forEach(i => {
+                        if(!productSales[i.nama]) productSales[i.nama] = 0;
+                        productSales[i.nama] += Number(i.qty);
+                    });
                 }
             }
         });
 
-        // 5. Update Kartu Ringkasan (Widget Atas)
-        let elTotVis = document.getElementById('ai-tot-visitor'); if(elTotVis) elTotVis.innerText = totalVisitors;
-        let elTotOms = document.getElementById('ai-tot-omset'); if(elTotOms) elTotOms.innerText = `Rp ${totalOmset.toLocaleString('id-ID')}`;
+        // 5. Update UI Widget Utama
+        document.getElementById('ai-tot-visitor').innerText = totalVisitors;
+        document.getElementById('ai-tot-omset').innerText = `Rp ${totalOmset.toLocaleString('id-ID')}`;
         
         let topProduct = '-'; let maxQty = 0;
         for (const [name, qty] of Object.entries(productSales)) {
             if (qty > maxQty) { maxQty = qty; topProduct = name; }
         }
-        let elTopMenu = document.getElementById('ai-top-menu'); if(elTopMenu) elTopMenu.innerText = topProduct;
+        document.getElementById('ai-top-menu').innerText = topProduct;
 
         let favPay = '-';
         if (paymentData['QRIS'] > paymentData['Tunai']) favPay = 'QRIS';
-        else if (paymentData['Tunai'] > paymentData['QRIS']) favPay = 'TUNAI';
-        else if (totalVisitors > 0) favPay = 'SEIMBANG';
-        let elTopPay = document.getElementById('ai-top-payment'); if(elTopPay) elTopPay.innerText = favPay;
+        else if (paymentData['Tunai'] > paymentData['QRIS']) favPay = 'TUNAI Fisik';
+        else if (totalVisitors > 0) favPay = 'Seimbang';
+        document.getElementById('ai-top-payment').innerText = favPay;
 
-        // 6. Gambar Grafik CSS Bar untuk Jam Sibuk
+        // 6. Gambar Tabel Komparasi Antar Cabang
+        let compHtml = '';
+        let sortedOutlets = Object.keys(compareData).sort((a, b) => compareData[b].omset - compareData[a].omset);
+        
+        sortedOutlets.forEach(outName => {
+            let d = compareData[outName];
+            let totPay = d.tunai + d.qris;
+            let pctQris = totPay > 0 ? (d.qris / totPay) * 100 : 0;
+            let pctTunai = totPay > 0 ? (d.tunai / totPay) * 100 : 0;
+            
+            // Cari menu terlaris per cabang
+            let bestMenu = '-'; let bQty = 0;
+            for (const [n, q] of Object.entries(d.produk)) { if(q > bQty) { bQty = q; bestMenu = n; } }
+
+            compHtml += `
+            <tr class="hover:bg-slate-50 transition cursor-pointer">
+                <td class="py-4 px-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full bg-slate-900 text-white flex justify-center items-center text-xs"><i class="fas fa-map-marker-alt"></i></div>
+                        <span class="text-sm font-black text-slate-800">${outName}</span>
+                    </div>
+                </td>
+                <td class="py-4 px-4 text-right text-brand-600 font-black text-base">Rp ${d.omset.toLocaleString('id-ID')}</td>
+                <td class="py-4 px-4 text-center"><span class="bg-slate-100 text-slate-600 px-3 py-1 rounded-lg text-xs">${d.struk}</span></td>
+                <td class="py-4 px-4">
+                    <div class="flex items-center gap-2">
+                        <span class="text-[10px] text-emerald-500 w-8 text-right">${pctTunai.toFixed(0)}%</span>
+                        <div class="flex-1 h-3 flex rounded-full overflow-hidden bg-slate-100 border border-slate-200 shadow-inner">
+                            <div style="width: ${pctTunai}%" class="bg-emerald-400" title="Tunai"></div>
+                            <div style="width: ${pctQris}%" class="bg-blue-500" title="QRIS"></div>
+                        </div>
+                        <span class="text-[10px] text-blue-500 w-8">${pctQris.toFixed(0)}%</span>
+                    </div>
+                </td>
+                <td class="py-4 px-4 text-center">
+                    <span class="text-xs text-slate-600 font-bold truncate max-w-[120px] inline-block">${bestMenu}</span>
+                </td>
+            </tr>`;
+        });
+        
+        let tbComp = document.getElementById('ai-comparison-tbody');
+        if (tbComp) {
+            tbComp.innerHTML = compHtml || `<tr><td colspan="5" class="py-8 text-center text-slate-400">Belum ada data untuk dibandingkan.</td></tr>`;
+        }
+
+        // 7. Gambar Chart Jam Sibuk CSS
         let maxHourlyOmset = 0;
         for (let h in hourlyData) { if (hourlyData[h].omset > maxHourlyOmset) maxHourlyOmset = hourlyData[h].omset; }
         
         let hourlyHtml = '';
-        // Kita loop jam buka operasional wajar (misal 08:00 - 22:00)
         let adaTransaksi = false;
-        for (let h = 8; h <= 22; h++) { 
+        for (let h = 7; h <= 23; h++) { 
             let d = hourlyData[h];
             if (d && d.count > 0) {
                 adaTransaksi = true;
                 let pct = maxHourlyOmset > 0 ? (d.omset / maxHourlyOmset) * 100 : 0;
                 let padH = String(h).padStart(2, '0') + ':00';
-                
-                // Jika ini adalah jam puncak, beri warna highlight oranye
-                let barColor = d.omset === maxHourlyOmset && maxHourlyOmset > 0 ? 'from-brand-400 to-orange-500 shadow-md' : 'from-indigo-400 to-indigo-600';
+                let barColor = d.omset === maxHourlyOmset ? 'from-brand-400 to-orange-500 shadow-md' : 'from-slate-300 to-slate-400';
                 
                 hourlyHtml += `<div class="flex items-center gap-3">
-                    <div class="w-10 text-right text-xs font-black text-slate-400">${padH}</div>
-                    <div class="flex-1 bg-slate-50 rounded-full h-5 overflow-hidden border border-slate-100 relative group cursor-crosshair">
+                    <div class="w-10 text-right text-xs font-black text-slate-500">${padH}</div>
+                    <div class="flex-1 bg-slate-50 rounded-full h-5 overflow-hidden border border-slate-100">
                         <div class="bg-gradient-to-r ${barColor} h-full rounded-full transition-all duration-1000 ease-out" style="width: ${pct}%"></div>
                     </div>
                     <div class="w-24 text-right">
-                        <p class="text-xs font-black text-slate-800">Rp ${d.omset.toLocaleString('id-ID')}</p>
-                        <p class="text-[9px] font-bold text-slate-400">${d.count} Struk</p>
+                        <p class="text-xs font-black text-slate-800">Rp ${(d.omset/1000).toFixed(0)}k</p>
                     </div>
                 </div>`;
             }
         }
-        const hourlyContainer = document.getElementById('ai-hourly-chart');
-        if(hourlyContainer) hourlyContainer.innerHTML = adaTransaksi ? hourlyHtml : `<div class="text-center text-slate-400 text-sm py-10 bg-slate-50 rounded-xl border border-dashed border-slate-200">Belum ada transaksi di rentang jam ini.</div>`;
+        document.getElementById('ai-hourly-chart').innerHTML = adaTransaksi ? hourlyHtml : `<div class="text-center text-slate-400 text-sm py-10 bg-slate-50 rounded-xl border border-dashed border-slate-200">Belum ada transaksi di rentang jam ini.</div>`;
 
-        // 7. Gambar Bar Pembayaran (QRIS vs Tunai)
-        let payHtml = '';
-        let totalPayOmset = paymentData['QRIS'] + paymentData['Tunai'] + paymentData['Lainnya'];
-        if (totalPayOmset > 0) {
-            let pctQris = (paymentData['QRIS'] / totalPayOmset) * 100;
-            let pctTunai = (paymentData['Tunai'] / totalPayOmset) * 100;
-            
-            payHtml = `
-                <div class="flex flex-col gap-2">
-                    <div class="flex justify-between items-end">
-                        <span class="font-black text-blue-600 text-sm"><i class="fas fa-qrcode mr-2"></i>QRIS</span>
-                        <div class="text-right"><span class="font-black text-xl text-slate-800">${pctQris.toFixed(1)}%</span></div>
-                    </div>
-                    <div class="w-full bg-slate-50 border border-slate-100 rounded-full h-4 overflow-hidden"><div class="bg-blue-500 h-4 rounded-full transition-all duration-1000" style="width: ${pctQris}%"></div></div>
-                    <p class="text-right text-xs text-slate-400 font-bold">Rp ${paymentData['QRIS'].toLocaleString('id-ID')}</p>
-                </div>
-                <div class="flex flex-col gap-2 mt-2">
-                    <div class="flex justify-between items-end">
-                        <span class="font-black text-emerald-500 text-sm"><i class="fas fa-money-bill-wave mr-2"></i>Tunai Fisik</span>
-                        <div class="text-right"><span class="font-black text-xl text-slate-800">${pctTunai.toFixed(1)}%</span></div>
-                    </div>
-                    <div class="w-full bg-slate-50 border border-slate-100 rounded-full h-4 overflow-hidden"><div class="bg-emerald-400 h-4 rounded-full transition-all duration-1000" style="width: ${pctTunai}%"></div></div>
-                    <p class="text-right text-xs text-slate-400 font-bold">Rp ${paymentData['Tunai'].toLocaleString('id-ID')}</p>
-                </div>
-            `;
-        } else {
-            payHtml = `<div class="text-center text-slate-400 text-sm py-8">Data dompet kasir belum tersedia.</div>`;
-        }
-        const payContainer = document.getElementById('ai-payment-chart');
-        if(payContainer) payContainer.innerHTML = payHtml;
-
-        // 8. Cetak Kesimpulan / Rekomendasi Naratif AI
+        // 8. Teks Kesimpulan AI
         let insightTxt = '';
         if (totalVisitors > 0) {
-            let avgBeli = totalOmset / totalVisitors;
             let peakHour = '-'; let maxH = 0;
             for(let h in hourlyData) { if(hourlyData[h].count > maxH) { maxH = hourlyData[h].count; peakHour = String(h).padStart(2,'0')+':00'; } }
 
-            let tipPayment = paymentData['QRIS'] > paymentData['Tunai'] 
-                ? "Pelanggan dominan menggunakan QRIS. Pastikan koneksi internet HP Kasir stabil." 
-                : "Pembayaran Tunai sangat tinggi. Ingatkan kasir untuk mengecek uang kembalian receh di laci secara berkala.";
-
-            insightTxt = `Hari ini, toko dipadati pengunjung pada pukul <span class="text-white bg-slate-900/30 px-2 py-0.5 rounded">${peakHour}</span> dengan rata-rata pelanggan menghabiskan <span class="text-white bg-slate-900/30 px-2 py-0.5 rounded">Rp ${Math.round(avgBeli).toLocaleString('id-ID')}</span> per struk.<br><br> Menu <span class="text-brand-100 underline decoration-brand-200">${topProduct}</span> menjadi produk kunci. Pastikan stok bahan bakunya aman untuk hari esok.<br><br>${tipPayment}`;
+            let winOutlet = sortedOutlets.length > 0 ? sortedOutlets[0] : '-';
+            
+            insightTxt = `Performa hari ini sangat terukur. Cabang <span class="bg-white/20 px-2 py-0.5 rounded text-white">${winOutlet}</span> memimpin penjualan.<br><br> Trafik tertinggi terjadi pada jam <span class="bg-white/20 px-2 py-0.5 rounded text-white">${peakHour}</span>. Pastikan ketersediaan bahan menu <b>${topProduct}</b> aman di semua cabang.`;
         } else {
-            insightTxt = `Mesin analitik sedang dalam status siaga. Belum ada transaksi yang tercatat pada tanggal dan cabang yang dipilih.`;
+            insightTxt = `Sistem AI sedang siaga. Tidak ada transaksi ditemukan pada tanggal kalender yang dipilih. Pastikan mesin kasir sudah melakukan sinkronisasi data.`;
         }
-        const insightContainer = document.getElementById('ai-insight-text');
-        if (insightContainer) insightContainer.innerHTML = insightTxt;
+        document.getElementById('ai-insight-text').innerHTML = insightTxt;
     },
-
     // GUDANG & MASTER DATA
     handleImageUpload: function(event, inputId, maxWidth = 150) {
         const file = event.target.files[0]; if (!file) return;

@@ -1100,7 +1100,7 @@ const superApp = {
     },
     
     // PENAMBAHAN SISTEM NOMOR ANTRIAN
-    executeCheckout: async function() {
+   executeCheckout: async function() {
         if (this.isProcessing) return; 
         this.isProcessing = true;
         
@@ -1116,22 +1116,29 @@ const superApp = {
         
         const payload = { action: 'checkout', trx_id: trxID, outlet: this.outlet, kasir: this.currentUser.Username, metode_bayar: this.payMethod, total: this.payTotal, tunai: this.payCash, kembali: this.payChange, items: this.cart, id_shift: this.activeShiftId, tim_operasional: this.activeStaffTeam, antrian: noAntrian };
 
-        // 1. PRINT STRUK (Prioritas Utama)
-        try { await this.printReceipt(trxID, this.outlet, this.payTotal, this.payCash, this.payChange, this.cart, 'Sukses', null, noAntrian); } catch (e) { console.log("Printer belum siap"); }
+        // 🚀 PERBAIKAN 1: Tangkap status keberhasilan printer
+        let isPrintSuccess = false;
+        try { 
+            await this.printReceipt(trxID, this.outlet, this.payTotal, this.payCash, this.payChange, this.cart, 'Sukses', null, noAntrian); 
+            isPrintSuccess = true; // Jika sukses lewat baris atas, tandai TRUE
+        } catch (e) { 
+            console.log("Printer belum siap atau gagal cetak"); 
+        }
         
-        // 2. UPDATE MEMORI LOKAL SECARA INSTAN
+        // 🚀 PERBAIKAN 2: Sisipkan "Status_Cetak" saat memasukkan data ke memori
         if (!this.db.transactions) this.db.transactions = [];
         this.db.transactions.push({ 
             ID_TRX: trxID, Tanggal: todayStrLocal, Waktu: `${pad(d.getHours())}.${pad(d.getMinutes())}.${pad(d.getSeconds())}`, 
             Outlet: this.outlet, Kasir: this.currentUser.Username, Metode_Bayar: this.payMethod, 
             Total_Bayar: this.payTotal, Tunai: this.payCash, Kembalian: this.payChange, 
-            Items_JSON: JSON.stringify(this.cart), ID_Shift: this.activeShiftId, Status: 'Sukses', Antrian: noAntrian 
+            Items_JSON: JSON.stringify(this.cart), ID_Shift: this.activeShiftId, Status: 'Sukses', Antrian: noAntrian,
+            Status_Cetak: isPrintSuccess ? 'Sudah' : 'Belum'  // <--- KUNCI PENYELESAIANNYA DI SINI
         });
         localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
         this.refreshData(); 
         this.showToast(`Transaksi Sukses! No Antrian: ${noAntrian}`);
 
-        // 3. KUNCI PERBAIKAN ALUR CFD
+        // KUNCI PERBAIKAN ALUR CFD
         this._lastPaidTotal = this.payTotal;
         this._lastPaidChange = this.payChange;
         this.cart = []; 
@@ -1139,32 +1146,27 @@ const superApp = {
         this.syncStorage('paid', noAntrian); 
         this.closeModal('modal-payment'); 
         
-        // 🚀 4. LEPASKAN KUNCI KASIR SEKARANG JUGA (Non-Blocking)
+        // LEPASKAN KUNCI KASIR
         this.isProcessing = false;
 
-        // 🚀 5. SINKRONISASI SERVER DI LATAR BELAKANG (Fire & Forget)
+        // Tambahkan info status cetak ke payload agar Google Sheets juga tahu
+        payload.status_cetak = isPrintSuccess ? 'Sudah' : 'Belum';
+
+        // SINKRONISASI SERVER DI LATAR BELAKANG
         this.apiPost(payload).then(res => {
-            // A. Jika sukses terkirim ke Google Sheets
             if (res && res.status === 'sukses' && !res.is_offline) {
-                // Tarik data terbaru secara diam-diam
                 fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' })
                     .then(r => r.json())
                     .then(data => {
                         if (data && data.status === 'sukses') {
                             this.db = data;
                             localStorage.setItem('aisnack_db_cache', JSON.stringify(data));
-                            
-                            // 💡 PENTING: Hanya update UI HP Kasir JIKA keranjang sedang kosong
-                            // Ini memastikan aplikasi tidak "berkedip" saat kasir sedang sibuk menginput pelanggan berikutnya
                             if (this.cart.length === 0) {
                                 this.refreshData();
                             }
                         }
-                    }).catch(e => console.log("Gagal tarik background, aman karena memori lokal sudah tercatat."));
-            } 
-            // B. Jika Gagal dari sisi Server (bukan jaringan putus)
-            else if (res && res.status !== 'sukses' && !res.is_offline) {
-               // Pastikan tidak terjadi double push (karena apiPost kadang sudah mem-push)
+                    }).catch(e => console.log("Gagal tarik background, aman."));
+            } else if (res && res.status !== 'sukses' && !res.is_offline) {
                let isAlreadyQueued = this.offlineQueue.some(q => q.trx_id === payload.trx_id);
                if (!isAlreadyQueued) {
                    this.offlineQueue.push(payload);
@@ -2592,17 +2594,20 @@ submitOpname: async function() {
 
     laporStrukDicetak: async function(idTrx) {
         try {
-            // 1. Kirim laporan ke Google Sheets di latar belakang tanpa mengganggu kasir
+            // 1. Kirim laporan ke Google Sheets di latar belakang
             this.apiPost({ action: 'update_status_cetak', id_transaksi: idTrx });
             
-            // 2. 🚀 PERBAIKAN TYPO: Menggunakan "transactions" bukan "transaksi"
+            // 2. Cari transaksinya
             let trx = (this.db.transactions || []).find(t => String(t.ID_TRX) === String(idTrx));
             if (trx) {
                 trx.Status_Cetak = 'Sudah';
                 
-                // 3. Simpan perubahan ke memori HP agar saat pindah menu tidak me-reset status
-                if (typeof this.syncStorage === 'function') {
-                    this.syncStorage(); 
+                // 🚀 PERBAIKAN 3: Simpan ke Database Lokal yang benar
+                localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
+                
+                // Segarkan Layar Histori Transaksi secara paksa (agar lencana NO PRINT langsung menghilang di depan mata kasir)
+                if (document.getElementById('view-report') && !document.getElementById('view-report').classList.contains('hidden')) {
+                    if (typeof this.renderReport === 'function') this.renderReport();
                 }
             }
         } catch (e) {

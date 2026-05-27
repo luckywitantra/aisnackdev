@@ -171,7 +171,7 @@
 
     <div class="flex-1 overflow-y-auto w-full relative p-4 lg:p-6 custom-scroll" id="main-content-scroll">
       
-      <div id="view-pos" class="app-view hidden flex-col lg:flex-row h-full gap-4 lg:gap-6 min-h-0 transition-all duration-300 relative items-start">
+      <div id="view-pos" class="app-view hidden flex-col lg:flex-row h-full gap-4 lg:gap-6 min-h-0 relative">
         
         <div class="flex-1 flex flex-col min-h-0 w-full pb-[140px] lg:pb-0"> 
 
@@ -185,12 +185,12 @@
                 </button>
             </div>
             
-            <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 pb-6 content-start px-1" id="product-list"></div>
+            <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 pb-6 content-start px-1 overflow-y-auto custom-scroll flex-1 min-h-0" id="product-list"></div>
         </div>
         
         <div id="mobile-cart-overlay" class="fixed inset-0 bg-slate-900/60 z-[80] hidden lg:hidden backdrop-blur-sm transition-opacity" onclick="superApp.toggleMobileCart()"></div>
         
-        <aside id="cart-aside" class="fixed lg:sticky bottom-0 lg:top-0 left-0 w-full lg:w-[360px] xl:w-[400px] bg-slate-50 border-t lg:border border-slate-100 rounded-t-[2.5rem] lg:rounded-[2rem] flex flex-col shadow-[0_-20px_50px_rgba(0,0,0,0.15)] lg:shadow-[0_10px_40px_rgba(0,0,0,0.06)] h-[85dvh] lg:h-[calc(100dvh-130px)] shrink-0 z-[90] lg:z-10 transition-transform duration-300 transform translate-y-full lg:translate-y-0 overflow-hidden">
+        <aside id="cart-aside" class="fixed lg:static bottom-0 left-0 w-full lg:w-[360px] xl:w-[400px] bg-slate-50 border-t lg:border border-slate-100 rounded-t-[2.5rem] lg:rounded-[2rem] flex flex-col shadow-[0_-20px_50px_rgba(0,0,0,0.15)] lg:shadow-sm h-[85dvh] lg:h-full shrink-0 z-[90] lg:z-10 transition-transform duration-300 transform translate-y-full lg:translate-y-0 overflow-hidden">
             
             <div class="w-full flex justify-center pt-3 pb-2 lg:hidden shrink-0 cursor-pointer bg-white" onclick="superApp.toggleMobileCart()">
                 <div class="w-12 h-1.5 bg-slate-200 rounded-full"></div>
@@ -791,7 +791,7 @@
 
   
 <!-- 1. PANGGIL APP.JS TERLEBIH DAHULU -->
-  <script src="app.js?v=83"></script>
+  <script src="app.js?v=84"></script>
   
 
   <!-- 2. BARU JALANKAN SCRIPT INLINE ANDA -->

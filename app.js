@@ -292,6 +292,29 @@ const superApp = {
         const loader = document.getElementById('app-loader'); const lText = document.getElementById('loader-text'); this.isProcessing = show;
         if (loader && lText) { lText.innerText = text; if (show) { loader.classList.remove('hidden'); loader.classList.add('flex'); } else { loader.classList.add('hidden'); loader.classList.remove('flex'); } }
     },
+    // FUNGSI UNTUK MEMBUKA MODAL APAPUN
+    openModal: function(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            // Tampilkan modal
+            modal.classList.remove('hidden');
+            
+            // Opsional: Kunci background agar tidak bisa di-scroll saat modal terbuka
+            document.body.classList.add('overflow-hidden');
+            
+            // Berikan sedikit delay untuk memicu animasi masuk (jika ada)
+            const content = modal.querySelector('.modal-enter');
+            if (content) {
+                content.style.opacity = '0';
+                content.style.transform = 'scale(0.95)';
+                setTimeout(() => {
+                    content.style.transition = 'all 0.3s ease-out';
+                    content.style.opacity = '1';
+                    content.style.transform = 'scale(1)';
+                }, 10);
+            }
+        }
+    },
     closeModal: function(id) { const content = document.getElementById(id + '-content'); const modal = document.getElementById(id); if (content && modal) { content.classList.remove('modal-enter-active'); setTimeout(() => modal.classList.add('hidden'), 300); } },
     toggleDarkMode: function() { 
         document.documentElement.classList.toggle('dark'); let ic = document.getElementById('dark-icon'); 

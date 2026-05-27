@@ -30,18 +30,44 @@ const osKeyboard = {
         this.targetElement = null;
     },
     render: function() {
-        const container = document.getElementById('vk-keys'); if (!container) return;
-        let html = ''; let rows = this.layouts[this.mode];
+        const container = document.getElementById('vk-keys'); 
+        if (!container) return;
+        
+        let html = ''; 
+        let rows = this.layouts[this.mode];
+
+        // 🚀 Desain Enterprise: Gunakan grid yang konsisten
         rows.forEach(row => {
-            html += `<div class="flex justify-center gap-1 sm:gap-2 w-full mb-1 sm:mb-2">`;
+            html += `<div class="flex justify-center gap-2 w-full mb-2">`;
             row.forEach(key => {
-                if (key === 'SPACE') { html += `<button class="flex-[3] py-3 sm:py-4 bg-white text-slate-800 font-bold rounded-xl shadow-sm border border-slate-200 hover:bg-brand-50 transition active:scale-95" onclick="osKeyboard.insert(' ')">SPASI</button>`; } 
-                else if (key === 'C') { html += `<button class="flex-1 py-3 sm:py-4 bg-red-50 text-red-500 font-bold rounded-xl shadow-sm border border-red-200 hover:bg-red-100 transition active:scale-95" onclick="osKeyboard.clear()">C</button>`; } 
-                else { html += `<button class="flex-1 py-3 sm:py-4 bg-white text-slate-800 font-bold rounded-xl shadow-sm border border-slate-200 hover:bg-brand-50 transition active:scale-95 text-lg" onclick="osKeyboard.insert('${key}')">${key}</button>`; }
+                // Styling Tombol
+                let btnClass = "flex-1 py-4 bg-white text-slate-800 font-black rounded-2xl shadow-[0_4px_0_rgba(203,213,225,1)] border border-slate-200 active:shadow-none active:translate-y-[4px] transition-all text-xl";
+                
+                // Styling Khusus Tombol "C" (Clear)
+                if (key === 'C') {
+                    btnClass = "flex-1 py-4 bg-red-50 text-red-500 font-black rounded-2xl shadow-[0_4px_0_rgba(254,205,211,1)] border border-red-100 active:shadow-none active:translate-y-[4px] transition-all text-lg";
+                }
+                // Styling Tombol "SPACE"
+                else if (key === 'SPACE') {
+                    html += `<button class="flex-[3] py-4 bg-white text-slate-800 font-bold rounded-2xl shadow-[0_4px_0_rgba(203,213,225,1)] border border-slate-200 active:shadow-none active:translate-y-[4px] transition-all" onclick="osKeyboard.insert(' ')">SPASI</button>`;
+                    return;
+                }
+
+                html += `<button class="${btnClass}" onclick="osKeyboard.insert('${key}')">${key}</button>`;
             });
             html += `</div>`;
         });
-        html += `<div class="flex justify-center gap-2 w-full mt-2"><button class="flex-1 py-4 bg-slate-200 text-slate-700 font-bold rounded-xl shadow-sm border border-slate-300 hover:bg-slate-300 transition active:scale-95" onclick="osKeyboard.backspace()"><i class="fas fa-backspace"></i> HAPUS</button><button class="flex-[2] py-4 bg-brand-500 text-white font-black rounded-xl shadow-md hover:bg-brand-600 transition active:scale-95 text-lg" onclick="osKeyboard.close()"><i class="fas fa-check-circle"></i> SELESAI</button></div>`;
+
+        // 🚀 ROW BAWAH: Tombol Aksi (Selesai & Hapus)
+        html += `<div class="flex justify-center gap-2 w-full mt-2">
+            <button class="flex-1 py-4 bg-slate-200 text-slate-700 font-bold rounded-2xl shadow-[0_4px_0_rgba(156,163,175,1)] active:shadow-none active:translate-y-[4px] transition-all" onclick="osKeyboard.backspace()">
+                <i class="fas fa-backspace mr-2"></i> HAPUS
+            </button>
+            <button class="flex-[2] py-4 bg-brand-500 text-white font-black rounded-2xl shadow-[0_4px_0_rgba(194,65,12,1)] active:shadow-none active:translate-y-[4px] transition-all text-lg" onclick="osKeyboard.close()">
+                <i class="fas fa-check-circle mr-2"></i> SELESAI
+            </button>
+        </div>`;
+        
         container.innerHTML = html;
     },
     insert: function(char) { 

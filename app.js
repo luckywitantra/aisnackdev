@@ -2960,7 +2960,8 @@ printReceipt: async function(id, outlet, total, tunai, kembali, items, status, e
             this.showToast("Gagal mencetak struk", "error");
             throw e; 
         }
-    },
+    }
+};
 
 window.onload = () => superApp.init();
 // Tambahkan ini di bawah window.onload = () => superApp.init();

@@ -2749,141 +2749,130 @@ submitOpname: async function() {
 
     // STAF & KINERJA
    renderStaf: function() {
-        // 🚀 1. PENGAMAN UTAMA: Mencegah error diam-diam jika database belum siap
         if (!this.db) return; 
 
-        // --- 2. SETUP FILTER OUTLET ---
+        // 1. SETUP FILTER 
         const filterEl = document.getElementById('staf-filter-outlet');
         if(filterEl && filterEl.options.length <= 1) {
             let opts = '<option value="Semua">Semua Cabang</option>';
             (this.db.outlets || []).forEach(o => opts += `<option value="${o.ID_Outlet}">${o.Nama_Outlet}</option>`);
             filterEl.innerHTML = opts;
             
-            // 🚀 PERBAIKAN: Deteksi Admin ATAU Owner agar dropdown tidak terkunci
             let roleStr = this.currentUser ? String(this.currentUser.Role).toLowerCase() : '';
             let isAdmin = roleStr.includes('admin') || roleStr.includes('owner');
-            
-            if(!isAdmin) { 
-                filterEl.value = this.outlet; 
-                filterEl.disabled = true; 
-            } else {
-                filterEl.value = this.outlet; // Secara default arahkan ke cabang yang sedang login
-            }
+            if(!isAdmin) { filterEl.value = this.outlet; filterEl.disabled = true; } 
+            else { filterEl.value = this.outlet; }
         }
         let selOut = filterEl ? filterEl.value : 'Semua';
 
-        // --- 3. SETUP FILTER TANGGAL ---
         const dStartEl = document.getElementById('filter-start-staf');
         const dEndEl = document.getElementById('filter-end-staf');
-        
         let today = new Date();
-        let yyyy = today.getFullYear(); 
-        let mm = String(today.getMonth() + 1).padStart(2, '0'); 
-        let dd = String(today.getDate()).padStart(2, '0');
-
-        // Default: Tanggal 1 bulan ini sampai hari ini
+        let yyyy = today.getFullYear(); let mm = String(today.getMonth() + 1).padStart(2, '0'); let dd = String(today.getDate()).padStart(2, '0');
         if (dStartEl && !dStartEl.value) dStartEl.value = `${yyyy}-${mm}-01`;
         if (dEndEl && !dEndEl.value) dEndEl.value = `${yyyy}-${mm}-${dd}`;
-
-        let dStart = dStartEl ? dStartEl.value : ''; 
-        let dEnd = dEndEl ? dEndEl.value : '';
+        let dStart = dStartEl ? dStartEl.value : ''; let dEnd = dEndEl ? dEndEl.value : '';
         let dateStart = dStart ? new Date(dStart + "T00:00:00") : new Date(0);
         let dateEnd = dEnd ? new Date(dEnd + "T23:59:59") : new Date(8640000000000000);
 
-        let outletSales = {}; 
         let staffData = {};
+        let globalNoPrint = 0; let globalVoid = 0; let globalDeviasi = 0;
 
-        // --- 4. DAFTARKAN SEMUA STAF OPERASIONAL ---
+        // 2. DAFTARKAN SEMUA STAF (Kecuali Owner)
         (this.db.users || []).forEach(u => {
             if(!String(u.Role).toLowerCase().includes('owner')) {
-                 staffData[u.Username] = { name: u.Username, role: u.Role, outlet: u.Outlet, sales: 0, trxCount: 0, batalCount: 0 };
+                 staffData[u.Username] = { 
+                     name: u.Username, role: u.Role, outlet: u.Outlet, 
+                     trxCount: 0, printCount: 0, batalCount: 0, opnameCount: 0, opnameDeviasi: 0 
+                 };
             }
         });
 
-        // --- 5. KALKULASI DATA TRANSAKSI ---
+        // 3. KALKULASI TRANSAKSI (Cetak Struk & Void)
         (this.db.transactions || []).forEach(t => {
             let trxDate = this.parseDateId(t.Tanggal);
-            
-            // 🚀 PERBAIKAN: Hanya hitung transaksi yang sesuai dengan Filter Tanggal & Cabang yang Dipilih!
             if(trxDate >= dateStart && trxDate <= dateEnd && (selOut === 'Semua' || t.Outlet === selOut)) {
-                let out = t.Outlet; 
                 let kasir = t.Kasir; 
-                let bayar = Number(t.Total_Bayar) || 0;
-
-                // Daftarkan otomatis jika ada kasir siluman (belum masuk db users tapi ada di transaksi)
-                if(!staffData[kasir]) {
-                    staffData[kasir] = { name: kasir, role: 'Staf', outlet: out, sales: 0, trxCount: 0, batalCount: 0 };
-                }
+                if(!staffData[kasir]) staffData[kasir] = { name: kasir, role: 'Staf', outlet: t.Outlet, trxCount: 0, printCount: 0, batalCount: 0, opnameCount: 0, opnameDeviasi: 0 };
 
                 if (t.Status === 'Sukses') {
-                    if(!outletSales[out]) outletSales[out] = 0; 
-                    outletSales[out] += bayar;
-                    
-                    staffData[kasir].sales += bayar;
                     staffData[kasir].trxCount += 1;
+                    if (t.Status_Cetak === 'Sudah') staffData[kasir].printCount += 1;
+                    else globalNoPrint += 1; // Transaksi sukses tapi tidak di-print
                 } else {
                     staffData[kasir].batalCount += 1;
+                    globalVoid += 1;
                 }
             }
         });
 
-        let maxOutletSales = 0;
-        Object.values(outletSales).forEach(v => { if(v > maxOutletSales) maxOutletSales = v; });
-
-        // --- 6. RENDER LEADERBOARD CABANG ---
-        let outHtml = '';
-        let outArr = Object.keys(outletSales).map(k => ({name: k, sales: outletSales[k]})).sort((a,b) => b.sales - a.sales);
-        outArr.forEach((o, i) => {
-            let pct = maxOutletSales > 0 ? (o.sales / maxOutletSales) * 100 : 0;
-            let medal = i===0 ? 'text-yellow-500' : (i===1 ? 'text-gray-400' : 'text-amber-700');
-            outHtml += `<div class="flex flex-col gap-1.5 mb-5"><div class="flex justify-between items-center text-sm font-bold text-slate-700"><div><i class="fas fa-medal ${medal} mr-2 text-lg"></i> ${this.getOutletBadge(o.name)}</div><span>Rp ${o.sales.toLocaleString('id-ID')}</span></div><div class="w-full bg-slate-200 rounded-full h-3 overflow-hidden shadow-inner"><div class="bg-gradient-to-r from-brand-500 to-orange-400 h-3 rounded-full transition-all duration-1000" style="width: ${pct}%"></div></div></div>`;
+        // 4. KALKULASI AKURASI OPNAME (Deviasi Selisih)
+        (this.db.opname || []).forEach(o => {
+            let safeWaktu = String(o.Waktu || '');
+            let opDate = this.parseDateId(safeWaktu.split(' ')[0]);
+            if(opDate >= dateStart && opDate <= dateEnd && (selOut === 'Semua' || o.Outlet === selOut)) {
+                let kasir = o.Kasir;
+                if(staffData[kasir]) {
+                    staffData[kasir].opnameCount += 1;
+                    // Ubah minus atau plus menjadi angka absolut (karena minus dan plus sama-sama berarti selisih/error)
+                    let deviasi = Math.abs(Number(o.Selisih) || 0);
+                    staffData[kasir].opnameDeviasi += deviasi;
+                    globalDeviasi += deviasi;
+                }
+            }
         });
-        const outListEl = document.getElementById('staf-outlet-leaderboard');
-        if(outListEl) outListEl.innerHTML = outHtml || this.getEmptyState('fa-store', 'Belum Ada Transaksi', 'Di rentang tanggal ini.');
 
-        // --- 7. RENDER KARTU TOP 3 KARYAWAN ---
-        // 🚀 PERBAIKAN: Tetap tampilkan staf jika ia terdaftar di Pusat ATAU dia punya transaksi di cabang tersebut!
+        // UPDATE WIDGET GLOBAL
+        document.getElementById('audit-tot-noprint').innerText = globalNoPrint;
+        document.getElementById('audit-tot-void').innerText = globalVoid;
+        document.getElementById('audit-tot-deviasi').innerText = globalDeviasi;
+
+        // 5. RENDER TABEL RADAR STAF
         let stafArr = Object.values(staffData).filter(s => 
-            selOut === 'Semua' || 
-            s.outlet === selOut || 
-            s.outlet === 'Pusat' || 
-            s.trxCount > 0 || 
-            s.batalCount > 0
-        ).sort((a,b) => b.sales - a.sales);
+            selOut === 'Semua' || s.outlet === selOut || s.outlet === 'Pusat' || s.trxCount > 0 || s.batalCount > 0
+        ).sort((a,b) => b.trxCount - a.trxCount);
 
-        let top3Html = '';
-        let maxStaffSales = stafArr.length > 0 ? stafArr[0].sales : 0;
-        
-        // Filter lagi: Hanya yang omsetnya LEBIH DARI 0 yang bisa masuk daftar TOP 3
-        stafArr.filter(s => s.sales > 0).slice(0, 3).forEach((s, i) => {
-            let pct = maxStaffSales > 0 ? (s.sales / maxStaffSales) * 100 : 0;
-            let roleColor = String(s.role).toLowerCase().includes('senior') ? 'text-orange-600 bg-orange-50 border-orange-200' : 'text-slate-500 bg-slate-50 border-slate-200';
-            
-            top3Html += `<div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-3 hover:-translate-y-1 transition duration-300"><div class="flex justify-between items-center"><div class="flex items-center gap-4"><div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-black text-sm border border-blue-100">${i+1}</div><div><h4 class="font-bold text-sm text-slate-800">${s.name}</h4><div class="mt-1 flex items-center gap-1">${this.getOutletBadge(s.outlet)} <span class="px-2 py-0.5 border rounded text-[9px] font-black uppercase ${roleColor}">${s.role}</span></div></div></div><div class="text-right"><h4 class="font-black text-brand-600 text-lg">Rp ${s.sales.toLocaleString('id-ID')}</h4></div></div><div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden shadow-inner"><div class="bg-blue-500 h-2 rounded-full transition-all duration-1000" style="width: ${pct}%"></div></div></div>`;
-        });
-        const stafTopEl = document.getElementById('staf-top-employee');
-        if(stafTopEl) stafTopEl.innerHTML = top3Html || this.getEmptyState('fa-users', 'Belum Ada Peringkat', 'Belum ada omset terekam.');
-
-        // --- 8. RENDER TABEL DETAIL (SELURUH STAF) ---
         let detailHtml = '';
         stafArr.forEach(s => {
-            let atv = s.trxCount > 0 ? Math.round(s.sales / s.trxCount) : 0; // Average Transaction Value
-            let badBatal = s.batalCount > 0 ? 'text-red-500 bg-red-50 border border-red-100' : 'text-slate-400 bg-slate-50 border border-slate-100';
-            let roleColor = String(s.role).toLowerCase().includes('senior') ? 'text-orange-500 bg-orange-50 border-orange-200' : 'text-slate-400 bg-white border-slate-200';
+            // A. Analisis Cetak Struk
+            let printRatio = s.trxCount > 0 ? Math.round((s.printCount / s.trxCount) * 100) : 100;
+            let printUI = '';
+            if(s.trxCount === 0) printUI = '<span class="text-slate-300">-</span>';
+            else if(printRatio >= 95) printUI = `<span class="bg-green-100 text-green-700 px-3 py-1 rounded-lg font-black">${printRatio}%</span>`;
+            else if(printRatio >= 70) printUI = `<span class="bg-amber-100 text-amber-700 px-3 py-1 rounded-lg font-black">${printRatio}%</span> <i class="fas fa-exclamation-triangle text-amber-500 ml-1" title="Sering lupa cetak"></i>`;
+            else printUI = `<span class="bg-rose-100 text-rose-700 px-3 py-1 rounded-lg font-black">${printRatio}%</span> <i class="fas fa-siren-on text-rose-500 ml-1 animate-pulse" title="Indikasi Manipulasi!"></i>`;
+
+            // B. Analisis Batal/Void
+            let badBatal = s.batalCount > 3 ? 'text-rose-600 bg-rose-100 border border-rose-200 animate-pulse' : (s.batalCount > 0 ? 'text-amber-600 bg-amber-50 border border-amber-200' : 'text-slate-400 bg-slate-50 border border-slate-100');
+
+            // C. Analisis Akurasi Opname
+            let avgDeviasi = s.opnameCount > 0 ? (s.opnameDeviasi / s.opnameCount).toFixed(1) : 0;
+            let deviasiUI = '';
+            if(s.opnameCount === 0) deviasiUI = '<span class="text-slate-300">-</span>';
+            else if(avgDeviasi <= 1) deviasiUI = `<span class="text-green-600 font-black"><i class="fas fa-check-circle mr-1"></i>Akurat</span>`;
+            else if(avgDeviasi <= 5) deviasiUI = `<span class="text-amber-600 font-bold">${s.opnameDeviasi} Pcs Hilang/Lebih</span>`;
+            else deviasiUI = `<span class="text-rose-600 font-black px-2 py-1 bg-rose-50 rounded-md border border-rose-200">Sangat Kacau (${s.opnameDeviasi} Selisih)</span>`;
+
+            // D. Kesimpulan Status Integritas AI
+            let statusIntegritas = '';
+            if(printRatio < 70 || s.batalCount > 5) statusIntegritas = '<span class="px-3 py-1.5 bg-rose-500 text-white rounded-xl text-xs font-black shadow-md"><i class="fas fa-search mr-1"></i> Investigasi!</span>';
+            else if(printRatio < 90 || s.batalCount > 2 || avgDeviasi > 2) statusIntegritas = '<span class="px-3 py-1.5 bg-amber-400 text-white rounded-xl text-xs font-black shadow-md"><i class="fas fa-eye mr-1"></i> Pantau Ketat</span>';
+            else statusIntegritas = '<span class="px-3 py-1.5 bg-emerald-500 text-white rounded-xl text-xs font-black shadow-md"><i class="fas fa-shield-check mr-1"></i> Aman</span>';
+
+            let roleColor = String(s.role).toLowerCase().includes('senior') ? 'text-orange-500 border-orange-200' : 'text-slate-400 border-slate-200';
             
             detailHtml += `<tr class="border-b border-slate-50 hover:bg-slate-50 transition">
                 <td class="py-4 px-5 whitespace-nowrap">
                     <div class="font-bold text-slate-800 text-sm mb-1">${s.name} <span class="text-[9px] ml-2 px-1.5 py-0.5 rounded border uppercase font-black ${roleColor}">${s.role}</span></div>
                     <div class="mt-0.5">${this.getOutletBadge(s.outlet)}</div>
                 </td>
-                <td class="py-4 px-5 text-right font-black text-brand-600">Rp ${s.sales.toLocaleString('id-ID')}</td>
-                <td class="py-4 px-5 text-center font-bold text-slate-600">${s.trxCount} <span class="text-[10px] text-slate-400 font-normal">Struk</span></td>
-                <td class="py-4 px-5 text-right font-black text-blue-600 bg-blue-50/30">Rp ${atv.toLocaleString('id-ID')}</td>
-                <td class="py-4 px-5 text-center">
-                    <span class="px-3 py-1 rounded-lg font-bold text-xs ${badBatal}">${s.batalCount}x</span>
-                </td>
+                <td class="py-4 px-5 text-center">${printUI}</td>
+                <td class="py-4 px-5 text-center"><span class="px-3 py-1 rounded-lg font-bold text-xs ${badBatal}">${s.batalCount}x</span></td>
+                <td class="py-4 px-5 text-center text-xs">${deviasiUI}</td>
+                <td class="py-4 px-5 text-center">${statusIntegritas}</td>
             </tr>`;
         });
+        
         const detailTbody = document.getElementById('staf-detail-tbody');
         if (detailTbody) detailTbody.innerHTML = detailHtml || `<tr><td colspan="5" class="text-center py-8">Tidak ada data staf.</td></tr>`;
     },

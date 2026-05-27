@@ -2861,6 +2861,7 @@ submitOpname: async function() {
 
             let roleColor = String(s.role).toLowerCase().includes('senior') ? 'text-orange-500 border-orange-200' : 'text-slate-400 border-slate-200';
             
+            // 🚀 PERBAIKAN: Tambahkan tombol "Lihat Bukti Forensik"
             detailHtml += `<tr class="border-b border-slate-50 hover:bg-slate-50 transition">
                 <td class="py-4 px-5 whitespace-nowrap">
                     <div class="font-bold text-slate-800 text-sm mb-1">${s.name} <span class="text-[9px] ml-2 px-1.5 py-0.5 rounded border uppercase font-black ${roleColor}">${s.role}</span></div>
@@ -2870,11 +2871,15 @@ submitOpname: async function() {
                 <td class="py-4 px-5 text-center"><span class="px-3 py-1 rounded-lg font-bold text-xs ${badBatal}">${s.batalCount}x</span></td>
                 <td class="py-4 px-5 text-center text-xs">${deviasiUI}</td>
                 <td class="py-4 px-5 text-center">${statusIntegritas}</td>
+                <td class="py-4 px-5 text-center">
+                    <button onclick="superApp.openStaffAuditDetail('${s.name}')" class="bg-white border border-slate-200 hover:border-slate-400 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm active:scale-95"><i class="fas fa-file-search mr-1"></i> Forensik</button>
+                </td>
             </tr>`;
         });
         
+        // Pastikan HTML tabel di view-staf juga memiliki 1 kolom tambahan (Total 6 kolom)
         const detailTbody = document.getElementById('staf-detail-tbody');
-        if (detailTbody) detailTbody.innerHTML = detailHtml || `<tr><td colspan="5" class="text-center py-8">Tidak ada data staf.</td></tr>`;
+        if (detailTbody) detailTbody.innerHTML = detailHtml || `<tr><td colspan="6" class="text-center py-8">Tidak ada data staf.</td></tr>`;
     },
 
     // UI & BLUETOOTH

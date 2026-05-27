@@ -65,7 +65,7 @@ const osKeyboard = {
             html += `<div class="flex justify-center ${rowGap} w-full">`;
             
             row.forEach(key => {
-                // Styling dasar tombol (Efek mekanik 3D yang elegan)
+                // Styling dasar tombol
                 let baseClass = "flex items-center justify-center font-bold rounded-lg sm:rounded-xl shadow-[0_3px_0_rgba(203,213,225,1)] border border-slate-200 active:shadow-none active:translate-y-[3px] transition-all select-none touch-manipulation";
                 
                 // Ukuran proporsional berdasarkan mode
@@ -73,14 +73,18 @@ const osKeyboard = {
                     ? "flex-1 py-4 sm:py-5 text-2xl bg-white text-slate-800" 
                     : "flex-1 py-3 sm:py-4 text-sm sm:text-lg bg-white text-slate-800";
 
-                // Tombol Clear (C)
+                // 🚀 PERBAIKAN: Pisahkan logika eksekusi khusus untuk tombol "C"
                 if (key === 'C') {
                     sizeClass = this.mode === 'numeric'
                         ? "flex-1 py-4 sm:py-5 text-2xl bg-rose-50 text-rose-500 border-rose-200 shadow-[0_3px_0_rgba(254,205,211,1)]"
                         : "flex-1 py-3 sm:py-4 text-sm sm:text-lg bg-rose-50 text-rose-500 border-rose-200 shadow-[0_3px_0_rgba(254,205,211,1)]";
+                    
+                    // Panggil fungsi clear(), BUKAN insert()
+                    html += `<button type="button" class="${baseClass} ${sizeClass}" onclick="osKeyboard.clear()">${key}</button>`;
+                } else {
+                    // Tombol angka / teks normal memanggil fungsi insert()
+                    html += `<button type="button" class="${baseClass} ${sizeClass}" onclick="osKeyboard.insert('${key}')">${key}</button>`;
                 }
-
-                html += `<button type="button" class="${baseClass} ${sizeClass}" onclick="osKeyboard.insert('${key}')">${key}</button>`;
             });
             html += `</div>`;
         });

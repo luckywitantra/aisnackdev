@@ -2217,89 +2217,175 @@ submitOpname: async function() {
     },
 
     // AI ASSISTANT
-    generateAIReport: function() {
-        const aiCards = document.getElementById('ai-insight-cards'); const aiRekBody = document.getElementById('ai-rekomendasi-tbody');
-        if(!aiCards || !aiRekBody || !this.db) return;
-
-        const filterEl = document.getElementById('ai-filter-outlet');
-        if(filterEl && filterEl.options.length <= 1) {
-            let opts = '<option value="Semua">Semua Cabang Terpantau</option>';
+   generateAIReport: function() {
+        if (!this.db) return;
+        
+        // 1. Setup Filter Cabang
+        const filterOutEl = document.getElementById('ai-filter-outlet');
+        if(filterOutEl && filterOutEl.options.length <= 1) {
+            let opts = '<option value="Semua">Semua Cabang (Kumulatif)</option>';
             (this.db.outlets || []).forEach(o => opts += `<option value="${o.ID_Outlet}">${o.Nama_Outlet}</option>`);
-            filterEl.innerHTML = opts; filterEl.value = this.outlet;
+            filterOutEl.innerHTML = opts;
+            
+            // Kunci jika bukan Owner/Admin
+            let roleStr = this.currentUser ? String(this.currentUser.Role).toLowerCase() : '';
+            let isAdmin = roleStr.includes('admin') || roleStr.includes('owner');
+            if(!isAdmin) { filterOutEl.value = this.outlet; filterOutEl.disabled = true; }
+            else { filterOutEl.value = this.outlet; }
         }
-        let aiOutlet = filterEl ? filterEl.value : this.outlet;
+        let selOut = filterOutEl ? filterOutEl.value : 'Semua';
 
-        let oldestDate = new Date();
-        (this.db.transactions || []).forEach(t => { let d = this.parseDateId(t.Tanggal); if(d < oldestDate) oldestDate = d; });
-        let daysActive = Math.ceil((new Date() - oldestDate) / (1000 * 60 * 60 * 24)); if(daysActive < 1) daysActive = 1;
+        // 2. Setup Filter Tanggal (Default: Hari Ini)
+        const filterDateEl = document.getElementById('ai-filter-date');
+        let today = new Date();
+        let yyyy = today.getFullYear(); let mm = String(today.getMonth() + 1).padStart(2, '0'); let dd = String(today.getDate()).padStart(2, '0');
+        
+        if (filterDateEl && !filterDateEl.value) filterDateEl.value = `${yyyy}-${mm}-${dd}`; 
+        let selDate = filterDateEl ? filterDateEl.value : `${yyyy}-${mm}-${dd}`;
+        
+        // Ubah format YYYY-MM-DD ke format lokal database (DD/MM/YYYY)
+        let [sY, sM, sD] = selDate.split('-');
+        let dateTarget = `${sD}/${sM}/${sY}`;
 
-        // --- REKOMENDASI PERBAIKAN LOGIKA VELOCITY ---
-        // 1. Kumpulkan dulu total barang terjual dari transaksi Sukses
+        // 3. Siapkan Variabel Penampung Data
+        let totalVisitors = 0;
+        let totalOmset = 0;
+        let hourlyData = {}; // Menyimpan data dari jam 00 - 23
+        let paymentData = { 'Tunai': 0, 'QRIS': 0, 'Lainnya': 0 };
         let productSales = {};
+
+        // 4. Proses Kalkulasi Transaksi
         (this.db.transactions || []).forEach(t => {
-            if(t.Status === 'Sukses' && (aiOutlet === 'Semua' || t.Outlet === aiOutlet)) {
-                let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
-                items.forEach(item => { 
-                    let safeNama = item.nama || 'Unknown'; 
-                    if(!productSales[safeNama]) productSales[safeNama] = 0; 
-                    productSales[safeNama] += Number(item.qty)||0; 
-                });
-            }
-        });
+            if (t.Status === 'Sukses' && this.cleanDateOnly(t.Tanggal) === dateTarget) {
+                if (selOut === 'Semua' || t.Outlet === selOut) {
+                    let bayar = Number(t.Total_Bayar) || 0;
+                    totalOmset += bayar;
+                    totalVisitors++;
 
-        let warnings = [];
-        (this.db.masterProduk || []).forEach(mp => {
-            if(String(mp.Kategori||'').toLowerCase() === 'pendukung' || String(mp.Kategori||'').toLowerCase() === 'bahan') {
-                
-                // Cek sisa stok saat ini
-                let sisa = 0;
-                if(aiOutlet === 'Semua') { 
-                    (this.db.hargaStokOutlet || []).forEach(x => { if(x.SKU === mp.SKU) sisa += Number(x.Stok_Toko)||0; }); 
-                } else { 
-                    let sData = (this.db.hargaStokOutlet || []).find(x => x.SKU === mp.SKU && x.ID_Outlet === aiOutlet); 
-                    sisa = sData ? Number(sData.Stok_Toko)||0 : 0; 
-                }
+                    // A. Ekstrak Jam (Misal "14.30.00" -> 14)
+                    let jam = 0;
+                    if (t.Waktu) {
+                        let parts = String(t.Waktu).split('.');
+                        if(parts.length > 0) jam = parseInt(parts[0]);
+                    }
+                    if (!hourlyData[jam]) hourlyData[jam] = { omset: 0, count: 0 };
+                    hourlyData[jam].omset += bayar;
+                    hourlyData[jam].count++;
 
-                // 2. Gunakan jumlah barang terjual untuk menghitung Velocity (Bukan Total Masuk - Sisa)
-                // Jika produk adalah bahan mentah, asumsinya 1 Pcs Terjual memotong 1 Pcs Bahan (BOM sederhana)
-                // Jika Anda punya tabel Resep/BOM, logikanya harus disesuaikan di sini.
-                let pemakaianReal = productSales[mp.Nama_Produk] || 0; 
+                    // B. Kalkulasi Metode Pembayaran
+                    let metod = String(t.Metode_Bayar || 'Tunai').toUpperCase();
+                    if (metod.includes('QRIS')) paymentData['QRIS'] += bayar;
+                    else if (metod.includes('TUNAI')) paymentData['Tunai'] += bayar;
+                    else paymentData['Lainnya'] += bayar;
 
-                let velocity = pemakaianReal / daysActive; 
-                velocity = Number(velocity) || 0; 
-                
-                // Jika velocity 0 (belum pernah terjual), asumsi aman (999 hari)
-                let daysRem = velocity > 0 ? (sisa / velocity) : 999;
-                
-                if(daysRem < 4 && sisa > 0) { 
-                    warnings.push({ sku: mp.SKU, name: mp.Nama_Produk, type: mp.Kategori, vel: velocity, stock: sisa, days: Math.floor(daysRem) }); 
-                } else if (sisa <= 0) { 
-                    warnings.push({ sku: mp.SKU, name: mp.Nama_Produk, type: mp.Kategori, vel: velocity, stock: 0, days: 0 }); 
+                    // C. Kalkulasi Produk Terlaris
+                    try {
+                        let items = JSON.parse(t.Items_JSON || '[]');
+                        items.forEach(item => {
+                            if(!productSales[item.nama]) productSales[item.nama] = 0;
+                            productSales[item.nama] += item.qty;
+                        });
+                    } catch(e){}
                 }
             }
         });
 
-        let topSellers = []; 
-        for (const [nama, qty] of Object.entries(productSales)) { 
-            let v = Number(qty)/daysActive; 
-            topSellers.push({ name: nama, vel: Number(v)||0 }); 
+        // 5. Update Kartu Ringkasan (Widget Atas)
+        let elTotVis = document.getElementById('ai-tot-visitor'); if(elTotVis) elTotVis.innerText = totalVisitors;
+        let elTotOms = document.getElementById('ai-tot-omset'); if(elTotOms) elTotOms.innerText = `Rp ${totalOmset.toLocaleString('id-ID')}`;
+        
+        let topProduct = '-'; let maxQty = 0;
+        for (const [name, qty] of Object.entries(productSales)) {
+            if (qty > maxQty) { maxQty = qty; topProduct = name; }
         }
-        topSellers.sort((a,b) => b.vel - a.vel); 
-        let top1 = topSellers.length > 0 ? topSellers[0] : {name: '-', vel: 0};
+        let elTopMenu = document.getElementById('ai-top-menu'); if(elTopMenu) elTopMenu.innerText = topProduct;
 
-        let lblCabang = aiOutlet === 'Semua' ? 'Keseluruhan Cabang' : `Cabang ${aiOutlet}`;
-        let trendHtml = top1.vel > 5 ? `<span class="text-green-300 text-sm ml-2 bg-green-900/30 px-2 py-1 rounded-lg"><i class="fas fa-arrow-trend-up"></i> Naik</span>` : `<span class="text-orange-200 text-sm ml-2 bg-orange-900/30 px-2 py-1 rounded-lg"><i class="fas fa-minus"></i> Stabil</span>`;
+        let favPay = '-';
+        if (paymentData['QRIS'] > paymentData['Tunai']) favPay = 'QRIS';
+        else if (paymentData['Tunai'] > paymentData['QRIS']) favPay = 'TUNAI';
+        else if (totalVisitors > 0) favPay = 'SEIMBANG';
+        let elTopPay = document.getElementById('ai-top-payment'); if(elTopPay) elTopPay.innerText = favPay;
 
-        aiCards.innerHTML = `
-            <div class="bg-gradient-to-br from-orange-400 to-brand-600 p-8 rounded-3xl shadow-[0_10px_30px_rgba(249,115,22,0.3)] text-white transform hover:-translate-y-2 transition duration-300 relative overflow-hidden"><div class="absolute top-0 right-0 opacity-10 text-9xl transform translate-x-4 -translate-y-4"><i class="fas fa-fire"></i></div><div class="flex justify-between items-start mb-2 relative z-10"><div class="bg-white/20 p-3 rounded-xl"><i class="fas fa-fire text-2xl"></i></div><span class="text-xs font-black bg-white/20 px-3 py-1 rounded-full shadow-sm">Terlaris</span></div><p class="text-[10px] font-black text-brand-100 uppercase tracking-widest mt-6 relative z-10">Paling Laku di ${lblCabang}</p><h4 class="text-3xl font-black truncate relative z-10">${top1.name}</h4><p class="text-sm font-bold text-brand-100 flex items-center relative z-10 mt-1">${top1.vel.toFixed(1)} Pcs/hari ${trendHtml}</p></div>
-            <div class="bg-gradient-to-br from-red-500 to-rose-700 p-8 rounded-3xl shadow-[0_10px_30px_rgba(225,29,72,0.3)] text-white transform hover:-translate-y-2 transition duration-300 relative overflow-hidden"><div class="absolute top-0 right-0 opacity-10 text-9xl transform translate-x-4 -translate-y-4"><i class="fas fa-triangle-exclamation"></i></div><div class="flex justify-between items-start mb-2 relative z-10"><div class="bg-white/20 p-3 rounded-xl"><i class="fas fa-triangle-exclamation text-2xl"></i></div><span class="text-xs font-black bg-white/20 px-3 py-1 rounded-full shadow-sm">Kritis</span></div><p class="text-[10px] font-black text-rose-100 uppercase tracking-widest mt-6 relative z-10">Perhatian Stok Menipis</p><h4 class="text-3xl font-black relative z-10">${warnings.length} Item</h4><p class="text-sm font-bold text-rose-100 relative z-10 mt-1">Prediksi habis < 4 hari</p></div>
-            <div class="bg-gradient-to-br from-blue-500 to-indigo-700 p-8 rounded-3xl shadow-[0_10px_30px_rgba(79,70,229,0.3)] text-white transform hover:-translate-y-2 transition duration-300 relative overflow-hidden"><div class="absolute top-0 right-0 opacity-10 text-9xl transform translate-x-4 -translate-y-4"><i class="fas fa-brain"></i></div><div class="flex justify-between items-start mb-2 relative z-10"><div class="bg-white/20 p-3 rounded-xl"><i class="fas fa-brain text-2xl"></i></div><span class="text-xs font-black bg-white/20 px-3 py-1 rounded-full shadow-sm">AI Engine</span></div><p class="text-[10px] font-black text-indigo-100 uppercase tracking-widest mt-6 relative z-10">Data Dipelajari</p><h4 class="text-3xl font-black relative z-10">${daysActive} Hari</h4><p class="text-sm font-bold text-indigo-100 relative z-10 mt-1">Tingkat Akurasi Tinggi</p></div>
-        `;
+        // 6. Gambar Grafik CSS Bar untuk Jam Sibuk
+        let maxHourlyOmset = 0;
+        for (let h in hourlyData) { if (hourlyData[h].omset > maxHourlyOmset) maxHourlyOmset = hourlyData[h].omset; }
+        
+        let hourlyHtml = '';
+        // Kita loop jam buka operasional wajar (misal 08:00 - 22:00)
+        let adaTransaksi = false;
+        for (let h = 8; h <= 22; h++) { 
+            let d = hourlyData[h];
+            if (d && d.count > 0) {
+                adaTransaksi = true;
+                let pct = maxHourlyOmset > 0 ? (d.omset / maxHourlyOmset) * 100 : 0;
+                let padH = String(h).padStart(2, '0') + ':00';
+                
+                // Jika ini adalah jam puncak, beri warna highlight oranye
+                let barColor = d.omset === maxHourlyOmset && maxHourlyOmset > 0 ? 'from-brand-400 to-orange-500 shadow-md' : 'from-indigo-400 to-indigo-600';
+                
+                hourlyHtml += `<div class="flex items-center gap-3">
+                    <div class="w-10 text-right text-xs font-black text-slate-400">${padH}</div>
+                    <div class="flex-1 bg-slate-50 rounded-full h-5 overflow-hidden border border-slate-100 relative group cursor-crosshair">
+                        <div class="bg-gradient-to-r ${barColor} h-full rounded-full transition-all duration-1000 ease-out" style="width: ${pct}%"></div>
+                    </div>
+                    <div class="w-24 text-right">
+                        <p class="text-xs font-black text-slate-800">Rp ${d.omset.toLocaleString('id-ID')}</p>
+                        <p class="text-[9px] font-bold text-slate-400">${d.count} Struk</p>
+                    </div>
+                </div>`;
+            }
+        }
+        const hourlyContainer = document.getElementById('ai-hourly-chart');
+        if(hourlyContainer) hourlyContainer.innerHTML = adaTransaksi ? hourlyHtml : `<div class="text-center text-slate-400 text-sm py-10 bg-slate-50 rounded-xl border border-dashed border-slate-200">Belum ada transaksi di rentang jam ini.</div>`;
 
-        if(warnings.length > 0) {
-            warnings.sort((a,b) => a.days - b.days);
-            aiRekBody.innerHTML = warnings.map(w => `<tr class="border-b border-slate-50 hover:bg-slate-50 transition"><td class="py-4 px-5 whitespace-nowrap font-bold text-slate-700">${aiOutlet}</td><td class="py-4 px-5 whitespace-normal min-w-[150px] text-red-500 font-bold">${w.name}<br><span class="text-[10px] text-slate-400 font-medium">Sisa Fisik: ${w.stock} ${w.type==='Pendukung'?'Pcs':'Bahan'}</span></td><td class="py-4 px-5 whitespace-nowrap text-center text-slate-600 font-black bg-slate-50/50">${w.vel.toFixed(1)}</td><td class="py-4 px-5 whitespace-nowrap text-center font-black ${w.days===0?'text-red-600':'text-orange-500'}">${w.days===0?'HABIS':`${w.days} Hari`}</td><td class="py-4 px-5 whitespace-nowrap text-center"><button onclick="superApp.openDistribusiModal('${w.sku}', '${aiOutlet === 'Semua' ? '' : aiOutlet}')" class="bg-brand-100 text-brand-600 px-4 py-2 rounded-xl text-xs font-bold shadow-sm hover:bg-brand-200 transition"><i class="fas fa-truck-fast mr-1"></i> Kirim Stok</button></td></tr>`).join('');
-        } else { aiRekBody.innerHTML = `<tr><td colspan="5" class="text-center py-12 h-32">${this.getEmptyState('fa-shield-halved', 'Stok Aman', 'Semua stok terpantau aman (Tidak ada prediksi krisis).')}</td></tr>`; }
+        // 7. Gambar Bar Pembayaran (QRIS vs Tunai)
+        let payHtml = '';
+        let totalPayOmset = paymentData['QRIS'] + paymentData['Tunai'] + paymentData['Lainnya'];
+        if (totalPayOmset > 0) {
+            let pctQris = (paymentData['QRIS'] / totalPayOmset) * 100;
+            let pctTunai = (paymentData['Tunai'] / totalPayOmset) * 100;
+            
+            payHtml = `
+                <div class="flex flex-col gap-2">
+                    <div class="flex justify-between items-end">
+                        <span class="font-black text-blue-600 text-sm"><i class="fas fa-qrcode mr-2"></i>QRIS</span>
+                        <div class="text-right"><span class="font-black text-xl text-slate-800">${pctQris.toFixed(1)}%</span></div>
+                    </div>
+                    <div class="w-full bg-slate-50 border border-slate-100 rounded-full h-4 overflow-hidden"><div class="bg-blue-500 h-4 rounded-full transition-all duration-1000" style="width: ${pctQris}%"></div></div>
+                    <p class="text-right text-xs text-slate-400 font-bold">Rp ${paymentData['QRIS'].toLocaleString('id-ID')}</p>
+                </div>
+                <div class="flex flex-col gap-2 mt-2">
+                    <div class="flex justify-between items-end">
+                        <span class="font-black text-emerald-500 text-sm"><i class="fas fa-money-bill-wave mr-2"></i>Tunai Fisik</span>
+                        <div class="text-right"><span class="font-black text-xl text-slate-800">${pctTunai.toFixed(1)}%</span></div>
+                    </div>
+                    <div class="w-full bg-slate-50 border border-slate-100 rounded-full h-4 overflow-hidden"><div class="bg-emerald-400 h-4 rounded-full transition-all duration-1000" style="width: ${pctTunai}%"></div></div>
+                    <p class="text-right text-xs text-slate-400 font-bold">Rp ${paymentData['Tunai'].toLocaleString('id-ID')}</p>
+                </div>
+            `;
+        } else {
+            payHtml = `<div class="text-center text-slate-400 text-sm py-8">Data dompet kasir belum tersedia.</div>`;
+        }
+        const payContainer = document.getElementById('ai-payment-chart');
+        if(payContainer) payContainer.innerHTML = payHtml;
+
+        // 8. Cetak Kesimpulan / Rekomendasi Naratif AI
+        let insightTxt = '';
+        if (totalVisitors > 0) {
+            let avgBeli = totalOmset / totalVisitors;
+            let peakHour = '-'; let maxH = 0;
+            for(let h in hourlyData) { if(hourlyData[h].count > maxH) { maxH = hourlyData[h].count; peakHour = String(h).padStart(2,'0')+':00'; } }
+
+            let tipPayment = paymentData['QRIS'] > paymentData['Tunai'] 
+                ? "Pelanggan dominan menggunakan QRIS. Pastikan koneksi internet HP Kasir stabil." 
+                : "Pembayaran Tunai sangat tinggi. Ingatkan kasir untuk mengecek uang kembalian receh di laci secara berkala.";
+
+            insightTxt = `Hari ini, toko dipadati pengunjung pada pukul <span class="text-white bg-slate-900/30 px-2 py-0.5 rounded">${peakHour}</span> dengan rata-rata pelanggan menghabiskan <span class="text-white bg-slate-900/30 px-2 py-0.5 rounded">Rp ${Math.round(avgBeli).toLocaleString('id-ID')}</span> per struk.<br><br> Menu <span class="text-brand-100 underline decoration-brand-200">${topProduct}</span> menjadi produk kunci. Pastikan stok bahan bakunya aman untuk hari esok.<br><br>${tipPayment}`;
+        } else {
+            insightTxt = `Mesin analitik sedang dalam status siaga. Belum ada transaksi yang tercatat pada tanggal dan cabang yang dipilih.`;
+        }
+        const insightContainer = document.getElementById('ai-insight-text');
+        if (insightContainer) insightContainer.innerHTML = insightTxt;
     },
 
     // GUDANG & MASTER DATA

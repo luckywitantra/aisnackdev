@@ -1,10 +1,12 @@
 const API_URL = "https://script.google.com/macros/s/AKfycbzIG5gEXEfMeOiwJUd7SGROqcVWktQnsvQJFgW5HKBE5lXeH1hR6S1fIrCw1xpmLyl-rA/exec"; // <-- GANTI DENGAN URL API ANDA
 
 /* ========================================== */
-/* 1. MESIN VIRTUAL KEYBOARD (IN-APP OSK)     */
+/* 1. MESIN VIRTUAL KEYBOARD (ENTERPRISE OSK) */
 /* ========================================== */
 const osKeyboard = {
     targetElement: null, mode: 'numeric', isOpen: false,
+    
+    // Susunan Layout Ergonomis
     layouts: {
         numeric: [ 
             ['1', '2', '3'], 
@@ -15,89 +17,119 @@ const osKeyboard = {
         text: [ 
             ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'], 
             ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'], 
-            ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', '.'], 
-            ['Z', 'X', 'C', 'V', 'B', 'N', 'M', ',', '@'],
-            ['SPACE'] 
+            ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'], 
+            ['Z', 'X', 'C', 'V', 'B', 'N', 'M', ',', '.']
         ]
     },
+    
     open: function(elOrId, type = 'text') {
         this.targetElement = typeof elOrId === 'string' ? document.getElementById(elOrId) : elOrId;
         if (!this.targetElement) return;
         
-        // 🚀 PERBAIKAN 1: Pastikan elemen terkunci di memori browser HP
         if (this.targetElement.id) {
             this.targetElement = document.getElementById(this.targetElement.id);
         }
 
         this.mode = type; this.isOpen = true; this.render();
-        const vk = document.getElementById('virtual-keyboard'); const ov = document.getElementById('virtual-keyboard-overlay');
+        const vk = document.getElementById('virtual-keyboard'); 
+        const ov = document.getElementById('virtual-keyboard-overlay');
+        
         if (vk) { vk.classList.remove('hidden'); setTimeout(() => vk.classList.remove('translate-y-full'), 10); }
         if (ov) { ov.classList.remove('hidden'); }
     },
+    
     close: function() {
-        this.isOpen = false; const vk = document.getElementById('virtual-keyboard'); const ov = document.getElementById('virtual-keyboard-overlay');
+        this.isOpen = false; 
+        const vk = document.getElementById('virtual-keyboard'); 
+        const ov = document.getElementById('virtual-keyboard-overlay');
+        
         if (vk) { vk.classList.add('translate-y-full'); setTimeout(() => vk.classList.add('hidden'), 300); }
         if (ov) { ov.classList.add('hidden'); }
         this.targetElement = null;
     },
+    
     render: function() {
-    const container = document.getElementById('vk-keys'); 
-    if (!container) return;
-    
-    let html = ''; 
-    let rows = this.layouts[this.mode];
-
-    rows.forEach(row => {
-        html += `<div class="flex justify-center gap-2 w-full mb-2">`;
+        const container = document.getElementById('vk-keys'); 
+        if (!container) return;
         
-        row.forEach(key => {
-            // Pengaturan desain tombol standar
-            let baseStyle = "flex-1 py-4 font-black rounded-2xl transition-all duration-100 ease-out active:translate-y-[2px] active:shadow-none";
-            let btnClass = `${baseStyle} bg-white text-slate-800 shadow-[0_4px_0_rgba(203,213,225,1)] border border-slate-200 hover:bg-slate-50`;
+        let html = ''; 
+        let rows = this.layouts[this.mode];
+
+        // 🚀 KUNCI PROPORSIONAL: Batasi lebar mode numerik, bebaskan mode teks
+        let maxWidth = this.mode === 'numeric' ? 'max-w-sm' : 'max-w-3xl';
+        html += `<div class="w-full ${maxWidth} mx-auto flex flex-col gap-1.5 sm:gap-2">`;
+
+        rows.forEach(row => {
+            // Gap lebih kecil untuk QWERTY agar lebih mirip keyboard asli
+            let rowGap = this.mode === 'numeric' ? 'gap-2' : 'gap-1 sm:gap-1.5';
+            html += `<div class="flex justify-center ${rowGap} w-full">`;
             
-            // Tombol Khusus
-            if (key === 'C') {
-                btnClass = `${baseStyle} bg-rose-50 text-rose-500 shadow-[0_4px_0_rgba(254,205,211,1)] border border-rose-100`;
-            } else if (key === 'SPACE') {
-                html += `<button class="flex-[3] py-4 bg-white text-slate-800 font-bold rounded-2xl shadow-[0_4px_0_rgba(203,213,225,1)] border border-slate-200 active:shadow-none active:translate-y-[2px] transition-all" onclick="osKeyboard.insert(' ')">SPASI</button>`;
-                return;
-            }
+            row.forEach(key => {
+                // Styling dasar tombol (Efek mekanik 3D yang elegan)
+                let baseClass = "flex items-center justify-center font-bold rounded-lg sm:rounded-xl shadow-[0_3px_0_rgba(203,213,225,1)] border border-slate-200 active:shadow-none active:translate-y-[3px] transition-all select-none touch-manipulation";
+                
+                // Ukuran proporsional berdasarkan mode
+                let sizeClass = this.mode === 'numeric' 
+                    ? "flex-1 py-4 sm:py-5 text-2xl bg-white text-slate-800" 
+                    : "flex-1 py-3 sm:py-4 text-sm sm:text-lg bg-white text-slate-800";
 
-            html += `<button class="${btnClass} text-lg" onclick="osKeyboard.insert('${key}')">${key}</button>`;
+                // Tombol Clear (C)
+                if (key === 'C') {
+                    sizeClass = this.mode === 'numeric'
+                        ? "flex-1 py-4 sm:py-5 text-2xl bg-rose-50 text-rose-500 border-rose-200 shadow-[0_3px_0_rgba(254,205,211,1)]"
+                        : "flex-1 py-3 sm:py-4 text-sm sm:text-lg bg-rose-50 text-rose-500 border-rose-200 shadow-[0_3px_0_rgba(254,205,211,1)]";
+                }
+
+                html += `<button type="button" class="${baseClass} ${sizeClass}" onclick="osKeyboard.insert('${key}')">${key}</button>`;
+            });
+            html += `</div>`;
         });
-        html += `</div>`;
-    });
 
-    // Baris Tombol Aksi Bawah
-    html += `<div class="flex justify-center gap-2 w-full mt-2">
-        <button class="flex-1 py-4 bg-slate-200 text-slate-700 font-bold rounded-2xl shadow-[0_4px_0_rgba(156,163,175,1)] active:shadow-none active:translate-y-[2px] transition-all" onclick="osKeyboard.backspace()">
-            <i class="fas fa-backspace"></i>
-        </button>
-        <button class="flex-[2] py-4 bg-brand-500 text-white font-black rounded-2xl shadow-[0_4px_0_rgba(194,65,12,1)] active:shadow-none active:translate-y-[2px] transition-all text-lg" onclick="osKeyboard.close()">
-            <i class="fas fa-check-circle mr-1"></i> SELESAI
-        </button>
-    </div>`;
-    
-    container.innerHTML = html;
-},
+        // 🚀 ROW BAWAH: Tombol Aksi (Space, Backspace, Enter) disesuaikan per mode
+        if (this.mode === 'text') {
+            // Layout Bawah QWERTY
+            html += `<div class="flex justify-center gap-1 sm:gap-1.5 w-full mt-0.5">
+                <button type="button" class="flex-[1.5] py-3 bg-slate-200 text-slate-600 font-bold rounded-xl shadow-[0_3px_0_rgba(156,163,175,1)] active:shadow-none active:translate-y-[3px] transition-all flex items-center justify-center select-none" onclick="osKeyboard.backspace()">
+                    <i class="fas fa-delete-left text-lg"></i>
+                </button>
+                <button type="button" class="flex-[5] py-3 bg-white text-slate-800 font-bold rounded-xl shadow-[0_3px_0_rgba(203,213,225,1)] border border-slate-200 active:shadow-none active:translate-y-[3px] transition-all select-none tracking-widest text-xs sm:text-sm" onclick="osKeyboard.insert(' ')">
+                    SPASI
+                </button>
+                <button type="button" class="flex-[2] py-3 bg-brand-500 text-white font-bold rounded-xl shadow-[0_3px_0_rgba(194,65,12,1)] active:shadow-none active:translate-y-[3px] transition-all flex items-center justify-center gap-1 select-none" onclick="osKeyboard.close()">
+                    <i class="fas fa-check"></i> OK
+                </button>
+            </div>`;
+        } else {
+            // Layout Bawah NUMERIK
+            html += `<div class="flex justify-center gap-2 w-full mt-1">
+                <button type="button" class="flex-1 py-4 sm:py-5 bg-slate-200 text-slate-700 font-bold rounded-xl shadow-[0_3px_0_rgba(156,163,175,1)] active:shadow-none active:translate-y-[3px] transition-all text-xl flex items-center justify-center select-none" onclick="osKeyboard.backspace()">
+                    <i class="fas fa-delete-left"></i>
+                </button>
+                <button type="button" class="flex-[2] py-4 sm:py-5 bg-brand-500 text-white font-black rounded-xl shadow-[0_3px_0_rgba(194,65,12,1)] active:shadow-none active:translate-y-[3px] transition-all text-xl flex items-center justify-center gap-2 select-none" onclick="osKeyboard.close()">
+                    <i class="fas fa-check-circle"></i> SELESAI
+                </button>
+            </div>`;
+        }
+
+        html += `</div>`;
+        container.innerHTML = html;
+    },
     
     insert: function(char) { 
         if (!this.targetElement) return; 
-
-        // 🚀 PERBAIKAN 2: Jika isi inputannya persis angka "0" saja, hapus dulu!
-        // Ini memastikan saat user ngetik "5", jadinya "5", bukan "05"
-        if (this.targetElement.value === '0') {
+        if (this.targetElement.value === '0' && char !== '.') {
             this.targetElement.value = '';
         }
-
         this.targetElement.value += char; 
         this.targetElement.dispatchEvent(new Event('input', { bubbles: true })); 
     },
+    
     backspace: function() { 
         if (!this.targetElement) return; 
         this.targetElement.value = this.targetElement.value.slice(0, -1); 
         this.targetElement.dispatchEvent(new Event('input', { bubbles: true })); 
     },
+    
     clear: function() { 
         if (!this.targetElement) return; 
         this.targetElement.value = ''; 

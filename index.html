@@ -420,27 +420,52 @@
             <div class="flex-1 overflow-y-auto custom-scroll pr-1 pb-4">
                 
                 <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-6">
-                    <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-[0_4px_15px_rgba(0,0,0,0.03)] flex flex-col justify-between hover:-translate-y-1 transition">
-                        <div class="flex justify-between items-center mb-2"><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pengunjung</p><i class="fas fa-users text-slate-300"></i></div>
-                        <h4 class="text-3xl lg:text-4xl font-black text-slate-800" id="ai-tot-visitor">0</h4>
+                    <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-[0_4px_15px_rgba(0,0,0,0.03)] flex flex-col justify-between hover:-translate-y-1 transition relative overflow-hidden">
+                        <div class="absolute -right-4 -top-4 text-slate-100 text-6xl opacity-50"><i class="fas fa-users"></i></div>
+                        <div class="flex justify-between items-center mb-2 relative z-10"><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pengunjung</p></div>
+                        <h4 class="text-3xl lg:text-4xl font-black text-slate-800 relative z-10" id="ai-tot-visitor">0</h4>
                     </div>
-                    <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-[0_4px_15px_rgba(0,0,0,0.03)] flex flex-col justify-between hover:-translate-y-1 transition">
-                        <div class="flex justify-between items-center mb-2"><p class="text-[10px] font-black text-brand-400 uppercase tracking-widest">Total Omset</p><i class="fas fa-wallet text-brand-200"></i></div>
-                        <h4 class="text-2xl lg:text-3xl font-black text-brand-600 truncate" id="ai-tot-omset">Rp 0</h4>
+                    <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-[0_4px_15px_rgba(0,0,0,0.03)] flex flex-col justify-between hover:-translate-y-1 transition relative overflow-hidden">
+                        <div class="absolute -right-4 -top-4 text-brand-50 text-6xl opacity-50"><i class="fas fa-wallet"></i></div>
+                        <div class="flex justify-between items-center mb-2 relative z-10"><p class="text-[10px] font-black text-brand-400 uppercase tracking-widest">Total Omset</p></div>
+                        <h4 class="text-2xl lg:text-3xl font-black text-brand-600 truncate relative z-10" id="ai-tot-omset">Rp 0</h4>
                     </div>
-                    <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-[0_4px_15px_rgba(0,0,0,0.03)] flex flex-col justify-between hover:-translate-y-1 transition">
-                        <div class="flex justify-between items-center mb-2"><p class="text-[10px] font-black text-blue-400 uppercase tracking-widest">Menu Terlaris</p><i class="fas fa-fire text-blue-200"></i></div>
-                        <h4 class="text-base lg:text-lg font-black text-blue-600 leading-snug line-clamp-2 mt-1" id="ai-top-menu">-</h4>
+                    <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-[0_4px_15px_rgba(0,0,0,0.03)] flex flex-col justify-between hover:-translate-y-1 transition relative overflow-hidden">
+                        <div class="absolute -right-4 -top-4 text-blue-50 text-6xl opacity-50"><i class="fas fa-fire"></i></div>
+                        <div class="flex justify-between items-center mb-2 relative z-10"><p class="text-[10px] font-black text-blue-400 uppercase tracking-widest">Menu Terlaris</p></div>
+                        <h4 class="text-base lg:text-lg font-black text-blue-600 leading-snug line-clamp-2 mt-1 relative z-10" id="ai-top-menu">-</h4>
                     </div>
-                    <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-[0_4px_15px_rgba(0,0,0,0.03)] flex flex-col justify-between hover:-translate-y-1 transition">
-                        <div class="flex justify-between items-center mb-2"><p class="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Metode Favorit</p><i class="fas fa-money-check text-emerald-200"></i></div>
-                        <h4 class="text-lg lg:text-xl font-black text-emerald-600 truncate mt-1" id="ai-top-payment">-</h4>
+                    <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-[0_4px_15px_rgba(0,0,0,0.03)] flex flex-col justify-between hover:-translate-y-1 transition relative overflow-hidden">
+                        <div class="absolute -right-4 -top-4 text-emerald-50 text-6xl opacity-50"><i class="fas fa-money-check"></i></div>
+                        <div class="flex justify-between items-center mb-2 relative z-10"><p class="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Metode Favorit</p></div>
+                        <h4 class="text-lg lg:text-xl font-black text-emerald-600 truncate mt-1 relative z-10" id="ai-top-payment">-</h4>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-6 mb-6">
-                    
-                    <div class="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.04)] flex flex-col h-full">
+                <div class="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.04)] mb-6 overflow-hidden">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="w-8 h-8 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center"><i class="fas fa-store"></i></div>
+                        <h4 class="font-extrabold text-slate-700 text-sm uppercase tracking-wide">Komparasi Performa Antar Cabang</h4>
+                    </div>
+                    <div class="overflow-x-auto custom-scroll pb-2">
+                        <table class="w-full text-left whitespace-nowrap text-sm">
+                            <thead class="text-slate-400 border-b border-slate-200">
+                                <tr>
+                                    <th class="pb-3 px-4 font-bold uppercase tracking-widest text-[10px]">Nama Cabang</th>
+                                    <th class="pb-3 px-4 font-bold uppercase tracking-widest text-[10px] text-right">Omset (Rp)</th>
+                                    <th class="pb-3 px-4 font-bold uppercase tracking-widest text-[10px] text-center">Struk</th>
+                                    <th class="pb-3 px-4 font-bold uppercase tracking-widest text-[10px] w-64 text-center">QRIS vs Tunai</th>
+                                    <th class="pb-3 px-4 font-bold uppercase tracking-widest text-[10px] text-center">Menu Terlaris</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ai-comparison-tbody" class="divide-y divide-slate-100 font-bold text-slate-700">
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-6">
+                    <div class="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.04)] flex flex-col h-full min-h-[300px]">
                         <div class="flex items-center gap-3 mb-6">
                             <div class="w-8 h-8 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center"><i class="fas fa-clock"></i></div>
                             <h4 class="font-extrabold text-slate-700 text-sm uppercase tracking-wide">Tren Jam Sibuk</h4>
@@ -449,20 +474,12 @@
                     </div>
 
                     <div class="flex flex-col gap-4 lg:gap-6">
-                        <div class="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
-                            <div class="flex items-center gap-3 mb-6">
-                                <div class="w-8 h-8 rounded-full bg-slate-50 text-slate-500 flex items-center justify-center"><i class="fas fa-money-bill-transfer"></i></div>
-                                <h4 class="font-extrabold text-slate-700 text-sm uppercase tracking-wide">Preferensi Bayar</h4>
-                            </div>
-                            <div id="ai-payment-chart" class="flex flex-col gap-5"></div>
-                        </div>
-
-                        <div class="bg-gradient-to-br from-brand-500 to-orange-500 rounded-[2rem] p-6 shadow-[0_8px_25px_rgba(249,115,22,0.3)] text-white flex-1 flex flex-col justify-center">
-                            <h4 class="font-black text-sm uppercase tracking-widest text-brand-100 mb-3 flex items-center gap-2"><i class="fas fa-robot"></i> Kesimpulan AI</h4>
-                            <div id="ai-insight-text" class="text-sm font-bold leading-relaxed opacity-90"></div>
+                        <div class="bg-gradient-to-br from-brand-500 to-orange-500 rounded-[2rem] p-6 shadow-[0_8px_25px_rgba(249,115,22,0.3)] text-white flex-1 flex flex-col justify-center relative overflow-hidden">
+                            <div class="absolute right-0 bottom-0 opacity-10 text-9xl translate-x-4 translate-y-4"><i class="fas fa-robot"></i></div>
+                            <h4 class="font-black text-sm uppercase tracking-widest text-brand-100 mb-3 flex items-center gap-2 relative z-10"><i class="fas fa-lightbulb"></i> Kesimpulan AI</h4>
+                            <div id="ai-insight-text" class="text-sm font-bold leading-relaxed opacity-95 relative z-10"></div>
                         </div>
                     </div>
-
                 </div>
             </div>
         </div>

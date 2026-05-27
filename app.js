@@ -47,29 +47,29 @@ const osKeyboard = {
         let html = ''; 
         let rows = this.layouts[this.mode];
 
-        // 🚀 Desain Enterprise: Gunakan grid yang konsisten
+        // 🚀 Loop baris (row)
         rows.forEach(row => {
-            html += `<div class="flex justify-center gap-2 w-full mb-2">`;
-            // Di dalam fungsi render:
-rows.forEach(key => {
-    // Tombol Spasi sekarang berdiri sendiri sebagai baris bawah
-    if (key === 'SPACE') { 
-        html += `<div class="flex justify-center w-full mb-1 sm:mb-2">
-                    <button class="flex-[3] py-4 bg-white text-slate-800 font-bold rounded-2xl shadow-[0_4px_0_rgba(203,213,225,1)] border border-slate-200 active:shadow-none active:translate-y-[4px] transition-all" onclick="osKeyboard.insert(' ')">SPASI</button>
-                 </div>`;
-    } 
-    // Tombol lainnya (termasuk simbol baru)
-    else if (key === 'C') { 
-        html += `<button class="flex-1 py-4 bg-red-50 text-red-500 font-black rounded-2xl shadow-[0_4px_0_rgba(254,205,211,1)] border border-red-100 active:shadow-none active:translate-y-[4px] transition-all text-lg" onclick="osKeyboard.clear()">C</button>`; 
-    } 
-    else { 
-        html += `<button class="flex-1 py-4 bg-white text-slate-800 font-black rounded-2xl shadow-[0_4px_0_rgba(203,213,225,1)] border border-slate-200 active:shadow-none active:translate-y-[4px] transition-all text-lg" onclick="osKeyboard.insert('${key}')">${key}</button>`; 
-    }
-});
+            html += `<div class="flex justify-center gap-2 w-full mb-1 sm:mb-2">`;
+            
+            // 🚀 PERBAIKAN: Gunakan 'row' bukan 'rows' untuk perulangan tombol (key)
+            row.forEach(key => {
+                if (key === 'SPACE') { 
+                    // Tombol Spasi dibuat lebih lebar (flex-[3])
+                    html += `<button class="flex-[3] py-4 bg-white text-slate-800 font-bold rounded-2xl shadow-[0_4px_0_rgba(203,213,225,1)] border border-slate-200 active:shadow-none active:translate-y-[4px] transition-all" onclick="osKeyboard.insert(' ')">SPASI</button>`;
+                } 
+                else if (key === 'C') { 
+                    // Tombol Clear dengan warna peringatan
+                    html += `<button class="flex-1 py-4 bg-red-50 text-red-500 font-black rounded-2xl shadow-[0_4px_0_rgba(254,205,211,1)] border border-red-100 active:shadow-none active:translate-y-[4px] transition-all text-lg" onclick="osKeyboard.clear()">C</button>`; 
+                } 
+                else { 
+                    // Tombol standar
+                    html += `<button class="flex-1 py-4 bg-white text-slate-800 font-black rounded-2xl shadow-[0_4px_0_rgba(203,213,225,1)] border border-slate-200 active:shadow-none active:translate-y-[4px] transition-all text-lg" onclick="osKeyboard.insert('${key}')">${key}</button>`; 
+                }
+            });
             html += `</div>`;
         });
 
-        // 🚀 ROW BAWAH: Tombol Aksi (Selesai & Hapus)
+        // 🚀 ROW BAWAH: Tombol Aksi (Selesai & Hapus) - Dibuat konsisten
         html += `<div class="flex justify-center gap-2 w-full mt-2">
             <button class="flex-1 py-4 bg-slate-200 text-slate-700 font-bold rounded-2xl shadow-[0_4px_0_rgba(156,163,175,1)] active:shadow-none active:translate-y-[4px] transition-all" onclick="osKeyboard.backspace()">
                 <i class="fas fa-backspace mr-2"></i> HAPUS

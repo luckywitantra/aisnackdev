@@ -2882,6 +2882,90 @@ submitOpname: async function() {
         if (detailTbody) detailTbody.innerHTML = detailHtml || `<tr><td colspan="6" class="text-center py-8">Tidak ada data staf.</td></tr>`;
     },
 
+    openStaffAuditDetail: function(username) {
+        // Ambil rentang tanggal dari filter saat ini
+        const dStartEl = document.getElementById('filter-start-staf');
+        const dEndEl = document.getElementById('filter-end-staf');
+        let dStart = dStartEl ? dStartEl.value : ''; let dEnd = dEndEl ? dEndEl.value : '';
+        let dateStart = dStart ? new Date(dStart + "T00:00:00") : new Date(0);
+        let dateEnd = dEnd ? new Date(dEnd + "T23:59:59") : new Date(8640000000000000);
+
+        let htmlNoPrint = ''; let htmlVoid = ''; let htmlOpname = '';
+        let countNoPrint = 0; let countVoid = 0; let countOpname = 0;
+
+        // 1. Lacak Struk Tidak Dicetak & Void
+        (this.db.transactions || []).forEach(t => {
+            let trxDate = this.parseDateId(t.Tanggal);
+            if(t.Kasir === username && trxDate >= dateStart && trxDate <= dateEnd) {
+                let wStr = this.cleanDateOnly(t.Tanggal) + ' ' + this.cleanTimeOnly(t.Waktu);
+                let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
+                let itemStr = items.map(i => `${i.qty}x ${i.nama}`).join(', ');
+
+                if (t.Status === 'Sukses' && t.Status_Cetak !== 'Sudah') {
+                    countNoPrint++;
+                    htmlNoPrint += `<tr class="border-b border-slate-100"><td class="py-2 px-3 text-xs">${wStr}</td><td class="py-2 px-3 text-xs font-bold text-slate-700">${t.ID_TRX}</td><td class="py-2 px-3 text-xs max-w-[150px] truncate" title="${itemStr}">${itemStr}</td><td class="py-2 px-3 text-right font-black text-brand-600">Rp ${(Number(t.Total_Bayar)||0).toLocaleString('id-ID')}</td></tr>`;
+                } else if (t.Status !== 'Sukses') {
+                    countVoid++;
+                    htmlVoid += `<tr class="border-b border-slate-100"><td class="py-2 px-3 text-xs">${wStr}</td><td class="py-2 px-3 text-xs font-bold text-slate-700">${t.ID_TRX}</td><td class="py-2 px-3 text-xs max-w-[150px] truncate" title="${itemStr}">${itemStr}</td><td class="py-2 px-3 text-right font-black text-red-500">Rp ${(Number(t.Total_Bayar)||0).toLocaleString('id-ID')}</td></tr>`;
+                }
+            }
+        });
+
+        // 2. Lacak Selisih Opname
+        (this.db.opname || []).forEach(o => {
+            let safeWaktu = String(o.Waktu || '');
+            let opDate = this.parseDateId(safeWaktu.split(' ')[0]);
+            if(o.Kasir === username && opDate >= dateStart && opDate <= dateEnd) {
+                let deviasi = Number(o.Selisih) || 0;
+                if(deviasi !== 0) {
+                    countOpname++;
+                    let wStr = safeWaktu.includes('T') ? this.cleanDateOnly(safeWaktu) + ' ' + this.cleanTimeOnly(safeWaktu) : safeWaktu;
+                    let itemName = this.db.masterProduk.find(m => m.SKU === o.SKU)?.Nama_Produk || o.SKU;
+                    let selColor = deviasi < 0 ? 'text-red-500' : 'text-amber-500';
+                    htmlOpname += `<tr class="border-b border-slate-100"><td class="py-2 px-3 text-xs">${wStr}</td><td class="py-2 px-3 text-xs font-bold text-slate-700">${itemName}</td><td class="py-2 px-3 text-center text-xs">Sys: ${o.Stok_Sistem} / Fisik: ${o.Stok_Fisik}</td><td class="py-2 px-3 text-center font-black ${selColor}">${deviasi > 0 ? '+'+deviasi : deviasi} Pcs</td><td class="py-2 px-3 text-xs max-w-[100px] truncate" title="${o.Keterangan_Fisik||'-'}">${o.Keterangan_Fisik||'-'}</td></tr>`;
+                }
+            }
+        });
+
+        // Suntik ke UI Modal
+        document.getElementById('forensic-staff-name').innerText = username;
+        document.getElementById('forensic-date-range').innerText = `${dStart} s/d ${dEnd}`;
+        
+        document.getElementById('forensic-noprint-tbody').innerHTML = htmlNoPrint || `<tr><td colspan="4" class="text-center py-4 text-xs text-slate-400 italic">Bersih. Semua struk dicetak.</td></tr>`;
+        document.getElementById('forensic-void-tbody').innerHTML = htmlVoid || `<tr><td colspan="4" class="text-center py-4 text-xs text-slate-400 italic">Bersih. Tidak ada transaksi dibatalkan.</td></tr>`;
+        document.getElementById('forensic-opname-tbody').innerHTML = htmlOpname || `<tr><td colspan="5" class="text-center py-4 text-xs text-slate-400 italic">Bersih. Akurasi fisik 100%.</td></tr>`;
+
+        this.openModal('modal-forensic-audit');
+    },
+
+    exportForensicPDF: function(username) {
+        this.showToast("Menyiapkan Berita Acara (PDF)...");
+        const element = document.getElementById('forensic-pdf-area');
+        if(!element) return;
+        
+        // Sembunyikan tombol saat cetak agar PDF bersih
+        const btnRow = document.getElementById('forensic-action-row');
+        if(btnRow) btnRow.style.display = 'none';
+        
+        element.classList.add('pdf-container'); 
+        
+        const opt = { 
+            margin: 0.5, 
+            filename: `Audit_Integritas_${username}_${new Date().getTime()}.pdf`, 
+            image: { type: 'jpeg', quality: 0.98 }, 
+            html2canvas: { scale: 2, useCORS: true }, 
+            jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' } 
+        };
+        
+        html2pdf().set(opt).from(element).save().then(() => { 
+            element.classList.remove('pdf-container'); 
+            if(btnRow) btnRow.style.display = 'flex';
+            this.showToast("Berita Acara Berhasil Diunduh!"); 
+        });
+    },
+
+    
+
     // UI & BLUETOOTH
     makeInput: function(label, id, val='', type='text', hint='', dis=false, customEvent='') { 
         let im = (type === 'number' || customEvent.includes('formatRupiah')) ? 'inputmode="numeric"' : '';

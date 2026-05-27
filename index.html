@@ -572,11 +572,10 @@
       <div id="view-staf" class="app-view hidden flex-col lg:min-h-[80vh] min-h-max gap-4 pb-20 md:pb-0">
         <div class="bg-white p-4 lg:p-8 rounded-[2rem] shadow-sm border border-slate-100 text-slate-800 flex flex-col h-full min-h-0">
             
-            <!-- HEADER & FILTER -->
             <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 border-b border-slate-100 pb-4 gap-4 shrink-0">
                 <div class="flex items-center gap-4 shrink-0">
-                    <div class="w-16 h-16 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center text-white text-3xl shadow-lg"><i class="fas fa-trophy"></i></div>
-                    <div><h3 class="font-extrabold text-2xl text-slate-800">Kinerja & Analitik Tim</h3><p class="text-sm font-medium text-slate-500 mt-1">Evaluasi performa, produktivitas, dan akurasi.</p></div>
+                    <div class="w-16 h-16 bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl flex items-center justify-center text-white text-3xl shadow-lg shadow-red-200"><i class="fas fa-user-shield"></i></div>
+                    <div><h3 class="font-extrabold text-2xl text-slate-800">Audit Integritas Karyawan</h3><p class="text-sm font-medium text-slate-500 mt-1">Radar manipulasi struk, void, dan akurasi opname.</p></div>
                 </div>
                 
                 <div class="flex flex-wrap gap-2 w-full lg:w-auto items-center">
@@ -587,29 +586,34 @@
                 </div>
             </div>
 
-            <!-- KARTU TOP LEADERBOARD -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 shrink-0 mb-8">
-                <div class="bg-slate-50 rounded-3xl p-6 border border-slate-100 shadow-inner">
-                    <h4 class="font-extrabold text-brand-600 mb-6 flex items-center gap-2 text-lg"><i class="fas fa-store"></i> Leaderboard Omset Cabang</h4>
-                    <div id="staf-outlet-leaderboard" class="space-y-5"></div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 shrink-0 mb-6">
+                <div class="bg-rose-50 rounded-3xl p-5 border border-rose-100 flex flex-col justify-center relative overflow-hidden">
+                    <i class="fas fa-receipt absolute -right-4 -bottom-4 text-6xl text-rose-500 opacity-10"></i>
+                    <p class="text-[10px] font-black text-rose-600 uppercase tracking-widest mb-1 relative z-10">Struk Ditekan/Tidak Dicetak</p>
+                    <h4 class="font-black text-3xl text-rose-600 relative z-10" id="audit-tot-noprint">0</h4>
                 </div>
-                <div class="bg-slate-50 rounded-3xl p-6 border border-slate-100 shadow-inner">
-                    <h4 class="font-extrabold text-blue-600 mb-6 flex items-center gap-2 text-lg"><i class="fas fa-crown"></i> Top 3 Karyawan</h4>
-                    <div id="staf-top-employee" class="space-y-4"></div>
+                <div class="bg-amber-50 rounded-3xl p-5 border border-amber-100 flex flex-col justify-center relative overflow-hidden">
+                    <i class="fas fa-ban absolute -right-4 -bottom-4 text-6xl text-amber-500 opacity-10"></i>
+                    <p class="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1 relative z-10">Transaksi Void/Batal</p>
+                    <h4 class="font-black text-3xl text-amber-600 relative z-10" id="audit-tot-void">0</h4>
+                </div>
+                <div class="bg-blue-50 rounded-3xl p-5 border border-blue-100 flex flex-col justify-center relative overflow-hidden">
+                    <i class="fas fa-boxes-packing absolute -right-4 -bottom-4 text-6xl text-blue-500 opacity-10"></i>
+                    <p class="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1 relative z-10">Total Deviasi Opname (Pcs)</p>
+                    <h4 class="font-black text-3xl text-blue-600 relative z-10" id="audit-tot-deviasi">0</h4>
                 </div>
             </div>
 
-            <!-- TABEL ANALITIK DETAIL -->
-            <h3 class="font-extrabold text-lg mb-3 shrink-0 flex items-center gap-2 text-slate-700"><i class="fas fa-table-list text-brand-500"></i> Rincian Kinerja Operasional Staf</h3>
+            <h3 class="font-extrabold text-lg mb-3 shrink-0 flex items-center gap-2 text-slate-700"><i class="fas fa-radar text-red-500 animate-pulse"></i> Radar Perilaku Staf</h3>
             <div class="flex-1 overflow-x-auto overflow-y-auto bg-white rounded-2xl border border-slate-200 min-h-[300px] lg:min-h-0 relative custom-scroll shadow-inner">
                 <table class="w-full text-left whitespace-nowrap text-sm">
                     <thead class="text-slate-500 border-b border-slate-200 sticky top-0 bg-slate-100 z-10 shadow-sm">
                         <tr>
                             <th class="py-4 px-5">Nama Staf & Cabang</th>
-                            <th class="py-4 px-5 text-right">Total Omset (Rp)</th>
-                            <th class="py-4 px-5 text-center">Jml Transaksi</th>
-                            <th class="py-4 px-5 text-right" title="Average Transaction Value (Rata-rata belanja 1 pelanggan)">Rata-rata/Struk (ATV)</th>
-                            <th class="py-4 px-5 text-center">Trx Batal / Void</th>
+                            <th class="py-4 px-5 text-center" title="Berapa persen transaksi yang struknya benar-benar dicetak">Rasio Cetak Struk</th>
+                            <th class="py-4 px-5 text-center">Batal / Void</th>
+                            <th class="py-4 px-5 text-center" title="Seberapa besar selisih fisik saat staf ini melakukan opname">Akurasi Opname</th>
+                            <th class="py-4 px-5 text-center">Status Integritas</th>
                         </tr>
                     </thead>
                     <tbody id="staf-detail-tbody" class="font-bold divide-y divide-slate-100"></tbody>

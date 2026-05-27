@@ -171,9 +171,9 @@
 
     <div class="flex-1 overflow-y-auto w-full relative p-4 lg:p-6 custom-scroll" id="main-content-scroll">
       
-      <div id="view-pos" class="app-view hidden flex-col md:flex-row h-full gap-4 lg:gap-6 min-h-0 transition-all duration-300 relative">
+      <div id="view-pos" class="app-view hidden flex-col lg:flex-row h-full gap-4 lg:gap-6 min-h-0 transition-all duration-300 relative items-start">
         
-        <div class="flex-1 flex flex-col min-h-0 pb-[140px] md:pb-0"> 
+        <div class="flex-1 flex flex-col min-h-0 w-full pb-[140px] lg:pb-0"> 
 
             <div class="mb-5 relative shrink-0 z-10 px-1">
                 <div class="absolute inset-y-0 left-1 pl-4 flex items-center pointer-events-none">
@@ -185,18 +185,18 @@
                 </button>
             </div>
             
-            <div class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 overflow-y-auto pb-6 content-start flex-1 min-h-0 custom-scroll px-1" id="product-list"></div>
+            <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 pb-6 content-start px-1" id="product-list"></div>
         </div>
         
-        <div id="mobile-cart-overlay" class="fixed inset-0 bg-slate-900/60 z-[80] hidden md:hidden backdrop-blur-sm transition-opacity" onclick="superApp.toggleMobileCart()"></div>
+        <div id="mobile-cart-overlay" class="fixed inset-0 bg-slate-900/60 z-[80] hidden lg:hidden backdrop-blur-sm transition-opacity" onclick="superApp.toggleMobileCart()"></div>
         
-        <aside id="cart-aside" class="fixed md:static bottom-0 left-0 w-full md:w-[340px] lg:w-[400px] bg-slate-50 border-t md:border border-slate-100 rounded-t-[2.5rem] md:rounded-[2rem] flex flex-col shadow-[0_-20px_50px_rgba(0,0,0,0.15)] md:shadow-[0_10px_40px_rgba(0,0,0,0.06)] h-[85dvh] md:h-full shrink-0 z-[90] md:z-auto transition-transform duration-300 transform translate-y-full md:translate-y-0 overflow-hidden">
+        <aside id="cart-aside" class="fixed lg:sticky bottom-0 lg:top-0 left-0 w-full lg:w-[360px] xl:w-[400px] bg-slate-50 border-t lg:border border-slate-100 rounded-t-[2.5rem] lg:rounded-[2rem] flex flex-col shadow-[0_-20px_50px_rgba(0,0,0,0.15)] lg:shadow-[0_10px_40px_rgba(0,0,0,0.06)] h-[85dvh] lg:h-[calc(100dvh-130px)] shrink-0 z-[90] lg:z-10 transition-transform duration-300 transform translate-y-full lg:translate-y-0 overflow-hidden">
             
-            <div class="w-full flex justify-center pt-3 pb-2 md:hidden shrink-0 cursor-pointer bg-white" onclick="superApp.toggleMobileCart()">
+            <div class="w-full flex justify-center pt-3 pb-2 lg:hidden shrink-0 cursor-pointer bg-white" onclick="superApp.toggleMobileCart()">
                 <div class="w-12 h-1.5 bg-slate-200 rounded-full"></div>
             </div>
 
-            <div class="p-5 md:pt-6 pt-2 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
+            <div class="p-5 lg:pt-6 pt-2 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 bg-brand-50 text-brand-500 rounded-full flex items-center justify-center text-lg shadow-inner">
                         <i class="fas fa-shopping-basket"></i>
@@ -205,11 +205,11 @@
                 </div>
                 <div class="flex items-center gap-2">
                     <span class="bg-brand-500 text-white px-3 py-1.5 rounded-xl text-xs font-black shadow-md shadow-brand-500/30" id="cart-badge">0 Item</span>
-                    <button class="md:hidden w-9 h-9 flex items-center justify-center bg-slate-50 rounded-full text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition" onclick="superApp.toggleMobileCart()"><i class="fas fa-times"></i></button>
+                    <button class="lg:hidden w-9 h-9 flex items-center justify-center bg-slate-50 rounded-full text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition" onclick="superApp.toggleMobileCart()"><i class="fas fa-times"></i></button>
                 </div>
             </div>
             
-            <div class="flex-1 overflow-y-auto p-4 space-y-3 custom-scroll min-h-0 scroll-smooth pb-20 md:pb-4 relative bg-slate-50/50" id="cart-container"></div>
+            <div class="flex-1 overflow-y-auto p-4 space-y-3 custom-scroll min-h-0 scroll-smooth pb-20 lg:pb-4 relative bg-slate-50/50" id="cart-container"></div>
             
             <div class="p-5 bg-white border-t border-slate-100 shrink-0 shadow-[0_-10px_20px_rgba(0,0,0,0.02)]">
                 <div class="flex justify-between items-end mb-4 border-b border-dashed border-slate-200 pb-4">
@@ -222,7 +222,7 @@
             </div>
         </aside>
 
-        <div class="fixed bottom-[75px] left-0 w-full bg-transparent p-4 md:hidden z-[70] transition-transform" id="floating-cart-btn">
+        <div class="fixed bottom-[75px] left-0 w-full bg-transparent p-4 lg:hidden z-[70] transition-transform" id="floating-cart-btn">
             <button onclick="superApp.toggleMobileCart()" class="w-full bg-slate-900 text-white rounded-[1.5rem] py-4 px-6 flex justify-between items-center active:scale-95 transition-all shadow-[0_15px_35px_rgba(15,23,42,0.4)] border border-slate-800 backdrop-blur-md">
                 <div class="flex items-center gap-4">
                     <div class="relative">
@@ -791,7 +791,7 @@
 
   
 <!-- 1. PANGGIL APP.JS TERLEBIH DAHULU -->
-  <script src="app.js?v=82"></script>
+  <script src="app.js?v=83"></script>
   
 
   <!-- 2. BARU JALANKAN SCRIPT INLINE ANDA -->

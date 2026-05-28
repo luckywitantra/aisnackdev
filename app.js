@@ -3265,6 +3265,71 @@ submitOpname: async function() {
         this.updateHeaderOutletName(); // Update nama di header
         this.closeModal('modal-outlet-selector');
     },
+
+    renderGlobalStockMatrix: function() {
+        if (!this.db || !this.db.masterProduk || !this.db.outlets) return;
+
+        let outlets = this.db.outlets || [];
+        
+        // 1. BUAT HEADER TABEL SECARA DINAMIS
+        let thHtml = `<tr>
+            <th class="py-4 px-4 sticky left-0 bg-white z-20 shadow-[2px_0_10px_rgba(0,0,0,0.05)] font-black uppercase tracking-widest text-[10px] text-slate-400">Nama Bahan Baku</th>
+            <th class="py-4 px-4 text-center font-black uppercase tracking-widest text-[10px] bg-blue-50/50 text-blue-600 border-l border-r border-blue-100/50">Gudang Pusat</th>`;
+        
+        // Looping nama outlet ke samping
+        outlets.forEach(o => {
+            thHtml += `<th class="py-4 px-4 text-center font-black uppercase tracking-widest text-[10px]">${o.Nama_Outlet}</th>`;
+        });
+        thHtml += `</tr>`;
+        
+        const thead = document.getElementById('heatmap-thead');
+        if (thead) {
+            // Karena ini efek sticky ke kiri, kita atur z-index manual pada kolom pertama
+            thead.innerHTML = thHtml;
+        }
+
+        // 2. BUAT BARIS DATA (PRODUK & STOK)
+        let trHtml = '';
+        
+        // Filter hanya kategori Bahan dan Pendukung, lalu urutkan abjad
+        let sortedBahan = [...this.db.masterProduk]
+            .filter(m => String(m.Kategori).toLowerCase() === 'bahan' || String(m.Kategori).toLowerCase() === 'pendukung')
+            .sort((a,b) => String(a.Nama_Produk).localeCompare(String(b.Nama_Produk)));
+
+        sortedBahan.forEach(m => {
+            let rowHtml = `
+                <td class="py-3 px-4 font-bold text-slate-800 text-sm sticky left-0 bg-white z-10 shadow-[2px_0_10px_rgba(0,0,0,0.03)] border-r border-slate-50">
+                    ${m.Nama_Produk} <br>
+                    <span class="text-[9px] font-black uppercase text-slate-400 tracking-widest">${m.Kategori}</span>
+                </td>`;
+
+            // Data Stok Gudang Pusat
+            let stokPusat = (this.db.stokGudang || []).find(x => x.SKU === m.SKU)?.Stok_Pusat || 0;
+            rowHtml += `<td class="py-3 px-4 text-center font-black text-blue-600 bg-blue-50/30 text-base border-l border-r border-blue-50">${stokPusat}</td>`;
+
+            // Data Stok Tiap Outlet
+            outlets.forEach(o => {
+                let stokToko = (this.db.hargaStokOutlet || []).find(x => x.SKU === m.SKU && x.ID_Outlet === o.ID_Outlet)?.Stok_Toko || 0;
+                
+                // Indikator Warna Heatmap
+                let badgeClass = '';
+                if (stokToko <= 5) badgeClass = 'bg-rose-100 text-rose-700 border-rose-200 shadow-[0_0_10px_rgba(225,29,72,0.2)]';
+                else if (stokToko <= 15) badgeClass = 'bg-amber-100 text-amber-700 border-amber-200';
+                else badgeClass = 'bg-emerald-50 text-emerald-600 border-emerald-100';
+
+                rowHtml += `<td class="py-3 px-4 text-center">
+                    <span class="inline-flex w-12 h-8 items-center justify-center rounded-lg border font-black text-sm ${badgeClass} transition-transform hover:scale-110 cursor-default">
+                        ${stokToko}
+                    </span>
+                </td>`;
+            });
+
+            trHtml += `<tr class="border-b border-slate-50 hover:bg-slate-50 transition-colors">${rowHtml}</tr>`;
+        });
+
+        const tbody = document.getElementById('heatmap-tbody');
+        if (tbody) tbody.innerHTML = trHtml || `<tr><td colspan="${outlets.length + 2}" class="text-center py-8 text-slate-400">Belum ada data bahan baku</td></tr>`;
+    },
     
     connectBluetooth: async function(isAuto = false) {
         if (this.isBluetoothSearching) return;

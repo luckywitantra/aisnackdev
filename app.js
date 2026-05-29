@@ -982,6 +982,78 @@ const superApp = {
         this.setLoading(false);
     },
 
+updatePendingNotifications: function() {
+        if (!this.db) return;
+
+        let roleStr = this.currentUser ? String(this.currentUser.Role).toLowerCase() : '';
+        let isAdmin = roleStr.includes('admin') || roleStr.includes('owner');
+
+        let pOpnameTotal = 0; let pTerimaTotal = 0;
+        let pOpnameOutlet = 0; let pTerimaOutlet = 0;
+
+        // 1. Hitung Opname Fisik Pending
+        (this.db.opname || []).forEach(o => {
+            if (o.Status_Approval === 'Pending') {
+                pOpnameTotal++;
+                if (o.Outlet === this.outlet) pOpnameOutlet++;
+            }
+        });
+
+        // 2. Hitung Terima Barang (Mutasi) Pending
+        (this.db.mutasi || []).forEach(m => {
+            if (m.Status_Approval === 'Pending') {
+                pTerimaTotal++;
+                if (m.Outlet_Tujuan === this.outlet) pTerimaOutlet++;
+            }
+        });
+
+        // --- UPDATE UI OWNER (ADMIN) ---
+        const badgeAudit = document.getElementById('badge-audit');
+        if (badgeAudit) {
+            let totalAudit = pOpnameTotal + pTerimaTotal;
+            if (isAdmin && totalAudit > 0) {
+                badgeAudit.innerText = totalAudit > 99 ? '99+' : totalAudit;
+                badgeAudit.classList.remove('hidden');
+            } else {
+                badgeAudit.classList.add('hidden');
+            }
+        }
+
+        // --- UPDATE UI KASIR (OUTLET) ---
+        const badgeTerima = document.getElementById('badge-terima');
+        const bannerTerima = document.getElementById('banner-pending-terima');
+        const textTerima = document.getElementById('text-pending-terima');
+        
+        if (badgeTerima && bannerTerima && textTerima) {
+            if (pTerimaOutlet > 0) {
+                badgeTerima.innerText = pTerimaOutlet;
+                badgeTerima.classList.remove('hidden');
+                textTerima.innerHTML = `Terdapat <b>${pTerimaOutlet} item</b> barang masuk di Cabang ${this.outlet} yang belum disetujui. Stok belum bertambah.`;
+                bannerTerima.classList.remove('hidden');
+            } else {
+                badgeTerima.classList.add('hidden');
+                bannerTerima.classList.add('hidden');
+            }
+        }
+
+        const badgeOpname = document.getElementById('badge-opname');
+        const bannerOpname = document.getElementById('banner-pending-opname');
+        const textOpname = document.getElementById('text-pending-opname');
+
+        if (badgeOpname && bannerOpname && textOpname) {
+            if (pOpnameOutlet > 0) {
+                badgeOpname.innerText = pOpnameOutlet;
+                badgeOpname.classList.remove('hidden');
+                textOpname.innerHTML = `Terdapat <b>${pOpnameOutlet} item</b> laporan selisih di Cabang ${this.outlet} yang menunggu diperiksa Owner.`;
+                bannerOpname.classList.remove('hidden');
+            } else {
+                badgeOpname.classList.add('hidden');
+                bannerOpname.classList.add('hidden');
+            }
+        }
+    },
+
+    
     // POS CORE
  refreshData: function() {
         // 🚀 1. PASTIKAN TEMA WARNA TERAPLIKASI SESUAI CABANG AKTIF

@@ -1502,6 +1502,58 @@
             </div>
         </div>
     </div>
+  <div id="modal-stok-detail" class="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-[250] hidden flex items-end md:items-center justify-center p-0 md:p-6 transition-opacity">
+        <div class="bg-white rounded-t-[2rem] md:rounded-[2rem] w-full max-w-2xl max-h-[90dvh] flex flex-col shadow-[0_20px_60px_rgba(0,0,0,0.3)] overflow-hidden border border-slate-100 modal-enter relative" id="modal-stok-detail-content">
+            
+            <i class="fas fa-chart-line absolute top-0 right-0 -mt-8 -mr-8 text-9xl text-slate-50 opacity-80 pointer-events-none z-0"></i>
+
+            <div class="px-6 lg:px-8 py-6 border-b border-slate-100 flex justify-between items-start shrink-0 relative z-10 bg-white/90 backdrop-blur-sm">
+                <div class="flex items-center gap-4">
+                    <div class="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center text-white text-2xl shadow-lg shadow-blue-200/50">
+                        <i class="fas fa-search-dollar"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-black text-slate-800 text-xl tracking-tight" id="detail-stok-nama">Nama Barang</h3>
+                        <p class="text-[10px] font-black text-blue-500 uppercase tracking-widest mt-0.5">Analisis Tren & Histori 7 Hari</p>
+                    </div>
+                </div>
+                <button onclick="superApp.closeModal('modal-stok-detail')" class="w-10 h-10 bg-slate-50 hover:bg-rose-50 hover:text-rose-500 rounded-full flex items-center justify-center text-slate-400 transition-colors shadow-sm active:scale-90">
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+            </div>
+
+            <div class="grid grid-cols-3 gap-3 p-6 bg-slate-50/50 shrink-0 relative z-10 border-b border-slate-100">
+                <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex flex-col items-center text-center">
+                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Stok Saat Ini</span>
+                    <span class="text-2xl font-black text-slate-800" id="detail-stok-now">0</span>
+                </div>
+                <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex flex-col items-center text-center">
+                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Avg Terjual/Hari</span>
+                    <span class="text-2xl font-black text-orange-500" id="detail-stok-avg">0</span>
+                </div>
+                <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex flex-col items-center text-center">
+                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Status Kecepatan</span>
+                    <span class="text-xs md:text-sm font-black px-2 py-1 rounded-md mt-1" id="detail-stok-status">Aman</span>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto custom-scroll relative z-10 bg-white">
+                <table class="w-full text-left text-sm whitespace-nowrap">
+                    <thead class="text-slate-400 border-b border-slate-200 sticky top-0 bg-white/95 backdrop-blur-sm shadow-sm z-20">
+                        <tr>
+                            <th class="py-3 px-6 font-bold uppercase tracking-widest text-[10px]">Tanggal</th>
+                            <th class="py-3 px-4 text-center font-bold uppercase tracking-widest text-[10px]">Terjual (POS)</th>
+                            <th class="py-3 px-4 text-center font-bold uppercase tracking-widest text-[10px]">Masuk (Pusat)</th>
+                            <th class="py-3 px-6 text-right font-bold uppercase tracking-widest text-[10px]">Info Opname</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detail-stok-tbody" class="divide-y divide-slate-50 font-bold text-slate-700">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
   
   <div id="modal-giant-numpad" class="fixed inset-0 bg-white z-[9999] hidden flex-col transition-transform transform translate-y-full duration-300">
       <div class="p-5 bg-brand-500 text-white flex justify-between items-center shadow-md shrink-0">

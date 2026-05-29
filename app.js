@@ -3673,6 +3673,37 @@ submitOpname: async function() {
         if (tbody) tbody.innerHTML = trHtml || `<tr><td colspan="${outlets.length + 2}" class="text-center py-8 text-slate-400">Belum ada data bahan baku</td></tr>`;
     },
 
+    // 🚀 AUTO-SYNC BACKGROUND PROCESS (Setiap 3 Menit)
+    initAutoSync: function() {
+        // Cek antrean setiap 3 menit (180.000 milidetik)
+        setInterval(() => {
+            // Pastikan perangkat sedang terhubung ke internet
+            if (navigator.onLine) {
+                let offlineData = JSON.parse(localStorage.getItem('aisnack_offline_queue') || '[]');
+                
+                // Jika ada data yang nyangkut, lakukan sinkronisasi senyap
+                if (offlineData.length > 0) {
+                    console.log("Auto-Sync: Mengirim " + offlineData.length + " data tertunda...");
+                    
+                    // Panggil fungsi sinkronisasi utama Anda (tanpa memunculkan popup loading)
+                    if (typeof this.syncOfflineQueue === 'function') {
+                        this.syncOfflineQueue();
+                    }
+                }
+            }
+        }, 180000); // 180000 ms = 3 menit
+
+        // AUTO-SYNC KETIKA INTERNET KEMBALI MENYALA (Reconnect)
+        window.addEventListener('online', () => {
+            let offlineData = JSON.parse(localStorage.getItem('aisnack_offline_queue') || '[]');
+            if (offlineData.length > 0) {
+                this.showToast('Koneksi pulih. Mengirim data tertunda...', 'success');
+                if (typeof this.syncOfflineQueue === 'function') {
+                    this.syncOfflineQueue();
+                }
+            }
+        });
+    },
     
     
     connectBluetooth: async function(isAuto = false) {

@@ -944,6 +944,43 @@ const superApp = {
         this.isProcessing = false;
     },
 
+    logout: function() {
+        // Minta konfirmasi agar tidak tidak sengaja terpencet
+        if (!confirm("Yakin ingin keluar dari akun ini? Anda harus memasukkan PIN lagi untuk masuk.")) return;
+        
+        this.setLoading(true, "Keluar dari sistem...");
+
+        setTimeout(() => {
+            // 1. Bersihkan Data Sesi Kasir Saat Ini
+            this.currentUser = null;
+            this.activeShiftId = null; 
+            this.activeStaffTeam = [];
+            this.clearPin(); // Kosongkan bulatan PIN di layar awal
+
+            // 2. Transisi UI Balik ke Layar Login
+            const ls = document.getElementById('login-screen');
+            const sbar = document.getElementById('sidebar');
+            const mainApp = document.getElementById('main-app');
+
+            if (ls) ls.classList.remove('hidden');
+            if (sbar) sbar.classList.add('hidden');
+            if (mainApp) mainApp.classList.add('hidden');
+
+            // 3. Pastikan Menu Sidebar Mobile tertutup rapat
+            const mobileOverlay = document.getElementById('mobile-overlay');
+            if (mobileOverlay) mobileOverlay.classList.add('hidden');
+            if (sbar && !sbar.classList.contains('-translate-x-full')) {
+                sbar.classList.add('-translate-x-full');
+            }
+
+            // 4. Kembali ke halaman utama (POS) agar saat login lagi layarnya rapi
+            this.switchMenu('pos');
+
+            this.setLoading(false);
+            this.showToast("Berhasil keluar dengan aman.", "success");
+        }, 500); // Beri sedikit delay agar terlihat proses loading
+    },
+
     // FUNGSI PENYAPA CFD (Mendukung Multi-Window)
     updateCFDGreeting: function() {
         // 1. Simpan nama cabang ke memori agar jendela CFD tidak lupa saat di-refresh

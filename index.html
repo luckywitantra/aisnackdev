@@ -166,38 +166,31 @@
     
     <div class="flex items-center justify-between px-7 mb-8 shrink-0 relative">
         <div class="flex items-center gap-4">
-            <div class="w-12 h-12 bg-gradient-to-br from-brand-500 to-orange-400 rounded-2xl flex items-center justify-center p-2.5 shadow-[0_8px_16px_rgba(249,115,22,0.3)] relative group cursor-pointer">
+            
+            <div class="w-12 h-12 bg-gradient-to-br from-brand-500 to-orange-400 rounded-2xl flex items-center justify-center p-2.5 shadow-[0_8px_16px_rgba(249,115,22,0.3)] relative group cursor-pointer shrink-0">
                 <div class="absolute inset-0 bg-white/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <img src="https://cdn-icons-png.flaticon.com/512/3081/3081308.png" class="app-logo-img w-full h-full object-contain filter drop-shadow-md group-hover:scale-110 transition-transform duration-300">
             </div>
-            <div class="flex flex-col">
-                <span class="font-black text-xl tracking-tight text-slate-800 leading-none mb-1">Ai-Snack</span>
-                <span class="inline-flex items-center justify-center px-2 py-0.5 bg-brand-50 border border-brand-100 rounded-md text-[9px] font-black text-brand-600 uppercase tracking-widest w-max" id="sb-role">Kasir</span>
+            
+            <div class="flex flex-col min-w-0">
+                <span class="font-black text-lg tracking-tight text-slate-800 leading-none mb-1.5 truncate max-w-[130px]" id="shift-user-name">Ai-Snack</span>
+                
+                <div class="flex items-center gap-2">
+                    <span class="inline-flex items-center justify-center px-2.5 py-0.5 bg-brand-50 border border-brand-100 rounded-md text-[9px] font-black text-brand-600 uppercase tracking-widest w-max shadow-sm" id="sb-role">Kasir</span>
+                    
+                    <button onclick="superApp.logout()" class="w-6 h-6 rounded-md bg-white border border-slate-200 text-slate-400 hover:bg-rose-500 hover:text-white hover:border-rose-500 shadow-sm transition-all active:scale-90 flex items-center justify-center" title="Keluar Akun">
+                        <i class="fas fa-power-off text-[10px]"></i>
+                    </button>
+                </div>
             </div>
         </div>
-        <button class="lg:hidden w-8 h-8 flex items-center justify-center bg-slate-50 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors" onclick="superApp.toggleSidebar()">
+        
+        <button class="lg:hidden w-8 h-8 flex items-center justify-center bg-slate-50 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors shrink-0 ml-2" onclick="superApp.toggleSidebar()">
             <i class="fas fa-times"></i>
         </button>
     </div>
 
-    <div class="px-6 pb-6">
-            <div class="bg-slate-50 border border-slate-200/60 rounded-[1.25rem] p-3 flex items-center justify-between group hover:border-rose-200 hover:bg-rose-50/50 transition-colors shadow-sm">
-                
-                <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 text-white flex items-center justify-center font-black text-sm shadow-md" id="header-initial">
-                        A
-                    </div>
-                    <div>
-                        <p class="text-xs font-extrabold text-slate-800 tracking-tight" id="shift-user-name">Admin</p>
-                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5" id="sb-role">Owner</p>
-                    </div>
-                </div>
-
-                <button onclick="superApp.logout()" class="w-9 h-9 rounded-[0.85rem] bg-white text-slate-400 hover:bg-rose-500 hover:text-white border border-slate-200 hover:border-rose-500 shadow-sm transition-all active:scale-90 flex items-center justify-center group/btn" title="Keluar dari Sistem">
-                    <i class="fas fa-power-off group-hover/btn:scale-110 transition-transform"></i>
-                </button>
-            </div>
-        </div>
+    <div id="header-initial" class="hidden"></div>
     
     <nav class="flex-1 overflow-y-auto custom-scroll px-4 flex flex-col gap-1.5 py-2">
         

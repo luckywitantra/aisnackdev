@@ -1055,35 +1055,51 @@ updatePendingNotifications: function() {
 
     
     // POS CORE
- refreshData: function() {
-        // 🚀 1. PASTIKAN TEMA WARNA TERAPLIKASI SESUAI CABANG AKTIF
+refreshData: function() {
+        // 🚀 1. TEMA & IDENTITAS CABANG
         this.applyOutletTheme();
+        
+        // Memastikan label nama cabang di header (sebelah ikon Map Pin) ikut berubah
+        if (typeof this.updateHeaderOutletName === 'function') {
+            this.updateHeaderOutletName();
+        }
 
-        // 2. Terapkan Lencana Warna di Header POS dan Label Manajemen Outlet
+        // 2. LABEL BADGE CABANG (Header POS & Manajemen Outlet)
         const hSub = document.getElementById('header-subtitle'); 
         if (hSub) hSub.innerHTML = this.getOutletBadge(this.outlet);
         
         const lOutManage = document.getElementById('label-outlet-manage'); 
         if (lOutManage) lOutManage.innerHTML = this.getOutletBadge(this.outlet);
 
-        // 3. Proses Produk
+        // 3. PROSES & FILTER PRODUK (Sesuai Cabang Aktif)
         this.filteredProducts = [];
         if (this.db && this.db.masterProduk) {
             this.db.masterProduk.forEach(master => {
                 if (String(master.Kategori || '').toLowerCase() !== 'bahan' && String(master.Kategori || '').toLowerCase() !== 'pendukung') {
+                    // Cari harga dan stok khusus untuk cabang yang sedang dipilih
                     let hargaOutlet = (this.db.hargaStokOutlet || []).find(x => x.SKU === master.SKU && x.ID_Outlet === this.outlet);
                     let stokReference = master.SKU_Bahan ? master.SKU_Bahan : master.SKU;
                     let stokBahan = (this.db.hargaStokOutlet || []).find(x => x.SKU === stokReference && x.ID_Outlet === this.outlet);
+                    
+                    // Hanya tampilkan di POS jika harga sudah disetting ( > 0 )
                     if (hargaOutlet && hargaOutlet.Harga_Jual > 0) {
                         let qtySisa = stokBahan ? stokBahan.Stok_Toko : 0;
-                        this.filteredProducts.push({ sku: master.SKU, nama: master.Nama_Produk, img: master.Gambar_URL, harga: hargaOutlet.Harga_Jual, maxStok: qtySisa, sku_bahan: master.SKU_Bahan });
+                        this.filteredProducts.push({ 
+                            sku: master.SKU, 
+                            nama: master.Nama_Produk, 
+                            img: master.Gambar_URL, 
+                            harga: hargaOutlet.Harga_Jual, 
+                            maxStok: qtySisa, 
+                            sku_bahan: master.SKU_Bahan 
+                        });
                     }
                 }
             });
         }
+        // Urutkan produk berdasarkan abjad agar kasir mudah mencari
         this.filteredProducts.sort((a, b) => String(a.nama || '').localeCompare(String(b.nama || '')));
 
-        // 4. Render Semua Menu
+        // 4. RENDER SEMUA TAMPILAN (Sinkronisasi UI)
         if (document.getElementById('product-list')) this.renderProducts();
         if (typeof this.renderReport === 'function') this.renderReport();
         if (typeof this.renderGudang === 'function') this.renderGudang();
@@ -1092,6 +1108,12 @@ updatePendingNotifications: function() {
         if (typeof this.renderAudit === 'function') this.renderAudit();
         if (typeof this.renderTerimaBarang === 'function') this.renderTerimaBarang();
         if (typeof this.generateAIReport === 'function') this.generateAIReport();
+
+        // 🚀 5. TRIGGER NOTIFIKASI SPANDUK & BADGE 
+        // (Agar spanduk kuning di layar kasir otomatis hilang saat Owner selesai Approve)
+        if (typeof this.updatePendingNotifications === 'function') {
+            this.updatePendingNotifications();
+        }
     },
     
     changeOutlet: function(val) { this.outlet = val; this.cart = []; this.renderCart(); this.checkShiftStatus(); this.refreshData(); },

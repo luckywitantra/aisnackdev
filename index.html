@@ -898,24 +898,87 @@
         
       </div>
       
-      <div id="view-outlet" class="app-view hidden flex-col lg:flex-row lg:min-h-[80vh] min-h-max gap-6">
-        <div class="flex-1 bg-white p-4 lg:p-6 rounded-[2rem] shadow-sm border border-slate-100 text-slate-800 flex flex-col min-h-[40vh] lg:min-h-0">
-            <div class="flex justify-between items-center border-b border-slate-100 pb-4 mb-4 shrink-0"><h3 class="font-extrabold text-xl">Daftar Cabang</h3><button onclick="superApp.openCrudOutlet('add')" class="bg-slate-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-slate-800 shadow-md transition hover:-translate-y-1"><i class="fas fa-plus mr-1"></i>Outlet Baru</button></div>
-            <div class="flex-1 overflow-x-auto overflow-y-auto min-h-0 custom-scroll relative"><table class="w-full text-left text-sm whitespace-nowrap"><thead class="text-slate-400 border-b border-slate-200 sticky top-0 bg-white z-10 shadow-sm"><tr><th class="pb-3 px-4">ID</th><th class="pb-3 px-4">Nama Outlet</th><th class="pb-3 px-4 text-center">Aksi</th></tr></thead><tbody id="crud-outlet-tbody" class="divide-y divide-slate-50 font-bold"></tbody></table></div>
+      <div id="view-outlet" class="app-view hidden flex-col lg:flex-row lg:items-start lg:min-h-[80vh] min-h-max gap-6 pb-24 md:pb-0">
+        
+        <div class="flex-1 bg-white p-5 lg:p-8 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col min-h-[40vh] lg:min-h-0 relative overflow-hidden group">
+            
+            <i class="fas fa-store-alt absolute top-0 right-0 -mt-6 -mr-8 text-9xl text-slate-50 opacity-70 pointer-events-none transition-transform duration-700 group-hover:scale-110 z-0"></i>
+
+            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center border-b border-slate-100 pb-5 mb-5 gap-5 shrink-0 relative z-10">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-2xl flex items-center justify-center text-white text-xl shadow-lg shadow-indigo-200/50 shrink-0">
+                        <i class="fas fa-map-marked-alt"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-extrabold text-xl text-slate-800 tracking-tight">Daftar Cabang</h3>
+                        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Manajemen Lokasi Toko</p>
+                    </div>
+                </div>
+                
+                <button onclick="superApp.openCrudOutlet('add')" class="w-full lg:w-auto bg-slate-900 text-white px-5 py-3 rounded-xl text-xs md:text-sm font-extrabold hover:bg-slate-800 shadow-[0_8px_15px_rgba(0,0,0,0.15)] transition-all hover:-translate-y-1 active:translate-y-0 flex justify-center items-center gap-2">
+                    <i class="fas fa-plus"></i> Outlet Baru
+                </button>
+            </div>
+
+            <div class="flex-1 overflow-x-auto overflow-y-auto min-h-0 custom-scroll relative z-10 pr-2">
+                <table class="w-full text-left text-sm whitespace-nowrap">
+                    <thead class="text-slate-400 border-b border-slate-200 sticky top-0 bg-white/95 backdrop-blur-sm z-20 shadow-sm">
+                        <tr>
+                            <th class="py-3 px-4 font-bold uppercase tracking-widest text-[10px]">ID Cabang</th>
+                            <th class="py-3 px-4 font-bold uppercase tracking-widest text-[10px]">Nama Outlet</th>
+                            <th class="py-3 px-4 text-center font-bold uppercase tracking-widest text-[10px]">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="crud-outlet-tbody" class="divide-y divide-slate-50 font-bold text-slate-700"></tbody>
+                </table>
+            </div>
         </div>
-        <div class="flex-1 bg-white p-4 lg:p-6 rounded-[2rem] shadow-sm border border-slate-100 text-slate-800 flex flex-col min-h-[50vh] lg:min-h-0">
-            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center border-b border-slate-100 pb-4 mb-4 shrink-0 gap-4">
-                <div><h3 class="font-extrabold text-xl">Distribusi & Harga</h3><p class="text-sm font-bold text-brand-500 mt-1"><i class="fas fa-location-dot"></i> Cabang Aktif: <span id="label-outlet-manage" class="text-slate-700"></span></p></div>
-                <div class="flex gap-2 w-full lg:w-auto">
-                    <button onclick="superApp.openAddOutletProduct()" class="flex-1 lg:flex-none bg-slate-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-slate-800 shadow-md transition hover:-translate-y-1" title="Tambah Jualan"><i class="fas fa-plus mr-1"></i>Jual</button>
-                    <button onclick="superApp.openDistribusiModal()" class="flex-1 lg:flex-none bg-brand-100 text-brand-700 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-brand-200 shadow-md transition hover:-translate-y-1" title="Kirim Stok Pusat"><i class="fas fa-truck-fast mr-1"></i>Pusat</button>
-                    <button onclick="superApp.openTransferModalOwner()" class="flex-1 lg:flex-none bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-600 shadow-md transition hover:-translate-y-1" title="Transfer Antar Cabang"><i class="fas fa-exchange-alt mr-1"></i>Transfer</button>
+        
+        <div class="flex-1 lg:flex-[1.5] bg-white p-5 lg:p-8 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col min-h-[50vh] lg:min-h-0 relative overflow-hidden group">
+            
+            <i class="fas fa-network-wired absolute top-0 right-0 -mt-6 -mr-6 text-9xl text-slate-50 opacity-70 pointer-events-none transition-transform duration-700 group-hover:scale-110 z-0"></i>
+
+            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center border-b border-slate-100 pb-5 mb-5 gap-5 shrink-0 relative z-10">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-gradient-to-br from-brand-500 to-orange-500 rounded-2xl flex items-center justify-center text-white text-xl shadow-lg shadow-orange-200/50 shrink-0">
+                        <i class="fas fa-tags"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-extrabold text-xl text-slate-800 tracking-tight">Distribusi & Harga</h3>
+                        <p class="text-[11px] font-bold text-brand-500 mt-1 flex items-center gap-1.5 uppercase tracking-widest">
+                            <i class="fas fa-location-dot"></i> Cabang Aktif: <span id="label-outlet-manage" class="bg-brand-50 text-brand-700 px-2 py-0.5 rounded-md border border-brand-200 font-black normal-case tracking-normal"></span>
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap gap-2 w-full lg:w-auto">
+                    <button onclick="superApp.openAddOutletProduct()" class="flex-1 lg:flex-none bg-slate-900 text-white px-4 py-3 rounded-xl text-xs md:text-sm font-extrabold hover:bg-slate-800 shadow-[0_8px_15px_rgba(0,0,0,0.15)] transition-all hover:-translate-y-1 active:translate-y-0 flex justify-center items-center gap-2" title="Tambah Menu untuk Dijual">
+                        <i class="fas fa-plus text-slate-400"></i> Jual Menu
+                    </button>
+                    <button onclick="superApp.openDistribusiModal()" class="flex-1 lg:flex-none bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-4 py-3 rounded-xl text-xs md:text-sm font-extrabold hover:from-emerald-600 hover:to-teal-600 shadow-[0_8px_15px_rgba(16,185,129,0.25)] transition-all hover:-translate-y-1 active:translate-y-0 flex justify-center items-center gap-2" title="Kirim Stok dari Pusat">
+                        <i class="fas fa-truck-fast text-emerald-100"></i> Suplai Pusat
+                    </button>
+                    <button onclick="superApp.openTransferModalOwner()" class="flex-1 lg:flex-none bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-4 py-3 rounded-xl text-xs md:text-sm font-extrabold hover:from-blue-600 hover:to-indigo-600 shadow-[0_8px_15px_rgba(59,130,246,0.25)] transition-all hover:-translate-y-1 active:translate-y-0 flex justify-center items-center gap-2" title="Transfer Antar Cabang">
+                        <i class="fas fa-exchange-alt text-blue-100"></i> Transfer
+                    </button>
                 </div>
             </div>
-            <div class="flex-1 overflow-x-auto overflow-y-auto min-h-0 custom-scroll relative">
-                <table class="w-full text-left text-sm whitespace-nowrap"><thead class="text-slate-400 border-b border-slate-200 sticky top-0 bg-white z-10 shadow-sm"><tr><th class="pb-3 px-4">Menu Jualan</th><th class="pb-3 px-4 text-right">Harga Cabang</th><th class="pb-3 px-4 text-right">Stok Fisik Toko</th><th class="pb-3 px-4 text-center">Aksi</th></tr></thead><tbody id="outlet-manage-tbody" class="divide-y divide-slate-50 font-bold"></tbody></table>
+
+            <div class="flex-1 overflow-x-auto overflow-y-auto min-h-0 custom-scroll relative z-10 pr-2">
+                <table class="w-full text-left text-sm whitespace-nowrap">
+                    <thead class="text-slate-400 border-b border-slate-200 sticky top-0 bg-white/95 backdrop-blur-sm z-20 shadow-sm">
+                        <tr>
+                            <th class="py-3 px-4 font-bold uppercase tracking-widest text-[10px]">Menu Jualan</th>
+                            <th class="py-3 px-4 text-right font-bold uppercase tracking-widest text-[10px]">Harga Cabang</th>
+                            <th class="py-3 px-4 text-right font-bold uppercase tracking-widest text-[10px]">Stok Fisik Toko</th>
+                            <th class="py-3 px-4 text-center font-bold uppercase tracking-widest text-[10px]">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="outlet-manage-tbody" class="divide-y divide-slate-50 font-bold text-slate-700"></tbody>
+                </table>
             </div>
         </div>
+        
       </div>
 
       <div id="view-staf" class="app-view hidden flex-col lg:min-h-[80vh] min-h-max gap-4 pb-20 md:pb-0">

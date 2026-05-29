@@ -337,25 +337,20 @@ const superApp = {
         const listEl = document.getElementById('sync-queue-list');
         if (!listEl) return;
 
-        // 🚀 BACA DARI DATABASE OFFLINE ASLI MILIK ANDA
-        let offlineData = JSON.parse(localStorage.getItem('aisnack_offline_queue') || '[]');
-
-        // Variabel untuk menghitung jumlah masing-masing tipe data
-        let cTrx = 0; let cTerima = 0; let cOpname = 0; let cKas = 0;
-
-        // Memisahkan perhitungan berdasarkan "action" di payload Anda
-        offlineData.forEach(item => {
-            let act = String(item.action).toLowerCase();
-            if (act === 'checkout') cTrx++;
-            else if (act.includes('terima') || act.includes('masuk')) cTerima++;
-            else if (act.includes('opname') || act.includes('audit')) cOpname++;
-            else if (act.includes('kas')) cKas++;
-            else cTrx++; // Jika action tidak terdefinisi, masukkan ke transaksi
-        });
+        // 🚀 1. PARSING DATA SUPER AMAN
+        let rawData = localStorage.getItem('aisnack_offline_queue');
+        let offlineData = [];
+        try {
+            offlineData = JSON.parse(rawData || '[]');
+            // Jika entah kenapa bukan array, jadikan array
+            if (!Array.isArray(offlineData)) offlineData = [offlineData]; 
+        } catch(e) {
+            offlineData = [];
+        }
 
         let totalQueue = offlineData.length;
 
-        // Jika antrean kosong, tampilkan status hijau
+        // Jika benar-benar kosong, tampilkan status hijau
         if (totalQueue === 0) {
             listEl.innerHTML = `
                 <div class="text-center py-8">
@@ -373,8 +368,29 @@ const superApp = {
         const btnSync = document.getElementById('btn-trigger-sync');
         if(btnSync) btnSync.style.display = 'flex';
 
+        // 🚀 2. KLASIFIKASI DATA ANTI-GAGAL
+        let cTrx = 0; let cTerima = 0; let cOpname = 0; let cKas = 0; let cLain = 0;
+
+        offlineData.forEach(item => {
+            // Jaga-jaga jika item di dalam array berbentuk string (Double Stringify)
+            let obj = item;
+            if (typeof item === 'string') {
+                try { obj = JSON.parse(item); } catch(e) {}
+            }
+
+            // Cari tahu jenis datanya dari properti 'action' (atau jadikan string kosong jika tidak ada)
+            let act = String(obj.action || obj.jenis || obj.type || '').toLowerCase();
+
+            if (act.includes('checkout') || act.includes('pos')) cTrx++;
+            else if (act.includes('terima') || act.includes('masuk')) cTerima++;
+            else if (act.includes('opname') || act.includes('audit')) cOpname++;
+            else if (act.includes('kas') || act.includes('keluar')) cKas++;
+            else cLain++; // Masuk ke Data Lainnya jika nama action sama sekali tidak dikenali
+        });
+
+        // 🚀 3. PEMBENTUK KARTU (CARD BUILDER)
         const createCard = (title, icon, count, colorClass, barColor, id) => {
-            if (count === 0) return ''; 
+            if (count === 0) return ''; // Lewati jika nol
             return `
             <div class="bg-white border border-slate-200 rounded-[1.25rem] p-4 shadow-sm relative overflow-hidden group mb-3">
                 <div class="flex justify-between items-center mb-3">
@@ -397,11 +413,18 @@ const superApp = {
             </div>`;
         };
 
+        // 🚀 4. GABUNGKAN KARTU KE DALAM HTML
         let html = '';
         html += createCard('Transaksi POS', 'fa-cash-register', cTrx, 'bg-brand-50 text-brand-500', 'bg-brand-500', 'trx');
         html += createCard('Penerimaan Barang', 'fa-dolly', cTerima, 'bg-emerald-50 text-emerald-500', 'bg-emerald-500', 'terima');
         html += createCard('Opname Fisik', 'fa-clipboard-check', cOpname, 'bg-purple-50 text-purple-500', 'bg-purple-500', 'opname');
         html += createCard('Kas Keluar', 'fa-money-bill-transfer', cKas, 'bg-rose-50 text-rose-500', 'bg-rose-500', 'kas');
+        html += createCard('Data Lainnya', 'fa-database', cLain, 'bg-slate-100 text-slate-600', 'bg-slate-600', 'lain');
+
+        // Jika setelah diekstrak ternyata html masih kosong padahal totalQueue > 0 (Sangat langka)
+        if (html === '') {
+             html = createCard('Antrean Sistem', 'fa-server', totalQueue, 'bg-indigo-50 text-indigo-500', 'bg-indigo-500', 'sistem');
+        }
 
         listEl.innerHTML = html;
     },

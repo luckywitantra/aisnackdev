@@ -775,6 +775,7 @@ const superApp = {
         window.addEventListener('beforeunload', () => { if (this.cfdWindow && !this.cfdWindow.closed) this.cfdWindow.close(); });
         window.addEventListener('online', () => { this.isOnline = true; this.syncOfflineQueue(); });
         window.addEventListener('offline', () => { this.isOnline = false; this.updateNetworkUI(); });
+        this.initAutoSync();
         
         try { 
             let queue = localStorage.getItem('aisnack_offline_queue'); 

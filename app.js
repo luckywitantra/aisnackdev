@@ -325,6 +325,136 @@ const superApp = {
         try { const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) }); return await res.json(); } 
         catch (e) { this.offlineQueue.push(payload); localStorage.setItem('aisnack_offline_queue', JSON.stringify(this.offlineQueue)); this.updateNetworkUI(); return { status: 'sukses', is_offline: true, trx_id: payload.trx_id || payload.id_shift }; }
     },
+
+    // ... (fungsi-fungsi superApp lainnya di atas) ...
+
+    openSyncCenter: function() {
+        this.renderSyncQueue();
+        this.openModal('modal-sync-center');
+    },
+
+    renderSyncQueue: function() {
+        const listEl = document.getElementById('sync-queue-list');
+        if (!listEl) return;
+
+        // Ambil data offline dari LocalStorage
+        let qTransaksi = JSON.parse(localStorage.getItem('aisnack_offline_transaksi') || '[]');
+        let qTerima = JSON.parse(localStorage.getItem('aisnack_offline_terima') || '[]');
+        let qOpname = JSON.parse(localStorage.getItem('aisnack_offline_opname') || '[]');
+        let qKas = JSON.parse(localStorage.getItem('aisnack_offline_kaskeluar') || '[]');
+
+        let totalQueue = qTransaksi.length + qTerima.length + qOpname.length + qKas.length;
+
+        if (totalQueue === 0) {
+            listEl.innerHTML = `
+                <div class="text-center py-8">
+                    <div class="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-4 shadow-inner"><i class="fas fa-check-double"></i></div>
+                    <h4 class="font-extrabold text-slate-800 text-lg">Semua Data Tersinkronisasi</h4>
+                    <p class="text-xs text-slate-500 mt-2 font-medium">Tidak ada antrean data lokal. Sistem dalam keadaan up-to-date dengan server.</p>
+                </div>
+            `;
+            const btnSync = document.getElementById('btn-trigger-sync');
+            if(btnSync) btnSync.style.display = 'none';
+            return;
+        }
+
+        const btnSync = document.getElementById('btn-trigger-sync');
+        if(btnSync) btnSync.style.display = 'flex';
+
+        const createCard = (title, icon, count, colorClass, barColor, id) => {
+            if (count === 0) return ''; 
+            return `
+            <div class="bg-white border border-slate-200 rounded-[1.25rem] p-4 shadow-sm relative overflow-hidden group mb-3">
+                <div class="flex justify-between items-center mb-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 ${colorClass} rounded-xl flex items-center justify-center text-lg"><i class="fas ${icon}"></i></div>
+                        <h4 class="font-extrabold text-slate-700 text-sm">${title}</h4>
+                    </div>
+                    <span class="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest border border-slate-200" id="badge-${id}">${count} Tertunda</span>
+                </div>
+                
+                <div class="w-full bg-slate-100 rounded-full h-2.5 mb-1 overflow-hidden shadow-inner">
+                    <div id="bar-${id}" class="${barColor} h-2.5 rounded-full w-0 transition-all duration-500 relative">
+                        <div class="absolute inset-0 bg-white/30 animate-[shimmer_2s_infinite]"></div>
+                    </div>
+                </div>
+                <div class="flex justify-between items-center mt-1.5">
+                    <span class="text-[10px] font-bold text-slate-400" id="status-${id}">Menunggu sinkronisasi...</span>
+                    <span class="text-[10px] font-black text-slate-600" id="pct-${id}">0%</span>
+                </div>
+            </div>`;
+        };
+
+        let html = '';
+        html += createCard('Transaksi POS', 'fa-cash-register', qTransaksi.length, 'bg-brand-50 text-brand-500', 'bg-brand-500', 'trx');
+        html += createCard('Penerimaan Barang', 'fa-dolly', qTerima.length, 'bg-emerald-50 text-emerald-500', 'bg-emerald-500', 'terima');
+        html += createCard('Opname Fisik', 'fa-clipboard-check', qOpname.length, 'bg-purple-50 text-purple-500', 'bg-purple-500', 'opname');
+        html += createCard('Kas Keluar', 'fa-money-bill-transfer', qKas.length, 'bg-rose-50 text-rose-500', 'bg-rose-500', 'kas');
+
+        listEl.innerHTML = html;
+    },
+
+    executeVisualSync: function() {
+        const btn = document.getElementById('btn-trigger-sync');
+        if(btn) {
+            btn.innerHTML = `<i class="fas fa-spinner fa-spin text-lg text-emerald-400"></i> Menyinkronkan...`;
+            btn.classList.add('opacity-80', 'cursor-not-allowed');
+        }
+        
+        const syncIcon = document.getElementById('sync-center-icon');
+        if(syncIcon) syncIcon.classList.add('fa-spin');
+
+        const animateBar = (id) => {
+            let bar = document.getElementById(`bar-${id}`);
+            let pct = document.getElementById(`pct-${id}`);
+            let sts = document.getElementById(`status-${id}`);
+            let badge = document.getElementById(`badge-${id}`);
+            
+            if(!bar) return;
+
+            sts.innerText = "Mengirim data...";
+            sts.classList.add('text-brand-500');
+
+            let progress = 0;
+            let interval = setInterval(() => {
+                progress += Math.floor(Math.random() * 20) + 5; 
+                if (progress >= 100) {
+                    progress = 100;
+                    clearInterval(interval);
+                    sts.innerText = "Berhasil";
+                    sts.classList.replace('text-brand-500', 'text-emerald-500');
+                    badge.innerText = "Selesai";
+                    badge.classList.replace('bg-slate-100', 'bg-emerald-100');
+                    badge.classList.replace('text-slate-600', 'text-emerald-700');
+                }
+                bar.style.width = `${progress}%`;
+                pct.innerText = `${progress}%`;
+            }, 300);
+        };
+
+        animateBar('trx');
+        animateBar('terima');
+        animateBar('opname');
+        animateBar('kas');
+
+        // PANGGIL FUNGSI SINKRONISASI ASLI
+        if(typeof this.syncOfflineQueue === 'function') {
+            this.syncOfflineQueue(); 
+        }
+
+        setTimeout(() => {
+            if(btn) {
+                btn.innerHTML = `<i class="fas fa-cloud-arrow-up text-lg text-emerald-400"></i> Mulai Sinkronisasi`;
+                btn.classList.remove('opacity-80', 'cursor-not-allowed');
+            }
+            if(syncIcon) syncIcon.classList.remove('fa-spin');
+            
+            this.showToast('Semua data berhasil disinkronkan', 'success');
+            this.closeModal('modal-sync-center');
+            this.renderSyncQueue();
+        }, 2500); 
+    },
+    
     syncOfflineQueue: async function() {
         if (!this.isOnline || this.offlineQueue.length === 0) return;
         this.showToast("Menyinkronkan data offline...", "warning"); let failedQueue = [];
@@ -3508,130 +3638,7 @@ submitOpname: async function() {
         if (tbody) tbody.innerHTML = trHtml || `<tr><td colspan="${outlets.length + 2}" class="text-center py-8 text-slate-400">Belum ada data bahan baku</td></tr>`;
     },
 
-    openSyncCenter: function() {
-        this.renderSyncQueue();
-        this.openModal('modal-sync-center');
-    },
-
-    renderSyncQueue: function() {
-        const listEl = document.getElementById('sync-queue-list');
-        if (!listEl) return;
-
-        // Simulasi menghitung data offline (Anda bisa sesuaikan dengan variabel localStorage Anda yang sebenarnya)
-        // Umumnya di aplikasi POS offline, data disimpan dalam bentuk array sebelum dikirim
-        let qTransaksi = JSON.parse(localStorage.getItem('aisnack_offline_transaksi') || '[]');
-        let qTerima = JSON.parse(localStorage.getItem('aisnack_offline_terima') || '[]');
-        let qOpname = JSON.parse(localStorage.getItem('aisnack_offline_opname') || '[]');
-        let qKas = JSON.parse(localStorage.getItem('aisnack_offline_kaskeluar') || '[]');
-
-        let totalQueue = qTransaksi.length + qTerima.length + qOpname.length + qKas.length;
-
-        if (totalQueue === 0) {
-            listEl.innerHTML = `
-                <div class="text-center py-8">
-                    <div class="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-4 shadow-inner"><i class="fas fa-check-double"></i></div>
-                    <h4 class="font-extrabold text-slate-800 text-lg">Semua Data Tersinkronisasi</h4>
-                    <p class="text-xs text-slate-500 mt-2 font-medium">Tidak ada antrean data lokal. Sistem dalam keadaan up-to-date dengan server.</p>
-                </div>
-            `;
-            document.getElementById('btn-trigger-sync').style.display = 'none';
-            return;
-        }
-
-        document.getElementById('btn-trigger-sync').style.display = 'flex';
-
-        // Fungsi pembantu untuk membuat desain kartu progress
-        const createCard = (title, icon, count, colorClass, barColor, id) => {
-            if (count === 0) return ''; // Sembunyikan jika tidak ada antrean
-            return `
-            <div class="bg-white border border-slate-200 rounded-[1.25rem] p-4 shadow-sm relative overflow-hidden group">
-                <div class="flex justify-between items-center mb-3">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 ${colorClass} rounded-xl flex items-center justify-center text-lg"><i class="fas ${icon}"></i></div>
-                        <h4 class="font-extrabold text-slate-700 text-sm">${title}</h4>
-                    </div>
-                    <span class="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest border border-slate-200" id="badge-${id}">${count} Tertunda</span>
-                </div>
-                
-                <div class="w-full bg-slate-100 rounded-full h-2.5 mb-1 overflow-hidden shadow-inner">
-                    <div id="bar-${id}" class="${barColor} h-2.5 rounded-full w-0 transition-all duration-500 relative">
-                        <div class="absolute inset-0 bg-white/30 animate-[shimmer_2s_infinite]"></div>
-                    </div>
-                </div>
-                <div class="flex justify-between items-center mt-1.5">
-                    <span class="text-[10px] font-bold text-slate-400" id="status-${id}">Menunggu sinkronisasi...</span>
-                    <span class="text-[10px] font-black text-slate-600" id="pct-${id}">0%</span>
-                </div>
-            </div>`;
-        };
-
-        let html = '';
-        html += createCard('Transaksi POS', 'fa-cash-register', qTransaksi.length, 'bg-brand-50 text-brand-500', 'bg-brand-500', 'trx');
-        html += createCard('Penerimaan Barang', 'fa-dolly', qTerima.length, 'bg-emerald-50 text-emerald-500', 'bg-emerald-500', 'terima');
-        html += createCard('Opname Fisik', 'fa-clipboard-check', qOpname.length, 'bg-purple-50 text-purple-500', 'bg-purple-500', 'opname');
-        html += createCard('Kas Keluar', 'fa-money-bill-transfer', qKas.length, 'bg-rose-50 text-rose-500', 'bg-rose-500', 'kas');
-
-        listEl.innerHTML = html;
-    },
-
-    executeVisualSync: function() {
-        // Ganti tombol menjadi status loading
-        const btn = document.getElementById('btn-trigger-sync');
-        btn.innerHTML = `<i class="fas fa-spinner fa-spin text-lg text-emerald-400"></i> Menyinkronkan...`;
-        btn.classList.add('opacity-80', 'cursor-not-allowed');
-        document.getElementById('sync-center-icon').classList.add('fa-spin');
-
-        // Simulasi Visual Progress Bar (Karena API Asli tidak mereturn persentase real-time)
-        // Di sini kita membuat animasi bar yang berjalan halus dari 0% ke 100%
-        const animateBar = (id) => {
-            let bar = document.getElementById(`bar-${id}`);
-            let pct = document.getElementById(`pct-${id}`);
-            let sts = document.getElementById(`status-${id}`);
-            let badge = document.getElementById(`badge-${id}`);
-            
-            if(!bar) return;
-
-            sts.innerText = "Mengirim data...";
-            sts.classList.add('text-brand-500');
-
-            let progress = 0;
-            let interval = setInterval(() => {
-                progress += Math.floor(Math.random() * 20) + 5; // Naik secara acak 5-25%
-                if (progress >= 100) {
-                    progress = 100;
-                    clearInterval(interval);
-                    sts.innerText = "Berhasil";
-                    sts.classList.replace('text-brand-500', 'text-emerald-500');
-                    badge.innerText = "Selesai";
-                    badge.classList.replace('bg-slate-100', 'bg-emerald-100');
-                    badge.classList.replace('text-slate-600', 'text-emerald-700');
-                }
-                bar.style.width = `${progress}%`;
-                pct.innerText = `${progress}%`;
-            }, 300); // Update setiap 0.3 detik
-        };
-
-        animateBar('trx');
-        animateBar('terima');
-        animateBar('opname');
-        animateBar('kas');
-
-        // PANGGIL FUNGSI SINKRONISASI ASLI ANDA DI SINI
-        this.syncOfflineQueue(); 
-
-        // Setelah 2.5 detik, tutup modal dan kembalikan tombol
-        setTimeout(() => {
-            btn.innerHTML = `<i class="fas fa-cloud-arrow-up text-lg text-emerald-400"></i> Mulai Sinkronisasi`;
-            btn.classList.remove('opacity-80', 'cursor-not-allowed');
-            document.getElementById('sync-center-icon').classList.remove('fa-spin');
-            
-            this.showToast('Semua data berhasil disinkronkan', 'success');
-            this.closeModal('modal-sync-center');
-            
-            // Refresh antrean UI jika user membukanya lagi
-            this.renderSyncQueue();
-        }, 2500); 
-    },
+    
     
     connectBluetooth: async function(isAuto = false) {
         if (this.isBluetoothSearching) return;

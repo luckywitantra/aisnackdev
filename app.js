@@ -337,14 +337,25 @@ const superApp = {
         const listEl = document.getElementById('sync-queue-list');
         if (!listEl) return;
 
-        // Ambil data offline dari LocalStorage
-        let qTransaksi = JSON.parse(localStorage.getItem('aisnack_offline_transaksi') || '[]');
-        let qTerima = JSON.parse(localStorage.getItem('aisnack_offline_terima') || '[]');
-        let qOpname = JSON.parse(localStorage.getItem('aisnack_offline_opname') || '[]');
-        let qKas = JSON.parse(localStorage.getItem('aisnack_offline_kaskeluar') || '[]');
+        // 🚀 BACA DARI DATABASE OFFLINE ASLI MILIK ANDA
+        let offlineData = JSON.parse(localStorage.getItem('aisnack_offline_queue') || '[]');
 
-        let totalQueue = qTransaksi.length + qTerima.length + qOpname.length + qKas.length;
+        // Variabel untuk menghitung jumlah masing-masing tipe data
+        let cTrx = 0; let cTerima = 0; let cOpname = 0; let cKas = 0;
 
+        // Memisahkan perhitungan berdasarkan "action" di payload Anda
+        offlineData.forEach(item => {
+            let act = String(item.action).toLowerCase();
+            if (act === 'checkout') cTrx++;
+            else if (act.includes('terima') || act.includes('masuk')) cTerima++;
+            else if (act.includes('opname') || act.includes('audit')) cOpname++;
+            else if (act.includes('kas')) cKas++;
+            else cTrx++; // Jika action tidak terdefinisi, masukkan ke transaksi
+        });
+
+        let totalQueue = offlineData.length;
+
+        // Jika antrean kosong, tampilkan status hijau
         if (totalQueue === 0) {
             listEl.innerHTML = `
                 <div class="text-center py-8">
@@ -358,6 +369,7 @@ const superApp = {
             return;
         }
 
+        // Tampilkan tombol sync jika ada data
         const btnSync = document.getElementById('btn-trigger-sync');
         if(btnSync) btnSync.style.display = 'flex';
 
@@ -386,10 +398,10 @@ const superApp = {
         };
 
         let html = '';
-        html += createCard('Transaksi POS', 'fa-cash-register', qTransaksi.length, 'bg-brand-50 text-brand-500', 'bg-brand-500', 'trx');
-        html += createCard('Penerimaan Barang', 'fa-dolly', qTerima.length, 'bg-emerald-50 text-emerald-500', 'bg-emerald-500', 'terima');
-        html += createCard('Opname Fisik', 'fa-clipboard-check', qOpname.length, 'bg-purple-50 text-purple-500', 'bg-purple-500', 'opname');
-        html += createCard('Kas Keluar', 'fa-money-bill-transfer', qKas.length, 'bg-rose-50 text-rose-500', 'bg-rose-500', 'kas');
+        html += createCard('Transaksi POS', 'fa-cash-register', cTrx, 'bg-brand-50 text-brand-500', 'bg-brand-500', 'trx');
+        html += createCard('Penerimaan Barang', 'fa-dolly', cTerima, 'bg-emerald-50 text-emerald-500', 'bg-emerald-500', 'terima');
+        html += createCard('Opname Fisik', 'fa-clipboard-check', cOpname, 'bg-purple-50 text-purple-500', 'bg-purple-500', 'opname');
+        html += createCard('Kas Keluar', 'fa-money-bill-transfer', cKas, 'bg-rose-50 text-rose-500', 'bg-rose-500', 'kas');
 
         listEl.innerHTML = html;
     },

@@ -2359,16 +2359,14 @@ submitOpname: async function() {
 
     // LAPORAN & PDF
     toggleReportTab: function(tab) {
-        const rt = document.getElementById('report-content-trx'); if(rt) rt.classList.add('hidden'); 
-        const rr = document.getElementById('report-content-rekap'); if(rr) rr.classList.add('hidden');
-        const rk = document.getElementById('report-content-kas'); if(rk) rk.classList.add('hidden');
-        const rs = document.getElementById('report-content-selisih'); if(rs) rs.classList.add('hidden');
-        
-        const tt = document.getElementById('tab-trx'); if(tt) tt.className = 'px-5 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg text-sm font-bold whitespace-nowrap transition border border-transparent';
-        const tr = document.getElementById('tab-rekap'); if(tr) tr.className = 'px-5 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg text-sm font-bold whitespace-nowrap transition border border-transparent';
-        const tk = document.getElementById('tab-kas'); if(tk) tk.className = 'px-5 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg text-sm font-bold whitespace-nowrap transition border border-transparent';
-        const ts = document.getElementById('tab-selisih'); if(ts) ts.className = 'px-5 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg text-sm font-bold whitespace-nowrap transition border border-transparent';
-        
+        const tabs = ['trx', 'rekap', 'kas', 'selisih', 'bom'];
+        tabs.forEach(t => {
+            const el = document.getElementById(`report-content-${t}`);
+            const btn = document.getElementById(`tab-${t}`);
+            if(el) el.classList.add('hidden');
+            if(btn) btn.className = 'px-5 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg text-sm font-bold whitespace-nowrap transition border border-transparent';
+        });
+
         const rct = document.getElementById(`report-content-${tab}`); if(rct) rct.classList.remove('hidden'); 
         const tbtn = document.getElementById(`tab-${tab}`); if(tbtn) tbtn.className = 'px-5 py-2.5 bg-white text-slate-800 rounded-lg text-sm font-bold shadow-sm whitespace-nowrap transition border border-slate-200';
     },
@@ -2644,6 +2642,117 @@ submitOpname: async function() {
             }
         });
         const rsTbody = document.getElementById('report-selisih-tbody'); if(rsTbody) rsTbody.innerHTML = selisihHtml || `<tr><td colspan="6" class="text-center py-12 h-32">${this.getEmptyState('fa-clipboard-check', 'Audit Selisih Kosong', 'Tidak ada histori opname disini')}</td></tr>`;
+    },
+
+    renderBOMReport: function() {
+        const rof = document.getElementById('report-outlet-filter');
+        let roleStr = this.currentUser ? String(this.currentUser.Role).toLowerCase() : '';
+        let isAdmin = roleStr.includes('admin') || roleStr.includes('owner');
+        let selOut = (isAdmin && rof) ? rof.value : this.outlet;
+
+        // Atur Nilai Pemilih Bulan
+        const monthEl = document.getElementById('bom-filter-month');
+        let today = new Date();
+        let currentMonthVal = monthEl ? monthEl.value : `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+        if (monthEl && !monthEl.value) monthEl.value = currentMonthVal;
+
+        let [yyyy, mm] = currentMonthVal.split('-');
+        // Rentang Bulan Ini
+        let currStart = new Date(yyyy, mm - 1, 1);
+        let currEnd = new Date(yyyy, mm, 0, 23, 59, 59);
+        // Rentang Bulan Lalu
+        let prevStart = new Date(yyyy, mm - 2, 1);
+        let prevEnd = new Date(yyyy, mm - 1, 0, 23, 59, 59);
+
+        let usageCurr = {}; let usagePrev = {};
+        let selisihCurr = {};
+
+        // 1. Kumpulkan Data Pemakaian Aktual dari Struk Jualan
+        (this.db.transactions || []).forEach(t => {
+            if (t.Status !== 'Sukses') return;
+            if (selOut !== 'Semua' && t.Outlet !== selOut) return;
+            
+            let trxDate = this.parseDateId(t.Tanggal);
+            let isCurr = (trxDate >= currStart && trxDate <= currEnd);
+            let isPrev = (trxDate >= prevStart && trxDate <= prevEnd);
+
+            if (isCurr || isPrev) {
+                let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
+                items.forEach(it => {
+                    let bahanSku = it.sku_bahan || it.sku; // Lacak hingga ke akar (SKU Bahan)
+                    if (isCurr) usageCurr[bahanSku] = (usageCurr[bahanSku] || 0) + Number(it.qty);
+                    if (isPrev) usagePrev[bahanSku] = (usagePrev[bahanSku] || 0) + Number(it.qty);
+                });
+            }
+        });
+
+        // 2. Kumpulkan Riwayat Selisih (Deviasi) dari Opname
+        (this.db.opname || []).forEach(o => {
+            if (selOut !== 'Semua' && o.Outlet !== selOut) return;
+            if (o.Status_Approval !== 'Disetujui') return; // Hanya baca selisih yang sudah valid
+
+            let safeWaktu = String(o.Waktu || '');
+            let opDate = this.parseDateId(safeWaktu.split(' ')[0]);
+            if (opDate >= currStart && opDate <= currEnd) {
+                selisihCurr[o.SKU] = (selisihCurr[o.SKU] || 0) + Number(o.Selisih);
+            }
+        });
+
+        // 3. Merakit Tampilan HTML
+        let htmlBahan = ''; let htmlPendukung = '';
+        
+        let dbMaster = this.db.masterProduk || [];
+        dbMaster.sort((a, b) => String(a.Nama_Produk).localeCompare(String(b.Nama_Produk))).forEach(m => {
+            let kat = String(m.Kategori).toLowerCase();
+            
+            if (kat === 'bahan' || kat === 'pendukung') {
+                let currUsed = usageCurr[m.SKU] || 0;
+                let prevUsed = usagePrev[m.SKU] || 0;
+                let diffOpname = selisihCurr[m.SKU] || 0;
+
+                // Tarik Sisa Stok Fisik Saat Ini
+                let sData = (this.db.hargaStokOutlet || []).find(x => x.SKU === m.SKU && x.ID_Outlet === (selOut==='Semua' ? this.outlet : selOut));
+                let sisaFisik = sData ? Number(sData.Stok_Toko) : 0;
+
+                // Kalkulasi Tren
+                let trendVal = 0; let isUp = true;
+                if (prevUsed === 0 && currUsed > 0) { trendVal = 100; isUp = true; }
+                else if (prevUsed > 0) { 
+                    trendVal = ((currUsed - prevUsed) / prevUsed) * 100;
+                    isUp = trendVal >= 0;
+                    trendVal = Math.abs(trendVal);
+                }
+
+                let trendBadge = '';
+                if (prevUsed === 0 && currUsed === 0) {
+                    trendBadge = `<span class="text-slate-400 text-[10px]"><i class="fas fa-minus mr-1"></i>0%</span>`;
+                } else {
+                    let color = isUp ? 'text-blue-500' : 'text-orange-500'; 
+                    let icon = isUp ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down';
+                    trendBadge = `<span class="${color} text-[10px] font-black"><i class="fas ${icon}"></i> ${trendVal.toFixed(1)}%</span>`;
+                }
+
+                // Lencana Selisih (Khusus Bahan Utama)
+                let selisihBadge = diffOpname < 0 ? `<span class="text-red-500 font-black bg-red-50 px-2 py-0.5 rounded border border-red-100 shadow-sm">${diffOpname} Pcs</span>` : 
+                                  (diffOpname > 0 ? `<span class="text-green-500 font-black bg-green-50 px-2 py-0.5 rounded border border-green-100 shadow-sm">+${diffOpname} Pcs</span>` : 
+                                  `<span class="text-slate-400 font-bold bg-slate-50 border border-slate-100 px-2 py-0.5 rounded shadow-sm">Akurat</span>`);
+
+                let rowCore = `
+                    <td class="py-3 px-3 md:px-5 font-bold text-sm text-slate-800">${m.Nama_Produk}<br><span class="text-[9px] text-slate-400 tracking-widest uppercase font-normal">${m.SKU}</span></td>
+                    <td class="py-3 px-3 md:px-5 text-center text-brand-600 font-black text-lg bg-brand-50/30">${currUsed}</td>
+                    <td class="py-3 px-3 md:px-5 text-center bg-slate-50/50 font-bold">${sisaFisik}</td>
+                `;
+
+                if (kat === 'bahan') {
+                    htmlBahan += `<tr class="border-b border-slate-50 hover:bg-slate-50 transition">${rowCore}<td class="py-3 px-3 md:px-5 text-center text-xs">${selisihBadge}</td><td class="py-3 px-3 md:px-5 text-right">${trendBadge}<br><span class="text-[9px] text-slate-400 font-normal mt-0.5 block">Bln Lalu: ${prevUsed}</span></td></tr>`;
+                } else {
+                    htmlPendukung += `<tr class="border-b border-slate-50 hover:bg-slate-50 transition">${rowCore}<td class="py-3 px-3 md:px-5 text-right">${trendBadge}<br><span class="text-[9px] text-slate-400 font-normal mt-0.5 block">Bln Lalu: ${prevUsed}</span></td></tr>`;
+                }
+            }
+        });
+
+        document.getElementById('bom-bahan-tbody').innerHTML = htmlBahan || `<tr><td colspan="5" class="text-center py-6 italic text-slate-400 text-xs">Belum ada pemakaian bahan utama</td></tr>`;
+        document.getElementById('bom-pendukung-tbody').innerHTML = htmlPendukung || `<tr><td colspan="4" class="text-center py-6 italic text-slate-400 text-xs">Belum ada pemakaian barang pendukung</td></tr>`;
     },
     
     exportPDF: function() {

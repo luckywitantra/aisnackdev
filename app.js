@@ -2642,7 +2642,8 @@ submitOpname: async function() {
             }
         });
         const rsTbody = document.getElementById('report-selisih-tbody'); if(rsTbody) rsTbody.innerHTML = selisihHtml || `<tr><td colspan="6" class="text-center py-12 h-32">${this.getEmptyState('fa-clipboard-check', 'Audit Selisih Kosong', 'Tidak ada histori opname disini')}</td></tr>`;
-    },
+        if (typeof this.renderBOMReport === 'function') this.renderBOMReport();  
+  },
 
     renderBOMReport: function() {
         const rof = document.getElementById('report-outlet-filter');

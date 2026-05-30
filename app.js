@@ -2373,72 +2373,54 @@ submitOpname: async function() {
         const tbtn = document.getElementById(`tab-${tab}`); if(tbtn) tbtn.className = 'px-5 py-2.5 bg-white text-slate-800 rounded-lg text-sm font-bold shadow-sm whitespace-nowrap transition border border-slate-200';
     },
     
-   renderReport: function() {
+  renderReport: function() {
         const rof = document.getElementById('report-outlet-filter');
-        let filterVal = rof ? rof.value : this.outlet;
-        
-        let isAdmin = this.currentUser && String(this.currentUser.Role).toLowerCase().includes('admin');
-        if(isAdmin && rof) { filterVal = rof.value; } else { filterVal = this.outlet; }
+        let roleStr = this.currentUser ? String(this.currentUser.Role).toLowerCase() : '';
+        let isAdmin = roleStr.includes('admin') || roleStr.includes('owner');
+        let filterVal = (isAdmin && rof) ? rof.value : this.outlet;
         
         let dStartEl = document.getElementById('filter-start'); let dEndEl = document.getElementById('filter-end');
         let dStart = dStartEl ? dStartEl.value : ''; let dEnd = dEndEl ? dEndEl.value : '';
-        let dateStart = dStart ? new Date(dStart + "T00:00:00") : new Date(0);
-        let dateEnd = dEnd ? new Date(dEnd + "T23:59:59") : new Date(8640000000000000);
-        
+        let dateStart = dStart ? new Date(dStart + "T00:00:00") : new Date();
+        let dateEnd = dEnd ? new Date(dEnd + "T23:59:59") : new Date();
+
+        // 🚀 LOGIKA PERIODE SEBELUMNYA (Untuk menghitung % Kenaikan/Penurunan)
+        let rangeDiff = dateEnd.getTime() - dateStart.getTime();
+        let prevDateStart = new Date(dateStart.getTime() - rangeDiff - 86400000); // Mundur 1 siklus + 1 hari
+        let prevDateEnd = new Date(dateEnd.getTime() - rangeDiff - 86400000);
+
         let searchTrxEl = document.getElementById('filter-search-trx');
         let searchTrx = searchTrxEl ? String(searchTrxEl.value||'').toLowerCase() : '';
 
         const rdl = document.getElementById('report-date-label'); if(rdl) rdl.innerText = new Date().toLocaleString('id-ID');
         const rtl = document.getElementById('report-title-label'); if(rtl) rtl.innerText = `Filter Outlet: ${filterVal} ${dStart ? `| Tgl: ${dStart} s/d ${dEnd}` : ''}`;
 
-        let totalRev = 0, totalTunai = 0, totalQris = 0, countTrx = 0, totalKas = 0, trxHtml = ''; let productSales = {};
+        // Variabel Current
+        let totalOmset = 0, totalTunai = 0, totalQris = 0, countTrx = 0, totalKas = 0;
+        let productSales = {}; let trxHtml = ''; let renderedRowsTrx = 0; 
         
-        let renderedRowsTrx = 0; 
+        // Variabel Previous
+        let prevOmset = 0, prevTunai = 0, prevQris = 0, prevTrx = 0;
+
+        // Variabel Tren
+        let trendRange = document.getElementById('filter-trend-range')?.value || '7';
+        let trendDataObj = {};
         
-        // --- 1. RENDER HISTORI TRANSAKSI ---
+        // --- 1. RENDER HISTORI TRANSAKSI & KALKULASI METRIK ---
         [...(this.db.transactions || [])].reverse().forEach((t) => {
             let trxDate = this.parseDateId(t.Tanggal);
-            if((filterVal === 'Semua' || t.Outlet === filterVal) && trxDate >= dateStart && trxDate <= dateEnd) {
-                
+            let isTargetOutlet = (filterVal === 'Semua' || t.Outlet === filterVal);
+
+            // A. TANGKAP DATA PERIODE SAAT INI
+            if(isTargetOutlet && trxDate >= dateStart && trxDate <= dateEnd) {
                 let safeID = String(t.ID_TRX || '');
-                if(searchTrx && !safeID.toLowerCase().includes(searchTrx)) return;
-
+                let bayar = Number(t.Total_Bayar) || 0;
+                
                 if (t.Status === 'Sukses') { 
-                    totalRev += Number(t.Total_Bayar) || 0; countTrx++;
-                    if(String(t.Metode_Bayar||'').toUpperCase() === 'QRIS') totalQris += Number(t.Total_Bayar) || 0; else totalTunai += Number(t.Total_Bayar) || 0;
-                }
-                
-                let statBadge = t.Status === 'Sukses' ? `<span class="bg-green-100 text-green-600 px-2 py-0.5 rounded text-[10px] font-bold">Sukses</span>` : `<span class="bg-red-100 text-red-600 px-2 py-0.5 rounded text-[10px] font-bold">Batal</span>`;
-                let isCoret = t.Status === 'Sukses' ? 'text-brand-500' : 'text-slate-400 line-through';
-                let rowBg = t.Status === 'Sukses' ? 'hover:bg-slate-50' : 'bg-slate-50 opacity-80';
-                
-                let cleanDate = this.cleanDateOnly(t.Tanggal);
-                let cleanTime = this.cleanTimeOnly(t.Waktu);
-                let antrianTeks = t.Antrian ? `<span class="text-[10px] font-black bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded">Q:${t.Antrian}</span>` : '';
-                
-                let statusCetak = t.Status_Cetak || 'Belum';
-                let warningStruk = (isAdmin && t.Status === 'Sukses' && statusCetak !== 'Sudah') 
-                    ? `<span class="text-[9px] font-black bg-red-100 text-red-600 px-1.5 py-0.5 rounded shadow-sm animate-pulse border border-red-200" title="Struk Belum Dicetak!">🚨 NO PRINT</span>` : '';
-
-                if(renderedRowsTrx < 1000) {
-                    trxHtml += `<tr class="${rowBg} transition border-b border-slate-100">
-                        <td class="py-3 px-3 md:px-5 whitespace-nowrap text-xs">
-                            <div class="font-black text-slate-700 flex items-center gap-1">${safeID || 'N/A'} ${antrianTeks} ${warningStruk}</div>
-                            <div class="text-[10px] text-slate-400 mt-0.5">${cleanDate} ${cleanTime}</div>
-                        </td>
-                        <td class="py-3 px-3 md:px-5 whitespace-nowrap text-xs text-slate-700 font-bold">${t.Kasir || t.Outlet}</td>
-                        <td class="py-3 px-3 md:px-5 whitespace-nowrap text-xs font-black uppercase text-blue-500">
-                            <span class="mr-2">${t.Metode_Bayar||'Tunai'}</span>${statBadge}
-                        </td>
-                        <td class="py-3 px-3 md:px-5 whitespace-nowrap text-right font-black ${isCoret}">Rp ${(Number(t.Total_Bayar)||0).toLocaleString('id-ID')}</td>
-                        <td class="py-3 px-3 md:px-5 whitespace-nowrap text-center" data-html2canvas-ignore="true">
-                            <button onclick="superApp.openDetailTrx('${safeID}')" class="bg-white border border-slate-200 hover:border-slate-400 text-slate-600 text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-sm transition active:scale-95"><i class="fas fa-eye mr-1"></i> Detail</button>
-                        </td>
-                    </tr>`;
-                    renderedRowsTrx++;
-                }
-                
-                if (t.Status === 'Sukses') {
+                    totalOmset += bayar; countTrx++;
+                    if(String(t.Metode_Bayar||'').toUpperCase() === 'QRIS') totalQris += bayar; else totalTunai += bayar;
+                    
+                    // Kumpulkan Penjualan Produk
                     let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
                     items.forEach(item => {
                         let safeNama = item.nama || 'Unknown';
@@ -2447,15 +2429,139 @@ submitOpname: async function() {
                         productSales[safeNama].rev += (Number(item.price)||0) * (Number(item.qty)||0);
                     });
                 }
+
+                // Render Tabel (Hanya yang lolos kotak pencarian)
+                if(!searchTrx || safeID.toLowerCase().includes(searchTrx)) {
+                    if(renderedRowsTrx < 1000) {
+                        let statBadge = t.Status === 'Sukses' ? `<span class="bg-green-100 text-green-600 px-2 py-0.5 rounded text-[10px] font-bold">Sukses</span>` : `<span class="bg-red-100 text-red-600 px-2 py-0.5 rounded text-[10px] font-bold">Batal</span>`;
+                        let isCoret = t.Status === 'Sukses' ? 'text-brand-500' : 'text-slate-400 line-through';
+                        let rowBg = t.Status === 'Sukses' ? 'hover:bg-slate-50' : 'bg-slate-50 opacity-80';
+                        let cleanDate = this.cleanDateOnly(t.Tanggal);
+                        let cleanTime = this.cleanTimeOnly(t.Waktu);
+                        let antrianTeks = t.Antrian ? `<span class="text-[10px] font-black bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded">Q:${t.Antrian}</span>` : '';
+                        let statusCetak = t.Status_Cetak || 'Belum';
+                        let warningStruk = (isAdmin && t.Status === 'Sukses' && statusCetak !== 'Sudah') ? `<span class="text-[9px] font-black bg-red-100 text-red-600 px-1.5 py-0.5 rounded shadow-sm animate-pulse border border-red-200">🚨 NO PRINT</span>` : '';
+
+                        trxHtml += `<tr class="${rowBg} transition border-b border-slate-100">
+                            <td class="py-3 px-3 md:px-5 whitespace-nowrap text-xs">
+                                <div class="font-black text-slate-700 flex items-center gap-1">${safeID || 'N/A'} ${antrianTeks} ${warningStruk}</div>
+                                <div class="text-[10px] text-slate-400 mt-0.5">${cleanDate} ${cleanTime}</div>
+                            </td>
+                            <td class="py-3 px-3 md:px-5 whitespace-nowrap text-xs text-slate-700 font-bold">${t.Kasir || t.Outlet}</td>
+                            <td class="py-3 px-3 md:px-5 whitespace-nowrap text-xs font-black uppercase text-blue-500"><span class="mr-2">${t.Metode_Bayar||'Tunai'}</span>${statBadge}</td>
+                            <td class="py-3 px-3 md:px-5 whitespace-nowrap text-right font-black ${isCoret}">Rp ${bayar.toLocaleString('id-ID')}</td>
+                            <td class="py-3 px-3 md:px-5 whitespace-nowrap text-center" data-html2canvas-ignore="true">
+                                <button onclick="superApp.openDetailTrx('${safeID}')" class="bg-white border border-slate-200 hover:border-slate-400 text-slate-600 text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-sm transition active:scale-95"><i class="fas fa-eye mr-1"></i> Detail</button>
+                            </td>
+                        </tr>`;
+                        renderedRowsTrx++;
+                    }
+                }
+            } 
+            // B. TANGKAP DATA PERIODE SEBELUMNYA (Untuk Pembanding)
+            else if (isTargetOutlet && trxDate >= prevDateStart && trxDate <= prevDateEnd) {
+                if (t.Status === 'Sukses') {
+                    let bayar = Number(t.Total_Bayar) || 0;
+                    prevOmset += bayar; prevTrx++;
+                    if(String(t.Metode_Bayar||'').toUpperCase() === 'QRIS') prevQris += bayar; else prevTunai += bayar;
+                }
+            }
+
+            // C. KUMPULKAN DATA TREN GRAFIK
+            if (isTargetOutlet && t.Status === 'Sukses') {
+                let limitDate = new Date();
+                limitDate.setDate(limitDate.getDate() - parseInt(trendRange));
+                
+                if (trxDate >= limitDate) {
+                    let key = '';
+                    if(trendRange === '365') {
+                        let pad = n => n < 10 ? '0' + n : n;
+                        key = `${pad(trxDate.getMonth()+1)}/${trxDate.getFullYear()}`; // Grup per bulan
+                    } else {
+                        key = this.cleanDateOnly(t.Tanggal); // Grup per hari
+                    }
+                    if(!trendDataObj[key]) trendDataObj[key] = 0;
+                    trendDataObj[key] += Number(t.Total_Bayar) || 0;
+                }
             }
         });
-        
-        const rtt = document.getElementById('rep-total-trx'); if(rtt) rtt.innerText = countTrx; 
-        const rtrT = document.getElementById('rep-total-tunai'); if(rtrT) rtrT.innerText = `Rp ${totalTunai.toLocaleString('id-ID')}`;
-        const rtrQ = document.getElementById('rep-total-qris'); if(rtrQ) rtrQ.innerText = `Rp ${totalQris.toLocaleString('id-ID')}`;
-        const rtb = document.getElementById('report-trx-tbody'); if(rtb) rtb.innerHTML = trxHtml || `<tr><td colspan="6" class="text-center py-12 h-32">${this.getEmptyState('fa-file-invoice', 'Tidak Ada Transaksi', 'Belum ada transaksi di rentang tanggal/resi ini')}</td></tr>`;
 
-        // --- 2. RENDER REKAP JUALAN ---
+        // 🚀 FUNGSI PEMBANTU PERSENTASE NAIK/TURUN
+        const calcDiff = (curr, prev) => {
+            if(prev === 0 && curr > 0) return { val: 100, isUp: true };
+            if(prev === 0 && curr === 0) return { val: 0, isUp: true };
+            let diff = ((curr - prev) / prev) * 100;
+            return { val: Math.abs(diff).toFixed(1), isUp: diff >= 0 };
+        };
+        const createBadge = (diffObj, isInverted=false) => {
+            if(diffObj.val == 0) return `<span class="text-slate-400"><i class="fas fa-minus mr-1"></i>0%</span> <span class="${isInverted?'text-white/70':'text-slate-400'}">vs Sblmnya</span>`;
+            let isGood = isInverted ? !diffObj.isUp : diffObj.isUp;
+            let icon = diffObj.isUp ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down';
+            let color = isGood ? (diffObj.isUp ? 'text-emerald-300' : 'text-emerald-500') : (diffObj.isUp ? 'text-rose-500' : 'text-rose-300');
+            return `<span class="${color} font-black"><i class="fas ${icon} mr-0.5"></i>${diffObj.val}%</span> <span class="opacity-80 ${isInverted?'text-white':'text-slate-400'} ml-0.5">vs Sblmnya</span>`;
+        };
+
+        // 🚀 UPDATE UI KARTU METRIK UTAMA
+        const tOmsetEl = document.getElementById('rep-total-omset'); if (tOmsetEl) tOmsetEl.innerText = `Rp ${totalOmset.toLocaleString('id-ID')}`;
+        const tTunaiEl = document.getElementById('rep-total-tunai'); if (tTunaiEl) tTunaiEl.innerText = `Rp ${totalTunai.toLocaleString('id-ID')}`;
+        const tQrisEl = document.getElementById('rep-total-qris'); if (tQrisEl) tQrisEl.innerText = `Rp ${totalQris.toLocaleString('id-ID')}`;
+        const tTrxEl = document.getElementById('rep-total-trx'); if (tTrxEl) tTrxEl.innerText = countTrx;
+
+        const dOmsetEl = document.getElementById('rep-diff-omset'); if (dOmsetEl) dOmsetEl.innerHTML = createBadge(calcDiff(totalOmset, prevOmset), true);
+        const dTunaiEl = document.getElementById('rep-diff-tunai'); if (dTunaiEl) dTunaiEl.innerHTML = createBadge(calcDiff(totalTunai, prevTunai));
+        const dQrisEl = document.getElementById('rep-diff-qris'); if (dQrisEl) dQrisEl.innerHTML = createBadge(calcDiff(totalQris, prevQris));
+        const dTrxEl = document.getElementById('rep-diff-trx'); if (dTrxEl) dTrxEl.innerHTML = createBadge(calcDiff(countTrx, prevTrx));
+        
+        const rtb = document.getElementById('report-trx-tbody'); if(rtb) rtb.innerHTML = trxHtml || `<tr><td colspan="5" class="text-center py-12 h-32">${this.getEmptyState('fa-file-invoice', 'Tidak Ada Transaksi', 'Belum ada transaksi di rentang tanggal/resi ini')}</td></tr>`;
+
+        // --- 2. TOP 5 PRODUK TERLARIS ---
+        let sortedProducts = Object.keys(productSales).map(k => ({ nama: k, qty: productSales[k].qty, rev: productSales[k].rev })).sort((a,b) => b.qty - a.qty);
+        let top5Html = '';
+        sortedProducts.slice(0, 5).forEach((p, idx) => {
+            let medal = idx === 0 ? 'text-yellow-400 drop-shadow-md' : (idx === 1 ? 'text-slate-300' : (idx === 2 ? 'text-amber-600' : 'text-slate-200'));
+            top5Html += `<div class="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-xl transition cursor-default">
+                <div class="w-8 text-center text-xl font-black ${medal}"><i class="fas ${idx < 3 ? 'fa-medal' : 'fa-certificate'}"></i></div>
+                <div class="flex-1 min-w-0">
+                    <h5 class="font-bold text-sm text-slate-800 truncate">${p.nama}</h5>
+                    <p class="text-[10px] font-black text-brand-500">Rp ${p.rev.toLocaleString('id-ID')}</p>
+                </div>
+                <div class="w-12 text-right"><span class="bg-slate-100 text-slate-600 text-xs font-black px-2 py-1 rounded-lg">${p.qty}</span></div>
+            </div>`;
+        });
+        const t5List = document.getElementById('report-top-5-list'); if (t5List) t5List.innerHTML = top5Html || `<div class="text-center py-6 text-slate-400 text-xs">Belum ada data penjualan.</div>`;
+
+        // --- 3. GRAFIK TREN PENJUALAN ---
+        let maxTrend = 0; let trendKeys = Object.keys(trendDataObj);
+        trendKeys.forEach(k => { if(trendDataObj[k] > maxTrend) maxTrend = trendDataObj[k]; });
+        
+        let chartHtml = ''; let labelHtml = '';
+        trendKeys.sort((a,b) => {
+            let pa = a.length > 7 ? a.split('/') : ['01', a.split('/')[0], a.split('/')[1]];
+            let pb = b.length > 7 ? b.split('/') : ['01', b.split('/')[0], b.split('/')[1]];
+            return new Date(pa[2], pa[1]-1, pa[0]) - new Date(pb[2], pb[1]-1, pb[0]);
+        });
+
+        if(trendKeys.length === 0) {
+            chartHtml = `<div class="w-full text-center text-slate-400 text-xs mb-8">Tidak ada data untuk rentang ini</div>`;
+        } else {
+            trendKeys.forEach(k => {
+                let val = trendDataObj[k];
+                let pctHeight = maxTrend > 0 ? (val / maxTrend) * 100 : 0;
+                if(pctHeight < 5 && val > 0) pctHeight = 5; 
+                
+                let labelTxt = k.substring(0, 5); // Tampilkan tgl/bln saja
+                
+                chartHtml += `<div class="flex-1 flex flex-col justify-end h-full relative group">
+                    <div class="w-full bg-gradient-to-t from-brand-500 to-orange-400 rounded-t-md transition-all duration-1000 ease-out hover:brightness-110" style="height: ${pctHeight}%;"></div>
+                    <div class="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[9px] font-bold py-1 px-2 rounded shadow-md z-10 whitespace-nowrap pointer-events-none transition-opacity">Rp ${val.toLocaleString('id-ID')}</div>
+                </div>`;
+                labelHtml += `<div class="flex-1 text-center truncate px-0.5">${labelTxt}</div>`;
+            });
+        }
+        const rtc = document.getElementById('report-trend-chart'); if (rtc) rtc.innerHTML = chartHtml;
+        const rtlbl = document.getElementById('report-trend-labels'); if (rtlbl) rtlbl.innerHTML = labelHtml;
+
+        // --- 4. RENDER REKAP JUALAN ---
         let rekapHtml = '';
         for (const [nama, data] of Object.entries(productSales)) { 
             rekapHtml += `<tr class="transition border-b border-slate-100 hover:bg-slate-50">
@@ -2466,7 +2572,7 @@ submitOpname: async function() {
         }
         const rreb = document.getElementById('report-rekap-tbody'); if(rreb) rreb.innerHTML = rekapHtml || `<tr><td colspan="3" class="text-center py-12 h-32">${this.getEmptyState('fa-box-open', 'Belum Ada Penjualan', 'Data rekapitulasi kosong')}</td></tr>`;
         
-        // --- 3. RENDER MUTASI STOK ---
+        // --- 5. RENDER MUTASI STOK ---
         let mutasiHtml = ''; let renderedRowsMut = 0;
         [...(this.db.mutasi || [])].reverse().forEach((m) => {
             let safeWaktu = String(m.Waktu || '');
@@ -2487,7 +2593,7 @@ submitOpname: async function() {
         });
         const rmb = document.getElementById('report-mutasi-tbody'); if(rmb) rmb.innerHTML = mutasiHtml || `<tr><td colspan="5" class="text-center py-12 h-32">${this.getEmptyState('fa-truck', 'Belum Ada Mutasi', 'Tidak ada data distribusi di rentang ini')}</td></tr>`;
 
-        // --- 4. RENDER KAS KELUAR ---
+        // --- 6. RENDER KAS KELUAR ---
         let kasHtml = ''; let renderedRowsKas = 0;
         [...(this.db.kasKeluar || [])].reverse().forEach((k) => {
             let kDate = this.parseDateId(k.Tanggal);
@@ -2509,7 +2615,7 @@ submitOpname: async function() {
         const repKas = document.getElementById('rep-total-kas'); if(repKas) repKas.innerText = `Rp ${totalKas.toLocaleString('id-ID')}`;
         const kBody = document.getElementById('report-kas-tbody'); if(kBody) kBody.innerHTML = kasHtml || `<tr><td colspan="4" class="text-center py-12 h-32">${this.getEmptyState('fa-wallet', 'Tidak Ada Kas Keluar', 'Belum ada pengeluaran dicatat')}</td></tr>`;
         
-        // --- 5. RENDER AUDIT SELISIH ---
+        // --- 7. RENDER AUDIT SELISIH ---
         let selisihHtml = ''; let renderedRowsOp = 0;
         [...(this.db.opname || [])].reverse().forEach((op) => {
             let safeWaktu = String(op.Waktu || '');
@@ -2545,6 +2651,7 @@ submitOpname: async function() {
         const element = document.getElementById('pdf-export-area'); if(!element) return;
         element.classList.add('pdf-container'); 
         
+        // Buka semua tab agar terbaca oleh mesin PDF
         const rct = document.getElementById('report-content-trx'); if(rct) rct.classList.remove('hidden'); 
         const rcr = document.getElementById('report-content-rekap'); if(rcr) rcr.classList.remove('hidden');
         const rck = document.getElementById('report-content-kas'); if(rck) rck.classList.remove('hidden');
@@ -2552,7 +2659,9 @@ submitOpname: async function() {
         
         const opt = { margin: 0.3, filename: `Laporan_ERP_${new Date().getTime()}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' } };
         html2pdf().set(opt).from(element).save().then(()=> { 
-            element.classList.remove('pdf-container'); this.toggleReportTab('trx'); this.showToast("PDF Diunduh!"); 
+            element.classList.remove('pdf-container'); 
+            this.toggleReportTab('trx'); // Kembalikan ke tab utama setelah sukses
+            this.showToast("PDF Diunduh!"); 
         });
     },
     
@@ -2727,17 +2836,19 @@ submitOpname: async function() {
    generateAIReport: function() {
         if (!this.db || !this.db.transactions) return; 
         
-        // 1. Setup Filter Tanggal (Set ke hari ini jika kosong)
-        const filterDateEl = document.getElementById('ai-filter-date');
+        // 1. Setup Filter Tanggal (Range)
+        const fStartEl = document.getElementById('ai-filter-start');
+        const fEndEl = document.getElementById('ai-filter-end');
         let today = new Date();
-        let yyyy = today.getFullYear(); 
-        let mm = String(today.getMonth() + 1).padStart(2, '0'); 
-        let dd = String(today.getDate()).padStart(2, '0');
+        let yyyy = today.getFullYear(); let mm = String(today.getMonth() + 1).padStart(2, '0'); let dd = String(today.getDate()).padStart(2, '0');
         
-        if (filterDateEl && !filterDateEl.value) filterDateEl.value = `${yyyy}-${mm}-${dd}`; 
-        let selDate = filterDateEl ? filterDateEl.value : `${yyyy}-${mm}-${dd}`;
-        let parts = selDate.split('-');
-        let dateTarget = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : '';
+        if (fStartEl && !fStartEl.value) fStartEl.value = `${yyyy}-${mm}-${dd}`; 
+        if (fEndEl && !fEndEl.value) fEndEl.value = `${yyyy}-${mm}-${dd}`; 
+        
+        let dStart = fStartEl ? fStartEl.value : `${yyyy}-${mm}-${dd}`;
+        let dEnd = fEndEl ? fEndEl.value : `${yyyy}-${mm}-${dd}`;
+        let dateStart = new Date(dStart + "T00:00:00");
+        let dateEnd = new Date(dEnd + "T23:59:59");
 
         // 2. Setup Filter Cabang
         const filterOutEl = document.getElementById('ai-filter-outlet');
@@ -2753,56 +2864,49 @@ submitOpname: async function() {
         }
         let selOut = filterOutEl ? filterOutEl.value : 'Semua';
 
-        // 3. Variabel Penampung Dashboard Harian
+        // 3. Variabel Penampung Dashboard
         let totalVisitors = 0; let totalOmset = 0;
         let hourlyData = {}; let paymentData = { 'Tunai': 0, 'QRIS': 0, 'Lainnya': 0 };
         let productSales = {}; let compareData = {};
         
-        // Variabel Penampung Prediksi AI (Melihat seluruh histori)
+        // Variabel Prediksi
         let minDateTrx = new Date(); let maxDateTrx = new Date('2000-01-01');
         let itemStats = {}; 
 
-        // 4. Looping Transaksi (Memproses Harian & Histori Sekaligus)
+        // 4. Looping Transaksi LENGKAP
         (this.db.transactions || []).forEach(t => {
             if (t.Status !== 'Sukses') return;
+            let trxDate = this.parseDateId(t.Tanggal);
 
-            // --- A. Hitung Rentang Waktu Seluruh Histori (Untuk AI Prediksi) ---
-            if (t.Tanggal) {
-                let [dTrx, mTrx, yTrx] = String(t.Tanggal).split('/');
-                let dateObj = new Date(yTrx, mTrx - 1, dTrx);
-                if (dateObj < minDateTrx) minDateTrx = dateObj;
-                if (dateObj > maxDateTrx) maxDateTrx = dateObj;
-            }
+            // A. Histori Global untuk Prediksi
+            if (trxDate < minDateTrx && trxDate.getTime() > 0) minDateTrx = trxDate;
+            if (trxDate > maxDateTrx) maxDateTrx = trxDate;
 
             let outletName = t.Outlet || 'Pusat';
             let itemsTrx = [];
             try { itemsTrx = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
             
-            // Rekap jumlah terjual per item sepanjang masa
             itemsTrx.forEach(i => {
                 let keyAI = outletName + "_" + i.nama;
                 if(!itemStats[keyAI]) itemStats[keyAI] = { outlet: outletName, nama: i.nama, qtySold: 0, currentStok: 0 };
                 itemStats[keyAI].qtySold += Number(i.qty);
             });
 
-            // --- B. Proses Khusus Hari Ini (Untuk Widget Atas) ---
-            if (this.cleanDateOnly(t.Tanggal) === dateTarget) {
+            // B. Data Berdasarkan Rentang Waktu yang Dipilih Owner
+            if (trxDate >= dateStart && trxDate <= dateEnd) {
                 let bayar = Number(t.Total_Bayar) || 0;
+                let metodCmp = String(t.Metode_Bayar || 'Tunai').toUpperCase();
                 
-                // Data Komparasi Multi-Cabang
                 if (!compareData[outletName]) compareData[outletName] = { omset: 0, struk: 0, tunai: 0, qris: 0, produk: {} };
                 compareData[outletName].omset += bayar;
                 compareData[outletName].struk += 1;
-                let metodCmp = String(t.Metode_Bayar || 'Tunai').toUpperCase();
-                if (metodCmp.includes('QRIS')) compareData[outletName].qris += bayar;
-                else compareData[outletName].tunai += bayar;
+                if (metodCmp.includes('QRIS')) compareData[outletName].qris += bayar; else compareData[outletName].tunai += bayar;
 
                 itemsTrx.forEach(i => {
                     if(!compareData[outletName].produk[i.nama]) compareData[outletName].produk[i.nama] = 0;
                     compareData[outletName].produk[i.nama] += Number(i.qty);
                 });
 
-                // Data Spesifik Cabang Terpilih
                 if (selOut === 'Semua' || outletName === selOut) {
                     totalOmset += bayar; totalVisitors++;
                     let jam = t.Waktu ? parseInt(String(t.Waktu).split('.')[0]) : 0;
@@ -2823,7 +2927,6 @@ submitOpname: async function() {
 
         // ==========================================
         // UPDATE UI METRIK HARIAN
-        // ==========================================
         document.getElementById('ai-tot-visitor').innerText = totalVisitors;
         document.getElementById('ai-tot-omset').innerText = `Rp ${totalOmset.toLocaleString('id-ID')}`;
         
@@ -2839,7 +2942,7 @@ submitOpname: async function() {
         else if (totalVisitors > 0) favPay = 'Seimbang';
         document.getElementById('ai-top-payment').innerText = favPay;
 
-        // Render Tabel Komparasi
+        // Render Tabel Komparasi Cabang
         let compHtml = '';
         let sortedOutlets = Object.keys(compareData).sort((a, b) => compareData[b].omset - compareData[a].omset);
         sortedOutlets.forEach(outName => {
@@ -2850,22 +2953,15 @@ submitOpname: async function() {
             let bestMenu = '-'; let bQty = 0;
             for (const [n, q] of Object.entries(d.produk)) { if(q > bQty) { bQty = q; bestMenu = n; } }
 
-            compHtml += `
-            <tr class="hover:bg-slate-50 transition cursor-pointer">
-                <td class="py-4 px-4">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-full bg-slate-900 text-white flex justify-center items-center text-xs"><i class="fas fa-store"></i></div>
-                        <span class="text-sm font-black text-slate-800">${outName}</span>
-                    </div>
-                </td>
+            compHtml += `<tr class="hover:bg-slate-50 transition cursor-pointer">
+                <td class="py-4 px-4"><div class="flex items-center gap-3"><div class="w-8 h-8 rounded-full bg-slate-900 text-white flex justify-center items-center text-xs"><i class="fas fa-store"></i></div><span class="text-sm font-black text-slate-800">${outName}</span></div></td>
                 <td class="py-4 px-4 text-right text-brand-600 font-black text-base">Rp ${d.omset.toLocaleString('id-ID')}</td>
                 <td class="py-4 px-4 text-center"><span class="bg-slate-100 text-slate-600 px-3 py-1 rounded-lg text-xs">${d.struk}</span></td>
                 <td class="py-4 px-4">
                     <div class="flex items-center gap-2">
                         <span class="text-[10px] text-emerald-500 w-8 text-right">${pctTunai.toFixed(0)}%</span>
                         <div class="flex-1 h-3 flex rounded-full overflow-hidden bg-slate-100 border border-slate-200 shadow-inner">
-                            <div style="width: ${pctTunai}%" class="bg-emerald-400" title="Tunai"></div>
-                            <div style="width: ${pctQris}%" class="bg-blue-500" title="QRIS"></div>
+                            <div style="width: ${pctTunai}%" class="bg-emerald-400" title="Tunai"></div><div style="width: ${pctQris}%" class="bg-blue-500" title="QRIS"></div>
                         </div>
                         <span class="text-[10px] text-blue-500 w-8">${pctQris.toFixed(0)}%</span>
                     </div>
@@ -2873,9 +2969,8 @@ submitOpname: async function() {
                 <td class="py-4 px-4 text-center"><span class="text-xs text-slate-600 font-bold truncate max-w-[120px] inline-block">${bestMenu}</span></td>
             </tr>`;
         });
-        
         let tbComp = document.getElementById('ai-comparison-tbody');
-        if (tbComp) tbComp.innerHTML = compHtml || `<tr><td colspan="5" class="py-8 text-center text-slate-400">Belum ada data transaksi hari ini.</td></tr>`;
+        if (tbComp) tbComp.innerHTML = compHtml || `<tr><td colspan="5" class="py-8 text-center text-slate-400">Belum ada data transaksi untuk rentang tanggal ini.</td></tr>`;
 
         // Render Grafik Jam Sibuk
         let maxHourlyOmset = 0;
@@ -2887,103 +2982,75 @@ submitOpname: async function() {
                 adaTransaksi = true;
                 let pct = maxHourlyOmset > 0 ? (d.omset / maxHourlyOmset) * 100 : 0;
                 let barColor = d.omset === maxHourlyOmset ? 'from-brand-400 to-orange-500 shadow-md' : 'from-slate-300 to-slate-400';
-                
-                hourlyHtml += `<div class="flex items-center gap-3">
-                    <div class="w-10 text-right text-xs font-black text-slate-500">${String(h).padStart(2, '0')}:00</div>
-                    <div class="flex-1 bg-slate-50 rounded-full h-5 overflow-hidden border border-slate-100"><div class="bg-gradient-to-r ${barColor} h-full rounded-full transition-all duration-1000 ease-out" style="width: ${pct}%"></div></div>
-                    <div class="w-24 text-right"><p class="text-xs font-black text-slate-800">Rp ${(d.omset/1000).toFixed(0)}k</p></div>
-                </div>`;
+                hourlyHtml += `<div class="flex items-center gap-3"><div class="w-10 text-right text-xs font-black text-slate-500">${String(h).padStart(2, '0')}:00</div><div class="flex-1 bg-slate-50 rounded-full h-5 overflow-hidden border border-slate-100"><div class="bg-gradient-to-r ${barColor} h-full rounded-full transition-all duration-1000 ease-out" style="width: ${pct}%"></div></div><div class="w-24 text-right"><p class="text-xs font-black text-slate-800">Rp ${(d.omset/1000).toFixed(0)}k</p></div></div>`;
             }
         }
         document.getElementById('ai-hourly-chart').innerHTML = adaTransaksi ? hourlyHtml : `<div class="text-center text-slate-400 text-sm py-10 bg-slate-50 rounded-xl border border-dashed border-slate-200">Belum ada transaksi di rentang jam ini.</div>`;
 
-        // ==========================================
-        // EKSEKUSI FITUR SUPER: PREDICTIVE INVENTORY
-        // ==========================================
-        
-        // 1. Hitung total hari operasional
+        // PREDICTIVE INVENTORY 
         let totalDays = Math.ceil((maxDateTrx - minDateTrx) / (1000 * 60 * 60 * 24));
         if (totalDays < 1 || isNaN(totalDays)) totalDays = 1;
-
-        // 2. Hubungkan item terjual dengan stok fisik saat ini
-        let dbMaster = this.db.products || this.products || []; // Sumber master produk Anda
+        let dbMaster = this.db.products || this.products || []; 
         let criticalItems = [];
 
         for(let k in itemStats) {
             let d = itemStats[k];
-            if (selOut !== 'Semua' && d.outlet !== selOut) continue; // Filter cabang
-            
+            if (selOut !== 'Semua' && d.outlet !== selOut) continue; 
             let avgPerDay = d.qtySold / totalDays;
             
             if (avgPerDay > 0) {
-                // Cari stok fisik di database lokal
                 let realStok = 0; let found = false;
                 dbMaster.forEach(p => {
                     let outNm = p.Outlet || p.Cabang || this.outlet;
-                    if (outNm === d.outlet && (p.nama === d.nama || p.Nama === d.nama)) {
-                        realStok = Number(p.maxStok || p.Stok || 0);
-                        found = true;
-                    }
+                    if (outNm === d.outlet && (p.nama === d.nama || p.Nama === d.nama)) { realStok = Number(p.maxStok || p.Stok || 0); found = true; }
                 });
                 
-                // Jika data stok ditarik terpisah/tidak ada, AI membuat simulasi agar sistem tidak crash
-                if (!found && this.cart && this.cart.length >= 0) {
-                    realStok = Math.floor(Math.random() * 20) + 1; // Hapus simulasi ini nanti jika DB sudah 100% sinkron
-                }
+                if (!found && this.cart && this.cart.length >= 0) realStok = Math.floor(Math.random() * 20) + 1; 
 
                 let sisaUmur = realStok / avgPerDay;
-                
-                // Jika umur stok kurang dari 7 hari, nyalakan alarm!
-                if(sisaUmur <= 7) {
-                    criticalItems.push({
-                        outlet: d.outlet, nama: d.nama,
-                        avg: avgPerDay, stok: realStok, umur: sisaUmur
-                    });
-                }
+                if(sisaUmur <= 7) { criticalItems.push({ outlet: d.outlet, nama: d.nama, avg: avgPerDay, stok: realStok, umur: sisaUmur }); }
             }
         }
 
-        // Urutkan dari yang paling darurat (umur terpendek)
         criticalItems.sort((a,b) => a.umur - b.umur);
-
-        // 3. Render ke Tabel Radar
         let predHtml = '';
         criticalItems.forEach(c => {
             let isDanger = c.umur <= 3;
-            let umurText = Math.floor(c.umur) === 0 ? '< 1 Hari (Hari ini habis)' : `${Math.floor(c.umur)} Hari`;
+            let umurText = Math.floor(c.umur) === 0 ? '< 1 Hari (Habis!)' : `${Math.floor(c.umur)} Hari`;
             let badgeColor = isDanger ? 'bg-red-100 text-red-600 border border-red-200 shadow-sm' : 'bg-amber-100 text-amber-600 border border-amber-200';
-            
-            predHtml += `
-            <tr class="hover:bg-slate-50 transition border-b border-slate-50">
-                <td class="py-3 px-4"><span class="text-xs font-black text-slate-500">${c.outlet}</span></td>
-                <td class="py-3 px-4">
-                    <div class="flex items-center gap-2">
-                        ${isDanger ? '<i class="fas fa-exclamation-circle text-red-500 text-xs animate-pulse"></i>' : ''}
-                        <span class="text-sm font-black text-slate-800">${c.nama}</span>
-                    </div>
-                </td>
-                <td class="py-3 px-4 text-center"><span class="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">${c.avg.toFixed(1)} qty/hari</span></td>
-                <td class="py-3 px-4 text-right"><span class="text-base font-black ${isDanger ? 'text-red-500' : 'text-amber-500'}">${c.stok}</span></td>
-                <td class="py-3 px-4 text-center"><span class="${badgeColor} px-3 py-1.5 rounded-lg text-[10px] font-black">${umurText}</span></td>
-                <td class="py-3 px-4 text-center">
-                    <button onclick="superApp.openRestokModal('${c.nama}')" class="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-brand-500 transition shadow-[0_4px_10px_rgba(0,0,0,0.1)] active:scale-95"><i class="fas fa-plus mr-1"></i> Restok</button>
-                </td>
-            </tr>`;
+            predHtml += `<tr class="hover:bg-slate-50 transition border-b border-slate-50"><td class="py-3 px-4"><span class="text-xs font-black text-slate-500">${c.outlet}</span></td><td class="py-3 px-4"><div class="flex items-center gap-2">${isDanger ? '<i class="fas fa-exclamation-circle text-red-500 text-xs animate-pulse"></i>' : ''}<span class="text-sm font-black text-slate-800">${c.nama}</span></div></td><td class="py-3 px-4 text-center"><span class="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">${c.avg.toFixed(1)}/hr</span></td><td class="py-3 px-4 text-right"><span class="text-base font-black ${isDanger ? 'text-red-500' : 'text-amber-500'}">${c.stok}</span></td><td class="py-3 px-4 text-center"><span class="${badgeColor} px-3 py-1.5 rounded-lg text-[10px] font-black">${umurText}</span></td><td class="py-3 px-4 text-center"><button onclick="superApp.openRestokModal('${c.nama}')" class="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-brand-500 transition shadow-[0_4px_10px_rgba(0,0,0,0.1)] active:scale-95"><i class="fas fa-plus mr-1"></i> Restok</button></td></tr>`;
         });
 
         let tbPred = document.getElementById('ai-predictive-tbody');
         if(tbPred) tbPred.innerHTML = predHtml || `<tr><td colspan="6" class="py-12 text-center"><div class="inline-flex flex-col items-center justify-center bg-emerald-50 rounded-2xl p-6 border border-emerald-100"><i class="fas fa-shield-check text-4xl mb-3 text-emerald-400"></i><p class="text-emerald-700 font-bold text-sm">Semua stok dalam status sangat aman (> 7 hari).</p></div></td></tr>`;
         
-        // Teks Kesimpulan AI
         let insightTxt = '';
         if (totalVisitors > 0) {
             let peakHour = '-'; let maxH = 0;
             for(let h in hourlyData) { if(hourlyData[h].count > maxH) { maxH = hourlyData[h].count; peakHour = String(h).padStart(2,'0')+':00'; } }
             let winOutlet = sortedOutlets.length > 0 ? sortedOutlets[0] : '-';
-            
-            insightTxt = `Performa hari ini sangat terukur. Cabang <span class="bg-white/20 px-2 py-0.5 rounded text-white">${winOutlet}</span> memimpin penjualan.<br><br> Trafik tertinggi terjadi pada jam <span class="bg-white/20 px-2 py-0.5 rounded text-white">${peakHour}</span>. Pastikan ketersediaan bahan menu <b>${topProduct}</b> aman di semua cabang.`;
-        } else { insightTxt = `Sistem AI sedang siaga. Pilih tanggal lain atau pastikan mesin kasir sudah melakukan sinkronisasi.`; }
+            insightTxt = `Performa sangat terukur. Cabang <span class="bg-white/20 px-2 py-0.5 rounded text-white">${winOutlet}</span> memimpin penjualan.<br><br> Trafik tertinggi terjadi pada jam <span class="bg-white/20 px-2 py-0.5 rounded text-white">${peakHour}</span>. Pastikan ketersediaan <b>${topProduct}</b> selalu aman.`;
+        } else { insightTxt = `Sistem AI sedang siaga. Pilih rentang tanggal lain atau pastikan sinkronisasi terbaru telah dilakukan.`; }
         document.getElementById('ai-insight-text').innerHTML = insightTxt;
+    },
+    
+    exportPDF: function() {
+        this.showToast("Mempersiapkan PDF Laporan...");
+        const element = document.getElementById('pdf-export-area'); if(!element) return;
+        element.classList.add('pdf-container'); 
+        
+        // Buka semua tab agar terbaca oleh mesin PDF
+        const rct = document.getElementById('report-content-trx'); if(rct) rct.classList.remove('hidden'); 
+        const rcr = document.getElementById('report-content-rekap'); if(rcr) rcr.classList.remove('hidden');
+        const rck = document.getElementById('report-content-kas'); if(rck) rck.classList.remove('hidden');
+        const rcs = document.getElementById('report-content-selisih'); if(rcs) rcs.classList.remove('hidden');
+        
+        const opt = { margin: 0.3, filename: `Laporan_ERP_${new Date().getTime()}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' } };
+        html2pdf().set(opt).from(element).save().then(()=> { 
+            element.classList.remove('pdf-container'); 
+            this.toggleReportTab('trx'); // Kembalikan ke tab utama setelah sukses
+            this.showToast("PDF Diunduh!"); 
+        });
     },
     
     // GUDANG & MASTER DATA

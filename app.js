@@ -2658,17 +2658,16 @@ submitOpname: async function() {
         if (monthEl && !monthEl.value) monthEl.value = currentMonthVal;
 
         let [yyyy, mm] = currentMonthVal.split('-');
-        // Rentang Bulan Ini
         let currStart = new Date(yyyy, mm - 1, 1);
         let currEnd = new Date(yyyy, mm, 0, 23, 59, 59);
-        // Rentang Bulan Lalu
         let prevStart = new Date(yyyy, mm - 2, 1);
         let prevEnd = new Date(yyyy, mm - 1, 0, 23, 59, 59);
 
         let usageCurr = {}; let usagePrev = {};
+        let pendukungUsageCurr = {}; let pendukungUsagePrev = {};
         let selisihCurr = {};
 
-        // 1. Kumpulkan Data Pemakaian Aktual dari Struk Jualan
+        // 1. Kumpulkan Data Pemakaian (POS Transaksi) KHUSUS BAHAN UTAMA
         (this.db.transactions || []).forEach(t => {
             if (t.Status !== 'Sukses') return;
             if (selOut !== 'Semua' && t.Outlet !== selOut) return;
@@ -2680,22 +2679,40 @@ submitOpname: async function() {
             if (isCurr || isPrev) {
                 let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
                 items.forEach(it => {
-                    let bahanSku = it.sku_bahan || it.sku; // Lacak hingga ke akar (SKU Bahan)
+                    let bahanSku = it.sku_bahan || it.sku; 
                     if (isCurr) usageCurr[bahanSku] = (usageCurr[bahanSku] || 0) + Number(it.qty);
                     if (isPrev) usagePrev[bahanSku] = (usagePrev[bahanSku] || 0) + Number(it.qty);
                 });
             }
         });
 
-        // 2. Kumpulkan Riwayat Selisih (Deviasi) dari Opname
+        // 2. Kumpulkan Riwayat Opname (Untuk Selisih Bahan Utama & Pemakaian Pendukung)
         (this.db.opname || []).forEach(o => {
             if (selOut !== 'Semua' && o.Outlet !== selOut) return;
-            if (o.Status_Approval !== 'Disetujui') return; // Hanya baca selisih yang sudah valid
+            if (o.Status_Approval !== 'Disetujui') return; 
 
             let safeWaktu = String(o.Waktu || '');
             let opDate = this.parseDateId(safeWaktu.split(' ')[0]);
-            if (opDate >= currStart && opDate <= currEnd) {
-                selisihCurr[o.SKU] = (selisihCurr[o.SKU] || 0) + Number(o.Selisih);
+            let isCurr = (opDate >= currStart && opDate <= currEnd);
+            let isPrev = (opDate >= prevStart && opDate <= prevEnd);
+
+            if (isCurr || isPrev) {
+                let m = (this.db.masterProduk || []).find(x => x.SKU === o.SKU);
+                if (!m) return;
+                
+                let kat = String(m.Kategori).toLowerCase();
+                let deviasi = Number(o.Selisih) || 0;
+
+                if (kat === 'pendukung') {
+                    // LOGIKA PINTAR PENDUKUNG: Pengurangan Opname (Selisih Minus) adalah Pemakaian
+                    // Contoh: Kemarin 10, diinput fisik 3, deviasi = -7. Berarti pemakaian = 7 Pcs.
+                    let pemakaianPcs = -deviasi; 
+                    if (isCurr) pendukungUsageCurr[o.SKU] = (pendukungUsageCurr[o.SKU] || 0) + pemakaianPcs;
+                    if (isPrev) pendukungUsagePrev[o.SKU] = (pendukungUsagePrev[o.SKU] || 0) + pemakaianPcs;
+                } else if (kat === 'bahan') {
+                    // Bahan Utama tetap merekam selisih sebagai deviasi/kebocoran
+                    if (isCurr) selisihCurr[o.SKU] = (selisihCurr[o.SKU] || 0) + deviasi;
+                }
             }
         });
 
@@ -2707,44 +2724,39 @@ submitOpname: async function() {
             let kat = String(m.Kategori).toLowerCase();
             
             if (kat === 'bahan' || kat === 'pendukung') {
-                let currUsed = usageCurr[m.SKU] || 0;
-                let prevUsed = usagePrev[m.SKU] || 0;
-                let diffOpname = selisihCurr[m.SKU] || 0;
+                let isBahan = kat === 'bahan';
+                let currUsed = isBahan ? (usageCurr[m.SKU] || 0) : (pendukungUsageCurr[m.SKU] || 0);
+                let prevUsed = isBahan ? (usagePrev[m.SKU] || 0) : (pendukungUsagePrev[m.SKU] || 0);
+                let diffOpname = isBahan ? (selisihCurr[m.SKU] || 0) : 0;
 
-                // Tarik Sisa Stok Fisik Saat Ini
                 let sData = (this.db.hargaStokOutlet || []).find(x => x.SKU === m.SKU && x.ID_Outlet === (selOut==='Semua' ? this.outlet : selOut));
                 let sisaFisik = sData ? Number(sData.Stok_Toko) : 0;
 
-                // Kalkulasi Tren
                 let trendVal = 0; let isUp = true;
                 if (prevUsed === 0 && currUsed > 0) { trendVal = 100; isUp = true; }
                 else if (prevUsed > 0) { 
                     trendVal = ((currUsed - prevUsed) / prevUsed) * 100;
-                    isUp = trendVal >= 0;
-                    trendVal = Math.abs(trendVal);
+                    isUp = trendVal >= 0; trendVal = Math.abs(trendVal);
                 }
 
-                let trendBadge = '';
-                if (prevUsed === 0 && currUsed === 0) {
-                    trendBadge = `<span class="text-slate-400 text-[10px]"><i class="fas fa-minus mr-1"></i>0%</span>`;
-                } else {
-                    let color = isUp ? 'text-blue-500' : 'text-orange-500'; 
-                    let icon = isUp ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down';
-                    trendBadge = `<span class="${color} text-[10px] font-black"><i class="fas ${icon}"></i> ${trendVal.toFixed(1)}%</span>`;
-                }
+                let trendBadge = (prevUsed === 0 && currUsed === 0) 
+                    ? `<span class="text-slate-400 text-[10px]"><i class="fas fa-minus mr-1"></i>0%</span>` 
+                    : `<span class="${isUp?'text-blue-500':'text-orange-500'} text-[10px] font-black"><i class="fas ${isUp?'fa-arrow-trend-up':'fa-arrow-trend-down'}"></i> ${trendVal.toFixed(1)}%</span>`;
 
-                // Lencana Selisih (Khusus Bahan Utama)
-                let selisihBadge = diffOpname < 0 ? `<span class="text-red-500 font-black bg-red-50 px-2 py-0.5 rounded border border-red-100 shadow-sm">${diffOpname} Pcs</span>` : 
-                                  (diffOpname > 0 ? `<span class="text-green-500 font-black bg-green-50 px-2 py-0.5 rounded border border-green-100 shadow-sm">+${diffOpname} Pcs</span>` : 
-                                  `<span class="text-slate-400 font-bold bg-slate-50 border border-slate-100 px-2 py-0.5 rounded shadow-sm">Akurat</span>`);
+                // 🚀 LINK POPUP DETAIL
+                let usageLink = currUsed !== 0 
+                    ? `<button onclick="superApp.openBOMDetail('${m.SKU}', '${isBahan?'usage_bahan':'usage_pendukung'}', '${currentMonthVal}')" class="text-brand-600 hover:text-brand-800 underline decoration-brand-300 underline-offset-4 decoration-2 transition active:scale-95">${currUsed}</button>` 
+                    : `<span class="text-slate-400">0</span>`;
 
-                let rowCore = `
-                    <td class="py-3 px-3 md:px-5 font-bold text-sm text-slate-800">${m.Nama_Produk}<br><span class="text-[9px] text-slate-400 tracking-widest uppercase font-normal">${m.SKU}</span></td>
-                    <td class="py-3 px-3 md:px-5 text-center text-brand-600 font-black text-lg bg-brand-50/30">${currUsed}</td>
-                    <td class="py-3 px-3 md:px-5 text-center bg-slate-50/50 font-bold">${sisaFisik}</td>
-                `;
+                let selisihBadge = diffOpname < 0 ? `<button onclick="superApp.openBOMDetail('${m.SKU}', 'selisih_bahan', '${currentMonthVal}')" class="text-red-500 hover:text-red-700 underline decoration-red-300 underline-offset-4 decoration-2 font-black transition active:scale-95">${diffOpname} Pcs</button>` : 
+                                  (diffOpname > 0 ? `<button onclick="superApp.openBOMDetail('${m.SKU}', 'selisih_bahan', '${currentMonthVal}')" class="text-green-500 hover:text-green-700 underline decoration-green-300 underline-offset-4 decoration-2 font-black transition active:scale-95">+${diffOpname} Pcs</button>` : 
+                                  `<span class="text-slate-400 font-bold bg-slate-50 border border-slate-100 px-2 py-0.5 rounded shadow-sm cursor-default">Akurat</span>`);
 
-                if (kat === 'bahan') {
+                let rowCore = `<td class="py-3 px-3 md:px-5 font-bold text-sm text-slate-800">${m.Nama_Produk}<br><span class="text-[9px] text-slate-400 tracking-widest uppercase font-normal">${m.SKU}</span></td>
+                               <td class="py-3 px-3 md:px-5 text-center font-black text-lg bg-slate-50/50">${usageLink}</td>
+                               <td class="py-3 px-3 md:px-5 text-center font-bold text-slate-600">${sisaFisik}</td>`;
+
+                if (isBahan) {
                     htmlBahan += `<tr class="border-b border-slate-50 hover:bg-slate-50 transition">${rowCore}<td class="py-3 px-3 md:px-5 text-center text-xs">${selisihBadge}</td><td class="py-3 px-3 md:px-5 text-right">${trendBadge}<br><span class="text-[9px] text-slate-400 font-normal mt-0.5 block">Bln Lalu: ${prevUsed}</span></td></tr>`;
                 } else {
                     htmlPendukung += `<tr class="border-b border-slate-50 hover:bg-slate-50 transition">${rowCore}<td class="py-3 px-3 md:px-5 text-right">${trendBadge}<br><span class="text-[9px] text-slate-400 font-normal mt-0.5 block">Bln Lalu: ${prevUsed}</span></td></tr>`;
@@ -2755,24 +2767,146 @@ submitOpname: async function() {
         document.getElementById('bom-bahan-tbody').innerHTML = htmlBahan || `<tr><td colspan="5" class="text-center py-6 italic text-slate-400 text-xs">Belum ada pemakaian bahan utama</td></tr>`;
         document.getElementById('bom-pendukung-tbody').innerHTML = htmlPendukung || `<tr><td colspan="4" class="text-center py-6 italic text-slate-400 text-xs">Belum ada pemakaian barang pendukung</td></tr>`;
     },
+
+    openBOMDetail: function(sku, type, monthStr) {
+        let [yyyy, mm] = monthStr.split('-');
+        let start = new Date(yyyy, mm - 1, 1);
+        let end = new Date(yyyy, mm, 0, 23, 59, 59);
+
+        const rof = document.getElementById('report-outlet-filter');
+        let roleStr = this.currentUser ? String(this.currentUser.Role).toLowerCase() : '';
+        let isAdmin = roleStr.includes('admin') || roleStr.includes('owner');
+        let selOut = (isAdmin && rof) ? rof.value : this.outlet;
+
+        let m = (this.db.masterProduk || []).find(x => x.SKU === sku);
+        if(!m) return;
+
+        document.getElementById('bom-detail-nama').innerText = m.Nama_Produk;
+        let thead = ''; let tbody = ''; let total = 0;
+
+        if (type === 'usage_bahan') {
+            document.getElementById('bom-detail-title').innerText = "Rincian Transaksi POS (Resi yang memotong stok ini)";
+            thead = `<tr><th class="py-3 px-4 md:px-6">Waktu & Resi</th><th class="py-3 px-4 md:px-6">Varian Menu Terjual</th><th class="py-3 px-4 md:px-6 text-center">Qty Terpotong</th></tr>`;
+            
+            (this.db.transactions || []).forEach(t => {
+                if (t.Status !== 'Sukses') return;
+                if (selOut !== 'Semua' && t.Outlet !== selOut) return;
+                
+                let trxDate = this.parseDateId(t.Tanggal);
+                if (trxDate >= start && trxDate <= end) {
+                    let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
+                    let usedHere = 0; let menuNames = [];
+                    items.forEach(it => {
+                        if ((it.sku_bahan || it.sku) === sku) {
+                            usedHere += Number(it.qty);
+                            menuNames.push(`<span class="font-bold text-slate-700">${it.qty}x</span> ${it.nama}`);
+                        }
+                    });
+                    if (usedHere > 0) {
+                        total += usedHere;
+                        let cleanDate = this.cleanDateOnly(t.Tanggal); let cleanTime = this.cleanTimeOnly(t.Waktu);
+                        tbody += `<tr class="border-b border-slate-50 hover:bg-slate-50 transition"><td class="py-3 px-4 md:px-6"><span class="font-extrabold text-slate-800">${t.ID_TRX}</span><br><span class="text-[10px] text-slate-400 font-bold">${cleanDate} ${cleanTime}</span></td><td class="py-3 px-4 md:px-6 text-xs whitespace-normal min-w-[150px] leading-relaxed">${menuNames.join('<br>')}</td><td class="py-3 px-4 md:px-6 text-center font-black text-brand-600 text-base">${usedHere} Pcs</td></tr>`;
+                    }
+                }
+            });
+        } 
+        else if (type === 'usage_pendukung' || type === 'selisih_bahan') {
+            let isPendukung = type === 'usage_pendukung';
+            document.getElementById('bom-detail-title').innerText = isPendukung ? "Rincian Pemakaian (Dihitung dari Input Opname Fisik)" : "Rincian Selisih (Kebocoran/Selisih Opname)";
+            thead = `<tr><th class="py-3 px-4 md:px-6">Waktu Input & Kasir</th><th class="py-3 px-4 md:px-6 text-center">Sistem vs Fisik</th><th class="py-3 px-4 md:px-6">Catatan Kasir</th><th class="py-3 px-4 md:px-6 text-right">${isPendukung ? 'Dinyatakan Terpakai' : 'Deviasi Selisih'}</th></tr>`;
+
+            (this.db.opname || []).forEach(o => {
+                if (selOut !== 'Semua' && o.Outlet !== selOut) return;
+                if (o.Status_Approval !== 'Disetujui') return;
+                if (o.SKU !== sku) return;
+
+                let opDate = this.parseDateId((o.Waktu || '').split(' ')[0]);
+                if (opDate >= start && opDate <= end) {
+                    let deviasi = Number(o.Selisih) || 0;
+                    let showRow = false; let valUI = '';
+                    
+                    if (isPendukung && deviasi !== 0) {
+                        let usage = -deviasi; // Pemakaian = Negatif dari Selisih
+                        total += usage; showRow = true;
+                        valUI = `<span class="text-brand-600 font-black">${usage} Pcs</span>`;
+                    } else if (!isPendukung && deviasi !== 0) {
+                        total += deviasi; showRow = true;
+                        let color = deviasi < 0 ? 'text-red-500' : 'text-green-500';
+                        valUI = `<span class="${color} font-black bg-${deviasi < 0 ? 'red':'green'}-50 px-2 py-1 rounded shadow-sm">${deviasi > 0 ? '+'+deviasi : deviasi} Pcs</span>`;
+                    }
+
+                    if (showRow) {
+                        let cleanWaktu = o.Waktu.includes('T') ? this.cleanDateOnly(o.Waktu) + ' ' + this.cleanTimeOnly(o.Waktu) : o.Waktu;
+                        tbody += `<tr class="border-b border-slate-50 hover:bg-slate-50 transition"><td class="py-3 px-4 md:px-6 text-xs"><span class="font-bold text-slate-700">${cleanWaktu}</span><br><span class="text-[10px] text-slate-400 font-bold uppercase">${o.Kasir}</span></td><td class="py-3 px-4 md:px-6 text-center text-xs font-bold text-slate-500 bg-slate-50/50 rounded-lg">Sys: ${o.Stok_Sistem} <i class="fas fa-arrow-right mx-1 text-slate-300"></i> Fis: ${o.Stok_Fisik}</td><td class="py-3 px-4 md:px-6 text-xs whitespace-normal max-w-[150px] italic text-slate-500">${o.Keterangan_Fisik || '-'}</td><td class="py-3 px-4 md:px-6 text-right">${valUI}</td></tr>`;
+                    }
+                }
+            });
+        }
+
+        if (tbody === '') {
+            tbody = `<tr><td colspan="4" class="text-center py-12 text-slate-400 text-xs italic">Tidak ada rincian data di periode ini.</td></tr>`;
+        } else {
+            let totalLabel = type === 'selisih_bahan' ? (total > 0 ? `+${total}` : total) : total;
+            let colorTotal = type === 'selisih_bahan' ? (total < 0 ? 'text-red-500' : 'text-green-500') : 'text-brand-600';
+            tbody += `<tr class="bg-slate-50 border-t-2 border-slate-200"><td colspan="${type==='usage_bahan'?2:3}" class="py-4 px-4 md:px-6 text-right font-black uppercase text-xs text-slate-500">TOTAL AKUMULASI</td><td class="py-4 px-4 md:px-6 text-${type==='usage_bahan'?'center':'right'} font-black text-xl ${colorTotal}">${totalLabel} Pcs</td></tr>`;
+        }
+
+        document.getElementById('bom-detail-thead').innerHTML = thead;
+        document.getElementById('bom-detail-tbody').innerHTML = tbody;
+        this.openModal('modal-bom-detail');
+    },
     
     exportPDF: function() {
         this.showToast("Mempersiapkan PDF Laporan...");
-        const element = document.getElementById('pdf-export-area'); if(!element) return;
-        element.classList.add('pdf-container'); 
+        const element = document.getElementById('pdf-export-area'); 
+        if(!element) return;
         
-        // Buka semua tab agar terbaca oleh mesin PDF
+        // 1. Simpan bentuk desain aslinya
+        const originalStyle = element.getAttribute('style') || '';
+        
+        // 2. Buka semua tab agar terbaca oleh mesin PDF (Termasuk tab BOM)
         const rct = document.getElementById('report-content-trx'); if(rct) rct.classList.remove('hidden'); 
         const rcr = document.getElementById('report-content-rekap'); if(rcr) rcr.classList.remove('hidden');
         const rck = document.getElementById('report-content-kas'); if(rck) rck.classList.remove('hidden');
         const rcs = document.getElementById('report-content-selisih'); if(rcs) rcs.classList.remove('hidden');
+        const rcb = document.getElementById('report-content-bom'); if(rcb) rcb.classList.remove('hidden');
         
-        const opt = { margin: 0.3, filename: `Laporan_ERP_${new Date().getTime()}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' } };
-        html2pdf().set(opt).from(element).save().then(()=> { 
-            element.classList.remove('pdf-container'); 
-            this.toggleReportTab('trx'); // Kembalikan ke tab utama setelah sukses
-            this.showToast("PDF Diunduh!"); 
+        // 3. 🚀 ANTI-BLANK: Hapus batasan scroll dan tinggi secara paksa pada tabel
+        element.style.height = 'max-content';
+        element.style.overflow = 'visible';
+        
+        const scrollables = element.querySelectorAll('.overflow-y-auto, .overflow-x-auto, .custom-scroll');
+        scrollables.forEach(el => {
+            // Ingat style asli elemen ini
+            el.setAttribute('data-orig-style', el.getAttribute('style') || '');
+            // Tarik elemen agar memanjang ke bawah sesuai isinya
+            el.style.overflow = 'visible';
+            el.style.maxHeight = 'none';
+            el.style.height = 'auto';
         });
+
+        // 4. Beri jeda 0.5 detik agar browser selesai "menggambar ulang" layar yang panjang
+        setTimeout(() => {
+            const opt = { 
+                margin: 0.3, 
+                filename: `Laporan_Ai_Snack_${new Date().getTime()}.pdf`, 
+                image: { type: 'jpeg', quality: 0.98 }, 
+                html2canvas: { scale: 2, useCORS: true, windowWidth: element.scrollWidth }, 
+                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' } 
+            };
+            
+            html2pdf().set(opt).from(element).save().then(() => { 
+                // 5. KEMBALIKAN KE KONDISI NORMAL (UI KASIR)
+                element.setAttribute('style', originalStyle);
+                scrollables.forEach(el => {
+                    el.setAttribute('style', el.getAttribute('data-orig-style') || '');
+                    el.removeAttribute('data-orig-style');
+                });
+                
+                this.toggleReportTab('trx'); // Sembunyikan tab lain kembali
+                this.showToast("PDF Laporan Berhasil Diunduh!", "success"); 
+            });
+        }, 500); // 500ms delay sangat krusial
     },
     
     sendReportToWA: function() {

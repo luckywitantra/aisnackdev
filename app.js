@@ -2532,7 +2532,7 @@ submitOpname: async function() {
         let maxTrend = 0; let trendKeys = Object.keys(trendDataObj);
         trendKeys.forEach(k => { if(trendDataObj[k] > maxTrend) maxTrend = trendDataObj[k]; });
         
-        let chartHtml = ''; let labelHtml = '';
+        let chartHtml = ''; 
         trendKeys.sort((a,b) => {
             let pa = a.length > 7 ? a.split('/') : ['01', a.split('/')[0], a.split('/')[1]];
             let pb = b.length > 7 ? b.split('/') : ['01', b.split('/')[0], b.split('/')[1]];
@@ -2540,24 +2540,51 @@ submitOpname: async function() {
         });
 
         if(trendKeys.length === 0) {
-            chartHtml = `<div class="w-full text-center text-slate-400 text-xs mb-8">Tidak ada data untuk rentang ini</div>`;
+            chartHtml = `<div class="w-full flex items-center justify-center text-slate-400 text-xs h-full">Tidak ada data untuk rentang ini</div>`;
         } else {
+            let barsHtml = '';
+            let lblsHtml = '';
+            
             trendKeys.forEach(k => {
                 let val = trendDataObj[k];
                 let pctHeight = maxTrend > 0 ? (val / maxTrend) * 100 : 0;
                 if(pctHeight < 5 && val > 0) pctHeight = 5; 
                 
-                let labelTxt = k.substring(0, 5); // Tampilkan tgl/bln saja
+                let labelTxt = k.substring(0, 5); 
                 
-                chartHtml += `<div class="flex-1 flex flex-col justify-end h-full relative group">
-                    <div class="w-full bg-gradient-to-t from-brand-500 to-orange-400 rounded-t-md transition-all duration-1000 ease-out hover:brightness-110" style="height: ${pctHeight}%;"></div>
-                    <div class="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[9px] font-bold py-1 px-2 rounded shadow-md z-10 whitespace-nowrap pointer-events-none transition-opacity">Rp ${val.toLocaleString('id-ID')}</div>
+                // 🚀 PERBAIKAN 1: Beri min-w-[32px] agar batang grafik tidak gepeng/hilang di HP
+                barsHtml += `<div class="flex-1 min-w-[32px] md:min-w-[40px] flex flex-col justify-end h-full relative group">
+                    <div class="w-full bg-gradient-to-t from-brand-500 to-orange-400 rounded-t-sm md:rounded-t-md transition-all duration-1000 ease-out hover:brightness-110" style="height: ${pctHeight}%;"></div>
+                    <div class="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[9px] font-bold py-1 px-2 rounded shadow-md z-20 whitespace-nowrap pointer-events-none transition-opacity">Rp ${val.toLocaleString('id-ID')}</div>
                 </div>`;
-                labelHtml += `<div class="flex-1 text-center truncate px-0.5">${labelTxt}</div>`;
+                
+                lblsHtml += `<div class="flex-1 min-w-[32px] md:min-w-[40px] text-center truncate px-0.5">${labelTxt}</div>`;
             });
+
+            // 🚀 PERBAIKAN 2: Bungkus dengan wadah scroll (overflow-x-auto)
+            chartHtml = `
+            <div class="absolute inset-0 w-full h-full overflow-x-auto custom-scroll pb-1">
+                <div class="min-w-max h-full flex flex-col justify-end px-1 pt-8">
+                    <div class="flex items-end gap-1 md:gap-1.5 flex-1 border-b border-slate-100 pb-1">
+                        ${barsHtml}
+                    </div>
+                    <div class="flex mt-2 text-[8px] md:text-[9px] font-bold text-slate-400 uppercase tracking-widest gap-1 md:gap-1.5">
+                        ${lblsHtml}
+                    </div>
+                </div>
+            </div>`;
         }
-        const rtc = document.getElementById('report-trend-chart'); if (rtc) rtc.innerHTML = chartHtml;
-        const rtlbl = document.getElementById('report-trend-labels'); if (rtlbl) rtlbl.innerHTML = labelHtml;
+
+        const rtc = document.getElementById('report-trend-chart'); 
+        if (rtc) {
+            // 🚀 PERBAIKAN 3: Ubah class bawaan agar mendukung Absolute Positioning & Fixed Height untuk mobile
+            rtc.className = 'flex-1 relative min-h-[160px] md:min-h-[200px] w-full mt-4';
+            rtc.innerHTML = chartHtml;
+        }
+        
+        // Matikan wadah label lama HTML karena labelnya sudah kita pindah ke dalam wadah scroll
+        const rtlbl = document.getElementById('report-trend-labels'); 
+        if (rtlbl) rtlbl.style.display = 'none';
 
         // --- 4. RENDER REKAP JUALAN ---
         let rekapHtml = '';

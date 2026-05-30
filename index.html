@@ -620,6 +620,7 @@
             <button onclick="superApp.toggleReportTab('rekap')" id="tab-rekap" class="px-5 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg text-sm font-bold whitespace-nowrap transition">Rekap Jualan</button>
             <button onclick="superApp.toggleReportTab('kas')" id="tab-kas" class="px-5 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg text-sm font-bold whitespace-nowrap transition">Kas Keluar</button>
             <button onclick="superApp.toggleReportTab('selisih')" id="tab-selisih" class="px-5 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg text-sm font-bold whitespace-nowrap transition">Audit Selisih</button>
+            <button onclick="superApp.toggleReportTab('bom')" id="tab-bom" class="px-5 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg text-sm font-bold whitespace-nowrap transition border border-transparent"><i class="fas fa-boxes-stacked mr-1"></i> Analisis BOM</button>
         </div>
 
         <div id="mobile-filter-modal" class="fixed inset-x-0 bottom-0 bg-white rounded-t-[2rem] shadow-[0_-20px_40px_rgba(0,0,0,0.2)] p-6 z-[80] transform translate-y-full transition-transform duration-300 md:static md:translate-y-0 md:bg-transparent md:shadow-none md:p-0 md:flex md:flex-col lg:flex-row lg:justify-between lg:items-center md:gap-4 shrink-0 w-full max-h-[85dvh] overflow-y-auto custom-scroll">
@@ -766,7 +767,48 @@
                     </table>
                 </div>
             </div>
-            
+
+            <div id="report-content-bom" class="hidden flex-1 flex flex-col min-h-0 px-4 md:px-0">
+                <div class="flex justify-between items-center mb-4 shrink-0">
+                    <h3 class="font-extrabold text-lg text-slate-700 flex items-center gap-2"><i class="fas fa-boxes-stacked text-brand-500"></i> Analisis Pemakaian Bahan</h3>
+                    
+                    <div class="flex items-center gap-2 bg-slate-50 border border-slate-200 p-1 rounded-xl shadow-sm">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-2">Periode:</span>
+                        <input type="month" id="bom-filter-month" class="bg-white border-none rounded-lg px-3 py-1.5 text-xs font-bold outline-none cursor-pointer text-slate-700" onchange="superApp.renderBOMReport()">
+                    </div>
+                </div>
+
+                <div class="flex-1 overflow-x-auto overflow-y-auto bg-white lg:rounded-2xl border-t border-b lg:border border-slate-200 text-slate-800 min-h-[250px] relative custom-scroll lg:shadow-inner mb-6 -mx-4 lg:mx-0">
+                    <div class="bg-brand-50 border-b border-brand-100 p-3 sticky top-0 z-20"><h4 class="font-black text-brand-700 text-xs uppercase tracking-widest">A. Bahan Baku Utama (Dipotong Otomatis oleh Sistem)</h4></div>
+                    <table class="w-full text-left whitespace-nowrap text-sm text-slate-800">
+                        <thead class="text-slate-500 border-b border-slate-200 sticky top-10 bg-slate-50 z-10 shadow-sm">
+                            <tr>
+                                <th class="py-3 px-3 md:px-5">Nama Bahan</th>
+                                <th class="py-3 px-3 md:px-5 text-center">Pemakaian (Terjual)</th>
+                                <th class="py-3 px-3 md:px-5 text-center">Sisa Stok Fisik</th>
+                                <th class="py-3 px-3 md:px-5 text-center">Deviasi (Selisih)</th>
+                                <th class="py-3 px-3 md:px-5 text-right">Tren vs Bln Lalu</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bom-bahan-tbody" class="font-bold"></tbody>
+                    </table>
+                </div>
+
+                <div class="flex-1 overflow-x-auto overflow-y-auto bg-white lg:rounded-2xl border-t border-b lg:border border-slate-200 text-slate-800 min-h-[200px] relative custom-scroll lg:shadow-inner -mx-4 lg:mx-0">
+                    <div class="bg-slate-100 border-b border-slate-200 p-3 sticky top-0 z-20"><h4 class="font-black text-slate-600 text-xs uppercase tracking-widest">B. Bahan Pendukung & Packaging</h4></div>
+                    <table class="w-full text-left whitespace-nowrap text-sm text-slate-800">
+                        <thead class="text-slate-500 border-b border-slate-200 sticky top-10 bg-slate-50 z-10 shadow-sm">
+                            <tr>
+                                <th class="py-3 px-3 md:px-5">Nama Barang</th>
+                                <th class="py-3 px-3 md:px-5 text-center">Pemakaian (Terjual)</th>
+                                <th class="py-3 px-3 md:px-5 text-center">Sisa Stok Fisik</th>
+                                <th class="py-3 px-3 md:px-5 text-right">Tren vs Bln Lalu</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bom-pendukung-tbody" class="font-bold"></tbody>
+                    </table>
+                </div>
+      
         </div>
       </div>
 

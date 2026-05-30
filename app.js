@@ -2666,6 +2666,7 @@ submitOpname: async function() {
         let usageCurr = {}; let usagePrev = {};
         let pendukungUsageCurr = {}; let pendukungUsagePrev = {};
         let selisihCurr = {};
+        let masukCurr = {}; // 🚀 TAMBAHAN: Variabel Penampung Barang Masuk
 
         // 1. Kumpulkan Data Pemakaian (POS Transaksi) KHUSUS BAHAN UTAMA
         (this.db.transactions || []).forEach(t => {
@@ -2686,7 +2687,18 @@ submitOpname: async function() {
             }
         });
 
-        // 2. Kumpulkan Riwayat Opname (Untuk Selisih Bahan Utama & Pemakaian Pendukung)
+        // 2. 🚀 TAMBAHAN: Kumpulkan Data Barang Masuk (Mutasi / Terima Barang)
+        (this.db.mutasi || []).forEach(m => {
+            if (selOut !== 'Semua' && m.Outlet_Tujuan !== selOut) return;
+            if (m.Status_Approval !== 'Disetujui') return; 
+
+            let mutDate = this.parseDateId((m.Waktu || '').split(' ')[0]);
+            if (mutDate >= currStart && mutDate <= currEnd) {
+                masukCurr[m.SKU] = (masukCurr[m.SKU] || 0) + Number(m.Qty);
+            }
+        });
+
+        // 3. Kumpulkan Riwayat Opname (Untuk Selisih Bahan Utama & Pemakaian Pendukung)
         (this.db.opname || []).forEach(o => {
             if (selOut !== 'Semua' && o.Outlet !== selOut) return;
             if (o.Status_Approval !== 'Disetujui') return; 
@@ -2704,19 +2716,16 @@ submitOpname: async function() {
                 let deviasi = Number(o.Selisih) || 0;
 
                 if (kat === 'pendukung') {
-                    // LOGIKA PINTAR PENDUKUNG: Pengurangan Opname (Selisih Minus) adalah Pemakaian
-                    // Contoh: Kemarin 10, diinput fisik 3, deviasi = -7. Berarti pemakaian = 7 Pcs.
                     let pemakaianPcs = -deviasi; 
                     if (isCurr) pendukungUsageCurr[o.SKU] = (pendukungUsageCurr[o.SKU] || 0) + pemakaianPcs;
                     if (isPrev) pendukungUsagePrev[o.SKU] = (pendukungUsagePrev[o.SKU] || 0) + pemakaianPcs;
                 } else if (kat === 'bahan') {
-                    // Bahan Utama tetap merekam selisih sebagai deviasi/kebocoran
                     if (isCurr) selisihCurr[o.SKU] = (selisihCurr[o.SKU] || 0) + deviasi;
                 }
             }
         });
 
-        // 3. Merakit Tampilan HTML
+        // 4. Merakit Tampilan HTML
         let htmlBahan = ''; let htmlPendukung = '';
         
         let dbMaster = this.db.masterProduk || [];
@@ -2728,6 +2737,7 @@ submitOpname: async function() {
                 let currUsed = isBahan ? (usageCurr[m.SKU] || 0) : (pendukungUsageCurr[m.SKU] || 0);
                 let prevUsed = isBahan ? (usagePrev[m.SKU] || 0) : (pendukungUsagePrev[m.SKU] || 0);
                 let diffOpname = isBahan ? (selisihCurr[m.SKU] || 0) : 0;
+                let currMasuk = masukCurr[m.SKU] || 0; // 🚀 Tarik total barang masuk
 
                 let sData = (this.db.hargaStokOutlet || []).find(x => x.SKU === m.SKU && x.ID_Outlet === (selOut==='Semua' ? this.outlet : selOut));
                 let sisaFisik = sData ? Number(sData.Stok_Toko) : 0;
@@ -2743,17 +2753,24 @@ submitOpname: async function() {
                     ? `<span class="text-slate-400 text-[10px]"><i class="fas fa-minus mr-1"></i>0%</span>` 
                     : `<span class="${isUp?'text-blue-500':'text-orange-500'} text-[10px] font-black"><i class="fas ${isUp?'fa-arrow-trend-up':'fa-arrow-trend-down'}"></i> ${trendVal.toFixed(1)}%</span>`;
 
-                // 🚀 LINK POPUP DETAIL
+                // 🚀 LINK POPUP PENGGUNAAN
                 let usageLink = currUsed !== 0 
                     ? `<button onclick="superApp.openBOMDetail('${m.SKU}', '${isBahan?'usage_bahan':'usage_pendukung'}', '${currentMonthVal}')" class="text-brand-600 hover:text-brand-800 underline decoration-brand-300 underline-offset-4 decoration-2 transition active:scale-95">${currUsed}</button>` 
                     : `<span class="text-slate-400">0</span>`;
+
+                // 🚀 LINK POPUP BARANG MASUK
+                let masukLink = currMasuk !== 0
+                    ? `<button onclick="superApp.openBOMDetail('${m.SKU}', 'masuk_bahan', '${currentMonthVal}')" class="text-emerald-600 hover:text-emerald-800 underline decoration-emerald-300 underline-offset-4 decoration-2 transition font-black active:scale-95">+${currMasuk}</button>`
+                    : `<span class="text-slate-300">-</span>`;
 
                 let selisihBadge = diffOpname < 0 ? `<button onclick="superApp.openBOMDetail('${m.SKU}', 'selisih_bahan', '${currentMonthVal}')" class="text-red-500 hover:text-red-700 underline decoration-red-300 underline-offset-4 decoration-2 font-black transition active:scale-95">${diffOpname} Pcs</button>` : 
                                   (diffOpname > 0 ? `<button onclick="superApp.openBOMDetail('${m.SKU}', 'selisih_bahan', '${currentMonthVal}')" class="text-green-500 hover:text-green-700 underline decoration-green-300 underline-offset-4 decoration-2 font-black transition active:scale-95">+${diffOpname} Pcs</button>` : 
                                   `<span class="text-slate-400 font-bold bg-slate-50 border border-slate-100 px-2 py-0.5 rounded shadow-sm cursor-default">Akurat</span>`);
 
+                // 🚀 UPDATE ROW: Tambahkan kolom Barang Masuk
                 let rowCore = `<td class="py-3 px-3 md:px-5 font-bold text-sm text-slate-800">${m.Nama_Produk}<br><span class="text-[9px] text-slate-400 tracking-widest uppercase font-normal">${m.SKU}</span></td>
-                               <td class="py-3 px-3 md:px-5 text-center font-black text-lg bg-slate-50/50">${usageLink}</td>
+                               <td class="py-3 px-3 md:px-5 text-center bg-emerald-50/30 text-emerald-700 font-bold">${masukLink}</td>
+                               <td class="py-3 px-3 md:px-5 text-center font-black text-lg bg-brand-50/30">${usageLink}</td>
                                <td class="py-3 px-3 md:px-5 text-center font-bold text-slate-600">${sisaFisik}</td>`;
 
                 if (isBahan) {
@@ -2764,8 +2781,8 @@ submitOpname: async function() {
             }
         });
 
-        document.getElementById('bom-bahan-tbody').innerHTML = htmlBahan || `<tr><td colspan="5" class="text-center py-6 italic text-slate-400 text-xs">Belum ada pemakaian bahan utama</td></tr>`;
-        document.getElementById('bom-pendukung-tbody').innerHTML = htmlPendukung || `<tr><td colspan="4" class="text-center py-6 italic text-slate-400 text-xs">Belum ada pemakaian barang pendukung</td></tr>`;
+        document.getElementById('bom-bahan-tbody').innerHTML = htmlBahan || `<tr><td colspan="6" class="text-center py-6 italic text-slate-400 text-xs">Belum ada data pemakaian</td></tr>`;
+        document.getElementById('bom-pendukung-tbody').innerHTML = htmlPendukung || `<tr><td colspan="5" class="text-center py-6 italic text-slate-400 text-xs">Belum ada data pemakaian</td></tr>`;
     },
 
     openBOMDetail: function(sku, type, monthStr) {
@@ -2810,6 +2827,25 @@ submitOpname: async function() {
                 }
             });
         } 
+        else if (type === 'masuk_bahan') {
+            // 🚀 POPUP DETAIL BARANG MASUK
+            document.getElementById('bom-detail-title').innerText = "Rincian Barang Masuk (Penerimaan dari Pusat)";
+            thead = `<tr><th class="py-3 px-4 md:px-6">Waktu Terima</th><th class="py-3 px-4 md:px-6">Penerima (Kasir)</th><th class="py-3 px-4 md:px-6">Catatan Kurir</th><th class="py-3 px-4 md:px-6 text-right">Qty Masuk</th></tr>`;
+            
+            (this.db.mutasi || []).forEach(mt => {
+                if (selOut !== 'Semua' && mt.Outlet_Tujuan !== selOut) return;
+                if (mt.Status_Approval !== 'Disetujui') return;
+                if (mt.SKU !== sku) return;
+
+                let mutDate = this.parseDateId((mt.Waktu || '').split(' ')[0]);
+                if (mutDate >= start && mutDate <= end) {
+                    let qty = Number(mt.Qty) || 0;
+                    total += qty;
+                    let cleanWaktu = mt.Waktu.includes('T') ? this.cleanDateOnly(mt.Waktu) + ' ' + this.cleanTimeOnly(mt.Waktu) : mt.Waktu;
+                    tbody += `<tr class="border-b border-slate-50 hover:bg-slate-50 transition"><td class="py-3 px-4 md:px-6 text-xs"><span class="font-bold text-slate-700">${cleanWaktu}</span></td><td class="py-3 px-4 md:px-6 text-xs font-bold uppercase text-slate-600">${mt.Kasir || '-'}</td><td class="py-3 px-4 md:px-6 text-xs italic text-slate-500 whitespace-normal max-w-[150px]">${mt.Keterangan || '-'}</td><td class="py-3 px-4 md:px-6 text-right font-black text-emerald-600">+${qty} Pcs</td></tr>`;
+                }
+            });
+        }
         else if (type === 'usage_pendukung' || type === 'selisih_bahan') {
             let isPendukung = type === 'usage_pendukung';
             document.getElementById('bom-detail-title').innerText = isPendukung ? "Rincian Pemakaian (Dihitung dari Input Opname Fisik)" : "Rincian Selisih (Kebocoran/Selisih Opname)";
@@ -2826,7 +2862,7 @@ submitOpname: async function() {
                     let showRow = false; let valUI = '';
                     
                     if (isPendukung && deviasi !== 0) {
-                        let usage = -deviasi; // Pemakaian = Negatif dari Selisih
+                        let usage = -deviasi; 
                         total += usage; showRow = true;
                         valUI = `<span class="text-brand-600 font-black">${usage} Pcs</span>`;
                     } else if (!isPendukung && deviasi !== 0) {
@@ -2846,8 +2882,8 @@ submitOpname: async function() {
         if (tbody === '') {
             tbody = `<tr><td colspan="4" class="text-center py-12 text-slate-400 text-xs italic">Tidak ada rincian data di periode ini.</td></tr>`;
         } else {
-            let totalLabel = type === 'selisih_bahan' ? (total > 0 ? `+${total}` : total) : total;
-            let colorTotal = type === 'selisih_bahan' ? (total < 0 ? 'text-red-500' : 'text-green-500') : 'text-brand-600';
+            let totalLabel = type === 'selisih_bahan' ? (total > 0 ? `+${total}` : total) : (type === 'masuk_bahan' ? `+${total}` : total);
+            let colorTotal = type === 'selisih_bahan' ? (total < 0 ? 'text-red-500' : 'text-green-500') : (type === 'masuk_bahan' ? 'text-emerald-600' : 'text-brand-600');
             tbody += `<tr class="bg-slate-50 border-t-2 border-slate-200"><td colspan="${type==='usage_bahan'?2:3}" class="py-4 px-4 md:px-6 text-right font-black uppercase text-xs text-slate-500">TOTAL AKUMULASI</td><td class="py-4 px-4 md:px-6 text-${type==='usage_bahan'?'center':'right'} font-black text-xl ${colorTotal}">${totalLabel} Pcs</td></tr>`;
         }
 

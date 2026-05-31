@@ -900,12 +900,16 @@ const superApp = {
                 if (selOut) { selOut.innerHTML = outOptions; selOut.value = this.outlet; selOut.disabled = false; }
                 if (repOut) repOut.innerHTML = outFilters;
                 
-                // 🚀 BUKA KUNCI MENU PROMO UNTUK ADMIN/OWNER
+                // 🚀 BUKA KUNCI MENU PENGATURAN PREMIUM UNTUK ADMIN/OWNER
                 const cardStandby = document.getElementById('setting-card-standby'); 
                 if (cardStandby) cardStandby.classList.remove('hidden');
                 
                 const cardTransaksi = document.getElementById('setting-card-transaksi'); 
                 if (cardTransaksi) cardTransaksi.classList.remove('hidden');
+
+                // TAMBAHAN: Buka menu Ganti Logo
+                const cardLogo = document.getElementById('setting-card-logo'); 
+                if (cardLogo) cardLogo.classList.remove('hidden');
 
             } else {
                 // AKSES KASIR BIASA
@@ -913,12 +917,16 @@ const superApp = {
                 if (selOut) { selOut.classList.add('hidden'); selOut.innerHTML = `<option value="${this.outlet}">📍 ${this.outlet}</option>`; selOut.disabled = true; }
                 if (repOut) repOut.classList.add('hidden');
                 
-                // 🔒 KUNCI MENU PROMO DARI KASIR BIASA
+                // 🔒 KUNCI MENU PENGATURAN PREMIUM DARI KASIR BIASA
                 const cardStandby = document.getElementById('setting-card-standby'); 
                 if (cardStandby) cardStandby.classList.add('hidden');
                 
                 const cardTransaksi = document.getElementById('setting-card-transaksi'); 
                 if (cardTransaksi) cardTransaksi.classList.add('hidden');
+
+                // TAMBAHAN: Kunci menu Ganti Logo
+                const cardLogo = document.getElementById('setting-card-logo'); 
+                if (cardLogo) cardLogo.classList.add('hidden');
             }
 
             const ls = document.getElementById('login-screen'); if (ls) ls.classList.add('hidden');
@@ -943,7 +951,6 @@ const superApp = {
         }
         this.isProcessing = false;
     },
-
     logout: function() {
         // Minta konfirmasi agar tidak tidak sengaja terpencet
         if (!confirm("Yakin ingin keluar dari akun ini? Anda harus memasukkan PIN lagi untuk masuk.")) return;
@@ -1986,10 +1993,11 @@ refreshData: function() {
             }
         });
 
-        bermasalah.sort((a,b) => String(a.nama).localeCompare(String(b.nama)));
-        aman.sort((a,b) => String(a.nama).localeCompare(String(b.nama)));
+       // 1. Pengurutan Mutlak A-Z (Mengabaikan huruf besar/kecil)
+        bermasalah.sort((a,b) => String(a.nama).toUpperCase().localeCompare(String(b.nama).toUpperCase()));
+        aman.sort((a,b) => String(a.nama).toUpperCase().localeCompare(String(b.nama).toUpperCase()));
 
-        // 3. SUSUN TEKS WHATSAPP EKSEKUTIF
+        // 2. SUSUN TEKS WHATSAPP EKSEKUTIF
         let waText = `*LAPORAN OPNAME FISIK & AUDIT*\n📍 Cabang: ${outlet}\n👤 Kasir: ${kasir}\n📅 Waktu: ${waktu}\n\n*_Mohon cek menu Audit Opname di aplikasi untuk menyetujui_*\n\n`;
 
         // --- A. Render Barang Bermasalah / Selisih ---
@@ -2008,8 +2016,14 @@ refreshData: function() {
         // --- B. Render Barang Aman ---
         if (aman.length > 0) {
             waText += `✅ *ITEM AMAN FISIK SESUAI SISTEM (${aman.length})*\n`;
-            let amanNames = aman.map(i => i.nama).join(', ');
-            waText += `_${amanNames}_\n`;
+            
+            // Loop semua barang aman agar rincian stoknya muncul ke bawah
+            aman.forEach(i => {
+                let alertStr = i.fisik <= 0 ? 'HABIS 🛑' : (i.estHari === -1 ? 'Belum ada data pakai 📉' : (i.estHari < 4 ? `${i.estHari} Hari (Kritis ⚠️)` : `${i.estHari > 99 ? '>99' : i.estHari} Hari (Aman ✅)`));
+                
+                // Selisih pasti 0 untuk kategori aman, catatan tidak perlu ditampilkan agar laporan bersih
+                waText += `📦 *${i.nama}*\nSys: ${i.sys} | Fisik: ${i.fisik} | Selisih: *0*\n⏳ Est Habis: ${alertStr}\n\n`;
+            });
         }
 
         return waText;

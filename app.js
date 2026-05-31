@@ -1323,21 +1323,21 @@ refreshData: function() {
     switchMenu: function(menu) {
         document.querySelectorAll('.app-view').forEach(el => el.classList.add('hidden'));
         
-        // 🚀 PEMETAAN WARNA KHUSUS UNTUK SETIAP MENU
+        // PEMETAAN WARNA (Tambahkan 'master' agar tidak undefined)
         const colors = {
-            'pos': 'text-brand-500',      // Oranye
-            'terima': 'text-green-600',   // Hijau
-            'opname': 'text-purple-600',  // Ungu
-            'report': 'text-blue-600',    // Biru
-            'audit': 'text-indigo-600',   // Nila
-            'ai': 'text-pink-600',        // Merah Muda
-            'gudang': 'text-emerald-600', // Hijau Tua
-            'outlet': 'text-teal-600',    // Teal (Biru Kehijauan)
-            'staf': 'text-amber-600'      // Kuning
+            'pos': 'text-brand-500',      
+            'terima': 'text-green-600',   
+            'opname': 'text-purple-600',  
+            'report': 'text-blue-600',    
+            'audit': 'text-indigo-600',   
+            'ai': 'text-pink-600',        
+            'gudang': 'text-emerald-600', 
+            'outlet': 'text-teal-600',    
+            'staf': 'text-amber-600',
+            'master': 'text-emerald-600' // <-- Tambahan
         };
         const allColors = Object.values(colors);
 
-        // 1. Reset Warna Sidebar (PC)
         document.querySelectorAll('.nav-btn').forEach(b => { 
             b.classList.remove('nav-active', 'bg-slate-50', ...allColors); 
             b.classList.add('text-slate-500'); 
@@ -1345,7 +1345,6 @@ refreshData: function() {
             if(icon) { icon.classList.remove(...allColors); icon.classList.add('text-slate-400'); }
         });
 
-        // 2. Aktifkan Warna Sidebar Terpilih
         const activeNav = document.getElementById(`nav-${menu}`); 
         if (activeNav) { 
             let targetColor = colors[menu] || 'text-brand-500';
@@ -1355,20 +1354,20 @@ refreshData: function() {
             if(icon) { icon.classList.remove('text-slate-400'); icon.classList.add(targetColor); }
         }
 
-        const activeView = document.getElementById(`view-${menu}`); 
+        // BUKA HALAMAN (Berikan fallback jika master dan gudang ada di 1 halaman yang sama)
+        let activeView = document.getElementById(`view-${menu}`); 
+        if (!activeView && menu === 'master') activeView = document.getElementById(`view-gudang`);
         if (activeView) activeView.classList.remove('hidden');
 
         const titles = { 'pos': 'POS', 'opname': 'Opname Fisik Stok', 'terima': 'Penerimaan Barang', 'audit': 'Audit Laporan', 'report': 'Laporan Terpadu', 'ai': 'Asisten AI', 'gudang': 'Gudang Pusat', 'master': 'Master Varian POS', 'outlet': 'Cabang & Harga Khusus', 'staf': 'Kinerja Karyawan' };
         const pageTitle = document.getElementById('page-title'); 
         if (pageTitle) pageTitle.innerText = titles[menu] || 'Aplikasi';
 
-        // 3. Tutup Sidebar otomatis jika dibuka di HP
         const sidebar = document.getElementById('sidebar');
         if (window.innerWidth < 1024 && sidebar && !sidebar.classList.contains('-translate-x-full')) {
             this.toggleSidebar();
         }
 
-        // 4. Reset & Aktifkan Warna Menu Bawah (HP)
         document.querySelectorAll('.nav-mobile-btn').forEach(btn => {
             let target = btn.dataset.target;
             btn.classList.remove(...allColors);
@@ -1380,7 +1379,7 @@ refreshData: function() {
             }
         });
 
-        // Render Data Berdasarkan Halaman
+        // 🚀 TRIGGER RENDER (Tambahkan pemanggilan untuk gudang, master, dan outlet)
         if (menu === 'pos' && !this.activeShiftId) this.checkShiftStatus();
         if (menu === 'report' && typeof this.renderReport === 'function') this.renderReport();
         if (menu === 'opname' && typeof this.renderOpname === 'function') this.renderOpname();
@@ -1388,6 +1387,7 @@ refreshData: function() {
         if (menu === 'terima' && typeof this.renderTerimaBarang === 'function') this.renderTerimaBarang();
         if (menu === 'ai' && typeof this.generateAIReport === 'function') this.generateAIReport();
         if (menu === 'staf' && typeof this.renderStaf === 'function') this.renderStaf();
+        if ((menu === 'gudang' || menu === 'master' || menu === 'outlet') && typeof this.renderGudang === 'function') this.renderGudang();
     },
     
     filterProducts: function(key) {
@@ -3141,7 +3141,7 @@ submitOpname: async function() {
 
     // AI ASSISTANT
    generateAIReport: function() {
-        if (!this.db || !this.db.transactions) return; 
+        if (!this.db) return; // Hapus pengecekan transactions agar layar tetap digambar meski jualan nol
         
         // 1. Setup Filter Tanggal (Range)
         const fStartEl = document.getElementById('ai-filter-start');
@@ -3297,7 +3297,7 @@ submitOpname: async function() {
         // PREDICTIVE INVENTORY 
         let totalDays = Math.ceil((maxDateTrx - minDateTrx) / (1000 * 60 * 60 * 24));
         if (totalDays < 1 || isNaN(totalDays)) totalDays = 1;
-        let dbMaster = this.db.products || this.products || []; 
+        let dbMaster = this.db.masterProduk || []; // Perbaikan nama key database
         let criticalItems = [];
 
         for(let k in itemStats) {
@@ -4156,8 +4156,8 @@ submitOpname: async function() {
         // 2. BUAT BARIS DATA (PRODUK & STOK)
         let trHtml = '';
         
-        // Filter hanya kategori Bahan dan Pendukung, lalu urutkan abjad
-        let sortedBahan = [...this.db.masterProduk]
+        // Tambahkan || [] agar tidak terjadi crash 'not iterable' jika data lambat dimuat
+        let sortedBahan = [...(this.db.masterProduk || [])]
             .filter(m => String(m.Kategori).toLowerCase() === 'bahan' || String(m.Kategori).toLowerCase() === 'pendukung')
             .sort((a,b) => String(a.Nama_Produk).localeCompare(String(b.Nama_Produk)));
 

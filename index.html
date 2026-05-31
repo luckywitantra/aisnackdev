@@ -1182,6 +1182,84 @@
     </div>
   </main>
 
+  <!-- 1. MODAL PENGATURAN SISTEM (DIKEMBALIKAN) -->
+  <div id="modal-system-settings" class="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-[200] hidden flex items-center justify-center p-4 lg:p-6 transition-opacity">
+        <div class="bg-white rounded-[2rem] w-full max-w-2xl max-h-[90dvh] flex flex-col shadow-[0_20px_60px_rgba(0,0,0,0.3)] overflow-hidden border border-slate-100 modal-enter relative" id="modal-system-settings-content">
+            <div class="absolute top-0 right-0 -mt-12 -mr-12 text-9xl text-slate-50 opacity-80 pointer-events-none z-0"><i class="fas fa-cog"></i></div>
+            <div class="bg-white/90 backdrop-blur-sm px-6 lg:px-8 py-6 border-b border-slate-100 flex justify-between items-center shrink-0 relative z-10">
+                <div class="flex items-center gap-4">
+                    <div class="w-14 h-14 bg-gradient-to-br from-slate-800 to-black rounded-2xl flex items-center justify-center text-white text-2xl shadow-lg shadow-slate-300/50"><i class="fas fa-sliders-h"></i></div>
+                    <div><h3 class="font-extrabold text-slate-800 text-xl tracking-tight">Pengaturan</h3><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Personalisasi Sistem POS</p></div>
+                </div>
+                <button onclick="superApp.closeModal('modal-system-settings')" class="w-10 h-10 bg-slate-50 hover:bg-rose-50 hover:text-rose-500 rounded-full flex items-center justify-center text-slate-400 transition-colors shadow-sm active:scale-90"><i class="fas fa-times text-lg"></i></button>
+            </div>
+            <div class="p-6 lg:p-8 flex flex-col gap-5 overflow-y-auto custom-scroll relative z-10 bg-slate-50/50">
+                <!-- Tema -->
+                <div class="bg-white border border-slate-200 rounded-[1.5rem] p-5 lg:p-6 flex flex-col md:flex-row justify-between items-start md:items-center shadow-sm hover:shadow-xl hover:shadow-indigo-100/60 hover:border-indigo-200 transition-all duration-300 group hover:-translate-y-1 gap-4">
+                    <div class="flex items-center gap-4">
+                        <div class="w-14 h-14 bg-gradient-to-br from-indigo-50 to-purple-50 text-indigo-600 rounded-2xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform border border-indigo-100/50 shrink-0"><i class="fas fa-palette"></i></div>
+                        <div><h4 class="font-extrabold text-slate-800 text-base">Tampilan Aplikasi</h4><p class="text-xs text-slate-500 font-medium mt-1">Ubah nuansa antarmuka (Gelap/Terang).</p></div>
+                    </div>
+                    <button onclick="superApp.toggleDarkMode()" class="w-full md:w-auto px-6 py-3.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 border-indigo-200 text-slate-700 font-bold rounded-xl text-xs lg:text-sm shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2 border shrink-0"><i class="fas fa-moon text-indigo-500"></i> Ganti Tema</button>
+                </div>
+                <!-- Promo Standby -->
+                <div id="setting-card-standby" class="bg-white border border-slate-200 rounded-[1.5rem] p-5 lg:p-6 flex flex-col md:flex-row justify-between items-start md:items-center shadow-sm hover:shadow-xl hover:shadow-blue-100/60 hover:border-blue-200 transition-all duration-300 group hover:-translate-y-1 gap-4 hidden">
+                    <div class="flex items-center gap-4">
+                        <div class="w-14 h-14 bg-gradient-to-br from-blue-50 to-cyan-50 text-blue-500 rounded-2xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform border border-blue-100/50 shrink-0"><i class="fas fa-tv"></i></div>
+                        <div><h4 class="font-extrabold text-slate-800 text-base">Layar Promo Standby</h4><p class="text-xs text-slate-500 font-medium mt-1 md:max-w-[220px]">Gambar layar CFD saat tidak ada pelanggan.</p></div>
+                    </div>
+                    <button onclick="superApp.changePromoImage('standby')" class="w-full md:w-auto px-6 py-3.5 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-extrabold rounded-xl text-xs lg:text-sm shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 shrink-0"><i class="fas fa-upload"></i> Unggah Gambar</button>
+                </div>
+                <!-- Promo Transaksi -->
+                <div id="setting-card-transaksi" class="bg-white border border-slate-200 rounded-[1.5rem] p-5 lg:p-6 flex flex-col md:flex-row justify-between items-start md:items-center shadow-sm hover:shadow-xl hover:shadow-orange-100/60 hover:border-brand-200 transition-all duration-300 group hover:-translate-y-1 gap-4 hidden">
+                    <div class="flex items-center gap-4">
+                        <div class="w-14 h-14 bg-gradient-to-br from-brand-50 to-orange-50 text-brand-500 rounded-2xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform border border-brand-100/50 shrink-0"><i class="fas fa-image"></i></div>
+                        <div><h4 class="font-extrabold text-slate-800 text-base">Layar Promo Transaksi</h4><p class="text-xs text-slate-500 font-medium mt-1 md:max-w-[220px]">Gambar di layar CFD saat kasir input pesanan.</p></div>
+                    </div>
+                    <button onclick="superApp.changePromoImage('transaksi')" class="w-full md:w-auto px-6 py-3.5 bg-gradient-to-r from-brand-500 to-orange-500 text-white font-extrabold rounded-xl text-xs lg:text-sm shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 shrink-0"><i class="fas fa-upload"></i> Unggah Gambar</button>
+                </div>
+                 <!-- Ganti Logo App -->
+                 <div id="setting-card-logo" class="bg-white border border-slate-200 rounded-[1.5rem] p-5 lg:p-6 flex flex-col md:flex-row justify-between items-start md:items-center shadow-sm hover:shadow-xl hover:shadow-emerald-100/60 hover:border-emerald-200 transition-all duration-300 group hover:-translate-y-1 gap-4">
+                    <div class="flex items-center gap-4">
+                        <div class="w-14 h-14 bg-gradient-to-br from-emerald-50 to-teal-50 text-emerald-500 rounded-2xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform border border-emerald-100/50 shrink-0"><i class="fas fa-building"></i></div>
+                        <div><h4 class="font-extrabold text-slate-800 text-base">Logo Aplikasi Global</h4><p class="text-xs text-slate-500 font-medium mt-1 md:max-w-[220px]">Ubah logo seluruh cabang.</p></div>
+                    </div>
+                    <button onclick="superApp.changeAppLogo()" class="w-full md:w-auto px-6 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-extrabold rounded-xl text-xs lg:text-sm shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 shrink-0"><i class="fas fa-upload"></i> Unggah Logo</button>
+                </div>
+            </div>
+        </div>
+  </div>
+
+  <!-- 2. MODAL FORENSIC AUDIT (DIKEMBALIKAN) -->
+  <div id="modal-forensic-audit" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[200] hidden flex items-center justify-center p-4 lg:p-6 transition-opacity">
+        <div class="bg-white rounded-[2rem] w-full max-w-4xl max-h-[95dvh] flex flex-col shadow-2xl overflow-hidden border border-slate-100 modal-enter" id="modal-forensic-audit-content">
+            <div id="forensic-action-row" class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center shrink-0">
+                <h3 class="font-extrabold text-slate-800 text-lg flex items-center gap-2"><i class="fas fa-file-search text-brand-500"></i> Detail Bukti Audit</h3>
+                <div class="flex gap-2">
+                    <button onclick="superApp.exportForensicPDF(document.getElementById('forensic-staff-name').innerText)" class="bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md shadow-rose-200 transition active:scale-95 flex items-center gap-2"><i class="fas fa-file-pdf"></i> Cetak Berita Acara</button>
+                    <button onclick="superApp.closeModal('modal-forensic-audit')" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-xl text-xs font-bold transition active:scale-95"><i class="fas fa-times"></i> Tutup</button>
+                </div>
+            </div>
+            <div id="forensic-pdf-area" class="flex-1 overflow-y-auto custom-scroll p-6 md:p-10 bg-white relative">
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-5 overflow-hidden z-0"><h1 class="text-8xl font-black transform -rotate-45 text-slate-900">CONFIDENTIAL</h1></div>
+                <div class="relative z-10">
+                    <div class="text-center border-b-4 border-slate-800 pb-6 mb-8">
+                        <h1 class="text-2xl font-black uppercase tracking-widest text-slate-900 mb-1">Berita Acara Audit Integritas Operasional</h1>
+                        <p class="text-sm font-bold text-slate-600">Dokumen Internal Departemen HRD & Audit - Ai-Snack</p>
+                    </div>
+                    <div class="flex flex-col md:flex-row justify-between mb-8 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <div><p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Nama Karyawan / Staf</p><h3 class="font-extrabold text-xl text-slate-800" id="forensic-staff-name">-</h3></div>
+                        <div class="mt-4 md:mt-0 md:text-right"><p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Periode Audit</p><h3 class="font-extrabold text-lg text-slate-800" id="forensic-date-range">-</h3></div>
+                    </div>
+                    <div class="mb-8"><h4 class="font-black text-rose-600 mb-2 border-l-4 border-rose-500 pl-3 uppercase text-sm">1. Indikasi Manipulasi (Struk Tidak Dicetak)</h4><table class="w-full text-left text-sm border border-slate-200 rounded-lg overflow-hidden"><thead class="bg-rose-50 text-rose-800 border-b border-rose-100"><tr><th class="py-2 px-3">Waktu</th><th class="py-2 px-3">No. Resi</th><th class="py-2 px-3">Item Dipesan</th><th class="py-2 px-3 text-right">Nominal Masuk</th></tr></thead><tbody id="forensic-noprint-tbody" class="divide-y divide-slate-100 font-medium text-slate-700"></tbody></table></div>
+                    <div class="mb-8"><h4 class="font-black text-amber-600 mb-2 border-l-4 border-amber-500 pl-3 uppercase text-sm">2. Riwayat Pembatalan (Void)</h4><table class="w-full text-left text-sm border border-slate-200 rounded-lg overflow-hidden"><thead class="bg-amber-50 text-amber-800 border-b border-amber-100"><tr><th class="py-2 px-3">Waktu</th><th class="py-2 px-3">No. Resi Batal</th><th class="py-2 px-3">Item Dipesan</th><th class="py-2 px-3 text-right">Potensi Nominal</th></tr></thead><tbody id="forensic-void-tbody" class="divide-y divide-slate-100 font-medium text-slate-700"></tbody></table></div>
+                    <div class="mb-8"><h4 class="font-black text-blue-600 mb-2 border-l-4 border-blue-500 pl-3 uppercase text-sm">3. Kesalahan Fisik (Deviasi Opname)</h4><table class="w-full text-left text-sm border border-slate-200 rounded-lg overflow-hidden"><thead class="bg-blue-50 text-blue-800 border-b border-blue-100"><tr><th class="py-2 px-3">Waktu Opname</th><th class="py-2 px-3">Nama Barang</th><th class="py-2 px-3 text-center">Komparasi</th><th class="py-2 px-3 text-center">Selisih Fisik</th><th class="py-2 px-3">Catatan Staf</th></tr></thead><tbody id="forensic-opname-tbody" class="divide-y divide-slate-100 font-medium text-slate-700"></tbody></table></div>
+                    <div class="mt-12 flex justify-end"><div class="text-center"><p class="text-xs font-bold text-slate-500 mb-12">Mengetahui,</p><p class="text-sm font-black text-slate-800 border-b border-slate-800 pb-1 inline-block min-w-[150px]">Owner / Auditor</p><p class="text-[9px] font-bold text-slate-400 mt-1 uppercase">Sistem Terpadu Ai-Snack</p></div></div>
+                </div>
+            </div>
+        </div>
+  </div>
+  
   <div id="toast-container" class="fixed top-5 right-5 z-[999] flex flex-col gap-3 pointer-events-none"></div>
 
 

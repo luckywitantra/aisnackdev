@@ -1320,10 +1320,9 @@ refreshData: function() {
     },
     
     changeOutlet: function(val) { this.outlet = val; this.cart = []; this.renderCart(); this.checkShiftStatus(); this.refreshData(); },
-    switchMenu: function(menu) {
+   switchMenu: function(menu) {
         document.querySelectorAll('.app-view').forEach(el => el.classList.add('hidden'));
         
-        // PEMETAAN WARNA (Tambahkan 'master' agar tidak undefined)
         const colors = {
             'pos': 'text-brand-500',      
             'terima': 'text-green-600',   
@@ -1334,7 +1333,7 @@ refreshData: function() {
             'gudang': 'text-emerald-600', 
             'outlet': 'text-teal-600',    
             'staf': 'text-amber-600',
-            'master': 'text-emerald-600' // <-- Tambahan
+            'master': 'text-emerald-600' // PERBAIKAN 1: Tambahkan ini agar warna menu master terdeteksi
         };
         const allColors = Object.values(colors);
 
@@ -1354,9 +1353,9 @@ refreshData: function() {
             if(icon) { icon.classList.remove('text-slate-400'); icon.classList.add(targetColor); }
         }
 
-        // BUKA HALAMAN (Berikan fallback jika master dan gudang ada di 1 halaman yang sama)
-        let activeView = document.getElementById(`view-${menu}`); 
-        if (!activeView && menu === 'master') activeView = document.getElementById(`view-gudang`);
+        // PERBAIKAN 2: Menggabungkan Menu Master dan Gudang ke satu Halaman HTML yang sama
+        let targetViewId = menu === 'master' ? 'gudang' : menu;
+        const activeView = document.getElementById(`view-${targetViewId}`); 
         if (activeView) activeView.classList.remove('hidden');
 
         const titles = { 'pos': 'POS', 'opname': 'Opname Fisik Stok', 'terima': 'Penerimaan Barang', 'audit': 'Audit Laporan', 'report': 'Laporan Terpadu', 'ai': 'Asisten AI', 'gudang': 'Gudang Pusat', 'master': 'Master Varian POS', 'outlet': 'Cabang & Harga Khusus', 'staf': 'Kinerja Karyawan' };
@@ -1379,7 +1378,7 @@ refreshData: function() {
             }
         });
 
-        // 🚀 TRIGGER RENDER (Tambahkan pemanggilan untuk gudang, master, dan outlet)
+        // PERBAIKAN 3: Daftarkan pemicu halaman Gudang, Outlet, dan Master agar digambar saat diklik
         if (menu === 'pos' && !this.activeShiftId) this.checkShiftStatus();
         if (menu === 'report' && typeof this.renderReport === 'function') this.renderReport();
         if (menu === 'opname' && typeof this.renderOpname === 'function') this.renderOpname();

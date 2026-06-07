@@ -3218,36 +3218,64 @@ submitOpname: async function() {
         }
     },
 
-    openDetailTrx: function(trxId) {
-        let trx = (this.db.transactions || []).find(x => x.ID_TRX === trxId); if(!trx) return;
-        this.activeReprintTrx = trx; let items = []; try { items = JSON.parse(trx.Items_JSON || '[]'); } catch(e){}
-        let statText = trx.Status === 'Sukses' ? '' : '\n*** DIBATALKAN ***\n';
+    // Membuka Modal Detail Struk di Tab Laporan
+    openDetailTrx: function(trxID) {
+        let t = (this.db.transactions || []).find(x => x.ID_TRX === trxID);
+        if(!t) return;
         
-        let cleanDate = this.cleanDateOnly(trx.Tanggal);
-        let cleanTime = this.cleanTimeOnly(trx.Waktu);
-        let antrianNo = trx.Antrian ? `\nANTRIAN: ${trx.Antrian}` : '';
-
-        let strukHtml = `<div class="text-center font-bold mb-4 text-slate-800 border-b-2 border-slate-800 pb-2">=== Ai-Snack ===\nCabang: ${trx.Outlet}\nNo. Resi: ${trx.ID_TRX}${antrianNo}\n${cleanDate} ${cleanTime}${statText}</div>`;
-        items.forEach(i => { strukHtml += `<div class="mb-2 text-slate-800 font-bold">${i.nama}\n<div class="flex justify-between font-normal text-slate-600"><span>${i.qty} x Rp ${Number(i.price).toLocaleString('id-ID')}</span><span class="font-bold text-slate-800">Rp ${(i.price * i.qty).toLocaleString('id-ID')}</span></div></div>`; });
-        strukHtml += `<div class="border-t-2 border-slate-800 mt-4 pt-2 flex justify-between font-black text-slate-800 text-lg"><span>TOTAL</span><span>Rp ${Number(trx.Total_Bayar).toLocaleString('id-ID')}</span></div>`;
-        let tunaiVal = trx.Tunai !== undefined ? trx.Tunai : (trx.Dibayar || 0);
-        strukHtml += `<div class="flex justify-between text-slate-600 font-bold mt-2"><span>${trx.Metode_Bayar||'TUNAI'}</span><span>Rp ${Number(tunaiVal).toLocaleString('id-ID')}</span></div><div class="flex justify-between text-slate-600 font-bold"><span>KEMBALI</span><span>Rp ${Number(trx.Kembalian).toLocaleString('id-ID')}</span></div>`;
+        // Panggil logo dan footer yang sudah diatur Owner
+        let logo = localStorage.getItem('aisnack_struk_logo') || "https://cdn-icons-png.flaticon.com/512/3081/3081308.png";
+        let footer = localStorage.getItem('aisnack_struk_footer') || "Terima kasih atas kunjungannya!";
         
-        const dsb = document.getElementById('detail-struk-body'); if(dsb) dsb.innerHTML = strukHtml;
-        let btnVoid = document.getElementById('btn-void-trx');
-        if(btnVoid) { if(trx.Status === 'Sukses') { btnVoid.classList.remove('hidden'); } else { btnVoid.classList.add('hidden'); } }
-        const md = document.getElementById('modal-detail'); const mdc = document.getElementById('modal-detail-content');
-        if(md && mdc) { md.classList.remove('hidden'); setTimeout(() => mdc.classList.add('modal-enter-active'), 10); }
+        let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
+        let itemsHtml = items.map(i => `<div class="w-full text-left font-bold flex justify-between"><span>${i.qty}x ${i.nama}</span><span>${(Number(i.price) * Number(i.qty)).toLocaleString('id-ID')}</span></div>`).join('');
+        
+        // Render Struk Digital
+        let html = `
+            <div class="flex flex-col items-center text-center font-mono text-[10px] text-black w-full max-w-[220px] mx-auto">
+                <img src="${logo}" class="w-14 h-14 object-contain filter grayscale contrast-200 mb-2">
+                <div class="font-bold text-base tracking-tight mb-1">${String(t.Outlet).toUpperCase()}</div>
+                
+                <div class="border-b border-dashed border-slate-400 w-full mb-2"></div>
+                
+                <div class="text-[9px] text-left w-full mb-2 leading-tight">
+                    TRX: ${t.ID_TRX}<br>
+                    Tgl: ${t.Tanggal} ${t.Waktu}<br>
+                    Ksr: ${t.Kasir}<br>
+                    Sts: <span class="${t.Status === 'Sukses' ? 'text-green-600' : 'text-red-500'} font-black">${t.Status}</span>
+                </div>
+                
+                <div class="border-b border-dashed border-slate-400 w-full mb-2"></div>
+                
+                ${itemsHtml}
+                
+                <div class="border-b border-dashed border-slate-400 w-full my-2"></div>
+                <div class="w-full text-right font-black text-xs mb-1">TOTAL: ${Number(t.Total_Bayar).toLocaleString('id-ID')}</div>
+                <div class="w-full text-right text-[10px] mb-1">TUNAI: ${Number(t.Tunai||0).toLocaleString('id-ID')}</div>
+                <div class="w-full text-right text-[10px] mb-3">KEMBALI: ${Number(t.Kembalian||0).toLocaleString('id-ID')}</div>
+                
+                <div class="w-full text-center whitespace-pre-wrap leading-tight text-[9px] mt-2 font-bold">${footer}</div>
+            </div>
+        `;
+        
+        document.getElementById('detail-struk-body').innerHTML = html;
+        this.activeReprintTrx = t; // Simpan memori untuk cetak ulang
+        
+        this.openModal('modal-detail');
     },
-    executeReprint: async function() {
-        if(!this.activeReprintTrx) return; 
-        let t = this.activeReprintTrx; let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
-        let tunaiVal = t.Tunai !== undefined ? t.Tunai : (t.Dibayar || 0);
-        let cleanDate = this.cleanDateOnly(t.Tanggal);
-        let cleanTime = this.cleanTimeOnly(t.Waktu);
+
+    // Tombol Cetak Ulang ditekan
+    executeReprint: function() {
+        if(!this.activeReprintTrx) return;
+        let t = this.activeReprintTrx;
+        let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
         
-        // 🚀 PERBAIKAN: Tambahkan parameter 'true' di bagian akhir
-        try { await this.printReceipt(t.ID_TRX, t.Outlet, t.Total_Bayar, tunaiVal, t.Kembalian, items, t.Status, cleanDate + ' ' + cleanTime, t.Antrian, true); } catch(e) {}
+        // Panggil fungsi print Bluetooth Anda (harus dimodifikasi agar menangkap logo & footer)
+        this.printReceipt(t.ID_TRX, t.Outlet, t.Total_Bayar, t.Tunai, t.Kembalian, items, t.Status, t.Waktu, t.Antrian, true).then(() => {
+            this.showToast("Struk berhasil dicetak ulang!", "success");
+        }).catch(e => {
+            this.showToast("Gagal mencetak. Pastikan printer Bluetooth menyala.", "error");
+        });
     },
     promptVoidTrx: function() {
         let pin = prompt("Masukkan PIN Super Admin (Owner) untuk Membatalkan & Mengembalikan Stok:");

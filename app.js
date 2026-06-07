@@ -994,96 +994,338 @@ const superApp = {
         }, 500); // Beri sedikit delay agar terlihat proses loading
     },
 
+   // ==========================================
+    // DYNAMIC RECEIPT BUILDER ENGINE
     // ==========================================
-    // LOGIKA PENGATURAN DESAIN STRUK
-    // ==========================================
-    
-    // 1. Fungsi Mengunggah & Menyimpan Logo
-    changeReceiptLogo: function() {
-        let input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/png, image/jpeg, image/jpg';
-        
-        input.onchange = e => {
-            let file = e.target.files[0];
-            if (!file) return;
-            
-            // Batasi ukuran file (misal maksimal 2MB)
-            if (file.size > 2 * 1024 * 1024) {
-                this.showToast("Ukuran logo terlalu besar! Maksimal 2MB.", "error");
-                return;
-            }
+    receiptBlocks: [], // State memori desain
+    activeBlockId: null,
 
+    // Template Dasar Jika Belum Pernah Dibuat
+    defaultReceiptTemplate: [
+        { id: 1, type: 'logo', image: 'https://cdn-icons-png.flaticon.com/512/3081/3081308.png', align: 'center' },
+        { id: 2, type: 'text', content: '{{nama_toko}}', align: 'center', size: 'double', bold: true },
+        { id: 3, type: 'text', content: 'Pusat Jajanan Kekinian\nCab. {{cabang}}', align: 'center', size: 'normal', bold: false },
+        { id: 4, type: 'divider', style: 'dashed' },
+        { id: 5, type: 'text', content: 'TRX: {{no_resi}}\nTgl: {{waktu}}\nKsr: {{kasir}}', align: 'left', size: 'normal', bold: false },
+        { id: 6, type: 'divider', style: 'dashed' },
+        { id: 7, type: 'body_transaction' }, // Blok absolut daftar pesanan
+        { id: 8, type: 'divider', style: 'dashed' },
+        { id: 9, type: 'text', content: 'Terima kasih atas kunjungannya!\nWiFi: {{wifi}}', align: 'center', size: 'normal', bold: true }
+    ],
+
+    openReceiptBuilder: function() {
+        let savedTemplate = localStorage.getItem('aisnack_receipt_template');
+        if (savedTemplate) {
+            try { this.receiptBlocks = JSON.parse(savedTemplate); } 
+            catch(e) { this.receiptBlocks = JSON.parse(JSON.stringify(this.defaultReceiptTemplate)); }
+        } else {
+            this.receiptBlocks = JSON.parse(JSON.stringify(this.defaultReceiptTemplate));
+        }
+        
+        this.activeBlockId = null;
+        this.renderReceiptCanvas();
+        this.renderReceiptInspector();
+        this.closeModal('modal-system-settings'); // Tutup modal pengaturan
+        this.openModal('modal-receipt-builder'); // Buka modal canvas
+    },
+
+    addReceiptBlock: function(type) {
+        let newId = new Date().getTime();
+        let newBlock = { id: newId, type: type };
+        
+        if (type === 'text') { newBlock.content = 'Teks Baru'; newBlock.align = 'left'; newBlock.size = 'normal'; newBlock.bold = false; }
+        else if (type === 'divider') { newBlock.style = 'dashed'; }
+        else if (type === 'logo') { newBlock.image = 'https://cdn-icons-png.flaticon.com/512/3081/3081308.png'; newBlock.align = 'center'; }
+        else if (type === 'qrcode') { newBlock.content = 'https://instagram.com/aisnack'; newBlock.align = 'center'; }
+
+        this.receiptBlocks.push(newBlock);
+        this.activeBlockId = newId;
+        this.renderReceiptCanvas();
+        this.renderReceiptInspector();
+        
+        // Auto scroll ke bawah
+        let canvas = document.getElementById('receipt-canvas-container');
+        if(canvas) setTimeout(()=> canvas.scrollTop = canvas.scrollHeight, 100);
+    },
+
+    moveReceiptBlock: function(id, direction) {
+        let idx = this.receiptBlocks.findIndex(b => b.id === id);
+        if (idx < 0) return;
+        
+        if (direction === 'up' && idx > 0) {
+            let temp = this.receiptBlocks[idx - 1];
+            this.receiptBlocks[idx - 1] = this.receiptBlocks[idx];
+            this.receiptBlocks[idx] = temp;
+        } else if (direction === 'down' && idx < this.receiptBlocks.length - 1) {
+            let temp = this.receiptBlocks[idx + 1];
+            this.receiptBlocks[idx + 1] = this.receiptBlocks[idx];
+            this.receiptBlocks[idx] = temp;
+        }
+        this.renderReceiptCanvas();
+    },
+
+    deleteReceiptBlock: function(id) {
+        this.receiptBlocks = this.receiptBlocks.filter(b => b.id !== id);
+        if (this.activeBlockId === id) this.activeBlockId = null;
+        this.renderReceiptCanvas();
+        this.renderReceiptInspector();
+    },
+
+    selectReceiptBlock: function(id) {
+        this.activeBlockId = id;
+        this.renderReceiptCanvas(); // Re-render untuk efek Highlight
+        this.renderReceiptInspector();
+    },
+
+    updateBlockProp: function(key, value) {
+        let block = this.receiptBlocks.find(b => b.id === this.activeBlockId);
+        if(block) {
+            block[key] = value;
+            this.renderReceiptCanvas();
+        }
+    },
+
+    uploadBlockLogo: function() {
+        let input = document.createElement('input'); input.type = 'file'; input.accept = 'image/png, image/jpeg, image/jpg';
+        input.onchange = e => {
+            let file = e.target.files[0]; if (!file || file.size > 2*1024*1024) { this.showToast("Maksimal 2MB", "error"); return; }
             let reader = new FileReader();
-            reader.onload = event => {
-                let base64Image = event.target.result;
-                
-                // Simpan ke memori lokal
-                localStorage.setItem('aisnack_struk_logo', base64Image);
-                
-                // Update Live Preview langsung
-                let imgEl = document.getElementById('preview-struk-logo');
-                if (imgEl) imgEl.src = base64Image;
-                
-                this.showToast("Logo Struk berhasil diperbarui!", "success");
-            };
+            reader.onload = event => { this.updateBlockProp('image', event.target.result); };
             reader.readAsDataURL(file);
         };
         input.click();
     },
 
-    // 2. Fungsi Mengetik Pesan Bawah (Footer) secara Real-Time
-    updateStrukPreview: function() {
-        let footerTxt = document.getElementById('setting-struk-footer').value;
+    renderReceiptCanvas: function() {
+        const canvas = document.getElementById('receipt-canvas');
+        if(!canvas) return;
         
-        // Simpan ke memori lokal tiap kali diketik
-        localStorage.setItem('aisnack_struk_footer', footerTxt);
-        
-        // Update teks di Kertas Live Preview
-        let previewFooter = document.getElementById('preview-struk-footer-text');
-        if (previewFooter) {
-            previewFooter.innerText = footerTxt || 'Terima kasih atas kunjungannya!';
-        }
-    },
+        let html = '';
+        this.receiptBlocks.forEach(b => {
+            let isActive = b.id === this.activeBlockId;
+            let activeClass = isActive ? 'border-brand-500 bg-brand-50/50 shadow-md transform scale-[1.02] z-10' : 'border-transparent hover:border-slate-300 hover:bg-slate-50';
+            
+            // Tampilan Tools Overlay
+            let toolsHtml = isActive ? `
+                <div class="absolute -right-4 -top-3 flex gap-1 z-20">
+                    <button onclick="superApp.moveReceiptBlock(${b.id}, 'up'); event.stopPropagation();" class="w-7 h-7 bg-slate-800 text-white rounded-md shadow-md hover:bg-slate-700 text-xs"><i class="fas fa-arrow-up"></i></button>
+                    <button onclick="superApp.moveReceiptBlock(${b.id}, 'down'); event.stopPropagation();" class="w-7 h-7 bg-slate-800 text-white rounded-md shadow-md hover:bg-slate-700 text-xs"><i class="fas fa-arrow-down"></i></button>
+                    ${b.type !== 'body_transaction' ? `<button onclick="superApp.deleteReceiptBlock(${b.id}); event.stopPropagation();" class="w-7 h-7 bg-rose-500 text-white rounded-md shadow-md hover:bg-rose-600 text-xs"><i class="fas fa-trash"></i></button>` : ''}
+                </div>` : '';
 
-    // 3. Fungsi Menampilkan Pengaturan Saat Modal Dibuka
-    loadStrukSettings: function() {
-        let savedLogo = localStorage.getItem('aisnack_struk_logo');
-        let savedFooter = localStorage.getItem('aisnack_struk_footer');
-        
-        // Load Logo
-        if (savedLogo) {
-            let imgEl = document.getElementById('preview-struk-logo');
-            if (imgEl) imgEl.src = savedLogo;
-        }
-        
-        // Load Footer Text
-        let footerInput = document.getElementById('setting-struk-footer');
-        let previewFooter = document.getElementById('preview-struk-footer-text');
-        
-        if (savedFooter !== null) {
-            if (footerInput) footerInput.value = savedFooter;
-            if (previewFooter) previewFooter.innerText = savedFooter || 'Terima kasih atas kunjungannya!';
-        }
-
-        // Tampilkan Nama Toko Cabang saat ini di preview
-        let namaTokoEl = document.getElementById('preview-struk-nama-toko');
-        if (namaTokoEl) namaTokoEl.innerText = (this.outlet || "AI-SNACK").toUpperCase();
-
-        // LOGIKA HAK AKSES ADMIN: Buka Gembok Kartu
-        let roleStr = this.currentUser ? String(this.currentUser.Role).toLowerCase() : '';
-        let isAdmin = roleStr.includes('admin') || roleStr.includes('owner');
-        
-        let cardStruk = document.getElementById('setting-card-struk');
-        if (cardStruk) {
-            if (isAdmin) {
-                cardStruk.classList.remove('hidden');
-            } else {
-                cardStruk.classList.add('hidden');
+            // Rendering Elemen Spesifik
+            let contentHtml = '';
+            let alignClass = b.align === 'center' ? 'text-center' : (b.align === 'right' ? 'text-right' : 'text-left');
+            
+            if (b.type === 'text') {
+                let sizeClass = b.size === 'double' ? 'text-lg' : 'text-xs';
+                let weightClass = b.bold ? 'font-black' : 'font-medium';
+                // Parser Live Simulasi (Ubah Variabel ke Teks Dummy)
+                let parsedText = (b.content || '')
+                    .replace(/{{nama_toko}}/g, 'AI-SNACK')
+                    .replace(/{{cabang}}/g, 'Cabang Penajam')
+                    .replace(/{{kasir}}/g, 'Staf Beby')
+                    .replace(/{{no_resi}}/g, 'TRX-123456789')
+                    .replace(/{{waktu}}/g, '12/12/2026 14:00')
+                    .replace(/{{wifi}}/g, 'AisnackJaya');
+                
+                contentHtml = `<div class="${alignClass} ${sizeClass} ${weightClass} whitespace-pre-wrap leading-tight font-mono text-black">${parsedText}</div>`;
+            } 
+            else if (b.type === 'divider') {
+                let borderStyle = b.style === 'solid' ? 'border-solid' : 'border-dashed';
+                contentHtml = `<div class="border-b-[2px] ${borderStyle} border-black w-full my-1"></div>`;
+            } 
+            else if (b.type === 'logo') {
+                let flexAlign = b.align === 'center' ? 'mx-auto' : (b.align === 'right' ? 'ml-auto' : 'mr-auto');
+                contentHtml = `<img src="${b.image}" class="w-20 h-20 object-contain filter grayscale contrast-200 ${flexAlign}">`;
             }
-        }
+            else if (b.type === 'qrcode') {
+                contentHtml = `<div class="${alignClass}"><div class="inline-flex flex-col items-center justify-center border-4 border-black p-2"><i class="fas fa-qrcode text-6xl text-black"></i><span class="text-[8px] font-black mt-1 uppercase text-black max-w-[80px] truncate">${b.content}</span></div></div>`;
+            }
+            else if (b.type === 'body_transaction') {
+                contentHtml = `
+                    <div class="font-mono text-black text-xs">
+                        <div class="flex justify-between font-black border-b border-dashed border-black pb-1 mb-1"><span>ITEM</span><span>TOTAL</span></div>
+                        <div class="flex justify-between font-bold"><span>1x Kopi Aren</span><span>15.000</span></div>
+                        <div class="flex justify-between font-bold"><span>2x Roti Bakar</span><span>30.000</span></div>
+                        <div class="border-b border-dashed border-black w-full my-1"></div>
+                        <div class="flex justify-between font-black text-sm"><span>TOTAL</span><span>45.000</span></div>
+                        <div class="flex justify-between font-bold text-[10px]"><span>TUNAI</span><span>50.000</span></div>
+                        <div class="flex justify-between font-bold text-[10px]"><span>KEMBALI</span><span>5.000</span></div>
+                    </div>`;
+            }
+
+            html += `<div onclick="superApp.selectReceiptBlock(${b.id})" class="relative border-[2px] p-2 m-1 rounded cursor-pointer transition-all ${activeClass}">${toolsHtml}${contentHtml}</div>`;
+        });
+        
+        canvas.innerHTML = html;
     },
-    
+
+    renderReceiptInspector: function() {
+        const panel = document.getElementById('receipt-inspector');
+        if(!panel) return;
+
+        if(!this.activeBlockId) {
+            panel.innerHTML = `<div class="h-full flex flex-col items-center justify-center text-center opacity-50"><i class="fas fa-hand-pointer text-4xl mb-3"></i><p class="text-xs font-bold">Klik salah satu blok di kertas<br>untuk mengubah tampilannya.</p></div>`;
+            return;
+        }
+
+        let b = this.receiptBlocks.find(x => x.id === this.activeBlockId);
+        let html = '';
+
+        // Teks Bantuan Umum Alignment
+        let alignEditor = `
+            <div class="mb-4">
+                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Posisi (Alignment)</label>
+                <div class="flex bg-slate-100 rounded-lg p-1 gap-1">
+                    <button onclick="superApp.updateBlockProp('align', 'left')" class="flex-1 py-1.5 rounded-md text-xs font-bold ${b.align==='left'?'bg-white shadow-sm text-brand-600':'text-slate-500 hover:bg-slate-200'}"><i class="fas fa-align-left"></i> Kiri</button>
+                    <button onclick="superApp.updateBlockProp('align', 'center')" class="flex-1 py-1.5 rounded-md text-xs font-bold ${b.align==='center'?'bg-white shadow-sm text-brand-600':'text-slate-500 hover:bg-slate-200'}"><i class="fas fa-align-center"></i> Tengah</button>
+                    <button onclick="superApp.updateBlockProp('align', 'right')" class="flex-1 py-1.5 rounded-md text-xs font-bold ${b.align==='right'?'bg-white shadow-sm text-brand-600':'text-slate-500 hover:bg-slate-200'}"><i class="fas fa-align-right"></i> Kanan</button>
+                </div>
+            </div>`;
+
+        if (b.type === 'text') {
+            html += `
+                <div class="mb-4">
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Isi Teks</label>
+                    <textarea rows="4" class="w-full border-2 border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-brand-500 transition custom-scroll" oninput="superApp.updateBlockProp('content', this.value)">${b.content || ''}</textarea>
+                </div>
+                ${alignEditor}
+                <div class="mb-4">
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Ukuran Huruf</label>
+                    <select class="w-full border-2 border-slate-200 rounded-xl p-2.5 text-sm font-bold text-slate-700 outline-none" onchange="superApp.updateBlockProp('size', this.value)">
+                        <option value="normal" ${b.size==='normal'?'selected':''}>Normal (Kecil)</option>
+                        <option value="double" ${b.size==='double'?'selected':''}>Raksasa (Heading)</option>
+                    </select>
+                </div>
+                <div class="mb-4 flex items-center justify-between bg-slate-50 border border-slate-100 p-3 rounded-xl">
+                    <label class="text-xs font-black text-slate-600">Cetak Tebal (Bold)</label>
+                    <input type="checkbox" ${b.bold ? 'checked' : ''} onchange="superApp.updateBlockProp('bold', this.checked)" class="w-5 h-5 accent-brand-500 cursor-pointer">
+                </div>`;
+        } 
+        else if (b.type === 'divider') {
+            html += `
+                <div class="mb-4">
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Gaya Garis</label>
+                    <select class="w-full border-2 border-slate-200 rounded-xl p-2.5 text-sm font-bold text-slate-700 outline-none" onchange="superApp.updateBlockProp('style', this.value)">
+                        <option value="dashed" ${b.style==='dashed'?'selected':''}>Putus-putus (- - -)</option>
+                        <option value="solid" ${b.style==='solid'?'selected':''}>Tegas Lurus (___)</option>
+                    </select>
+                </div>`;
+        }
+        else if (b.type === 'logo') {
+            html += `
+                ${alignEditor}
+                <div class="mb-4 mt-6">
+                    <button onclick="superApp.uploadBlockLogo()" class="w-full bg-slate-900 hover:bg-slate-800 text-white py-3 rounded-xl font-bold transition flex justify-center items-center gap-2"><i class="fas fa-upload"></i> Unggah Gambar Baru</button>
+                    <p class="text-[9px] text-slate-400 mt-2 text-center">Catatan: Gambar otomatis dicetak hitam-putih.</p>
+                </div>`;
+        }
+        else if (b.type === 'qrcode') {
+            html += `
+                <div class="mb-4">
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Link / Data QR Code</label>
+                    <input type="text" class="w-full border-2 border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-brand-500 transition" oninput="superApp.updateBlockProp('content', this.value)" value="${b.content || ''}">
+                </div>
+                ${alignEditor}
+                <p class="text-[9px] text-brand-600 bg-brand-50 p-2 border border-brand-100 rounded mt-4 font-bold"><i class="fas fa-info-circle"></i> Berguna untuk Link Menu Digital, Alamat Maps, atau Akun Instagram toko Anda.</p>`;
+        }
+        else if (b.type === 'body_transaction') {
+            html += `
+                <div class="bg-blue-50 border border-blue-200 p-4 rounded-xl text-center">
+                    <i class="fas fa-lock text-3xl text-blue-300 mb-2"></i>
+                    <h4 class="font-extrabold text-blue-800 text-sm">Blok Inti Transaksi</h4>
+                    <p class="text-[10px] text-blue-600 mt-1 font-medium leading-relaxed">Blok ini adalah area dinamis dimana sistem akan menyuntikkan pesanan, harga, dan kembalian pelanggan. Blok ini tidak bisa diedit isinya, namun bisa Anda pindahkan letaknya.</p>
+                </div>`;
+        }
+
+        panel.innerHTML = html;
+    },
+
+    saveReceiptTemplate: function() {
+        localStorage.setItem('aisnack_receipt_template', JSON.stringify(this.receiptBlocks));
+        this.showToast("Desain Struk Tersimpan!", "success");
+        this.closeModal('modal-receipt-builder');
+        
+        // Buka lagi modal pengaturan sistem
+        this.openModal('modal-system-settings');
+    },
+
+    // 🚀 Integrasi Panggil Struk Canggih di Layar Riwayat (Fungsi Cetak Ulang)
+    openDetailTrx: function(trxID) {
+        let t = (this.db.transactions || []).find(x => x.ID_TRX === trxID);
+        if(!t) return;
+        
+        let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
+        let itemsHtml = items.map(i => `<div class="w-full text-left font-bold flex justify-between"><span>${i.qty}x ${i.nama}</span><span>${(Number(i.price) * Number(i.qty)).toLocaleString('id-ID')}</span></div>`).join('');
+        
+        let bodyTransHtml = `
+            <div class="w-full text-left font-mono text-[9px] text-black">
+                <div class="flex justify-between font-black border-b border-dashed border-black pb-1 mb-1"><span>ITEM</span><span>TOTAL</span></div>
+                ${itemsHtml}
+                <div class="border-b border-dashed border-black w-full my-1"></div>
+                <div class="flex justify-between font-black text-xs"><span>TOTAL</span><span>${Number(t.Total_Bayar).toLocaleString('id-ID')}</span></div>
+                <div class="flex justify-between font-bold text-[9px]"><span>TUNAI</span><span>${Number(t.Tunai||0).toLocaleString('id-ID')}</span></div>
+                <div class="flex justify-between font-bold text-[9px]"><span>KEMBALI</span><span>${Number(t.Kembalian||0).toLocaleString('id-ID')}</span></div>
+            </div>`;
+
+        // Tarik template dinamis
+        let template = [];
+        try { template = JSON.parse(localStorage.getItem('aisnack_receipt_template')); } catch(e) {}
+        if (!template || template.length === 0) template = this.defaultReceiptTemplate;
+
+        let parsedStrukHtml = '';
+        template.forEach(b => {
+            let align = b.align === 'center' ? 'mx-auto text-center' : (b.align === 'right' ? 'ml-auto text-right' : 'mr-auto text-left');
+            
+            if (b.type === 'text') {
+                let txt = (b.content || '')
+                    .replace(/{{nama_toko}}/g, 'AI-SNACK')
+                    .replace(/{{cabang}}/g, t.Outlet)
+                    .replace(/{{kasir}}/g, t.Kasir)
+                    .replace(/{{no_resi}}/g, t.ID_TRX)
+                    .replace(/{{waktu}}/g, `${t.Tanggal} ${t.Waktu}`)
+                    .replace(/{{wifi}}/g, 'Tanya Kasir');
+                let size = b.size === 'double' ? 'text-sm' : 'text-[9px]';
+                let weight = b.bold ? 'font-black' : 'font-medium';
+                parsedStrukHtml += `<div class="${align} w-full ${size} ${weight} whitespace-pre-wrap leading-tight font-mono text-black my-0.5">${txt}</div>`;
+            }
+            else if (b.type === 'divider') {
+                parsedStrukHtml += `<div class="border-b-[1.5px] ${b.style==='solid'?'border-solid':'border-dashed'} border-black w-full my-1"></div>`;
+            }
+            else if (b.type === 'logo') {
+                parsedStrukHtml += `<img src="${b.image}" class="w-12 h-12 object-contain filter grayscale contrast-200 ${align} my-1">`;
+            }
+            else if (b.type === 'body_transaction') {
+                parsedStrukHtml += bodyTransHtml;
+            }
+            else if (b.type === 'qrcode') {
+                parsedStrukHtml += `<div class="${align} border-2 border-black p-1 my-1 flex flex-col items-center"><i class="fas fa-qrcode text-4xl text-black"></i></div>`;
+            }
+        });
+
+        document.getElementById('detail-struk-body').innerHTML = `
+            <div class="flex flex-col items-center w-full max-w-[220px] mx-auto p-2 bg-white shadow-md">
+                ${parsedStrukHtml}
+            </div>`;
+            
+        this.activeReprintTrx = t; 
+        this.openModal('modal-detail');
+    },
+
+    executeReprint: function() {
+        if(!this.activeReprintTrx) return;
+        let t = this.activeReprintTrx;
+        let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
+        
+        // Panggil fungsi print Bluetooth
+        // Note: Untuk printer sungguhan, fungsi ini harus membaca JSON receiptBlocks.
+        this.printReceipt(t.ID_TRX, t.Outlet, t.Total_Bayar, t.Tunai, t.Kembalian, items, t.Status, t.Waktu, t.Antrian, true).then(() => {
+            this.showToast("Perintah cetak dikirim ke printer!", "success");
+        }).catch(e => {
+            this.showToast("Gagal mencetak. Printer belum terhubung.", "error");
+        });
+    },    
     // FUNGSI PENYAPA CFD (Mendukung Multi-Window)
     updateCFDGreeting: function() {
         // 1. Simpan nama cabang ke memori agar jendela CFD tidak lupa saat di-refresh
@@ -3264,19 +3506,6 @@ submitOpname: async function() {
         this.openModal('modal-detail');
     },
 
-    // Tombol Cetak Ulang ditekan
-    executeReprint: function() {
-        if(!this.activeReprintTrx) return;
-        let t = this.activeReprintTrx;
-        let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
-        
-        // Panggil fungsi print Bluetooth Anda (harus dimodifikasi agar menangkap logo & footer)
-        this.printReceipt(t.ID_TRX, t.Outlet, t.Total_Bayar, t.Tunai, t.Kembalian, items, t.Status, t.Waktu, t.Antrian, true).then(() => {
-            this.showToast("Struk berhasil dicetak ulang!", "success");
-        }).catch(e => {
-            this.showToast("Gagal mencetak. Pastikan printer Bluetooth menyala.", "error");
-        });
-    },
     promptVoidTrx: function() {
         let pin = prompt("Masukkan PIN Super Admin (Owner) untuk Membatalkan & Mengembalikan Stok:");
         let adminUser = (this.db.users || []).find(u => String(u.Role).toLowerCase().includes('admin') && String(u.PIN) === String(pin));

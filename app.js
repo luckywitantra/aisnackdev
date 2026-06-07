@@ -1299,96 +1299,37 @@ const superApp = {
     },
 
    saveReceiptTemplate: function() {
-        // 1. Ubah desain struk menjadi teks JSON
         let templateData = JSON.stringify(this.receiptBlocks);
-
-        // 2. Simpan di LocalStorage (Sebagai cache agar kasir tetap bisa cetak saat offline)
         localStorage.setItem('aisnack_receipt_template', templateData);
         
-        // 3. Beri tahu owner bahwa data sedang diunggah
         this.showToast("Mengunggah desain ke Database Pusat...", "info");
 
-        // 4. Kirim data ke Database Google Sheets (Sheet Pengaturan Sistem)
-        // Catatan: Sesuaikan nama 'action' dengan yang Anda gunakan di Google Apps Script
         this.apiPost({
-            action: 'update_pengaturan', // Atau 'save_setting' (sesuaikan dengan backend Anda)
-            kunci: 'aisnack_receipt_template', // Nama setting di database
+            action: 'update_pengaturan',
+            kunci: 'aisnack_receipt_template', 
             nilai: templateData
         }).then(res => {
             if (res && res.status === 'sukses') {
                 this.showToast("Desain Struk Global Berhasil Disimpan!", "success");
             } else {
-                this.showToast("Tersimpan di alat ini. Akan disinkronkan saat jaringan stabil.", "warning");
+                this.showToast("Tersimpan di alat ini. Akan disinkronkan nanti.", "warning");
             }
         }).catch(e => {
-            console.log("Koneksi bermasalah, masuk mode offline", e);
             this.showToast("Tersimpan di alat ini (Mode Offline).", "warning");
         });
 
-        // 5. Tutup Modal Editor & Kembali ke Menu Pengaturan
-        this.closeModal('modal-receipt-builder');
-        this.openModal('modal-system-settings');
+        // Panggil fungsi penutup yang aman
+        this.closeReceiptBuilder();
     },
-    // 🚀 Integrasi Panggil Struk Canggih di Layar Riwayat (Fungsi Cetak Ulang)
-    openDetailTrx: function(trxID) {
-        let t = (this.db.transactions || []).find(x => x.ID_TRX === trxID);
-        if(!t) return;
+
+    // 🚀 FUNGSI BARU: Menutup Editor dengan aman tanpa tabrakan animasi
+    closeReceiptBuilder: function() {
+        this.closeModal('modal-receipt-builder');
         
-        let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
-        let itemsHtml = items.map(i => `<div class="w-full text-left font-bold flex justify-between"><span>${i.qty}x ${i.nama}</span><span>${(Number(i.price) * Number(i.qty)).toLocaleString('id-ID')}</span></div>`).join('');
-        
-        let bodyTransHtml = `
-            <div class="w-full text-left font-mono text-[9px] text-black">
-                <div class="flex justify-between font-black border-b border-dashed border-black pb-1 mb-1"><span>ITEM</span><span>TOTAL</span></div>
-                ${itemsHtml}
-                <div class="border-b border-dashed border-black w-full my-1"></div>
-                <div class="flex justify-between font-black text-xs"><span>TOTAL</span><span>${Number(t.Total_Bayar).toLocaleString('id-ID')}</span></div>
-                <div class="flex justify-between font-bold text-[9px]"><span>TUNAI</span><span>${Number(t.Tunai||0).toLocaleString('id-ID')}</span></div>
-                <div class="flex justify-between font-bold text-[9px]"><span>KEMBALI</span><span>${Number(t.Kembalian||0).toLocaleString('id-ID')}</span></div>
-            </div>`;
-
-        // Tarik template dinamis
-        let template = [];
-        try { template = JSON.parse(localStorage.getItem('aisnack_receipt_template')); } catch(e) {}
-        if (!template || template.length === 0) template = this.defaultReceiptTemplate;
-
-        let parsedStrukHtml = '';
-        template.forEach(b => {
-            let align = b.align === 'center' ? 'mx-auto text-center' : (b.align === 'right' ? 'ml-auto text-right' : 'mr-auto text-left');
-            
-            if (b.type === 'text') {
-                let txt = (b.content || '')
-                    .replace(/{{nama_toko}}/g, 'AI-SNACK')
-                    .replace(/{{cabang}}/g, t.Outlet)
-                    .replace(/{{kasir}}/g, t.Kasir)
-                    .replace(/{{no_resi}}/g, t.ID_TRX)
-                    .replace(/{{waktu}}/g, `${t.Tanggal} ${t.Waktu}`)
-                    .replace(/{{wifi}}/g, 'Tanya Kasir');
-                let size = b.size === 'double' ? 'text-sm' : 'text-[9px]';
-                let weight = b.bold ? 'font-black' : 'font-medium';
-                parsedStrukHtml += `<div class="${align} w-full ${size} ${weight} whitespace-pre-wrap leading-tight font-mono text-black my-0.5">${txt}</div>`;
-            }
-            else if (b.type === 'divider') {
-                parsedStrukHtml += `<div class="border-b-[1.5px] ${b.style==='solid'?'border-solid':'border-dashed'} border-black w-full my-1"></div>`;
-            }
-            else if (b.type === 'logo') {
-                parsedStrukHtml += `<img src="${b.image}" class="w-12 h-12 object-contain filter grayscale contrast-200 ${align} my-1">`;
-            }
-            else if (b.type === 'body_transaction') {
-                parsedStrukHtml += bodyTransHtml;
-            }
-            else if (b.type === 'qrcode') {
-                parsedStrukHtml += `<div class="${align} border-2 border-black p-1 my-1 flex flex-col items-center"><i class="fas fa-qrcode text-4xl text-black"></i></div>`;
-            }
-        });
-
-        document.getElementById('detail-struk-body').innerHTML = `
-            <div class="flex flex-col items-center w-full max-w-[220px] mx-auto p-2 bg-white shadow-md">
-                ${parsedStrukHtml}
-            </div>`;
-            
-        this.activeReprintTrx = t; 
-        this.openModal('modal-detail');
+        // Beri jeda 300ms agar animasi penutupan selesai, lalu buka Pengaturan
+        setTimeout(() => {
+            this.openModal('modal-system-settings');
+        }, 300);
     },
 
     executeReprint: function() {

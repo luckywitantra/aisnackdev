@@ -313,6 +313,12 @@ const superApp = {
                     content.style.transform = 'scale(1)';
                 }, 10);
             }
+
+            // 🚀 INTEGRASI TRIGGER OTOMATIS: 
+            // Panggil fungsi pemuat data khusus sesuai ID modal yang sedang dibuka
+            if (modalId === 'modal-system-settings' && typeof this.loadStrukSettings === 'function') {
+                this.loadStrukSettings();
+            }
         }
     },
     closeModal: function(id) { const content = document.getElementById(id + '-content'); const modal = document.getElementById(id); if (content && modal) { content.classList.remove('modal-enter-active'); setTimeout(() => modal.classList.add('hidden'), 300); } },
@@ -988,6 +994,96 @@ const superApp = {
         }, 500); // Beri sedikit delay agar terlihat proses loading
     },
 
+    // ==========================================
+    // LOGIKA PENGATURAN DESAIN STRUK
+    // ==========================================
+    
+    // 1. Fungsi Mengunggah & Menyimpan Logo
+    changeReceiptLogo: function() {
+        let input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/png, image/jpeg, image/jpg';
+        
+        input.onchange = e => {
+            let file = e.target.files[0];
+            if (!file) return;
+            
+            // Batasi ukuran file (misal maksimal 2MB)
+            if (file.size > 2 * 1024 * 1024) {
+                this.showToast("Ukuran logo terlalu besar! Maksimal 2MB.", "error");
+                return;
+            }
+
+            let reader = new FileReader();
+            reader.onload = event => {
+                let base64Image = event.target.result;
+                
+                // Simpan ke memori lokal
+                localStorage.setItem('aisnack_struk_logo', base64Image);
+                
+                // Update Live Preview langsung
+                let imgEl = document.getElementById('preview-struk-logo');
+                if (imgEl) imgEl.src = base64Image;
+                
+                this.showToast("Logo Struk berhasil diperbarui!", "success");
+            };
+            reader.readAsDataURL(file);
+        };
+        input.click();
+    },
+
+    // 2. Fungsi Mengetik Pesan Bawah (Footer) secara Real-Time
+    updateStrukPreview: function() {
+        let footerTxt = document.getElementById('setting-struk-footer').value;
+        
+        // Simpan ke memori lokal tiap kali diketik
+        localStorage.setItem('aisnack_struk_footer', footerTxt);
+        
+        // Update teks di Kertas Live Preview
+        let previewFooter = document.getElementById('preview-struk-footer-text');
+        if (previewFooter) {
+            previewFooter.innerText = footerTxt || 'Terima kasih atas kunjungannya!';
+        }
+    },
+
+    // 3. Fungsi Menampilkan Pengaturan Saat Modal Dibuka
+    loadStrukSettings: function() {
+        let savedLogo = localStorage.getItem('aisnack_struk_logo');
+        let savedFooter = localStorage.getItem('aisnack_struk_footer');
+        
+        // Load Logo
+        if (savedLogo) {
+            let imgEl = document.getElementById('preview-struk-logo');
+            if (imgEl) imgEl.src = savedLogo;
+        }
+        
+        // Load Footer Text
+        let footerInput = document.getElementById('setting-struk-footer');
+        let previewFooter = document.getElementById('preview-struk-footer-text');
+        
+        if (savedFooter !== null) {
+            if (footerInput) footerInput.value = savedFooter;
+            if (previewFooter) previewFooter.innerText = savedFooter || 'Terima kasih atas kunjungannya!';
+        }
+
+        // Tampilkan Nama Toko Cabang saat ini di preview
+        let namaTokoEl = document.getElementById('preview-struk-nama-toko');
+        if (namaTokoEl) namaTokoEl.innerText = (this.outlet || "AI-SNACK").toUpperCase();
+
+        // LOGIKA HAK AKSES ADMIN: Buka Gembok Kartu
+        let roleStr = this.currentUser ? String(this.currentUser.Role).toLowerCase() : '';
+        let isAdmin = roleStr.includes('admin') || roleStr.includes('owner');
+        
+        let cardStruk = document.getElementById('setting-card-struk');
+        if (cardStruk) {
+            if (isAdmin) {
+                cardStruk.classList.remove('hidden');
+            } else {
+                cardStruk.classList.add('hidden');
+            }
+        }
+    },
+    
     // FUNGSI PENYAPA CFD (Mendukung Multi-Window)
     updateCFDGreeting: function() {
         // 1. Simpan nama cabang ke memori agar jendela CFD tidak lupa saat di-refresh

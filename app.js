@@ -1404,6 +1404,7 @@ const superApp = {
             this.showToast("Gagal mencetak. Printer belum terhubung.", "error");
         });
     },    
+    
     // FUNGSI PENYAPA CFD (Mendukung Multi-Window)
     updateCFDGreeting: function() {
         // 1. Simpan nama cabang ke memori agar jendela CFD tidak lupa saat di-refresh
@@ -4847,26 +4848,83 @@ printReceipt: async function(id, outlet, total, tunai, kembali, items, status, e
         } 
         
         try {
+            // 1. Siapkan Variabel Dasar
             let statStr = status === 'Sukses' ? '' : '\n*** DIBATALKAN ***\n';
             let printTime = explicitDate ? explicitDate : new Date().toLocaleString('id-ID');
-            let antrianStr = antrian ? `\nANTRIAN : ${antrian}` : '';
+            let antrianStr = antrian ? `\nANTRIAN : ${antrian}\n` : '';
             
-            let str = "\x1B\x61\x01\x1B\x45\x01=== Ai-Snack ===\n\x1B\x45\x00";
-            str += `Cabang: ${outlet}\nNo. Resi: ${id}${antrianStr}${statStr}\nKasir: ${this.currentUser.Username}\nMetode: ${this.payMethod || 'Tunai'}\nWaktu: ${printTime}\n--------------------------------\n\x1B\x61\x00\n`;
-            
-            items.forEach(i => {
-                str += `${i.nama}\n${i.qty} x Rp ${Number(i.price).toLocaleString('id-ID')} = Rp ${(i.price * i.qty).toLocaleString('id-ID')}\n`;
+            // 2. Tarik Template Desain dari LocalStorage
+            let template = [];
+            try { template = JSON.parse(localStorage.getItem('aisnack_receipt_template')); } catch(e) {}
+            if (!template || template.length === 0) template = this.defaultReceiptTemplate;
+
+            // 3. Inisialisasi Printer (Reset ESC/POS)
+            let str = "\x1B\x40"; 
+
+            // 4. Looping untuk menerjemahkan setiap Blok Desain ke Bahasa Printer
+            template.forEach(b => {
+                
+                // --- ATUR POSISI (ALIGNMENT) ---
+                if (b.align === 'center') str += "\x1B\x61\x01";
+                else if (b.align === 'right') str += "\x1B\x61\x02";
+                else str += "\x1B\x61\x00"; // Rata Kiri
+
+                // --- RENDER TEKS & VARIABEL ---
+                if (b.type === 'text') {
+                    // Atur Tebal (Bold) -> \x1B\x45\x01 = On, \x1B\x45\x00 = Off
+                    str += b.bold ? "\x1B\x45\x01" : "\x1B\x45\x00";
+                    
+                    // Atur Ukuran (Raksasa = \x1D\x21\x11, Normal = \x1D\x21\x00)
+                    str += b.size === 'double' ? "\x1D\x21\x11" : "\x1D\x21\x00";
+
+                    // Ganti Shortcode dengan Data Asli Transaksi Ini
+                    let txt = (b.content || '')
+                        .replace(/{{nama_toko}}/g, 'AI-SNACK')
+                        .replace(/{{cabang}}/g, outlet || 'Cabang')
+                        .replace(/{{kasir}}/g, this.currentUser ? this.currentUser.Username : 'Kasir')
+                        .replace(/{{no_resi}}/g, id || '-')
+                        .replace(/{{waktu}}/g, printTime)
+                        .replace(/{{wifi}}/g, 'Tanya Kasir');
+
+                    str += txt + "\n";
+                }
+                
+                // --- RENDER GARIS PEMISAH ---
+                else if (b.type === 'divider') {
+                    str += "\x1D\x21\x00\x1B\x45\x00"; // Paksa ke ukuran normal & tidak bold
+                    str += b.style === 'solid' ? "================================\n" : "--------------------------------\n";
+                }
+                
+                // --- RENDER DAFTAR BELANJA (CORE) ---
+                else if (b.type === 'body_transaction') {
+                    str += "\x1D\x21\x00\x1B\x61\x00\x1B\x45\x00"; // Set Normal, Kiri, Tidak Bold
+                    
+                    if (statStr) str += `\x1B\x61\x01\x1B\x45\x01${statStr}\x1B\x45\x00\x1B\x61\x00`;
+                    if (antrianStr) str += `\x1B\x61\x01\x1B\x45\x01${antrianStr}\x1B\x45\x00\x1B\x61\x00`;
+
+                    items.forEach(i => {
+                        let hargaStr = Number(i.price).toLocaleString('id-ID');
+                        let subTotStr = (Number(i.price) * Number(i.qty)).toLocaleString('id-ID');
+                        str += `${i.nama}\n${i.qty} x Rp ${hargaStr} = Rp ${subTotStr}\n`;
+                    });
+
+                    str += "--------------------------------\n";
+                    // Blok Total diatur menjadi Rata Kanan dan Bold
+                    str += `\x1B\x61\x02\x1B\x45\x01TOTAL  : Rp ${Number(total).toLocaleString('id-ID')}\nTUNAI  : Rp ${Number(tunai).toLocaleString('id-ID')}\nKEMBALI: Rp ${Number(kembali).toLocaleString('id-ID')}\n\x1B\x45\x00\x1B\x61\x00`;
+                }
             });
+
+            // 5. Kembalikan printer ke setingan awal dan dorong kertas (Feed Paper)
+            str += "\x1B\x40\n\n\n\n";
             
-            str += `--------------------------------\n\x1B\x61\x02\x1B\x45\x01TOTAL  : Rp ${Number(total).toLocaleString('id-ID')}\nTUNAI  : Rp ${Number(tunai).toLocaleString('id-ID')}\nKEMBALI: Rp ${Number(kembali).toLocaleString('id-ID')}\n\x1B\x45\x00\x1B\x61\x01\nTerima Kasih!\n\n\n\n`;
-            
+            // 6. Konversi ke Binary dan Kirim per 20 Byte ke Bluetooth
             const data = new TextEncoder().encode(str);
             const chunkSize = 20; 
             for (let i = 0; i < data.length; i += chunkSize) {
                 await this.printerCharacteristic.writeValue(data.slice(i, i + chunkSize));
             }
 
-            // 🚀 PERBAIKAN: Hanya kirim laporan cetak dari sini JIKA ini adalah fitur Cetak Ulang
+            // 7. Lapor Sukses jika ini Cetak Ulang
             if (isReprint && id && status === 'Sukses') {
                 this.laporStrukDicetak(id);
             }
@@ -4876,8 +4934,7 @@ printReceipt: async function(id, outlet, total, tunai, kembali, items, status, e
             this.showToast("Gagal mencetak struk", "error");
             throw e; 
         }
-    }
-};
+    };
 
 window.onload = () => superApp.init();
 // Tambahkan ini di bawah window.onload = () => superApp.init();

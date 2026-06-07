@@ -1322,7 +1322,6 @@ const superApp = {
         this.closeReceiptBuilder();
     },
 
-    // 🚀 FUNGSI BARU: Menutup Editor dengan aman tanpa tabrakan animasi
     closeReceiptBuilder: function() {
         this.closeModal('modal-receipt-builder');
         
@@ -4876,7 +4875,7 @@ printReceipt: async function(id, outlet, total, tunai, kembali, items, status, e
             throw e; 
         }
     }
-}
+};
 
 window.onload = () => superApp.init();
 // Tambahkan ini di bawah window.onload = () => superApp.init();

@@ -896,26 +896,37 @@ const superApp = {
             let roleStr = String(user.Role).toLowerCase();
             let isAdmin = roleStr.includes('admin') || roleStr.includes('owner');
             
-            const adminMenus = document.getElementById('admin-menus'); const selOut = document.getElementById('select-outlet'); const repOut = document.getElementById('report-outlet-filter');
+            const adminMenus = document.getElementById('admin-menus'); 
+            const selOut = document.getElementById('select-outlet'); 
+            const repOut = document.getElementById('report-outlet-filter');
+
+            // List ID kartu pengaturan premium
+            const premiumCards = [
+                'setting-card-standby', 
+                'setting-card-transaksi', 
+                'setting-card-logo', 
+                'setting-card-struk' // 🚀 Tambahkan ini agar Receipt Builder terdeteksi
+            ];
 
             if (isAdmin) {
                 // AKSES ADMIN/OWNER
-                if (adminMenus) adminMenus.classList.remove('hidden'); if (selOut) selOut.classList.remove('hidden'); if (repOut) repOut.classList.remove('hidden');
+                if (adminMenus) adminMenus.classList.remove('hidden'); 
+                if (selOut) selOut.classList.remove('hidden'); 
+                if (repOut) repOut.classList.remove('hidden');
+                
                 let outOptions = ''; let outFilters = '<option value="Semua">Semua Outlet</option>';
-                (this.db.outlets || []).forEach(o => { outOptions += `<option value="${o.ID_Outlet}">📍 ${o.Nama_Outlet}</option>`; outFilters += `<option value="${o.ID_Outlet}">Hanya: ${o.Nama_Outlet}</option>`; });
+                (this.db.outlets || []).forEach(o => { 
+                    outOptions += `<option value="${o.ID_Outlet}">📍 ${o.Nama_Outlet}</option>`; 
+                    outFilters += `<option value="${o.ID_Outlet}">Hanya: ${o.Nama_Outlet}</option>`; 
+                });
                 if (selOut) { selOut.innerHTML = outOptions; selOut.value = this.outlet; selOut.disabled = false; }
                 if (repOut) repOut.innerHTML = outFilters;
                 
-                // 🚀 BUKA KUNCI MENU PENGATURAN PREMIUM UNTUK ADMIN/OWNER
-                const cardStandby = document.getElementById('setting-card-standby'); 
-                if (cardStandby) cardStandby.classList.remove('hidden');
-                
-                const cardTransaksi = document.getElementById('setting-card-transaksi'); 
-                if (cardTransaksi) cardTransaksi.classList.remove('hidden');
-
-                // TAMBAHAN: Buka menu Ganti Logo
-                const cardLogo = document.getElementById('setting-card-logo'); 
-                if (cardLogo) cardLogo.classList.remove('hidden');
+                // BUKA KUNCI SEMUA MENU PREMIUM
+                premiumCards.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.classList.remove('hidden');
+                });
 
             } else {
                 // AKSES KASIR BIASA
@@ -923,16 +934,11 @@ const superApp = {
                 if (selOut) { selOut.classList.add('hidden'); selOut.innerHTML = `<option value="${this.outlet}">📍 ${this.outlet}</option>`; selOut.disabled = true; }
                 if (repOut) repOut.classList.add('hidden');
                 
-                // 🔒 KUNCI MENU PENGATURAN PREMIUM DARI KASIR BIASA
-                const cardStandby = document.getElementById('setting-card-standby'); 
-                if (cardStandby) cardStandby.classList.add('hidden');
-                
-                const cardTransaksi = document.getElementById('setting-card-transaksi'); 
-                if (cardTransaksi) cardTransaksi.classList.add('hidden');
-
-                // TAMBAHAN: Kunci menu Ganti Logo
-                const cardLogo = document.getElementById('setting-card-logo'); 
-                if (cardLogo) cardLogo.classList.add('hidden');
+                // KUNCI SEMUA MENU PREMIUM
+                premiumCards.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.classList.add('hidden');
+                });
             }
 
             const ls = document.getElementById('login-screen'); if (ls) ls.classList.add('hidden');
@@ -941,15 +947,12 @@ const superApp = {
 
             this.updateNetworkUI(); this.syncOfflineQueue(); this.refreshData(); this.checkShiftStatus(); this.showToast(`Selamat datang, ${user.Username}!`);
             
-            // Tulis data ke memori agar CFD tahu cabang yang aktif
             localStorage.setItem('aisnack_active_outlet', this.outlet);
-            
             this.updateCFDGreeting(); 
             if (!this.cfdTimer) {
                 this.cfdTimer = setInterval(() => { this.updateCFDGreeting(); }, 60000); 
             }
 
-            // 🚀 PICU AUTO-CONNECT PRINTER DI SINI
             this.autoConnectPrinter();
 
         } else { 
@@ -957,6 +960,7 @@ const superApp = {
         }
         this.isProcessing = false;
     },
+    
     logout: function() {
         // Minta konfirmasi agar tidak tidak sengaja terpencet
         if (!confirm("Yakin ingin keluar dari akun ini? Anda harus memasukkan PIN lagi untuk masuk.")) return;

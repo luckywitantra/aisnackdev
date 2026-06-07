@@ -264,6 +264,31 @@ const superApp = {
                 
                 this.db = data; 
                 localStorage.setItem('aisnack_db_cache', JSON.stringify(data)); 
+
+                // ========================================================
+                // 🚀 JEMBATAN SINKRONISASI PENGATURAN PERSONALISASI (BARU)
+                // ========================================================
+                
+                // 1. Set Logo Aplikasi Global
+                let logoData = (this.db.pengaturan || []).find(x => x.Pengaturan === 'Logo_Aplikasi');
+                if (logoData && logoData.Nilai) {
+                    localStorage.setItem('app_logo_url', logoData.Nilai);
+                    if(typeof this.updateAppLogos === 'function') this.updateAppLogos(logoData.Nilai); 
+                }
+                
+                // 2. Set DUAL Promo Layar CFD
+                let pStandby = (this.db.pengaturan || []).find(x => x.Pengaturan === 'Promo_Standby');
+                if (pStandby && pStandby.Nilai) localStorage.setItem('cfd_promo_standby', pStandby.Nilai);
+                
+                let pTransaksi = (this.db.pengaturan || []).find(x => x.Pengaturan === 'Promo_Transaksi');
+                if (pTransaksi && pTransaksi.Nilai) localStorage.setItem('cfd_promo_transaksi', pTransaksi.Nilai);
+
+                // 3. TARIK KEMBALI TEMPLATE STRUK DARI SERVER
+                let tStruk = (this.db.pengaturan || []).find(x => x.Pengaturan === 'aisnack_receipt_template');
+                if (tStruk && tStruk.Nilai) {
+                    localStorage.setItem('aisnack_receipt_template', tStruk.Nilai);
+                }
+                // ========================================================
                 
                 // Hanya perbarui layar jika keranjang kosong (tidak mengganggu transaksi)
                 if (this.cart.length === 0) {

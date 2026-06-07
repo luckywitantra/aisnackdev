@@ -1298,15 +1298,37 @@ const superApp = {
         panel.innerHTML = html;
     },
 
-    saveReceiptTemplate: function() {
-        localStorage.setItem('aisnack_receipt_template', JSON.stringify(this.receiptBlocks));
-        this.showToast("Desain Struk Tersimpan!", "success");
-        this.closeModal('modal-receipt-builder');
+   saveReceiptTemplate: function() {
+        // 1. Ubah desain struk menjadi teks JSON
+        let templateData = JSON.stringify(this.receiptBlocks);
+
+        // 2. Simpan di LocalStorage (Sebagai cache agar kasir tetap bisa cetak saat offline)
+        localStorage.setItem('aisnack_receipt_template', templateData);
         
-        // Buka lagi modal pengaturan sistem
+        // 3. Beri tahu owner bahwa data sedang diunggah
+        this.showToast("Mengunggah desain ke Database Pusat...", "info");
+
+        // 4. Kirim data ke Database Google Sheets (Sheet Pengaturan Sistem)
+        // Catatan: Sesuaikan nama 'action' dengan yang Anda gunakan di Google Apps Script
+        this.apiPost({
+            action: 'update_pengaturan', // Atau 'save_setting' (sesuaikan dengan backend Anda)
+            kunci: 'aisnack_receipt_template', // Nama setting di database
+            nilai: templateData
+        }).then(res => {
+            if (res && res.status === 'sukses') {
+                this.showToast("Desain Struk Global Berhasil Disimpan!", "success");
+            } else {
+                this.showToast("Tersimpan di alat ini. Akan disinkronkan saat jaringan stabil.", "warning");
+            }
+        }).catch(e => {
+            console.log("Koneksi bermasalah, masuk mode offline", e);
+            this.showToast("Tersimpan di alat ini (Mode Offline).", "warning");
+        });
+
+        // 5. Tutup Modal Editor & Kembali ke Menu Pengaturan
+        this.closeModal('modal-receipt-builder');
         this.openModal('modal-system-settings');
     },
-
     // 🚀 Integrasi Panggil Struk Canggih di Layar Riwayat (Fungsi Cetak Ulang)
     openDetailTrx: function(trxID) {
         let t = (this.db.transactions || []).find(x => x.ID_TRX === trxID);

@@ -1090,11 +1090,63 @@ const superApp = {
     },
 
     uploadBlockLogo: function() {
-        let input = document.createElement('input'); input.type = 'file'; input.accept = 'image/png, image/jpeg, image/jpg';
+        let input = document.createElement('input'); 
+        input.type = 'file'; 
+        input.accept = 'image/png, image/jpeg, image/jpg';
+        
         input.onchange = e => {
-            let file = e.target.files[0]; if (!file || file.size > 2*1024*1024) { this.showToast("Maksimal 2MB", "error"); return; }
+            let file = e.target.files[0]; 
+            if (!file) return;
+
+            // Batasan ukuran awal agar browser tidak hang saat membaca file raksasa (maks 5MB)
+            if (file.size > 5 * 1024 * 1024) { 
+                this.showToast("File terlalu besar. Maksimal 5MB sebelum dikompresi.", "error"); 
+                return; 
+            }
+
+            this.showToast("Memproses & mengecilkan logo...", "info");
+
             let reader = new FileReader();
-            reader.onload = event => { this.updateBlockProp('image', event.target.result); };
+            reader.onload = event => { 
+                let img = new Image();
+                img.onload = () => {
+                    // MESIN KOMPRESI CANVAS
+                    let canvas = document.createElement('canvas');
+                    let ctx = canvas.getContext('2d');
+
+                    // Tentukan ukuran maksimal (Printer thermal ukuran 58mm optimal di lebar 200px-250px)
+                    let MAX_WIDTH = 250;
+                    let width = img.width;
+                    let height = img.height;
+
+                    // Hitung rasio aspek (menjaga gambar tidak gepeng)
+                    if (width > MAX_WIDTH) {
+                        height = Math.floor(height * (MAX_WIDTH / width));
+                        width = MAX_WIDTH;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    // Opsional: Isi background putih jika gambar transparan (PNG), 
+                    // karena printer thermal butuh kontras tegas antara hitam dan putih.
+                    ctx.fillStyle = "#FFFFFF"; 
+                    ctx.fillRect(0, 0, width, height);
+
+                    // Gambar ulang logo yang sudah dikecilkan ke dalam canvas
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // Konversi kembali menjadi base64 dengan kualitas medium
+                    // Kualitas 0.8 sudah lebih dari cukup untuk printer hitam putih
+                    let compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+
+                    // Simpan gambar yang sudah dikompres ke blok yang aktif
+                    this.updateBlockProp('image', compressedBase64);
+                    this.showToast("Logo berhasil dipasang!", "success");
+                };
+                
+                img.src = event.target.result;
+            };
             reader.readAsDataURL(file);
         };
         input.click();

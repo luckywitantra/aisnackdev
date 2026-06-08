@@ -346,10 +346,34 @@ const superApp = {
             }
         }
     },
-    closeModal: function(id) { const content = document.getElementById(id + '-content'); const modal = document.getElementById(id); if (content && modal) { content.classList.remove('modal-enter-active'); setTimeout(() => modal.classList.add('hidden'), 300); } },
+   closeModal: function(id) { 
+        const modal = document.getElementById(id); 
+        const content = document.getElementById(id + '-content'); 
+        
+        if (modal) { 
+            if (content) {
+                // Jalur A: Jika ada ID -content, lakukan penutupan dengan animasi halus
+                content.classList.remove('modal-enter-active'); 
+                setTimeout(() => modal.classList.add('hidden'), 300); 
+            } else {
+                // Jalur B: Jaga-jaga jika ID -content lupa dibuat di HTML, langsung tutup paksa!
+                modal.classList.add('hidden'); 
+            }
+        } 
+    },
+
     toggleDarkMode: function() { 
-        document.documentElement.classList.toggle('dark'); let ic = document.getElementById('dark-icon'); 
-        if (ic) { if (document.documentElement.classList.contains('dark')) { ic.classList.replace('fa-moon', 'fa-sun'); ic.classList.replace('text-slate-600', 'text-yellow-400'); } else { ic.classList.replace('fa-sun', 'fa-moon'); ic.classList.replace('text-yellow-400', 'text-slate-600'); } }
+        document.documentElement.classList.toggle('dark'); 
+        let ic = document.getElementById('dark-icon'); 
+        if (ic) { 
+            if (document.documentElement.classList.contains('dark')) { 
+                ic.classList.replace('fa-moon', 'fa-sun'); 
+                ic.classList.replace('text-slate-600', 'text-yellow-400'); 
+            } else { 
+                ic.classList.replace('fa-sun', 'fa-moon'); 
+                ic.classList.replace('text-yellow-400', 'text-slate-600'); 
+            } 
+        }
     },
     apiPost: async function(payload) {
         if (!this.isOnline) { this.offlineQueue.push(payload); localStorage.setItem('aisnack_offline_queue', JSON.stringify(this.offlineQueue)); this.updateNetworkUI(); return { status: 'sukses', is_offline: true, trx_id: payload.trx_id || payload.id_shift }; }

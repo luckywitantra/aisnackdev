@@ -4829,6 +4829,78 @@ submitOpname: async function() {
             }
         }
     },
+
+// 🚀 MESIN PENERJEMAH GAMBAR KE KODE BINER PRINTER THERMAL (ESC/POS)
+    generateRasterImage: function(base64Image) {
+        return new Promise((resolve) => {
+            let img = new Image();
+            img.onload = () => {
+                let canvas = document.createElement('canvas');
+                let ctx = canvas.getContext('2d');
+
+                // Lebar disesuaikan (200px sangat pas untuk printer 58mm)
+                let width = img.width;
+                let height = img.height;
+                let maxWidth = 200;
+
+                if (width > maxWidth) {
+                    height = Math.floor(height * (maxWidth / width));
+                    width = maxWidth;
+                }
+
+                // ATURAN MUTLAK ESC/POS: Lebar harus kelipatan 8
+                width = Math.floor(width / 8) * 8;
+
+                canvas.width = width;
+                canvas.height = height;
+
+                // Beri warna dasar putih agar PNG transparan tidak tercetak jadi kotak hitam
+                ctx.fillStyle = "#FFFFFF";
+                ctx.fillRect(0, 0, width, height);
+                ctx.drawImage(img, 0, 0, width, height);
+
+                let imgData = ctx.getImageData(0, 0, width, height);
+                let pixels = imgData.data;
+
+                // Header Perintah ESC/POS untuk Cetak Gambar (GS v 0 0)
+                let xL = (width / 8) % 256;
+                let xH = Math.floor((width / 8) / 256);
+                let yL = height % 256;
+                let yH = Math.floor(height / 256);
+
+                let header = new Uint8Array([0x1D, 0x76, 0x30, 0x00, xL, xH, yL, yH]);
+                let data = new Uint8Array((width / 8) * height);
+
+                // Terjemahkan Piksel menjadi Titik Hitam Putih (Bit Matrix)
+                for (let y = 0; y < height; y++) {
+                    for (let x = 0; x < width / 8; x++) {
+                        let byte = 0;
+                        for (let bit = 0; bit < 8; bit++) {
+                            let idx = (y * width + (x * 8 + bit)) * 4;
+                            let r = pixels[idx];
+                            let g = pixels[idx + 1];
+                            let b = pixels[idx + 2];
+                            let alpha = pixels[idx + 3];
+
+                            // Titik dinyatakan HITAM jika warnanya gelap
+                            if (alpha > 128 && (r + g + b) / 3 < 128) {
+                                byte |= (1 << (7 - bit));
+                            }
+                        }
+                        data[y * (width / 8) + x] = byte;
+                    }
+                }
+
+                // Gabungkan Header dengan Data Gambar
+                let result = new Uint8Array(header.length + data.length);
+                result.set(header);
+                result.set(data, header.length);
+                resolve(result);
+            };
+            img.onerror = () => resolve(null);
+            img.src = base64Image;
+        });
+    },
     
 printReceipt: async function(id, outlet, total, tunai, kembali, items, status, explicitDate, antrian, isReprint = false) {
         if (!this.printerCharacteristic) {

@@ -4909,36 +4909,52 @@ printReceipt: async function(id, outlet, total, tunai, kembali, items, status, e
         } 
         
         try {
-            // 1. Siapkan Variabel Dasar
             let statStr = status === 'Sukses' ? '' : '\n*** DIBATALKAN ***\n';
             let printTime = explicitDate ? explicitDate : new Date().toLocaleString('id-ID');
             let antrianStr = antrian ? `\nANTRIAN : ${antrian}\n` : '';
             
-            // 2. Tarik Template Desain dari LocalStorage
             let template = [];
             try { template = JSON.parse(localStorage.getItem('aisnack_receipt_template')); } catch(e) {}
             if (!template || template.length === 0) template = this.defaultReceiptTemplate;
 
-            // 3. Inisialisasi Printer (Reset ESC/POS)
-            let str = "\x1B\x40"; 
+            // 🚀 KITA GUNAKAN SISTEM ANTRIAN BUFFER (Pisahkan Teks & Gambar)
+            let printQueue = [];
+            let str = "\x1B\x40"; // Inisialisasi
 
-            // 4. Looping untuk menerjemahkan setiap Blok Desain ke Bahasa Printer
-            template.forEach(b => {
+            // Karena kita harus 'await' saat memproses gambar, kita gunakan for...of loop
+            for (let b of template) {
                 
-                // --- ATUR POSISI (ALIGNMENT) ---
-                if (b.align === 'center') str += "\x1B\x61\x01";
-                else if (b.align === 'right') str += "\x1B\x61\x02";
-                else str += "\x1B\x61\x00"; // Rata Kiri
+                // --- 🚀 EKSEKUSI BLOK LOGO ---
+                if (b.type === 'logo' && b.image) {
+                    // Dorong dulu teks yang terkumpul sebelum logo ini (jika ada)
+                    if (str !== '') {
+                        printQueue.push(new TextEncoder().encode(str));
+                        str = '';
+                    }
 
-                // --- RENDER TEKS & VARIABEL ---
-                if (b.type === 'text') {
-                    // Atur Tebal (Bold) -> \x1B\x45\x01 = On, \x1B\x45\x00 = Off
+                    // Tentukan perataan logo
+                    let alignStr = "\x1B\x61" + (b.align === 'center' ? "\x01" : (b.align === 'right' ? "\x02" : "\x00"));
+                    printQueue.push(new TextEncoder().encode(alignStr));
+
+                    // Terjemahkan gambar & dorong ke memori antrian
+                    let binaryLogo = await this.generateRasterImage(b.image);
+                    if (binaryLogo) {
+                        printQueue.push(binaryLogo);
+                    }
+
+                    // Kembalikan kursor ke posisi rata kiri setelah gambar selesai dicetak
+                    str += "\n\x1B\x61\x00";
+                }
+                
+                // --- EKSEKUSI TEKS ---
+                else if (b.type === 'text') {
+                    if (b.align === 'center') str += "\x1B\x61\x01";
+                    else if (b.align === 'right') str += "\x1B\x61\x02";
+                    else str += "\x1B\x61\x00"; 
+
                     str += b.bold ? "\x1B\x45\x01" : "\x1B\x45\x00";
-                    
-                    // Atur Ukuran (Raksasa = \x1D\x21\x11, Normal = \x1D\x21\x00)
                     str += b.size === 'double' ? "\x1D\x21\x11" : "\x1D\x21\x00";
 
-                    // Ganti Shortcode dengan Data Asli Transaksi Ini
                     let txt = (b.content || '')
                         .replace(/{{nama_toko}}/g, 'AI-SNACK')
                         .replace(/{{cabang}}/g, outlet || 'Cabang')
@@ -4950,42 +4966,46 @@ printReceipt: async function(id, outlet, total, tunai, kembali, items, status, e
                     str += txt + "\n";
                 }
                 
-                // --- RENDER GARIS PEMISAH ---
+                // --- EKSEKUSI PEMISAH ---
                 else if (b.type === 'divider') {
-                    str += "\x1D\x21\x00\x1B\x45\x00"; // Paksa ke ukuran normal & tidak bold
+                    str += "\x1D\x21\x00\x1B\x45\x00\x1B\x61\x00";
                     str += b.style === 'solid' ? "================================\n" : "--------------------------------\n";
                 }
                 
-                // --- RENDER DAFTAR BELANJA (CORE) ---
+                // --- EKSEKUSI DAFTAR BELANJA ---
                 else if (b.type === 'body_transaction') {
-                    str += "\x1D\x21\x00\x1B\x61\x00\x1B\x45\x00"; // Set Normal, Kiri, Tidak Bold
+                    str += "\x1D\x21\x00\x1B\x61\x00\x1B\x45\x00"; 
                     
                     if (statStr) str += `\x1B\x61\x01\x1B\x45\x01${statStr}\x1B\x45\x00\x1B\x61\x00`;
                     if (antrianStr) str += `\x1B\x61\x01\x1B\x45\x01${antrianStr}\x1B\x45\x00\x1B\x61\x00`;
 
                     items.forEach(i => {
-                        let hargaStr = Number(i.price).toLocaleString('id-ID');
-                        let subTotStr = (Number(i.price) * Number(i.qty)).toLocaleString('id-ID');
-                        str += `${i.nama}\n${i.qty} x Rp ${hargaStr} = Rp ${subTotStr}\n`;
+                        str += `${i.nama}\n${i.qty} x Rp ${Number(i.price).toLocaleString('id-ID')} = Rp ${(i.price * i.qty).toLocaleString('id-ID')}\n`;
                     });
 
                     str += "--------------------------------\n";
-                    // Blok Total diatur menjadi Rata Kanan dan Bold
                     str += `\x1B\x61\x02\x1B\x45\x01TOTAL  : Rp ${Number(total).toLocaleString('id-ID')}\nTUNAI  : Rp ${Number(tunai).toLocaleString('id-ID')}\nKEMBALI: Rp ${Number(kembali).toLocaleString('id-ID')}\n\x1B\x45\x00\x1B\x61\x00`;
                 }
-            });
-
-            // 5. Kembalikan printer ke setingan awal dan dorong kertas (Feed Paper)
-            str += "\x1B\x40\n\n\n\n";
-            
-            // 6. Konversi ke Binary dan Kirim per 20 Byte ke Bluetooth
-            const data = new TextEncoder().encode(str);
-            const chunkSize = 20; 
-            for (let i = 0; i < data.length; i += chunkSize) {
-                await this.printerCharacteristic.writeValue(data.slice(i, i + chunkSize));
             }
 
-            // 7. Lapor Sukses jika ini Cetak Ulang
+            // Kembalikan setting printer & potong/dorong kertas
+            str += "\x1B\x40\n\n\n\n";
+            printQueue.push(new TextEncoder().encode(str));
+            
+            // 🚀 KIRIM KESELURUHAN ANTRIAN (TEKS & GAMBAR) KE PRINTER
+            for (let chunk of printQueue) {
+                // Pengiriman tidak boleh sekaligus. Gambar memiliki ratusan baris byte.
+                // Jika dikirim sekaligus, memori printer thermal akan crash & kertas mengeluarkan huruf acak.
+                const chunkSize = 40; 
+                for (let i = 0; i < chunk.length; i += chunkSize) {
+                    await this.printerCharacteristic.writeValue(chunk.slice(i, i + chunkSize));
+                    
+                    // Beri jeda 5 milidetik agar printer bisa "bernapas" menerima baris gambar
+                    await new Promise(res => setTimeout(res, 5));
+                }
+            }
+
+            // Lapor Sukses jika ini Cetak Ulang
             if (isReprint && id && status === 'Sukses') {
                 this.laporStrukDicetak(id);
             }
@@ -4995,8 +5015,8 @@ printReceipt: async function(id, outlet, total, tunai, kembali, items, status, e
             this.showToast("Gagal mencetak struk", "error");
             throw e; 
         }
-    } 
-}; 
+    }
+};
 
 window.onload = () => superApp.init();
 

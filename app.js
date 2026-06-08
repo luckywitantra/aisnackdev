@@ -1928,6 +1928,17 @@ refreshData: function() {
     renderCart: function() {
         const cont = document.getElementById('cart-container'); let total = 0, items = 0, html = ''; if (!cont) return;
         
+        // 🚀 FITUR 1: Tombol Hapus Semua (Muncul jika ada isinya)
+        if (this.cart.length > 0) {
+            html += `
+            <div class="flex justify-between items-center mb-3 px-1">
+                <span class="text-[10px] font-black text-slate-400 tracking-widest uppercase">Daftar Pesanan</span>
+                <button onclick="superApp.clearCart()" class="text-[10px] font-black text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm active:scale-95">
+                    <i class="fas fa-trash-alt"></i> Hapus Semua
+                </button>
+            </div>`;
+        }
+
         this.cart.forEach((i, idx) => {
             total += (i.price * i.qty); items += i.qty;
             
@@ -1936,23 +1947,34 @@ refreshData: function() {
             this.cart.forEach(c => { if ((c.sku_bahan || c.sku) === refBahan) sisaBahanDiKeranjang += c.qty; });
             let stokTersisaVisual = i.maxStok - sisaBahanDiKeranjang;
 
-            // 🚀 PERBAIKAN UI: Desain Card Item Premium & Elegan
-            html += `<div class="flex bg-white border border-slate-100 p-3.5 rounded-[1.25rem] shadow-[0_4px_12px_rgba(0,0,0,0.03)] items-center gap-3 text-slate-800 transition transform hover:-translate-y-0.5">
+            // 🚀 FITUR 2: Wrapper UI untuk Swipe-to-Delete
+            html += `
+            <div class="relative overflow-hidden rounded-[1.25rem] mb-3 bg-rose-500 shadow-[0_4px_12px_rgba(0,0,0,0.03)] group">
                 
-                <div class="flex-1 min-w-0">
-                    <h4 class="font-extrabold text-sm truncate text-slate-800 mb-0.5">${i.nama}</h4>
-                    <div class="flex items-center gap-2">
-                        <p class="text-brand-500 font-black text-sm tracking-tight">Rp ${(i.price * i.qty).toLocaleString('id-ID')}</p>
-                        <span class="text-[10px] text-slate-400 font-bold border border-slate-100 px-1.5 py-0.5 rounded-md ${stokTersisaVisual <= 0 ? 'bg-red-50 text-red-500 border-red-100' : ''}">Sisa: ${stokTersisaVisual}</span>
+                <button onclick="superApp.changeQty(${idx}, -999)" class="absolute inset-y-0 right-0 w-20 flex flex-col items-center justify-center text-white text-[10px] font-black transition-colors hover:bg-rose-600 active:bg-rose-700">
+                    <i class="fas fa-trash-alt mb-1 text-base drop-shadow-sm"></i> HAPUS
+                </button>
+
+                <div class="flex bg-white border border-slate-100 p-3.5 rounded-[1.25rem] items-center gap-3 text-slate-800 transition-transform duration-300 transform relative z-10 w-full"
+                     ontouchstart="this.startX = event.touches[0].clientX; this.style.transition = 'none';"
+                     ontouchmove="let diff = this.startX - event.touches[0].clientX; if(diff > 0 && diff < 100) { this.style.transform = 'translateX(-' + diff + 'px)'; }"
+                     ontouchend="let diff = this.startX - event.changedTouches[0].clientX; this.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'; if(diff > 40) { this.style.transform = 'translateX(-80px)'; } else { this.style.transform = 'translateX(0)'; }">
+                    
+                    <div class="flex-1 min-w-0">
+                        <h4 class="font-extrabold text-sm truncate text-slate-800 mb-0.5">${i.nama}</h4>
+                        <div class="flex items-center gap-2">
+                            <p class="text-brand-500 font-black text-sm tracking-tight">Rp ${(i.price * i.qty).toLocaleString('id-ID')}</p>
+                            <span class="text-[10px] text-slate-400 font-bold border border-slate-100 px-1.5 py-0.5 rounded-md ${stokTersisaVisual <= 0 ? 'bg-red-50 text-red-500 border-red-100' : ''}">Sisa: ${stokTersisaVisual}</span>
+                        </div>
                     </div>
-                </div>
 
-                <div class="flex bg-slate-50 rounded-xl border border-slate-200 shadow-inner p-1 overflow-hidden shrink-0 items-center">
-                    <button onclick="superApp.changeQty(${idx}, -1)" class="w-8 h-8 flex items-center justify-center font-black text-slate-400 hover:text-brand-600 hover:bg-white rounded-lg transition-all hover:shadow-sm"><i class="fas fa-minus text-xs"></i></button>
-                    <span class="w-8 flex items-center justify-center text-sm font-black text-slate-800">${i.qty}</span>
-                    <button onclick="superApp.changeQty(${idx}, 1)" class="w-8 h-8 flex items-center justify-center font-black text-slate-400 hover:text-brand-600 hover:bg-white rounded-lg transition-all hover:shadow-sm"><i class="fas fa-plus text-xs"></i></button>
-                </div>
+                    <div class="flex bg-slate-50 rounded-xl border border-slate-200 shadow-inner p-1 overflow-hidden shrink-0 items-center">
+                        <button onclick="superApp.changeQty(${idx}, -1)" class="w-8 h-8 flex items-center justify-center font-black text-slate-400 hover:text-brand-600 hover:bg-white rounded-lg transition-all hover:shadow-sm active:scale-90"><i class="fas fa-minus text-xs"></i></button>
+                        <span class="w-8 flex items-center justify-center text-sm font-black text-slate-800">${i.qty}</span>
+                        <button onclick="superApp.changeQty(${idx}, 1)" class="w-8 h-8 flex items-center justify-center font-black text-slate-400 hover:text-brand-600 hover:bg-white rounded-lg transition-all hover:shadow-sm active:scale-90"><i class="fas fa-plus text-xs"></i></button>
+                    </div>
 
+                </div>
             </div>`;
         });
         
@@ -1961,7 +1983,7 @@ refreshData: function() {
         const totalEl = document.getElementById('total-price'); if (totalEl) totalEl.innerText = `Rp ${total.toLocaleString('id-ID')}`;
         const badge = document.getElementById('cart-badge'); if (badge) badge.innerText = `${items} Item`;
         
-        // 🚀 Tembakkan update angka ke Floating Button di HP
+        // Update Mobile Floating Button
         const mobQty = document.getElementById('mobile-cart-qty'); 
         if (mobQty) mobQty.innerText = `${items} ITEM`;
         
@@ -1970,16 +1992,21 @@ refreshData: function() {
 
         this.payTotal = total; 
         
-        // =========================================================================
-        // 🚀 TAMBAHAN BARU: Perbarui layar produk secara real-time
-        // Ini memastikan angka buram raksasa di atas gambar menu ikut berubah 
-        // saat kasir mengurangi atau menambah QTY dari panel keranjang kanan.
-        // =========================================================================
         if (document.getElementById('product-list')) {
             this.renderProducts();
         }
 
-        this.syncStorage(); // KEMBALIKAN KE NORMAL
+        this.syncStorage(); 
+    },
+
+    // 🚀 FUNGSI BARU: Kosongkan seluruh isi keranjang
+    clearCart: function() {
+        if (this.cart.length === 0) return;
+        if (confirm("Hapus semua pesanan dari keranjang?")) {
+            this.cart = [];
+            this.renderCart();
+            this.showToast("Keranjang berhasil dikosongkan", "success");
+        }
     },
     
     // PAYMENT

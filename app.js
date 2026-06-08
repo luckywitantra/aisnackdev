@@ -3567,7 +3567,7 @@ submitOpname: async function() {
         
         // 🚀 CEK METODE BAYAR AGAR TIDAK NaN
         let labelBayar = String(t.Metode_Bayar || 'Tunai').toUpperCase();
-        let valBayar = labelBayar.includes('QRIS') ? Number(t.Total_Bayar || 0) : Number(t.Tunai || 0);
+        let valBayar = labelBayar.includes('QRIS') ? Number(t.Total_Bayar || 0) : Number(t.Dibayar || 0);
         let valKembali = Number(t.Kembalian || 0);
 
         let bodyTransHtml = `

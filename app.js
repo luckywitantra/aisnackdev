@@ -4912,17 +4912,17 @@ executeVoidTrx: async function(trxId) {
     },
 
 // 🚀 MESIN PENERJEMAH GAMBAR KE KODE BINER PRINTER THERMAL (ESC/POS)
-    generateRasterImage: function(base64Image) {
+   generateRasterImage: function(base64Image) {
         return new Promise((resolve) => {
             let img = new Image();
             img.onload = () => {
                 let canvas = document.createElement('canvas');
                 let ctx = canvas.getContext('2d');
 
-                // Lebar disesuaikan (200px sangat pas untuk printer 58mm)
+                // 🚀 PERBAIKAN: Lebar diturunkan menjadi 160px agar ukuran data biner menyusut drastis
                 let width = img.width;
                 let height = img.height;
-                let maxWidth = 200;
+                let maxWidth = 160; 
 
                 if (width > maxWidth) {
                     height = Math.floor(height * (maxWidth / width));

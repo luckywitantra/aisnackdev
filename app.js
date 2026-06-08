@@ -1380,19 +1380,21 @@ const superApp = {
         }, 300);
     },
 
-    executeReprint: function() {
+   executeReprint: function() {
         if(!this.activeReprintTrx) return;
         let t = this.activeReprintTrx;
         let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
         
-        // Panggil fungsi print Bluetooth
-        // Note: Untuk printer sungguhan, fungsi ini harus membaca JSON receiptBlocks.
-        this.printReceipt(t.ID_TRX, t.Outlet, t.Total_Bayar, t.Tunai, t.Kembalian, items, t.Status, t.Waktu, t.Antrian, true).then(() => {
+        let explicitDate = `${t.Tanggal} ${t.Waktu}`;
+        let metodeBayar = t.Metode_Bayar || 'TUNAI';
+
+        // Panggil fungsi print Bluetooth dengan flag isReprint = true
+        this.printReceipt(t.ID_TRX, t.Outlet, t.Total_Bayar, t.Tunai, t.Kembalian, items, t.Status, explicitDate, t.Antrian, true, metodeBayar).then(() => {
             this.showToast("Perintah cetak dikirim ke printer!", "success");
         }).catch(e => {
             this.showToast("Gagal mencetak. Printer belum terhubung.", "error");
         });
-    },    
+    },
     
     // FUNGSI PENYAPA CFD (Mendukung Multi-Window)
     updateCFDGreeting: function() {
@@ -3533,44 +3535,65 @@ submitOpname: async function() {
         let t = (this.db.transactions || []).find(x => x.ID_TRX === trxID);
         if(!t) return;
         
-        // Panggil logo dan footer yang sudah diatur Owner
-        let logo = localStorage.getItem('aisnack_struk_logo') || "https://cdn-icons-png.flaticon.com/512/3081/3081308.png";
-        let footer = localStorage.getItem('aisnack_struk_footer') || "Terima kasih atas kunjungannya!";
-        
         let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
         let itemsHtml = items.map(i => `<div class="w-full text-left font-bold flex justify-between"><span>${i.qty}x ${i.nama}</span><span>${(Number(i.price) * Number(i.qty)).toLocaleString('id-ID')}</span></div>`).join('');
         
-        // Render Struk Digital
-        let html = `
-            <div class="flex flex-col items-center text-center font-mono text-[10px] text-black w-full max-w-[220px] mx-auto">
-                <img src="${logo}" class="w-14 h-14 object-contain filter grayscale contrast-200 mb-2">
-                <div class="font-bold text-base tracking-tight mb-1">${String(t.Outlet).toUpperCase()}</div>
-                
-                <div class="border-b border-dashed border-slate-400 w-full mb-2"></div>
-                
-                <div class="text-[9px] text-left w-full mb-2 leading-tight">
-                    TRX: ${t.ID_TRX}<br>
-                    Tgl: ${t.Tanggal} ${t.Waktu}<br>
-                    Ksr: ${t.Kasir}<br>
-                    Sts: <span class="${t.Status === 'Sukses' ? 'text-green-600' : 'text-red-500'} font-black">${t.Status}</span>
-                </div>
-                
-                <div class="border-b border-dashed border-slate-400 w-full mb-2"></div>
-                
+        // 🚀 CEK METODE BAYAR AGAR TIDAK NaN
+        let labelBayar = String(t.Metode_Bayar || 'Tunai').toUpperCase();
+        let valBayar = labelBayar.includes('QRIS') ? Number(t.Total_Bayar || 0) : Number(t.Tunai || 0);
+        let valKembali = Number(t.Kembalian || 0);
+
+        let bodyTransHtml = `
+            <div class="w-full text-left font-mono text-[10px] text-black">
+                <div class="flex justify-between font-black border-b border-dashed border-black pb-1 mb-1"><span>ITEM</span><span>TOTAL</span></div>
                 ${itemsHtml}
-                
-                <div class="border-b border-dashed border-slate-400 w-full my-2"></div>
-                <div class="w-full text-right font-black text-xs mb-1">TOTAL: ${Number(t.Total_Bayar).toLocaleString('id-ID')}</div>
-                <div class="w-full text-right text-[10px] mb-1">TUNAI: ${Number(t.Tunai||0).toLocaleString('id-ID')}</div>
-                <div class="w-full text-right text-[10px] mb-3">KEMBALI: ${Number(t.Kembalian||0).toLocaleString('id-ID')}</div>
-                
-                <div class="w-full text-center whitespace-pre-wrap leading-tight text-[9px] mt-2 font-bold">${footer}</div>
-            </div>
-        `;
-        
-        document.getElementById('detail-struk-body').innerHTML = html;
-        this.activeReprintTrx = t; // Simpan memori untuk cetak ulang
-        
+                <div class="border-b border-dashed border-black w-full my-1"></div>
+                <div class="flex justify-between font-black text-xs"><span>TOTAL</span><span>${Number(t.Total_Bayar).toLocaleString('id-ID')}</span></div>
+                <div class="flex justify-between font-bold text-[10px]"><span>${labelBayar}</span><span>${valBayar.toLocaleString('id-ID')}</span></div>
+                <div class="flex justify-between font-bold text-[10px]"><span>KEMBALI</span><span>${valKembali.toLocaleString('id-ID')}</span></div>
+            </div>`;
+
+        // 🚀 TARIK TEMPLATE DINAMIS (Agar Popup 100% Mirip Kertas)
+        let template = [];
+        try { template = JSON.parse(localStorage.getItem('aisnack_receipt_template')); } catch(e) {}
+        if (!template || template.length === 0) template = this.defaultReceiptTemplate;
+
+        let parsedStrukHtml = '';
+        template.forEach(b => {
+            let align = b.align === 'center' ? 'mx-auto text-center' : (b.align === 'right' ? 'ml-auto text-right' : 'mr-auto text-left');
+            
+            if (b.type === 'text') {
+                let txt = (b.content || '')
+                    .replace(/{{nama_toko}}/g, 'AI-SNACK')
+                    .replace(/{{cabang}}/g, t.Outlet)
+                    .replace(/{{kasir}}/g, t.Kasir)
+                    .replace(/{{no_resi}}/g, t.ID_TRX)
+                    .replace(/{{waktu}}/g, `${t.Tanggal} ${t.Waktu}`)
+                    .replace(/{{wifi}}/g, 'Tanya Kasir');
+                let size = b.size === 'double' ? 'text-sm' : 'text-[10px]';
+                let weight = b.bold ? 'font-black' : 'font-medium';
+                parsedStrukHtml += `<div class="${align} w-full ${size} ${weight} whitespace-pre-wrap leading-tight font-mono text-black my-0.5">${txt}</div>`;
+            }
+            else if (b.type === 'divider') {
+                parsedStrukHtml += `<div class="border-b-[1.5px] ${b.style==='solid'?'border-solid':'border-dashed'} border-black w-full my-1"></div>`;
+            }
+            else if (b.type === 'logo') {
+                parsedStrukHtml += `<img src="${b.image}" class="w-12 h-12 object-contain filter grayscale contrast-200 ${align} my-1">`;
+            }
+            else if (b.type === 'body_transaction') {
+                parsedStrukHtml += bodyTransHtml;
+            }
+        });
+
+        // Tampilkan Label Preview Reprint di Layar Popup
+        parsedStrukHtml = `<div class="text-center w-full mb-3 pb-2 border-b border-slate-200"><span class="bg-slate-800 text-white px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest"><i class="fas fa-print mr-1"></i> Preview Cetak Ulang</span></div>` + parsedStrukHtml;
+
+        document.getElementById('detail-struk-body').innerHTML = `
+            <div class="flex flex-col items-center w-full max-w-[220px] mx-auto p-2 bg-white shadow-md relative">
+                ${parsedStrukHtml}
+            </div>`;
+            
+        this.activeReprintTrx = t; 
         this.openModal('modal-detail');
     },
 
@@ -4902,7 +4925,8 @@ submitOpname: async function() {
         });
     },
     
-printReceipt: async function(id, outlet, total, tunai, kembali, items, status, explicitDate, antrian, isReprint = false) {
+// 🚀 FUNGSI PRINT FINAL DENGAN ANTISIPASI NaN & LOGIKA REPRINT
+    printReceipt: async function(id, outlet, total, tunai, kembali, items, status, explicitDate, antrian, isReprint = false, metodeBayar = 'TUNAI') {
         if (!this.printerCharacteristic) {
             this.showToast("Printer belum terhubung!", "error");
             throw new Error("Printer tidak siap");
@@ -4913,40 +4937,34 @@ printReceipt: async function(id, outlet, total, tunai, kembali, items, status, e
             let printTime = explicitDate ? explicitDate : new Date().toLocaleString('id-ID');
             let antrianStr = antrian ? `\nANTRIAN : ${antrian}\n` : '';
             
+            // 1. INJEKSI KETERANGAN REPRINT KE PRINTER
+            if (isReprint) {
+                statStr += '\n*** REPRINT / CETAK ULANG ***\n';
+            }
+
+            // 2. CEK QRIS AGAR TIDAK NaN
+            let labelBayar = String(metodeBayar).toUpperCase();
+            let valBayar = labelBayar.includes('QRIS') ? Number(total || 0) : Number(tunai || 0);
+            let valKembali = Number(kembali || 0);
+
             let template = [];
             try { template = JSON.parse(localStorage.getItem('aisnack_receipt_template')); } catch(e) {}
             if (!template || template.length === 0) template = this.defaultReceiptTemplate;
 
-            // 🚀 KITA GUNAKAN SISTEM ANTRIAN BUFFER (Pisahkan Teks & Gambar)
             let printQueue = [];
-            let str = "\x1B\x40"; // Inisialisasi
+            let str = "\x1B\x40"; 
 
-            // Karena kita harus 'await' saat memproses gambar, kita gunakan for...of loop
             for (let b of template) {
                 
-                // --- 🚀 EKSEKUSI BLOK LOGO ---
                 if (b.type === 'logo' && b.image) {
-                    // Dorong dulu teks yang terkumpul sebelum logo ini (jika ada)
-                    if (str !== '') {
-                        printQueue.push(new TextEncoder().encode(str));
-                        str = '';
-                    }
-
-                    // Tentukan perataan logo
+                    if (str !== '') { printQueue.push(new TextEncoder().encode(str)); str = ''; }
                     let alignStr = "\x1B\x61" + (b.align === 'center' ? "\x01" : (b.align === 'right' ? "\x02" : "\x00"));
                     printQueue.push(new TextEncoder().encode(alignStr));
 
-                    // Terjemahkan gambar & dorong ke memori antrian
                     let binaryLogo = await this.generateRasterImage(b.image);
-                    if (binaryLogo) {
-                        printQueue.push(binaryLogo);
-                    }
-
-                    // Kembalikan kursor ke posisi rata kiri setelah gambar selesai dicetak
+                    if (binaryLogo) printQueue.push(binaryLogo);
                     str += "\n\x1B\x61\x00";
                 }
-                
-                // --- EKSEKUSI TEKS ---
                 else if (b.type === 'text') {
                     if (b.align === 'center') str += "\x1B\x61\x01";
                     else if (b.align === 'right') str += "\x1B\x61\x02";
@@ -4965,14 +4983,10 @@ printReceipt: async function(id, outlet, total, tunai, kembali, items, status, e
 
                     str += txt + "\n";
                 }
-                
-                // --- EKSEKUSI PEMISAH ---
                 else if (b.type === 'divider') {
                     str += "\x1D\x21\x00\x1B\x45\x00\x1B\x61\x00";
                     str += b.style === 'solid' ? "================================\n" : "--------------------------------\n";
                 }
-                
-                // --- EKSEKUSI DAFTAR BELANJA ---
                 else if (b.type === 'body_transaction') {
                     str += "\x1D\x21\x00\x1B\x61\x00\x1B\x45\x00"; 
                     
@@ -4983,29 +4997,23 @@ printReceipt: async function(id, outlet, total, tunai, kembali, items, status, e
                         str += `${i.nama}\n${i.qty} x Rp ${Number(i.price).toLocaleString('id-ID')} = Rp ${(i.price * i.qty).toLocaleString('id-ID')}\n`;
                     });
 
+                    // 3. CETAK LABEL METODE BAYAR DINAMIS
                     str += "--------------------------------\n";
-                    str += `\x1B\x61\x02\x1B\x45\x01TOTAL  : Rp ${Number(total).toLocaleString('id-ID')}\nTUNAI  : Rp ${Number(tunai).toLocaleString('id-ID')}\nKEMBALI: Rp ${Number(kembali).toLocaleString('id-ID')}\n\x1B\x45\x00\x1B\x61\x00`;
+                    str += `\x1B\x61\x02\x1B\x45\x01TOTAL  : Rp ${Number(total).toLocaleString('id-ID')}\n${labelBayar.padEnd(7)}: Rp ${valBayar.toLocaleString('id-ID')}\nKEMBALI: Rp ${valKembali.toLocaleString('id-ID')}\n\x1B\x45\x00\x1B\x61\x00`;
                 }
             }
 
-            // Kembalikan setting printer & potong/dorong kertas
             str += "\x1B\x40\n\n\n\n";
             printQueue.push(new TextEncoder().encode(str));
             
-            // 🚀 KIRIM KESELURUHAN ANTRIAN (TEKS & GAMBAR) KE PRINTER
             for (let chunk of printQueue) {
-                // Pengiriman tidak boleh sekaligus. Gambar memiliki ratusan baris byte.
-                // Jika dikirim sekaligus, memori printer thermal akan crash & kertas mengeluarkan huruf acak.
                 const chunkSize = 40; 
                 for (let i = 0; i < chunk.length; i += chunkSize) {
                     await this.printerCharacteristic.writeValue(chunk.slice(i, i + chunkSize));
-                    
-                    // Beri jeda 5 milidetik agar printer bisa "bernapas" menerima baris gambar
                     await new Promise(res => setTimeout(res, 5));
                 }
             }
 
-            // Lapor Sukses jika ini Cetak Ulang
             if (isReprint && id && status === 'Sukses') {
                 this.laporStrukDicetak(id);
             }

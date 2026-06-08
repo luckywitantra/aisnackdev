@@ -1831,30 +1831,57 @@ refreshData: function() {
         if ((menu === 'gudang' || menu === 'master' || menu === 'outlet') && typeof this.renderGudang === 'function') this.renderGudang();
     },
     
-    filterProducts: function(key) {
+   filterProducts: function(key) {
+        this._lastSearchKey = key; // 🚀 Simpan memori kata kunci pencarian
         let pList = document.getElementById('product-list');
         if (pList) {
             if (this.isLoadingData) return;
             pList.innerHTML = this.filteredProducts.filter(p => String(p.nama || '').toLowerCase().includes(key.toLowerCase())).map(p => this.createProductCard(p)).join('');
         }
     },
+    
     renderProducts: function() {
         const list = document.getElementById('product-list'); if (!list) return;
         if (this.isLoadingData) { list.innerHTML = Array(8).fill(0).map(() => `<div class="bg-white border border-slate-100 rounded-2xl p-3 shadow-sm flex flex-col h-40"><div class="skeleton h-24 rounded-xl mb-3 w-full"></div><div class="skeleton h-4 w-3/4 rounded mb-2"></div><div class="skeleton h-4 w-1/2 rounded"></div></div>`).join(''); return; }
-        list.innerHTML = this.filteredProducts.map(p => this.createProductCard(p)).join('');
+        
+        // 🚀 Gunakan memori pencarian jika kasir sedang mencari barang
+        let key = this._lastSearchKey || ''; 
+        let itemsToRender = key ? this.filteredProducts.filter(p => String(p.nama || '').toLowerCase().includes(key.toLowerCase())) : this.filteredProducts;
+        
+        list.innerHTML = itemsToRender.map(p => this.createProductCard(p)).join('');
     },
+    
     createProductCard: function(p) {
+        // 1. Cek jumlah item ini di dalam keranjang
+        let qtyInCart = 0;
+        let cartItem = this.cart.find(i => i.sku === p.sku);
+        if (cartItem) qtyInCart = cartItem.qty;
+
         let img = p.img ? `<img src="${p.img}" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/150x150/f8fafc/94a3b8?text=Err';" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">` : `<div class="w-full h-full flex items-center justify-center text-3xl text-slate-300 opacity-50 bg-slate-50"><i class="fas fa-utensils"></i></div>`;
+        
         let isHabis = p.maxStok <= 0 ? 'opacity-60 grayscale cursor-not-allowed' : 'hover:-translate-y-1.5 hover:shadow-[0_15px_30px_rgba(0,0,0,0.08)] hover:border-brand-200';
         
-        return `<div onclick="${p.maxStok > 0 ? `superApp.addToCart('${p.sku}', '${p.nama}', ${p.harga}, ${p.maxStok}, '${p.sku_bahan || ''}', event)` : ''}" class="bg-white border-2 border-transparent rounded-[1.5rem] p-3 cursor-pointer shadow-[0_4px_15px_rgba(0,0,0,0.04)] transition-all duration-300 flex flex-col relative group ${isHabis}">
-            <span class="absolute top-4 right-4 ${p.maxStok <= 0 ? 'bg-red-500' : 'bg-slate-900/80 backdrop-blur-md'} text-white text-[10px] font-black px-2.5 py-1 rounded-lg z-10 shadow-md tracking-wider">${p.maxStok <= 0 ? 'HABIS' : `STOK: ${p.maxStok}`}</span>
-            <div class="aspect-[4/3] mb-4 overflow-hidden rounded-[1rem] bg-slate-100 relative shadow-inner">${img}</div>
-            <div class="flex flex-col flex-1 justify-between px-1">
+        // 2. Overlay Latar Belakang Buram & Angka Besar (Muncul jika qty > 0)
+        let overlayQty = qtyInCart > 0 
+            ? `<div class="absolute inset-0 bg-slate-900/30 backdrop-blur-[3px] flex items-center justify-center z-20 transition-all duration-300">
+                   <span class="text-6xl font-black text-white drop-shadow-xl">${qtyInCart}</span>
+               </div>` 
+            : '';
+
+        return `<div onclick="${p.maxStok > 0 ? `superApp.addToCart('${p.sku}', '${p.nama}', ${p.harga}, ${p.maxStok}, '${p.sku_bahan || ''}', event)` : ''}" class="bg-white border-2 border-transparent rounded-[1.5rem] p-3 cursor-pointer shadow-[0_4px_15px_rgba(0,0,0,0.04)] transition-all duration-300 flex flex-col relative group ${isHabis} overflow-hidden">
+            <span class="absolute top-4 right-4 ${p.maxStok <= 0 ? 'bg-red-500' : 'bg-slate-900/80 backdrop-blur-md'} text-white text-[10px] font-black px-2.5 py-1 rounded-lg z-30 shadow-md tracking-wider">${p.maxStok <= 0 ? 'HABIS' : `STOK: ${p.maxStok}`}</span>
+            
+            <div class="aspect-[4/3] mb-4 overflow-hidden rounded-[1rem] bg-slate-100 relative shadow-inner">
+                ${img}
+                ${overlayQty}
+            </div>
+            
+            <div class="flex flex-col flex-1 justify-between px-1 z-10">
                 <h3 class="font-bold text-xs md:text-sm text-slate-800 leading-snug mb-2 line-clamp-2">${p.nama}</h3>
                 <div class="flex items-center justify-between mt-1">
                     <p class="text-brand-500 font-black text-sm md:text-base tracking-tight">Rp ${p.harga.toLocaleString('id-ID')}</p>
-                    <div class="w-7 h-7 rounded-full bg-brand-50 flex items-center justify-center text-brand-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-sm"><i class="fas fa-plus text-[10px]"></i></div>
+                    
+                    <div class="w-7 h-7 rounded-full ${qtyInCart > 0 ? 'bg-brand-500 text-white' : 'bg-brand-50 text-brand-500 opacity-0 group-hover:opacity-100'} flex items-center justify-center transition-opacity duration-300 shadow-sm"><i class="fas ${qtyInCart > 0 ? 'fa-check' : 'fa-plus'} text-[10px]"></i></div>
                 </div>
             </div>
         </div>`;
@@ -1939,6 +1966,15 @@ refreshData: function() {
 
         this.payTotal = total; 
         
+        // =========================================================================
+        // 🚀 TAMBAHAN BARU: Perbarui layar produk secara real-time
+        // Ini memastikan angka buram raksasa di atas gambar menu ikut berubah 
+        // saat kasir mengurangi atau menambah QTY dari panel keranjang kanan.
+        // =========================================================================
+        if (document.getElementById('product-list')) {
+            this.renderProducts();
+        }
+
         this.syncStorage(); // KEMBALIKAN KE NORMAL
     },
     

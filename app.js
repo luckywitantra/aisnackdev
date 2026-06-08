@@ -1380,20 +1380,47 @@ const superApp = {
         }, 300);
     },
 
-   executeReprint: function() {
-        if(!this.activeReprintTrx) return;
-        let t = this.activeReprintTrx;
-        let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
+  executeReprint: async function() {
+        if(!this.activeReprintTrx) return; 
         
-        let explicitDate = `${t.Tanggal} ${t.Waktu}`;
-        let metodeBayar = t.Metode_Bayar || 'TUNAI';
+        let t = this.activeReprintTrx; 
+        let items = []; 
+        try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
+        
+        // Mengambil nominal dengan aman
+        let tunaiVal = t.Tunai !== undefined ? t.Tunai : (t.Dibayar || 0);
+        
+        // Membersihkan format tanggal dan waktu
+        let cleanDate = this.cleanDateOnly(t.Tanggal);
+        let cleanTime = this.cleanTimeOnly(t.Waktu);
+        let explicitDate = cleanDate + ' ' + cleanTime;
 
-        // Panggil fungsi print Bluetooth dengan flag isReprint = true
-        this.printReceipt(t.ID_TRX, t.Outlet, t.Total_Bayar, t.Tunai, t.Kembalian, items, t.Status, explicitDate, t.Antrian, true, metodeBayar).then(() => {
-            this.showToast("Perintah cetak dikirim ke printer!", "success");
-        }).catch(e => {
+        // Mengambil metode bayar dari riwayat transaksi
+        let metodeBayar = t.Metode_Bayar || 'TUNAI';
+        
+        this.setLoading(true, "Mencetak Ulang Struk...");
+
+        try { 
+            // 🚀 PERBAIKAN: Parameter ke-10 (true) untuk Cetak Ulang, Parameter ke-11 untuk Metode Bayar
+            await this.printReceipt(
+                t.ID_TRX, 
+                t.Outlet, 
+                t.Total_Bayar, 
+                tunaiVal, 
+                t.Kembalian, 
+                items, 
+                t.Status, 
+                explicitDate, 
+                t.Antrian, 
+                true,          // isReprint = true
+                metodeBayar    // Mencegah NaN jika ini adalah transaksi QRIS
+            ); 
+            this.showToast("Perintah cetak ulang dikirim ke printer!", "success");
+        } catch(e) {
             this.showToast("Gagal mencetak. Printer belum terhubung.", "error");
-        });
+        } finally {
+            this.setLoading(false);
+        }
     },
     
     // FUNGSI PENYAPA CFD (Mendukung Multi-Window)
@@ -3602,25 +3629,56 @@ submitOpname: async function() {
         let adminUser = (this.db.users || []).find(u => String(u.Role).toLowerCase().includes('admin') && String(u.PIN) === String(pin));
         if(adminUser) { this.executeVoidTrx(this.activeReprintTrx.ID_TRX); } else { this.showToast("PIN Salah atau Anda bukan Admin! Batal ditolak.", "error"); }
     },
-    executeVoidTrx: async function(trxId) {
+executeVoidTrx: async function(trxId) {
         if(this.isProcessing) return;
         this.setLoading(true, "Membatalkan Transaksi...");
+        
         const payload = { action: 'batal_trx', trx_id: trxId, tim_operasional: this.activeStaffTeam };
         let res = await this.apiPost(payload);
+        
         if(res.status === 'sukses') {
             this.showToast("Transaksi Dibatalkan!"); 
-            let t = this.activeReprintTrx; let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
+            
+            let t = this.activeReprintTrx; 
+            let items = []; 
+            try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
+            
+            // 🚀 PERBAIKAN: Mengambil data pembayaran dengan aman
+            let metodeBayar = t.Metode_Bayar || 'TUNAI';
             let tunaiVal = t.Tunai !== undefined ? t.Tunai : (t.Dibayar || 0);
+            
             let cleanDate = this.cleanDateOnly(t.Tanggal);
             let cleanTime = this.cleanTimeOnly(t.Waktu);
-            try { await this.printReceipt(t.ID_TRX, t.Outlet, t.Total_Bayar, tunaiVal, t.Kembalian, items, 'Batal', cleanDate + ' ' + cleanTime, t.Antrian); } catch(e){}
+            let explicitDate = cleanDate + ' ' + cleanTime;
 
-            if(!res.is_offline) { const refreshRes = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); this.db = await refreshRes.json(); }
-            this.refreshData(); this.closeModal('modal-detail');
+            try { 
+                // 🚀 PERBAIKAN: Tambahkan parameter isReprint (false) dan metodeBayar
+                await this.printReceipt(
+                    t.ID_TRX, 
+                    t.Outlet, 
+                    t.Total_Bayar, 
+                    tunaiVal, 
+                    t.Kembalian, 
+                    items, 
+                    'Batal', 
+                    explicitDate, 
+                    t.Antrian, 
+                    false,      // isReprint = false (karena ini Void)
+                    metodeBayar // Mencegah NaN pada QRIS
+                ); 
+            } catch(e) {
+                console.error("Gagal cetak struk pembatalan:", e);
+            }
+
+            if(!res.is_offline) { 
+                const refreshRes = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); 
+                this.db = await refreshRes.json(); 
+            }
+            this.refreshData(); 
+            this.closeModal('modal-detail');
         }
         this.setLoading(false);
     },
-
     // AI ASSISTANT
    generateAIReport: function() {
         if (!this.db) return; // Hapus pengecekan transactions agar layar tetap digambar meski jualan nol

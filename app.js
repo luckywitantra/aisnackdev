@@ -1974,18 +1974,18 @@ refreshData: function() {
             
             <span class="absolute top-2 right-2 md:top-4 md:right-4 ${p.maxStok <= 0 ? 'bg-red-500' : 'bg-slate-900/80 backdrop-blur-md'} text-white text-[8px] md:text-[10px] font-black px-1.5 py-0.5 md:px-2.5 md:py-1 rounded md:rounded-lg z-30 shadow-md tracking-wider">${p.maxStok <= 0 ? 'HABIS' : `STOK: ${p.maxStok}`}</span>
             
-            <div class="aspect-[4/3] w-full mb-2 overflow-hidden rounded-xl md:rounded-[1rem] bg-slate-100 relative shadow-inner shrink-0">
+            <div class="aspect-video w-full mb-2 md:mb-3 overflow-hidden rounded-xl md:rounded-[1rem] bg-slate-100 relative shadow-inner shrink-0">
                 ${img}
                 ${overlayQty}
             </div>
             
-            <div class="flex flex-col flex-1 w-full justify-between">
+            <div class="flex flex-col flex-1 w-full justify-between min-h-[70px]">
                 
                 <h3 class="font-bold text-[11px] md:text-sm text-slate-800 leading-tight mb-1 break-words" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
                     ${namaProduk}
                 </h3>
                 
-                <div class="flex items-center justify-between mt-auto pt-1">
+                <div class="flex items-center justify-between mt-auto">
                     <p class="text-brand-500 font-black text-[12px] md:text-[14px] xl:text-base tracking-tight truncate pr-1 w-full">
                         Rp ${Number(p.harga || 0).toLocaleString('id-ID')}
                     </p>

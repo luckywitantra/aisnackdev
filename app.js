@@ -1970,26 +1970,23 @@ refreshData: function() {
 
         let namaProduk = p.nama || 'Nama Tidak Tersedia';
 
-        // 🚀 KUNCI 1: Tinggi Kartu Dikunci Mati (h-[220px] di HP, h-[250px] di PC)
-        // Kartu tidak lagi memanjang atau memendek mengikuti isi, melainkan isi yang harus patuh pada kartu.
+        // Menghapus h-[200px] dan menggantinya dengan h-full agar tidak menindih baris bawahnya
         return `<div onclick="${p.maxStok > 0 ? `superApp.addToCart('${p.sku}', '${p.nama}', ${p.harga}, ${p.maxStok}, '${p.sku_bahan || ''}', event)` : ''}" 
-            class="bg-white border-2 border-transparent rounded-2xl md:rounded-[1.5rem] cursor-pointer shadow-sm md:shadow-[0_4px_15px_rgba(0,0,0,0.04)] transition-all duration-300 flex flex-col relative group ${isHabis} overflow-hidden 
-            h-[200px] sm:h-[220px] md:h-[250px]"> 
+            class="bg-white border-2 border-transparent rounded-2xl md:rounded-[1.5rem] cursor-pointer shadow-sm md:shadow-[0_4px_15px_rgba(0,0,0,0.04)] transition-all duration-300 flex flex-col relative group ${isHabis} overflow-hidden h-full"> 
             
             <span class="absolute top-2 right-2 md:top-3 md:right-3 ${p.maxStok <= 0 ? 'bg-red-500' : 'bg-slate-900/80 backdrop-blur-md'} text-white text-[8px] md:text-[10px] font-black px-1.5 py-0.5 md:px-2.5 md:py-1 rounded z-30 shadow-md tracking-wider">${p.maxStok <= 0 ? 'HABIS' : `STOK: ${p.maxStok}`}</span>
             
-            <div class="h-[55%] w-full overflow-hidden bg-slate-100 relative shrink-0 border-b border-slate-50">
+            <div class="aspect-[4/3] w-full overflow-hidden bg-slate-100 relative shrink-0 border-b border-slate-50">
                 ${img}
                 ${overlayQty}
             </div>
             
-            <div class="h-[45%] w-full flex flex-col justify-between p-2 md:p-3 bg-white">
-                
-                <h3 class="font-bold text-[11px] md:text-sm text-slate-800 leading-tight break-words" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+            <div class="flex flex-col flex-1 justify-between p-2 md:p-3 bg-white w-full">
+                <h3 class="font-bold text-[11px] md:text-sm text-slate-800 leading-snug break-words mb-2" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
                     ${namaProduk}
                 </h3>
                 
-                <div class="flex items-center justify-between w-full mt-auto">
+                <div class="flex items-center justify-between w-full mt-auto pt-1">
                     <p class="text-brand-500 font-black text-[12px] md:text-[14px] xl:text-base tracking-tight truncate pr-1">
                         Rp ${Number(p.harga || 0).toLocaleString('id-ID')}
                     </p>

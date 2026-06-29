@@ -1002,7 +1002,7 @@ const superApp = {
                 performFetch(); 
             } else {
                 await performFetch();
-        }
+        
 
         } catch (err) {
             const logStat = document.getElementById('login-status');

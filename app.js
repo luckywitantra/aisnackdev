@@ -877,7 +877,7 @@ const superApp = {
         }
     },
     
-   // STARTUP & LOGIN
+    // STARTUP & LOGIN
     init: async function() {
         // --- 🚀 RADAR UPDATE APLIKASI (SERVICE WORKER) ---
         if ('serviceWorker' in navigator) {
@@ -955,7 +955,8 @@ const superApp = {
                 let data = null;
                 for (let i = 0; i < 3; i++) {
                     try { 
-                        const res = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); 
+                        // 🚀 PERBAIKAN: Menambahkan parameter &history=14 agar waktu loading awal sangat cepat
+                        const res = await fetch(API_URL + "?ts=" + new Date().getTime() + "&history=14", { redirect: 'follow' }); 
                         data = await res.json(); 
                         if (data && data.status === 'sukses') break; 
                     } catch (e) { 
@@ -1014,6 +1015,7 @@ const superApp = {
             }
         }
     },
+    
     addPin: function(num) {
         if (!this.db || !this.db.users) { this.showToast('Sistem sedang memuat data, mohon tunggu sebentar...', 'warning'); return; }
         if (this.pinBuffer.length < 4) { this.pinBuffer += num; const dot = document.getElementById(`dot-${this.pinBuffer.length}`); if (dot) { dot.classList.replace('border-slate-300', 'bg-brand-500'); dot.classList.replace('border-2', 'border-0'); } }

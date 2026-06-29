@@ -815,6 +815,56 @@
         </div>
       </div>
 
+      <div id="view-hpp" class="app-view hidden flex-col h-full bg-slate-50 p-4 md:p-6 lg:p-8 min-h-0 custom-scroll overflow-y-auto">
+    <div class="max-w-5xl mx-auto w-full">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+            <div>
+                <h2 class="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Master HPP Produk</h2>
+                <p class="text-slate-500 font-medium text-sm mt-1">Kelola Harga Pokok Penjualan untuk kalkulasi laba akurat.</p>
+            </div>
+            <button onclick="superApp.saveHPP()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold shadow-[0_8px_15px_rgba(16,185,129,0.2)] active:scale-95 transition-all flex items-center gap-2">
+                <i class="fas fa-save"></i> Simpan Semua Perubahan
+            </button>
+        </div>
+
+        <div class="bg-white border border-slate-200 rounded-[1.5rem] shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-100/50 text-slate-500 text-xs uppercase tracking-widest border-b border-slate-200">
+                            <th class="p-4 font-black w-16 text-center">No</th>
+                            <th class="p-4 font-black">Nama Produk</th>
+                            <th class="p-4 font-black text-right w-40">Harga Jual</th>
+                            <th class="p-4 font-black w-48">Input HPP (Modal)</th>
+                            <th class="p-4 font-black text-right w-32">Margin</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body-hpp" class="text-sm divide-y divide-slate-100">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="view-profit" class="app-view hidden flex-col h-full bg-slate-50 p-4 md:p-6 lg:p-8 min-h-0 custom-scroll overflow-y-auto">
+    <div class="max-w-6xl mx-auto w-full">
+        <div class="mb-6 flex flex-col md:flex-row justify-between items-end gap-4">
+            <div>
+                <h2 class="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Analitik Laba Bersih</h2>
+                <p class="text-slate-500 font-medium text-sm mt-1">Performa margin (Omset - HPP) di setiap titik outlet.</p>
+            </div>
+            <div class="bg-white border border-slate-200 p-1.5 rounded-xl flex shadow-sm">
+                <button class="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-bold shadow-sm">Hari Ini</button>
+                <button class="px-4 py-2 text-slate-500 hover:text-slate-700 rounded-lg text-sm font-bold transition">Bulan Ini</button>
+            </div>
+        </div>
+
+        <div id="profit-cards-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            </div>
+    </div>
+</div>
+
       <div id="view-ai" class="app-view hidden flex-col lg:min-h-[80vh] min-h-max gap-4 pb-20 md:pb-0">
         <div class="bg-slate-50 p-4 lg:p-6 rounded-[2rem] shadow-sm border border-slate-100 text-slate-800 flex flex-col h-full min-h-0 relative">
             

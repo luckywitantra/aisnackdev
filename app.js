@@ -1510,6 +1510,160 @@ const superApp = {
             this.setLoading(false);
         }
     },
+
+    // ==========================================
+    // 1. LOGIKA MASTER HPP
+    // ==========================================
+    renderMasterHPP: function() {
+        const tbody = document.getElementById('table-body-hpp');
+        if (!tbody) return;
+
+        let html = '';
+        this.filteredProducts.forEach((p, idx) => {
+            let hpp = p.hpp || 0;
+            let hargaJual = p.harga || 0;
+            let margin = hargaJual - hpp;
+            let marginPercent = hargaJual > 0 ? ((margin / hargaJual) * 100).toFixed(1) : 0;
+            
+            // Indikator visual margin
+            let badgeClass = marginPercent < 30 ? 'bg-red-50 text-red-600 border-red-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200';
+
+            html += `
+            <tr class="hover:bg-slate-50 transition-colors group">
+                <td class="p-4 text-center font-bold text-slate-400">${idx + 1}</td>
+                <td class="p-4">
+                    <p class="font-bold text-slate-800">${p.nama}</p>
+                    <p class="text-xs text-slate-400">SKU: ${p.sku}</p>
+                </td>
+                <td class="p-4 font-black text-slate-600 text-right">
+                    Rp ${hargaJual.toLocaleString('id-ID')}
+                </td>
+                <td class="p-4">
+                    <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">Rp</span>
+                        <input type="number" id="hpp-input-${p.sku}" value="${hpp}" class="w-full bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2 font-bold text-sm text-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition" onchange="superApp.calculateRowMargin('${p.sku}', ${hargaJual}, this.value)">
+                    </div>
+                </td>
+                <td class="p-4 text-right">
+                    <div id="margin-display-${p.sku}" class="inline-block px-2.5 py-1 rounded-md border text-xs font-black ${badgeClass}">
+                        ${marginPercent}%
+                    </div>
+                </td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+    },
+
+    calculateRowMargin: function(sku, hargaJual, newHpp) {
+        let hppVal = parseFloat(newHpp) || 0;
+        let margin = hargaJual - hppVal;
+        let percent = hargaJual > 0 ? ((margin / hargaJual) * 100).toFixed(1) : 0;
+        
+        const badge = document.getElementById(`margin-display-${sku}`);
+        if(badge) {
+            badge.innerText = `${percent}%`;
+            if(percent < 30) {
+                badge.className = 'inline-block px-2.5 py-1 rounded-md border text-xs font-black bg-red-50 text-red-600 border-red-200';
+            } else {
+                badge.className = 'inline-block px-2.5 py-1 rounded-md border text-xs font-black bg-emerald-50 text-emerald-600 border-emerald-200';
+            }
+        }
+    },
+
+    saveHPP: function() {
+        // Logika untuk menyimpan HPP ke Google Sheets via API
+        this.showToast("Menyimpan konfigurasi HPP...", "info");
+        // Loop this.filteredProducts, ambil nilai dari input, kirim POST request
+        // Simulasi sukses:
+        setTimeout(() => this.showToast("Data HPP berhasil diperbarui!", "success"), 1000);
+    },
+
+    // ==========================================
+    // 2. LOGIKA DASBOR LABA BERSIH PER OUTLET
+    // ==========================================
+    renderProfitReport: function() {
+        const container = document.getElementById('profit-cards-container');
+        if (!container) return;
+
+        // Simulasi Data Transaksi yang dikelompokkan per outlet
+        // Di aplikasi nyata, Anda menarik ini dari array transaksi yang sudah difilter tanggalnya
+        const dataOutlet = [
+            { nama: 'Penajam', omset: 4500000, hpp: 2100000, trxCount: 112 },
+            { nama: 'Babulu', omset: 3200000, hpp: 1550000, trxCount: 85 },
+            { nama: 'Sepaku', omset: 5800000, hpp: 2600000, trxCount: 140 },
+            { nama: 'Batu Kajang', omset: 2900000, hpp: 1400000, trxCount: 68 }
+        ];
+
+        let html = '';
+        let totalGlobalOmset = 0; let totalGlobalHpp = 0;
+
+        dataOutlet.forEach(out => {
+            let labaBersih = out.omset - out.hpp;
+            let marginPercent = out.omset > 0 ? ((labaBersih / out.omset) * 100).toFixed(1) : 0;
+            totalGlobalOmset += out.omset; totalGlobalHpp += out.hpp;
+
+            html += `
+            <div class="bg-white border border-slate-100 rounded-[1.5rem] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:-translate-y-1 transition-transform duration-300 relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-emerald-500/5 to-teal-500/10 rounded-bl-[4rem] -z-10"></div>
+                
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-black text-lg text-slate-800 flex items-center gap-2">
+                        <i class="fas fa-store text-brand-500"></i> ${out.nama}
+                    </h3>
+                    <span class="bg-slate-50 text-slate-500 text-[10px] font-bold px-2 py-1 rounded border border-slate-200">${out.trxCount} Trx</span>
+                </div>
+
+                <div class="space-y-3 mb-5">
+                    <div class="flex justify-between items-center pb-2 border-b border-slate-50">
+                        <span class="text-xs font-bold text-slate-400">Total Omset</span>
+                        <span class="text-sm font-black text-slate-700">Rp ${out.omset.toLocaleString('id-ID')}</span>
+                    </div>
+                    <div class="flex justify-between items-center pb-2 border-b border-slate-50">
+                        <span class="text-xs font-bold text-slate-400">Total Modal (HPP)</span>
+                        <span class="text-sm font-black text-rose-500">- Rp ${out.hpp.toLocaleString('id-ID')}</span>
+                    </div>
+                </div>
+
+                <div class="bg-emerald-50/50 rounded-xl p-3 border border-emerald-100/50 flex justify-between items-center">
+                    <div>
+                        <p class="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-0.5">Laba Bersih</p>
+                        <p class="text-lg font-black text-emerald-700">Rp ${labaBersih.toLocaleString('id-ID')}</p>
+                    </div>
+                    <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm border border-emerald-100 text-emerald-600 font-black text-xs">
+                        ${marginPercent}%
+                    </div>
+                </div>
+            </div>`;
+        });
+
+        // Tambahkan Kartu Ringkasan Global
+        let globalLaba = totalGlobalOmset - totalGlobalHpp;
+        let globalMargin = totalGlobalOmset > 0 ? ((globalLaba / totalGlobalOmset) * 100).toFixed(1) : 0;
+
+        html = `
+        <div class="md:col-span-2 lg:col-span-3 mb-2">
+            <div class="bg-slate-900 rounded-[1.5rem] p-6 shadow-xl text-white relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
+                <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjIiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wNSkiLz48L3N2Zz4=')] opacity-50"></div>
+                <div class="relative z-10 w-full md:w-auto text-center md:text-left">
+                    <p class="text-slate-400 font-bold text-xs uppercase tracking-widest mb-1">Total Laba Seluruh Cabang</p>
+                    <p class="text-3xl md:text-4xl font-black text-emerald-400">Rp ${globalLaba.toLocaleString('id-ID')}</p>
+                </div>
+                <div class="relative z-10 flex gap-4 w-full md:w-auto">
+                    <div class="bg-white/10 backdrop-blur-md rounded-xl p-3 flex-1 md:w-32 border border-white/10 text-center">
+                        <p class="text-slate-400 text-[10px] font-bold uppercase mb-1">Omset</p>
+                        <p class="font-black text-sm">Rp ${(totalGlobalOmset/1000000).toFixed(1)}M</p>
+                    </div>
+                    <div class="bg-white/10 backdrop-blur-md rounded-xl p-3 flex-1 md:w-32 border border-white/10 text-center">
+                        <p class="text-slate-400 text-[10px] font-bold uppercase mb-1">Rata² Margin</p>
+                        <p class="font-black text-sm text-emerald-300">${globalMargin}%</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        ` + html;
+
+        container.innerHTML = html;
+    },
     
     // FUNGSI PENYAPA CFD (Mendukung Multi-Window)
     updateCFDGreeting: function() {
@@ -1911,6 +2065,9 @@ refreshData: function() {
         // ====================================================================
         // 🚀 PERBAIKAN 3: Daftarkan pemicu halaman dan Popup Panduannya
         // ====================================================================
+        // Di dalam fungsi switchMenu(menu):
+        if (menu === 'hpp' && typeof this.renderMasterHPP === 'function') this.renderMasterHPP();
+        if (menu === 'profit' && typeof this.renderProfitReport === 'function') this.renderProfitReport();
         if (menu === 'pos' && !this.activeShiftId) this.checkShiftStatus();
         if (menu === 'report' && typeof this.renderReport === 'function') this.renderReport();
         

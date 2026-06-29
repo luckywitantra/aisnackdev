@@ -2005,6 +2005,22 @@ refreshData: function() {
     
     changeOutlet: function(val) { this.outlet = val; this.cart = []; this.renderCart(); this.checkShiftStatus(); this.refreshData(); },
    switchMenu: function(menu) {
+        // ====================================================================
+        // 🚀 KUNCI KEAMANAN: Batasi menu HPP dan Profit hanya untuk Owner
+        // ====================================================================
+        const menuKhususOwner = ['hpp', 'profit'];
+        
+        // Cek jika menu yang dituju adalah menu sensitif DAN role user bukan owner
+        if (menuKhususOwner.includes(menu) && this.userRole !== 'owner') {
+            if (typeof this.showToast === 'function') {
+                this.showToast("Akses Ditolak! Menu ini khusus untuk Owner.", "error");
+            } else {
+                alert("Akses Ditolak! Menu ini khusus untuk Owner.");
+            }
+            return; // Hentikan eksekusi agar halaman tidak berpindah
+        }
+
+        // Jika aman, lanjutkan sembunyikan semua halaman
         document.querySelectorAll('.app-view').forEach(el => el.classList.add('hidden'));
         
         const colors = {
@@ -2017,7 +2033,9 @@ refreshData: function() {
             'gudang': 'text-emerald-600', 
             'outlet': 'text-teal-600',    
             'staf': 'text-amber-600',
-            'master': 'text-emerald-600' // PERBAIKAN 1: Tambahkan ini agar warna menu master terdeteksi
+            'master': 'text-emerald-600', 
+            'hpp': 'text-emerald-600',     // 🚀 TAMBAHAN: Warna indikator menu HPP
+            'profit': 'text-emerald-700'   // 🚀 TAMBAHAN: Warna indikator menu Profit
         };
         const allColors = Object.values(colors);
 
@@ -2037,12 +2055,18 @@ refreshData: function() {
             if(icon) { icon.classList.remove('text-slate-400'); icon.classList.add(targetColor); }
         }
 
-        // PERBAIKAN 2: Menggabungkan Menu Master dan Gudang ke satu Halaman HTML yang sama
+        // Menggabungkan Menu Master dan Gudang ke satu Halaman HTML yang sama
         let targetViewId = menu === 'master' ? 'gudang' : menu;
         const activeView = document.getElementById(`view-${targetViewId}`); 
         if (activeView) activeView.classList.remove('hidden');
 
-        const titles = { 'pos': 'POS', 'opname': 'Opname Fisik Stok', 'terima': 'Penerimaan Barang', 'audit': 'Audit Laporan', 'report': 'Laporan Terpadu', 'ai': 'Asisten AI', 'gudang': 'Gudang Pusat', 'master': 'Master Varian POS', 'outlet': 'Cabang & Harga Khusus', 'staf': 'Kinerja Karyawan' };
+        const titles = { 
+            'pos': 'POS', 'opname': 'Opname Fisik Stok', 'terima': 'Penerimaan Barang', 
+            'audit': 'Audit Laporan', 'report': 'Laporan Terpadu', 'ai': 'Asisten AI', 
+            'gudang': 'Gudang Pusat', 'master': 'Master Varian POS', 'outlet': 'Cabang & Harga Khusus', 'staf': 'Kinerja Karyawan',
+            'hpp': 'Master HPP Produk',      // 🚀 TAMBAHAN: Judul Halaman
+            'profit': 'Analitik Laba Bersih' // 🚀 TAMBAHAN: Judul Halaman
+        };
         const pageTitle = document.getElementById('page-title'); 
         if (pageTitle) pageTitle.innerText = titles[menu] || 'Aplikasi';
 
@@ -2063,9 +2087,8 @@ refreshData: function() {
         });
 
         // ====================================================================
-        // 🚀 PERBAIKAN 3: Daftarkan pemicu halaman dan Popup Panduannya
+        // Daftarkan pemicu halaman dan Popup Panduannya
         // ====================================================================
-        // Di dalam fungsi switchMenu(menu):
         if (menu === 'hpp' && typeof this.renderMasterHPP === 'function') this.renderMasterHPP();
         if (menu === 'profit' && typeof this.renderProfitReport === 'function') this.renderProfitReport();
         if (menu === 'pos' && !this.activeShiftId) this.checkShiftStatus();

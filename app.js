@@ -1644,67 +1644,96 @@ const superApp = {
 
     // 2. Rendering Profit dengan Chart.js
     renderProfitReport: function() {
+    const container = document.getElementById('profit-summary-cards');
     const tbody = document.getElementById('profit-product-tbody');
     const startVal = document.getElementById('profit-start').value;
     const endVal = document.getElementById('profit-end').value;
     const outletVal = document.getElementById('profit-outlet').value;
 
+    if (!startVal || !endVal) return; // Tunggu user pilih tanggal
+
     const dStart = new Date(startVal + "T00:00:00");
     const dEnd = new Date(endVal + "T23:59:59");
 
-    let productAggr = {}, totalGlobalLaba = 0, totalGlobalOmset = 0, totalGlobalHpp = 0;
-
-    // DEBUG: Cek isi transaksi
-    console.log("Total Transaksi di DB:", (this.db.transactions || []).length);
+    let productAggr = {}, trendAggr = {}, totalLaba = 0, totalOmset = 0, totalHpp = 0;
 
     (this.db.transactions || []).forEach(t => {
         if (t.Status !== 'Sukses') return;
         let tDate = this.parseDateId(t.Tanggal);
         
-        // Filter Tanggal & Outlet
         if (tDate >= dStart && tDate <= dEnd && (outletVal === 'Semua' || t.Outlet === outletVal)) {
             let items = JSON.parse(t.Items_JSON || '[]');
             items.forEach(it => {
-                // SKU Lookup
-                let master = (this.db.masterProduk || []).find(m => String(m.SKU) === String(it.sku));
-                
-                // Debug: Jika master produk tidak ketemu, SKU mungkin tidak cocok
-                if(!master) console.warn("Produk tidak ditemukan di master:", it.sku);
-
-                let hppSatuan = master ? Number(master.HPP || 0) : 0;
-                let hargaJual = Number(it.price || 0);
+                let m = (this.db.masterProduk || []).find(m => String(m.SKU) === String(it.sku));
+                let hppSatuan = m ? Number(m.HPP || 0) : 0;
+                let hargaSatuan = Number(it.price || 0);
                 let qty = Number(it.qty || 0);
-                let laba = (hargaJual - hppSatuan) * qty;
+                let laba = (hargaSatuan - hppSatuan) * qty;
                 
                 if(!productAggr[it.nama]) productAggr[it.nama] = { qty: 0, omset: 0, laba: 0 };
                 productAggr[it.nama].qty += qty;
-                productAggr[it.nama].omset += (hargaJual * qty);
+                productAggr[it.nama].omset += (hargaSatuan * qty);
                 productAggr[it.nama].laba += laba;
 
-                totalGlobalLaba += laba;
-                totalGlobalOmset += (hargaJual * qty);
-                totalGlobalHpp += (hppSatuan * qty);
+                let dateKey = this.cleanDateOnly(t.Tanggal);
+                trendAggr[dateKey] = (trendAggr[dateKey] || 0) + laba;
+                
+                totalLaba += laba;
+                totalOmset += (hargaSatuan * qty);
+                totalHpp += (hppSatuan * qty);
             });
         }
     });
 
-    // Render Tabel
-    if(tbody) {
-        tbody.innerHTML = Object.entries(productAggr).sort((a,b) => b[1].laba - a[1].laba).map(([name, data]) => `
-            <tr class="border-b border-slate-50 hover:bg-slate-50">
-                <td class="py-4">${name}</td>
-                <td class="py-4 text-center">${data.qty}</td>
-                <td class="py-4 text-right">Rp ${data.omset.toLocaleString('id-ID')}</td>
-                <td class="py-4 text-right font-black text-emerald-600">Rp ${data.laba.toLocaleString('id-ID')}</td>
-            </tr>
-        `).join('') || `<tr><td colspan="4" class="text-center py-10 text-slate-400">Tidak ada data untuk periode ini</td></tr>`;
-    }
+    // Render Tabel Produk
+    tbody.innerHTML = Object.entries(productAggr).sort((a,b) => b[1].laba - a[1].laba).map(([name, data]) => `
+        <tr class="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+            <td class="py-4 text-sm">${name}</td>
+            <td class="py-4 text-center text-xs text-slate-500">${data.qty} Pcs</td>
+            <td class="py-4 text-right text-xs">Rp ${data.omset.toLocaleString('id-ID')}</td>
+            <td class="py-4 text-right font-black ${data.laba < 0 ? 'text-red-500' : 'text-emerald-600'}">Rp ${data.laba.toLocaleString('id-ID')}</td>
+        </tr>
+    `).join('') || '<tr><td colspan="4" class="text-center py-8 text-slate-400 font-bold">Tidak ada data di periode ini</td></tr>';
 
-    // Update Summary Cards
-    document.getElementById('profit-card-omset').innerText = `Rp ${totalGlobalOmset.toLocaleString('id-ID')}`;
-    document.getElementById('profit-card-hpp').innerText = `Rp ${totalGlobalHpp.toLocaleString('id-ID')}`;
-    document.getElementById('profit-card-laba').innerText = `Rp ${totalGlobalLaba.toLocaleString('id-ID')}`;
-}, 
+    // Update Insight Cards
+    container.innerHTML = `
+        <div class="bg-slate-900 p-6 rounded-3xl text-white shadow-xl">
+            <p class="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Total Omset</p>
+            <h3 class="text-2xl font-black">Rp ${totalOmset.toLocaleString('id-ID')}</h3>
+        </div>
+        <div class="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm">
+            <p class="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Total Modal (HPP)</p>
+            <h3 class="text-2xl font-black text-rose-500">Rp ${totalHpp.toLocaleString('id-ID')}</h3>
+        </div>
+        <div class="bg-emerald-500 p-6 rounded-3xl text-white shadow-lg shadow-emerald-200">
+            <p class="text-emerald-100 text-[10px] font-black uppercase tracking-widest mb-1">Laba Bersih</p>
+            <h3 class="text-2xl font-black">Rp ${totalLaba.toLocaleString('id-ID')}</h3>
+        </div>
+    `;
+
+    // Render Grafik
+    const canvas = document.getElementById('profitChart');
+    if (canvas) {
+        if (this.profitChart) this.profitChart.destroy();
+        this.profitChart = new Chart(canvas.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: Object.keys(trendAggr),
+                datasets: [{
+                    label: 'Laba (Rp)',
+                    data: Object.values(trendAggr),
+                    backgroundColor: '#f97316',
+                    borderRadius: 12
+                }]
+            },
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+},
     
     // FUNGSI PENYAPA CFD (Mendukung Multi-Window)
     updateCFDGreeting: function() {

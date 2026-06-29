@@ -1615,151 +1615,105 @@ const superApp = {
         this.setLoading(false);
     },
 
-    renderProfitReport: function(filterBulanIni = true) {
-        const container = document.getElementById('profit-cards-container');
-        if (!container) return;
+    // Tambahkan di dalam object superApp
+    profitChart: null,
+    // 1. Inisialisasi Filter & State Memory
+    initProfitFilters: function() {
+        const startEl = document.getElementById('profit-start');
+        const endEl = document.getElementById('profit-end');
+        const outletEl = document.getElementById('profit-outlet');
 
-        // 1. Tentukan Rentang Waktu (Bulan Ini vs Hari Ini)
-        let today = new Date();
-        let dStart, dEnd;
-        if (filterBulanIni) {
-            // Tanggal 1 sampai akhir bulan ini
-            dStart = new Date(today.getFullYear(), today.getMonth(), 1);
-            dEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
-        } else {
-            // Hanya hari ini dari jam 00:00 sampai 23:59
-            dStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-            dEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+        // Auto-Set Tanggal: Hari ini
+        const today = new Date().toISOString().split('T')[0];
+        if (startEl && !startEl.value) startEl.value = today;
+        if (endEl && !endEl.value) endEl.value = today;
+
+        // State Memory: Load Outlet terakhir dari localStorage
+        const savedOutlet = localStorage.getItem('last_profit_outlet');
+        if (savedOutlet && outletEl) {
+            outletEl.value = savedOutlet;
         }
 
-        // 2. Siapkan Wadah Data per Outlet Asli dari Database
-        let outletStats = {};
-        (this.db.outlets || []).forEach(o => {
-            outletStats[o.Nama_Outlet] = { nama: o.Nama_Outlet, omset: 0, hpp: 0, trxCount: 0 };
-        });
-
-        let totalGlobalOmset = 0;
-        let totalGlobalHpp = 0;
-
-        // 3. 🚀 MESIN KALKULASI: Sisir Ribuan Transaksi!
-        (this.db.transactions || []).forEach(t => {
-            if (t.Status !== 'Sukses') return; // Abaikan yang batal/void
-
-            let trxDate = this.parseDateId(t.Tanggal);
-            if (trxDate >= dStart && trxDate <= dEnd) {
-                let outName = t.Outlet || 'Pusat';
-                if (!outletStats[outName]) outletStats[outName] = { nama: outName, omset: 0, hpp: 0, trxCount: 0 };
-
-                let bayar = Number(t.Total_Bayar) || 0;
-                outletStats[outName].omset += bayar;
-                outletStats[outName].trxCount += 1;
-                totalGlobalOmset += bayar;
-
-                // 🚀 BONGKAR STRUK UNTUK MENGHITUNG HPP (MODAL)
-                let items = [];
-                try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
-                
-                let trxHpp = 0;
-                items.forEach(item => {
-                    let master = (this.db.masterProduk || []).find(m => m.SKU === item.sku);
-                    let hppSatuan = master ? Number(master.HPP || 0) : 0;
-                    trxHpp += (hppSatuan * Number(item.qty));
-                });
-
-                outletStats[outName].hpp += trxHpp;
-                totalGlobalHpp += trxHpp;
-            }
-        });
-
-        // 4. Bangun Ulang Tampilan HTML-nya
-        let html = '';
-        Object.values(outletStats).forEach(out => {
-            if (out.trxCount === 0 && out.omset === 0) return; // Sembunyikan cabang yang 0 transaksi
-
-            let labaBersih = out.omset - out.hpp;
-            let marginPercent = out.omset > 0 ? ((labaBersih / out.omset) * 100).toFixed(1) : 0;
-            let isRugi = labaBersih < 0; // Deteksi jika ada produk dijual di bawah modal
-
-            html += `
-            <div class="bg-white border border-slate-100 rounded-[1.5rem] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:-translate-y-1 transition-transform duration-300 relative overflow-hidden">
-                <div class="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-${isRugi?'rose':'emerald'}-500/5 to-${isRugi?'red':'teal'}-500/10 rounded-bl-[4rem] -z-10"></div>
-                
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="font-black text-lg text-slate-800 flex items-center gap-2">
-                        <i class="fas fa-store text-brand-500"></i> ${out.nama}
-                    </h3>
-                    <span class="bg-slate-50 text-slate-500 text-[10px] font-bold px-2 py-1 rounded border border-slate-200">${out.trxCount} Trx</span>
-                </div>
-
-                <div class="space-y-3 mb-5">
-                    <div class="flex justify-between items-center pb-2 border-b border-slate-50">
-                        <span class="text-xs font-bold text-slate-400">Total Omset</span>
-                        <span class="text-sm font-black text-slate-700">Rp ${out.omset.toLocaleString('id-ID')}</span>
-                    </div>
-                    <div class="flex justify-between items-center pb-2 border-b border-slate-50">
-                        <span class="text-xs font-bold text-slate-400">Total Modal (HPP)</span>
-                        <span class="text-sm font-black text-rose-500">- Rp ${out.hpp.toLocaleString('id-ID')}</span>
-                    </div>
-                </div>
-
-                <div class="bg-${isRugi?'rose':'emerald'}-50/50 rounded-xl p-3 border border-${isRugi?'rose':'emerald'}-100/50 flex justify-between items-center">
-                    <div>
-                        <p class="text-[10px] font-black text-${isRugi?'rose':'emerald'}-600 uppercase tracking-widest mb-0.5">${isRugi?'Rugi Bersih':'Laba Bersih'}</p>
-                        <p class="text-lg font-black text-${isRugi?'rose':'emerald'}-700">Rp ${labaBersih.toLocaleString('id-ID')}</p>
-                    </div>
-                    <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm border border-${isRugi?'rose':'emerald'}-100 text-${isRugi?'rose':'emerald'}-600 font-black text-xs">
-                        ${marginPercent}%
-                    </div>
-                </div>
-            </div>`;
-        });
-
-        if (html === '') {
-            html = `<div class="col-span-full text-center py-10 bg-white border border-slate-200 rounded-[1.5rem] shadow-sm"><i class="fas fa-chart-line text-4xl text-slate-300 mb-3"></i><p class="font-bold text-slate-500">Belum ada transaksi di periode ini.</p></div>`;
-        }
-
-        // Tambahkan Kartu Ringkasan Global
-        let globalLaba = totalGlobalOmset - totalGlobalHpp;
-        let globalMargin = totalGlobalOmset > 0 ? ((globalLaba / totalGlobalOmset) * 100).toFixed(1) : 0;
-        let isGlobalRugi = globalLaba < 0;
-
-        let globalHtml = `
-        <div class="md:col-span-2 lg:col-span-3 mb-2">
-            <div class="bg-slate-900 rounded-[1.5rem] p-6 shadow-xl text-white relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
-                <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjIiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wNSkiLz48L3N2Zz4=')] opacity-50"></div>
-                <div class="relative z-10 w-full md:w-auto text-center md:text-left">
-                    <p class="text-slate-400 font-bold text-xs uppercase tracking-widest mb-1">Total Laba Seluruh Cabang</p>
-                    <p class="text-3xl md:text-4xl font-black text-${isGlobalRugi ? 'rose' : 'emerald'}-400">Rp ${globalLaba.toLocaleString('id-ID')}</p>
-                </div>
-                <div class="relative z-10 flex gap-4 w-full md:w-auto">
-                    <div class="bg-white/10 backdrop-blur-md rounded-xl p-3 flex-1 md:w-32 border border-white/10 text-center">
-                        <p class="text-slate-400 text-[10px] font-bold uppercase mb-1">Total Omset</p>
-                        <p class="font-black text-sm">Rp ${(totalGlobalOmset/1000000).toFixed(1)}M</p>
-                    </div>
-                    <div class="bg-white/10 backdrop-blur-md rounded-xl p-3 flex-1 md:w-32 border border-white/10 text-center">
-                        <p class="text-slate-400 text-[10px] font-bold uppercase mb-1">Rata² Margin</p>
-                        <p class="font-black text-sm text-${isGlobalRugi ? 'rose' : 'emerald'}-300">${globalMargin}%</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        ` + html;
-
-        container.innerHTML = globalHtml;
-
-        // Ubah UI Warna Tombol yang Aktif
-        const btnBulan = document.getElementById('btn-filter-bulan');
-        const btnHari = document.getElementById('btn-filter-hari');
-        if (btnBulan && btnHari) {
-            if (filterBulanIni) {
-                btnBulan.className = "px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-bold shadow-sm";
-                btnHari.className = "px-4 py-2 text-slate-500 hover:text-slate-700 rounded-lg text-sm font-bold transition border border-transparent hover:bg-slate-200";
-            } else {
-                btnHari.className = "px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-bold shadow-sm";
-                btnBulan.className = "px-4 py-2 text-slate-500 hover:text-slate-700 rounded-lg text-sm font-bold transition border border-transparent hover:bg-slate-200";
-            }
+        // Isi Dropdown Outlet
+        if (outletEl && outletEl.options.length <= 1) {
+            (this.db.outlets || []).forEach(o => {
+                outletEl.innerHTML += `<option value="${o.Nama_Outlet}">${o.Nama_Outlet}</option>`;
+            });
         }
     },
+
+    // 2. Rendering Profit dengan Chart.js
+    renderProfitReport: function() {
+        const container = document.getElementById('profit-cards-container');
+        const tbody = document.getElementById('profit-product-tbody');
+        const startVal = document.getElementById('profit-start').value;
+        const endVal = document.getElementById('profit-end').value;
+        const outletVal = document.getElementById('profit-outlet').value;
+
+        // Simpan State Memory
+        localStorage.setItem('last_profit_outlet', outletVal);
+
+        const dStart = new Date(startVal + "T00:00:00");
+        const dEnd = new Date(endVal + "T23:59:59");
+
+        let productAggr = {}, trendAggr = {}, totalLaba = 0, totalGlobalOmset = 0;
+
+        (this.db.transactions || []).forEach(t => {
+            if (t.Status !== 'Sukses') return;
+            let tDate = this.parseDateId(t.Tanggal);
+            if (tDate >= dStart && tDate <= dEnd && (outletVal === 'Semua' || t.Outlet === outletVal)) {
+                let items = JSON.parse(t.Items_JSON || '[]');
+                items.forEach(it => {
+                    let m = (this.db.masterProduk || []).find(m => m.SKU === it.sku);
+                    let hppSatuan = m ? Number(m.HPP || 0) : 0;
+                    let laba = (Number(it.price) - hppSatuan) * Number(it.qty);
+                    
+                    if(!productAggr[it.nama]) productAggr[it.nama] = { qty: 0, omset: 0, laba: 0 };
+                    productAggr[it.nama].qty += Number(it.qty);
+                    productAggr[it.nama].omset += (Number(it.price) * Number(it.qty));
+                    productAggr[it.nama].laba += laba;
+
+                    let dateKey = this.cleanDateOnly(t.Tanggal);
+                    trendAggr[dateKey] = (trendAggr[dateKey] || 0) + laba;
+                    totalLaba += laba;
+                    totalGlobalOmset += (Number(it.price) * Number(it.qty));
+                });
+            }
+        });
+
+        // Render Tabel
+        tbody.innerHTML = Object.entries(productAggr).sort((a,b) => b[1].laba - a[1].laba).map(([name, data]) => `
+            <tr class="border-b border-slate-50 hover:bg-slate-50 transition">
+                <td class="py-4 font-bold text-slate-800">${name}</td>
+                <td class="py-4 text-center text-slate-600">${data.qty}</td>
+                <td class="py-4 text-right font-black text-emerald-600">Rp ${data.laba.toLocaleString('id-ID')}</td>
+            </tr>
+        `).join('');
+
+        // 🚀 Grafik Chart.js
+        const ctx = document.getElementById('profitChart').getContext('2d');
+        if (this.profitChart) this.profitChart.destroy(); // Hancurkan chart lama agar tidak glitch
+
+        this.profitChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(trendAggr),
+                datasets: [{
+                    label: 'Laba Bersih (Rp)',
+                    data: Object.values(trendAggr),
+                    backgroundColor: '#f97316',
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }
+            }
+        });
+    },
+    
     // FUNGSI PENYAPA CFD (Mendukung Multi-Window)
     updateCFDGreeting: function() {
         // 1. Simpan nama cabang ke memori agar jendela CFD tidak lupa saat di-refresh
@@ -2186,7 +2140,10 @@ refreshData: function() {
         // Daftarkan pemicu halaman dan Popup Panduannya
         // ====================================================================
         if (menu === 'hpp' && typeof this.renderMasterHPP === 'function') this.renderMasterHPP();
-        if (menu === 'profit' && typeof this.renderProfitReport === 'function') this.renderProfitReport();
+        if (menu === 'profit') {
+        this.initProfitFilters(); // Setup input tanggal & outlet
+        this.renderProfitReport(); // Render data
+    }
         if (menu === 'pos' && !this.activeShiftId) this.checkShiftStatus();
         if (menu === 'report' && typeof this.renderReport === 'function') this.renderReport();
         

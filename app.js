@@ -996,13 +996,13 @@ const superApp = {
                     logStat.className = 'text-[10px] text-green-500 font-bold uppercase tracking-widest text-center'; 
                 }
             };
-
-            // Jika tidak ada cache lokal, tunggu sampai download selesai. Jika ada cache, biarkan download berjalan di background.
-            if (!cacheDb) {
-                await performFetch();
-            } else {
+           
+            if (cacheDb) { 
+                this.db = JSON.parse(cacheDb);
                 performFetch(); 
-            }
+            } else {
+                await performFetch();
+        }
 
         } catch (err) {
             const logStat = document.getElementById('login-status');

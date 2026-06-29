@@ -180,7 +180,7 @@ const superApp = {
     outlet: '', cart: [], printerChar: null, db: null, filteredProducts: [],
     payTotal: 0, payCash: 0, payChange: 0, payMethod: 'Tunai', activeShiftId: null, activeStaffTeam: [],
     activeReprintTrx: null, currentUser: null, pinBuffer: '', ADMIN_PIN: '1234',
-    offlineQueue: [], isOnline: navigator.onLine, cfdWindow: null, isLoadingData: false, printerCharacteristic: null, printerDevice: null, isBluetoothSearching: false, isProcessing: false,
+    offlineQueue: [], isOnline: navigator.onLine, cfdWindow: null, profitChart: null, isLoadingData: false, printerCharacteristic: null, printerDevice: null, isBluetoothSearching: false, isProcessing: false,
     cfdFocusHandlerAdded: false,
 
     // FORMATTER & PARSER
@@ -2141,8 +2141,8 @@ refreshData: function() {
         // ====================================================================
         if (menu === 'hpp' && typeof this.renderMasterHPP === 'function') this.renderMasterHPP();
         if (menu === 'profit') {
-        this.initProfitFilters(); // Setup input tanggal & outlet
-        this.renderProfitReport(); // Render data
+        this.initProfitFilters(); 
+        this.renderProfitReport(); 
     }
         if (menu === 'pos' && !this.activeShiftId) this.checkShiftStatus();
         if (menu === 'report' && typeof this.renderReport === 'function') this.renderReport();

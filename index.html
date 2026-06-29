@@ -858,28 +858,46 @@
 </div>
 
 <div id="view-profit" class="app-view hidden flex-col h-full bg-slate-50 p-4 md:p-6 lg:p-8 min-h-0 custom-scroll overflow-y-auto">
-    <div class="max-w-6xl mx-auto w-full">
-        <div class="mb-6 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                    <h2 class="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Analitik Laba Bersih</h2>
-                    <p class="text-slate-500 font-medium text-sm mt-1">Performa margin (Omset - HPP) per outlet.</p>
-                </div>
-                
-                <div class="flex flex-wrap items-center gap-3">
-                    <div class="flex items-center gap-2">
-                        <input type="date" id="profit-start" class="border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 focus:border-brand-500" onchange="superApp.renderProfitReport()">
-                        <span class="text-slate-400 font-bold">s/d</span>
-                        <input type="date" id="profit-end" class="border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 focus:border-brand-500" onchange="superApp.renderProfitReport()">
-                    </div>
-                    <select id="profit-outlet" class="border-2 border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-700 outline-none" onchange="superApp.renderProfitReport()">
-                        <option value="Semua">Semua Outlet</option>
-                        </select>
-                </div>
+    <div class="max-w-7xl mx-auto w-full">
+        <div class="mb-6 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h2 class="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Analitik Laba Bersih</h2>
+                <p class="text-slate-500 font-medium text-sm mt-1">Laba = Omset - HPP. Filter sesuai kebutuhan.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <input type="date" id="profit-start" class="border-2 border-slate-200 rounded-xl px-4 py-2.5 font-bold text-sm text-slate-700 outline-none focus:border-brand-500" onchange="superApp.renderProfitReport()">
+                <span class="text-slate-400 font-bold">s/d</span>
+                <input type="date" id="profit-end" class="border-2 border-slate-200 rounded-xl px-4 py-2.5 font-bold text-sm text-slate-700 outline-none focus:border-brand-500" onchange="superApp.renderProfitReport()">
+                <select id="profit-outlet" class="border-2 border-slate-200 rounded-xl px-4 py-2.5 font-bold text-sm text-slate-700 outline-none focus:border-brand-500" onchange="superApp.renderProfitReport()">
+                    <option value="Semua">Seluruh Cabang</option>
+                </select>
             </div>
         </div>
 
-        <div id="profit-cards-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div class="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                <h4 class="font-black text-slate-800 mb-6 flex items-center gap-2"><i class="fas fa-chart-line text-brand-500"></i> Tren Laba Harian</h4>
+                <div id="profit-trend-chart" class="h-64 flex items-end gap-2 px-2"></div>
+            </div>
+            <div id="profit-summary-cards" class="flex flex-col gap-4"></div>
+        </div>
+
+        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+            <h4 class="font-black text-slate-800 mb-6 flex items-center gap-2"><i class="fas fa-box-open text-emerald-500"></i> Akumulasi Margin per Produk</h4>
+            <div class="overflow-x-auto custom-scroll">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-slate-400 border-b border-slate-100 uppercase tracking-widest text-[10px] font-black">
+                            <th class="text-left pb-3">Produk</th>
+                            <th class="text-center pb-3">Qty Terjual</th>
+                            <th class="text-right pb-3">Total Omset</th>
+                            <th class="text-right pb-3 text-emerald-600">Laba Bersih</th>
+                        </tr>
+                    </thead>
+                    <tbody id="profit-product-tbody" class="text-slate-700 font-bold"></tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 

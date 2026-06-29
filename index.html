@@ -18,6 +18,7 @@
   <meta name="theme-color" content="#f97316">
   
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   
@@ -876,9 +877,10 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
             <div class="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                <h4 class="font-black text-slate-800 mb-6 flex items-center gap-2"><i class="fas fa-chart-line text-brand-500"></i> Tren Laba Harian</h4>
-                <div id="profit-trend-chart" class="h-64 flex items-end gap-2 px-2"></div>
-            </div>
+    <h4 class="font-black text-slate-800 mb-6 flex items-center gap-2"><i class="fas fa-chart-line text-brand-500"></i> Tren Laba Harian</h4>
+    <div class="h-64 relative">
+        <canvas id="profitChart"></canvas> </div>
+</div>
             <div id="profit-summary-cards" class="flex flex-col gap-4"></div>
         </div>
 

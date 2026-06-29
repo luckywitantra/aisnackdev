@@ -1576,41 +1576,113 @@ const superApp = {
         }
     },
 
-    saveHPP: function() {
-        // Logika untuk menyimpan HPP ke Google Sheets via API
-        this.showToast("Menyimpan konfigurasi HPP...", "info");
-        // Loop this.filteredProducts, ambil nilai dari input, kirim POST request
-        // Simulasi sukses:
-        setTimeout(() => this.showToast("Data HPP berhasil diperbarui!", "success"), 1000);
+    saveHPP: async function() {
+        if (this.isProcessing) return;
+        
+        let hppData = [];
+        // 1. Kumpulkan semua angka yang diketik Owner
+        this.filteredProducts.forEach(p => {
+            let inputEl = document.getElementById(`hpp-input-${p.sku}`);
+            if (inputEl) {
+                hppData.push({ sku: p.sku, hpp: this.getNumericValue(inputEl.value) });
+            }
+        });
+
+        if (hppData.length === 0) return this.showToast("Tidak ada data HPP untuk disimpan", "warning");
+        if (!confirm("Simpan perubahan Master HPP ke database pusat?")) return;
+
+        this.setLoading(true, "Menyimpan HPP ke Server...");
+        
+        // 2. Kirim ke Backend Google Sheets
+        const payload = {
+            action: 'save_hpp',
+            userRole: this.userRole, // 🔒 Gembok Keamanan
+            data: hppData
+        };
+
+        let res = await this.apiPost(payload);
+        if (res.status === 'sukses') {
+            this.showToast("Data HPP berhasil diperbarui!", "success");
+            if (!res.is_offline) {
+                const r = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' });
+                this.db = await r.json();
+            }
+            this.refreshData(); 
+            this.renderMasterHPP(); // Gambar ulang tabel
+        } else {
+            this.showToast("Gagal menyimpan HPP: " + (res.pesan || ''), "error");
+        }
+        this.setLoading(false);
     },
 
-    // ==========================================
-    // 2. LOGIKA DASBOR LABA BERSIH PER OUTLET
-    // ==========================================
-    renderProfitReport: function() {
+    renderProfitReport: function(filterBulanIni = true) {
         const container = document.getElementById('profit-cards-container');
         if (!container) return;
 
-        // Simulasi Data Transaksi yang dikelompokkan per outlet
-        // Di aplikasi nyata, Anda menarik ini dari array transaksi yang sudah difilter tanggalnya
-        const dataOutlet = [
-            { nama: 'Penajam', omset: 4500000, hpp: 2100000, trxCount: 112 },
-            { nama: 'Babulu', omset: 3200000, hpp: 1550000, trxCount: 85 },
-            { nama: 'Sepaku', omset: 5800000, hpp: 2600000, trxCount: 140 },
-            { nama: 'Batu Kajang', omset: 2900000, hpp: 1400000, trxCount: 68 }
-        ];
+        // 1. Tentukan Rentang Waktu (Bulan Ini vs Hari Ini)
+        let today = new Date();
+        let dStart, dEnd;
+        if (filterBulanIni) {
+            // Tanggal 1 sampai akhir bulan ini
+            dStart = new Date(today.getFullYear(), today.getMonth(), 1);
+            dEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
+        } else {
+            // Hanya hari ini dari jam 00:00 sampai 23:59
+            dStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            dEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+        }
 
+        // 2. Siapkan Wadah Data per Outlet Asli dari Database
+        let outletStats = {};
+        (this.db.outlets || []).forEach(o => {
+            outletStats[o.Nama_Outlet] = { nama: o.Nama_Outlet, omset: 0, hpp: 0, trxCount: 0 };
+        });
+
+        let totalGlobalOmset = 0;
+        let totalGlobalHpp = 0;
+
+        // 3. 🚀 MESIN KALKULASI: Sisir Ribuan Transaksi!
+        (this.db.transactions || []).forEach(t => {
+            if (t.Status !== 'Sukses') return; // Abaikan yang batal/void
+
+            let trxDate = this.parseDateId(t.Tanggal);
+            if (trxDate >= dStart && trxDate <= dEnd) {
+                let outName = t.Outlet || 'Pusat';
+                if (!outletStats[outName]) outletStats[outName] = { nama: outName, omset: 0, hpp: 0, trxCount: 0 };
+
+                let bayar = Number(t.Total_Bayar) || 0;
+                outletStats[outName].omset += bayar;
+                outletStats[outName].trxCount += 1;
+                totalGlobalOmset += bayar;
+
+                // 🚀 BONGKAR STRUK UNTUK MENGHITUNG HPP (MODAL)
+                let items = [];
+                try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
+                
+                let trxHpp = 0;
+                items.forEach(item => {
+                    let master = (this.db.masterProduk || []).find(m => m.SKU === item.sku);
+                    let hppSatuan = master ? Number(master.HPP || 0) : 0;
+                    trxHpp += (hppSatuan * Number(item.qty));
+                });
+
+                outletStats[outName].hpp += trxHpp;
+                totalGlobalHpp += trxHpp;
+            }
+        });
+
+        // 4. Bangun Ulang Tampilan HTML-nya
         let html = '';
-        let totalGlobalOmset = 0; let totalGlobalHpp = 0;
+        Object.values(outletStats).forEach(out => {
+            if (out.trxCount === 0 && out.omset === 0) return; // Sembunyikan cabang yang 0 transaksi
 
-        dataOutlet.forEach(out => {
             let labaBersih = out.omset - out.hpp;
             let marginPercent = out.omset > 0 ? ((labaBersih / out.omset) * 100).toFixed(1) : 0;
-            totalGlobalOmset += out.omset; totalGlobalHpp += out.hpp;
+            let isRugi = labaBersih < 0; // Deteksi jika ada produk dijual di bawah modal
 
             html += `
             <div class="bg-white border border-slate-100 rounded-[1.5rem] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:-translate-y-1 transition-transform duration-300 relative overflow-hidden">
-                <div class="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-emerald-500/5 to-teal-500/10 rounded-bl-[4rem] -z-10"></div>
+                <div class="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-${isRugi?'rose':'emerald'}-500/5 to-${isRugi?'red':'teal'}-500/10 rounded-bl-[4rem] -z-10"></div>
                 
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="font-black text-lg text-slate-800 flex items-center gap-2">
@@ -1630,47 +1702,64 @@ const superApp = {
                     </div>
                 </div>
 
-                <div class="bg-emerald-50/50 rounded-xl p-3 border border-emerald-100/50 flex justify-between items-center">
+                <div class="bg-${isRugi?'rose':'emerald'}-50/50 rounded-xl p-3 border border-${isRugi?'rose':'emerald'}-100/50 flex justify-between items-center">
                     <div>
-                        <p class="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-0.5">Laba Bersih</p>
-                        <p class="text-lg font-black text-emerald-700">Rp ${labaBersih.toLocaleString('id-ID')}</p>
+                        <p class="text-[10px] font-black text-${isRugi?'rose':'emerald'}-600 uppercase tracking-widest mb-0.5">${isRugi?'Rugi Bersih':'Laba Bersih'}</p>
+                        <p class="text-lg font-black text-${isRugi?'rose':'emerald'}-700">Rp ${labaBersih.toLocaleString('id-ID')}</p>
                     </div>
-                    <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm border border-emerald-100 text-emerald-600 font-black text-xs">
+                    <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm border border-${isRugi?'rose':'emerald'}-100 text-${isRugi?'rose':'emerald'}-600 font-black text-xs">
                         ${marginPercent}%
                     </div>
                 </div>
             </div>`;
         });
 
+        if (html === '') {
+            html = `<div class="col-span-full text-center py-10 bg-white border border-slate-200 rounded-[1.5rem] shadow-sm"><i class="fas fa-chart-line text-4xl text-slate-300 mb-3"></i><p class="font-bold text-slate-500">Belum ada transaksi di periode ini.</p></div>`;
+        }
+
         // Tambahkan Kartu Ringkasan Global
         let globalLaba = totalGlobalOmset - totalGlobalHpp;
         let globalMargin = totalGlobalOmset > 0 ? ((globalLaba / totalGlobalOmset) * 100).toFixed(1) : 0;
+        let isGlobalRugi = globalLaba < 0;
 
-        html = `
+        let globalHtml = `
         <div class="md:col-span-2 lg:col-span-3 mb-2">
             <div class="bg-slate-900 rounded-[1.5rem] p-6 shadow-xl text-white relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
                 <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjIiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wNSkiLz48L3N2Zz4=')] opacity-50"></div>
                 <div class="relative z-10 w-full md:w-auto text-center md:text-left">
                     <p class="text-slate-400 font-bold text-xs uppercase tracking-widest mb-1">Total Laba Seluruh Cabang</p>
-                    <p class="text-3xl md:text-4xl font-black text-emerald-400">Rp ${globalLaba.toLocaleString('id-ID')}</p>
+                    <p class="text-3xl md:text-4xl font-black text-${isGlobalRugi ? 'rose' : 'emerald'}-400">Rp ${globalLaba.toLocaleString('id-ID')}</p>
                 </div>
                 <div class="relative z-10 flex gap-4 w-full md:w-auto">
                     <div class="bg-white/10 backdrop-blur-md rounded-xl p-3 flex-1 md:w-32 border border-white/10 text-center">
-                        <p class="text-slate-400 text-[10px] font-bold uppercase mb-1">Omset</p>
+                        <p class="text-slate-400 text-[10px] font-bold uppercase mb-1">Total Omset</p>
                         <p class="font-black text-sm">Rp ${(totalGlobalOmset/1000000).toFixed(1)}M</p>
                     </div>
                     <div class="bg-white/10 backdrop-blur-md rounded-xl p-3 flex-1 md:w-32 border border-white/10 text-center">
                         <p class="text-slate-400 text-[10px] font-bold uppercase mb-1">Rata² Margin</p>
-                        <p class="font-black text-sm text-emerald-300">${globalMargin}%</p>
+                        <p class="font-black text-sm text-${isGlobalRugi ? 'rose' : 'emerald'}-300">${globalMargin}%</p>
                     </div>
                 </div>
             </div>
         </div>
         ` + html;
 
-        container.innerHTML = html;
+        container.innerHTML = globalHtml;
+
+        // Ubah UI Warna Tombol yang Aktif
+        const btnBulan = document.getElementById('btn-filter-bulan');
+        const btnHari = document.getElementById('btn-filter-hari');
+        if (btnBulan && btnHari) {
+            if (filterBulanIni) {
+                btnBulan.className = "px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-bold shadow-sm";
+                btnHari.className = "px-4 py-2 text-slate-500 hover:text-slate-700 rounded-lg text-sm font-bold transition border border-transparent hover:bg-slate-200";
+            } else {
+                btnHari.className = "px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-bold shadow-sm";
+                btnBulan.className = "px-4 py-2 text-slate-500 hover:text-slate-700 rounded-lg text-sm font-bold transition border border-transparent hover:bg-slate-200";
+            }
+        }
     },
-    
     // FUNGSI PENYAPA CFD (Mendukung Multi-Window)
     updateCFDGreeting: function() {
         // 1. Simpan nama cabang ke memori agar jendela CFD tidak lupa saat di-refresh
@@ -1983,7 +2072,8 @@ refreshData: function() {
                             img: master.Gambar_URL, 
                             harga: hargaOutlet.Harga_Jual, 
                             maxStok: qtySisa, 
-                            sku_bahan: master.SKU_Bahan 
+                            sku_bahan: master.SKU_Bahan,
+                            hpp: master.HPP || 0
                         });
                     }
                 }

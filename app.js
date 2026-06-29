@@ -1033,6 +1033,12 @@ const superApp = {
             let roleStr = String(user.Role).toLowerCase();
             let isAdmin = roleStr.includes('admin') || roleStr.includes('owner');
             
+            // =====================================================================
+            // 🚀 PERBAIKAN: SIMPAN IDENTITAS OWNER KE DALAM MEMORI SISTEM
+            // Jika kata 'owner' ada di database, jadikan dia owner. Jika tidak, jadikan kasir/admin.
+            // =====================================================================
+            this.userRole = roleStr.includes('owner') ? 'owner' : (roleStr.includes('admin') ? 'admin' : 'kasir');
+            
             const adminMenus = document.getElementById('admin-menus'); 
             const selOut = document.getElementById('select-outlet'); 
             const repOut = document.getElementById('report-outlet-filter');
@@ -1042,7 +1048,7 @@ const superApp = {
                 'setting-card-standby', 
                 'setting-card-transaksi', 
                 'setting-card-logo', 
-                'setting-card-struk' // 🚀 Tambahkan ini agar Receipt Builder terdeteksi
+                'setting-card-struk'
             ];
 
             if (isAdmin) {

@@ -252,12 +252,17 @@ const superApp = {
 
     // GLOBAL UTILS
     // Tambahkan parameter silent (default false)
-    pullFreshData: async function(silent = false) {
+    // 🚀 PERBAIKAN: Tambahkan parameter fetchAll = false
+    pullFreshData: async function(silent = false, fetchAll = false) {
         if (this.isProcessing && !silent) return; 
-        if (!silent) this.setLoading(true, "Menarik Data Terbaru...");
+        
+        // 🚀 PERBAIKAN: Teks loading disesuaikan
+        if (!silent) this.setLoading(true, fetchAll ? "Menarik Seluruh Historis Data..." : "Menarik Data 14 Hari Terakhir...");
         
         try {
-            const res = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); 
+            // 🚀 PERBAIKAN: Sisipkan parameter history ke URL untuk ditangkap Backend Code.gs
+            let historyParam = fetchAll ? "&history=all" : "&history=14";
+            const res = await fetch(API_URL + "?ts=" + new Date().getTime() + historyParam, { redirect: 'follow' }); 
             const data = await res.json();
             
             if (data && data.status === 'sukses') { 
@@ -327,7 +332,8 @@ const superApp = {
                     this.refreshData(); 
                 }
                 
-                if (!silent) this.showToast("Data diperbarui!"); 
+                // 🚀 PERBAIKAN: Notifikasi disesuaikan
+                if (!silent) this.showToast(fetchAll ? "Seluruh Historis Data Berhasil Ditarik!" : "Data operasional (14 Hari) diperbarui!"); 
             } 
         } catch (e) { 
             if (!silent) this.showToast("Gagal menarik data.", "error"); 

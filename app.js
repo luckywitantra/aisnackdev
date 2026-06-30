@@ -1626,6 +1626,7 @@ const superApp = {
     // Tambahkan di dalam object superApp
     profitChart: null,
     // 1. Inisialisasi Filter & State Memory
+    // 1. Inisialisasi Filter & State Memory (SAMA SEPERTI REPORT)
     initProfitFilters: function() {
         const startEl = document.getElementById('profit-start');
         const endEl = document.getElementById('profit-end');
@@ -1636,112 +1637,137 @@ const superApp = {
         if (startEl && !startEl.value) startEl.value = today;
         if (endEl && !endEl.value) endEl.value = today;
 
+        // 🚀 PERBAIKAN KUNCI: Isi Dropdown Outlet menggunakan ID_Outlet agar cocok dengan Riwayat_Transaksi
+        if (outletEl && outletEl.options.length <= 1) {
+            (this.db.outlets || []).forEach(o => {
+                outletEl.innerHTML += `<option value="${o.ID_Outlet}">${o.Nama_Outlet}</option>`;
+            });
+        }
+
         // State Memory: Load Outlet terakhir dari localStorage
         const savedOutlet = localStorage.getItem('last_profit_outlet');
         if (savedOutlet && outletEl) {
             outletEl.value = savedOutlet;
         }
-
-        // Isi Dropdown Outlet
-        if (outletEl && outletEl.options.length <= 1) {
-            (this.db.outlets || []).forEach(o => {
-                outletEl.innerHTML += `<option value="${o.Nama_Outlet}">${o.Nama_Outlet}</option>`;
-            });
-        }
     },
 
     // 2. Rendering Profit dengan Chart.js
     renderProfitReport: function() {
-    const container = document.getElementById('profit-summary-cards');
-    const tbody = document.getElementById('profit-product-tbody');
-    const startVal = document.getElementById('profit-start').value;
-    const endVal = document.getElementById('profit-end').value;
-    const outletVal = document.getElementById('profit-outlet').value;
+        const container = document.getElementById('profit-summary-cards');
+        const tbody = document.getElementById('profit-product-tbody');
+        const startVal = document.getElementById('profit-start').value;
+        const endVal = document.getElementById('profit-end').value;
+        const outletEl = document.getElementById('profit-outlet');
 
-    if (!startVal || !endVal) return; // Tunggu user pilih tanggal
+        // 🚀 ADOPSI DARI MENU REPORT: Proteksi Role & Penentuan Outlet Target
+        let roleStr = this.currentUser ? String(this.currentUser.Role).toLowerCase() : '';
+        let isAdmin = roleStr.includes('admin') || roleStr.includes('owner');
+        let filterVal = (isAdmin && outletEl) ? outletEl.value : this.outlet;
 
-    const dStart = new Date(startVal + "T00:00:00");
-    const dEnd = new Date(endVal + "T23:59:59");
+        // Simpan State Memory hanya jika dia admin
+        if (isAdmin) localStorage.setItem('last_profit_outlet', filterVal);
 
-    let productAggr = {}, trendAggr = {}, totalLaba = 0, totalOmset = 0, totalHpp = 0;
+        if (!startVal || !endVal) return; // Tunggu user pilih tanggal
 
-    (this.db.transactions || []).forEach(t => {
-        if (t.Status !== 'Sukses') return;
-        let tDate = this.parseDateId(t.Tanggal);
-        
-        if (tDate >= dStart && tDate <= dEnd && (outletVal === 'Semua' || t.Outlet === outletVal)) {
-            let items = JSON.parse(t.Items_JSON || '[]');
-            items.forEach(it => {
-                let m = (this.db.masterProduk || []).find(m => String(m.SKU) === String(it.sku));
-                let hppSatuan = m ? Number(m.HPP || 0) : 0;
-                let hargaSatuan = Number(it.price || 0);
-                let qty = Number(it.qty || 0);
-                let laba = (hargaSatuan - hppSatuan) * qty;
+        const dStart = new Date(startVal + "T00:00:00");
+        const dEnd = new Date(endVal + "T23:59:59");
+
+        let productAggr = {}, trendAggr = {}, totalLaba = 0, totalOmset = 0, totalHpp = 0;
+
+        (this.db.transactions || []).forEach(t => {
+            if (t.Status !== 'Sukses') return;
+            let tDate = this.parseDateId(t.Tanggal);
+            
+            // 🚀 ADOPSI DARI MENU REPORT: Filter pencocokan outlet yang presisi
+            let isTargetOutlet = (filterVal === 'Semua' || t.Outlet === filterVal);
+            
+            if (tDate >= dStart && tDate <= dEnd && isTargetOutlet) {
+                let items = [];
+                try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e) { return; }
                 
-                if(!productAggr[it.nama]) productAggr[it.nama] = { qty: 0, omset: 0, laba: 0 };
-                productAggr[it.nama].qty += qty;
-                productAggr[it.nama].omset += (hargaSatuan * qty);
-                productAggr[it.nama].laba += laba;
+                items.forEach(it => {
+                    let m = (this.db.masterProduk || []).find(m => String(m.SKU).trim() === String(it.sku).trim());
+                    
+                    let hppSatuan = m ? Number(m.HPP || 0) : 0;
+                    let hargaSatuan = Number(it.price || 0);
+                    let qty = Number(it.qty || 0);
+                    
+                    let omsetItem = hargaSatuan * qty;
+                    let hppItem = hppSatuan * qty;
+                    let labaItem = omsetItem - hppItem;
+                    
+                    let safeNama = it.nama || 'Unknown';
+                    
+                    if(!productAggr[safeNama]) productAggr[safeNama] = { qty: 0, omset: 0, hpp: 0, laba: 0 };
+                    productAggr[safeNama].qty += qty;
+                    productAggr[safeNama].omset += omsetItem;
+                    productAggr[safeNama].hpp += hppItem;
+                    productAggr[safeNama].laba += labaItem;
 
-                let dateKey = this.cleanDateOnly(t.Tanggal);
-                trendAggr[dateKey] = (trendAggr[dateKey] || 0) + laba;
-                
-                totalLaba += laba;
-                totalOmset += (hargaSatuan * qty);
-                totalHpp += (hppSatuan * qty);
-            });
-        }
-    });
-
-    // Render Tabel Produk
-    tbody.innerHTML = Object.entries(productAggr).sort((a,b) => b[1].laba - a[1].laba).map(([name, data]) => `
-        <tr class="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-            <td class="py-4 text-sm">${name}</td>
-            <td class="py-4 text-center text-xs text-slate-500">${data.qty} Pcs</td>
-            <td class="py-4 text-right text-xs">Rp ${data.omset.toLocaleString('id-ID')}</td>
-            <td class="py-4 text-right font-black ${data.laba < 0 ? 'text-red-500' : 'text-emerald-600'}">Rp ${data.laba.toLocaleString('id-ID')}</td>
-        </tr>
-    `).join('') || '<tr><td colspan="4" class="text-center py-8 text-slate-400 font-bold">Tidak ada data di periode ini</td></tr>';
-
-    // Update Insight Cards
-    container.innerHTML = `
-        <div class="bg-slate-900 p-6 rounded-3xl text-white shadow-xl">
-            <p class="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Total Omset</p>
-            <h3 class="text-2xl font-black">Rp ${totalOmset.toLocaleString('id-ID')}</h3>
-        </div>
-        <div class="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm">
-            <p class="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Total Modal (HPP)</p>
-            <h3 class="text-2xl font-black text-rose-500">Rp ${totalHpp.toLocaleString('id-ID')}</h3>
-        </div>
-        <div class="bg-emerald-500 p-6 rounded-3xl text-white shadow-lg shadow-emerald-200">
-            <p class="text-emerald-100 text-[10px] font-black uppercase tracking-widest mb-1">Laba Bersih</p>
-            <h3 class="text-2xl font-black">Rp ${totalLaba.toLocaleString('id-ID')}</h3>
-        </div>
-    `;
-
-    // Render Grafik
-    const canvas = document.getElementById('profitChart');
-    if (canvas) {
-        if (this.profitChart) this.profitChart.destroy();
-        this.profitChart = new Chart(canvas.getContext('2d'), {
-            type: 'bar',
-            data: {
-                labels: Object.keys(trendAggr),
-                datasets: [{
-                    label: 'Laba (Rp)',
-                    data: Object.values(trendAggr),
-                    backgroundColor: '#f97316',
-                    borderRadius: 12
-                }]
-            },
-            options: { 
-                responsive: true, 
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } }
+                    let dateKey = this.cleanDateOnly(t.Tanggal);
+                    trendAggr[dateKey] = (trendAggr[dateKey] || 0) + labaItem;
+                    
+                    totalLaba += labaItem;
+                    totalOmset += omsetItem;
+                    totalHpp += hppItem;
+                });
             }
         });
-    }
-},
+
+        // Render Tabel Produk (Lengkap dengan kolom HPP & Laba)
+        if (tbody) {
+            tbody.innerHTML = Object.entries(productAggr).sort((a,b) => b[1].laba - a[1].laba).map(([name, data]) => `
+                <tr class="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                    <td class="py-4 text-sm font-bold">${name}</td>
+                    <td class="py-4 text-center text-xs text-slate-500">${data.qty} Pcs</td>
+                    <td class="py-4 text-right text-xs">Rp ${data.omset.toLocaleString('id-ID')}</td>
+                    <td class="py-4 text-right text-xs font-bold text-rose-500">Rp ${data.hpp.toLocaleString('id-ID')}</td>
+                    <td class="py-4 text-right font-black ${data.laba < 0 ? 'text-red-500' : 'text-emerald-600'}">Rp ${data.laba.toLocaleString('id-ID')}</td>
+                </tr>
+            `).join('') || '<tr><td colspan="5" class="text-center py-8 text-slate-400 font-bold">Tidak ada data di periode ini</td></tr>';
+        }
+
+        // Update Insight Cards
+        if (container) {
+            container.innerHTML = `
+                <div class="bg-slate-900 p-6 rounded-3xl text-white shadow-xl">
+                    <p class="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Total Omset</p>
+                    <h3 class="text-2xl font-black">Rp ${totalOmset.toLocaleString('id-ID')}</h3>
+                </div>
+                <div class="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm">
+                    <p class="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Total Modal (HPP)</p>
+                    <h3 class="text-2xl font-black text-rose-500">Rp ${totalHpp.toLocaleString('id-ID')}</h3>
+                </div>
+                <div class="bg-emerald-500 p-6 rounded-3xl text-white shadow-lg shadow-emerald-200">
+                    <p class="text-emerald-100 text-[10px] font-black uppercase tracking-widest mb-1">Laba Bersih</p>
+                    <h3 class="text-2xl font-black">Rp ${totalLaba.toLocaleString('id-ID')}</h3>
+                </div>
+            `;
+        }
+
+        // Render Grafik Chart.js
+        const canvas = document.getElementById('profitChart');
+        if (canvas) {
+            if (this.profitChart) this.profitChart.destroy();
+            this.profitChart = new Chart(canvas.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(trendAggr),
+                    datasets: [{
+                        label: 'Laba (Rp)',
+                        data: Object.values(trendAggr),
+                        backgroundColor: '#f97316',
+                        borderRadius: 12
+                    }]
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+    },
     
     // FUNGSI PENYAPA CFD (Mendukung Multi-Window)
     updateCFDGreeting: function() {

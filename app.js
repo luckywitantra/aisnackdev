@@ -5670,7 +5670,7 @@ selectOutlet: function(id) {
     },
     
 // 🚀 FUNGSI PRINT FINAL DENGAN ANTISIPASI NaN & LOGIKA REPRINT
-    printReceipt: async function(id, outlet, total, tunai, kembali, items, status, explicitDate, antrian, isReprint = false, metodeBayar = 'TUNAI') {
+   printReceipt: async function(id, outlet, total, tunai, kembali, items, status, explicitDate, antrian, isReprint = false, metodeBayar = 'TUNAI') {
         if (!this.printerCharacteristic) {
             this.showToast("Printer belum terhubung!", "error");
             throw new Error("Printer tidak siap");
@@ -5678,7 +5678,13 @@ selectOutlet: function(id) {
         
         try {
             let statStr = status === 'Sukses' ? '' : '\n*** DIBATALKAN ***\n';
-            let printTime = explicitDate ? explicitDate : new Date().toLocaleString('id-ID');
+            
+            // Format fallback date if explicitDate is not provided
+            let printTime = explicitDate ? explicitDate : new Date().toLocaleString('id-ID', {
+                day: '2-digit', month: '2-digit', year: 'numeric',
+                hour: '2-digit', minute: '2-digit', second: '2-digit'
+            }).replace(',', '');
+            
             let antrianStr = antrian ? `\nANTRIAN : ${antrian}\n` : '';
             
             // 1. INJEKSI KETERANGAN REPRINT KE PRINTER
@@ -5741,9 +5747,16 @@ selectOutlet: function(id) {
                         str += `${i.nama}\n${i.qty} x Rp ${Number(i.price).toLocaleString('id-ID')} = Rp ${(i.price * i.qty).toLocaleString('id-ID')}\n`;
                     });
 
-                    // 3. CETAK LABEL METODE BAYAR DINAMIS
+                    // 3. CETAK LABEL METODE BAYAR DINAMIS (Aligned)
                     str += "--------------------------------\n";
-                    str += `\x1B\x61\x02\x1B\x45\x01TOTAL  : Rp ${Number(total).toLocaleString('id-ID')}\n${labelBayar.padEnd(7)}: Rp ${valBayar.toLocaleString('id-ID')}\nKEMBALI: Rp ${valKembali.toLocaleString('id-ID')}\n\x1B\x45\x00\x1B\x61\x00`;
+                    str += "\x1B\x61\x02"; // Right Align
+                    str += `\x1B\x45\x01TOTAL   : Rp ${Number(total).toLocaleString('id-ID')}\n\x1B\x45\x00`;
+                    
+                    // PadEnd ensures the label takes up consistent space before the colon
+                    str += `${labelBayar.padEnd(8)}: Rp ${valBayar.toLocaleString('id-ID')}\n`;
+                    str += `KEMBALI : Rp ${valKembali.toLocaleString('id-ID')}\n`;
+                    
+                    str += "\x1B\x61\x00"; // Reset to Left Align
                 }
             }
 

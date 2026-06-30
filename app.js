@@ -273,21 +273,21 @@ const superApp = {
     },
 
     
-   pullFreshData: async function(silent = false, fetchAll = false) {
+   pullFreshData: async function(silent = false) {
         if (this.isProcessing && !silent) return; 
         
-        // 1. Amankan status processing dengan try...finally agar loading pasti mati
-        if (!silent) this.setLoading(true, fetchAll ? "Menarik Seluruh Historis Data..." : "Menarik Data 14 Hari Terakhir...");
+        // Teks loading disesuaikan karena selalu menarik semua data
+        if (!silent) this.setLoading(true, "Menyinkronkan Seluruh Database...");
         this.isProcessing = true; 
 
         try {
-            let historyParam = fetchAll ? "&history=all" : "&history=14";
-            const res = await fetch(API_URL + "?ts=" + new Date().getTime() + historyParam, { redirect: 'follow' }); 
+            // 🚀 PERBAIKAN: Selalu gunakan history=all agar tidak menimpa background sync
+            const res = await fetch(API_URL + "?ts=" + new Date().getTime() + "&history=all", { redirect: 'follow' }); 
             const data = await res.json();
             
             if (data && data.status === 'sukses') { 
                 
-                // --- 🚀 DETEKSI UPDATE VERSI ---
+                // --- RADAR PENDETEKSI UPDATE VERSI ---
                 let serverVersion = (data.pengaturan || []).find(x => x.Pengaturan === 'Versi_Aplikasi');
                 if (serverVersion) {
                     let localVersion = localStorage.getItem('app_version');
@@ -296,11 +296,9 @@ const superApp = {
                         localStorage.setItem('app_version', serverVersion.Nilai);
                     } 
                     else if (localVersion !== serverVersion.Nilai) {
-                        // Opsi: Gunakan Toast agar tidak memblokir user secara paksa jika sedang transaksi
                         console.log("Versi baru ditemukan, memuat ulang...");
                         localStorage.setItem('app_version', serverVersion.Nilai);
                         
-                        // Perbarui Service Worker
                         if ('serviceWorker' in navigator) {
                             const regs = await navigator.serviceWorker.getRegistrations();
                             for(let reg of regs) { reg.update(); }
@@ -311,10 +309,11 @@ const superApp = {
                     }
                 }
                 
+                // Simpan database utuh ke memori
                 this.db = data; 
                 localStorage.setItem('aisnack_db_cache', JSON.stringify(data));
 
-                // 🚀 JEMBATAN PENGATURAN
+                // JEMBATAN PENGATURAN PERSONALISASI
                 let configs = [
                     { key: 'Logo_Aplikasi', storage: 'app_logo_url', callback: (val) => typeof this.updateAppLogos === 'function' && this.updateAppLogos(val) },
                     { key: 'Promo_Standby', storage: 'cfd_promo_standby' },
@@ -330,10 +329,10 @@ const superApp = {
                     }
                 });
                 
-                // Refresh layar jika tidak sedang transaksi
+                // Refresh layar jika tidak sedang melayani pelanggan
                 if (this.cart.length === 0) this.refreshData(); 
                 
-                if (!silent) this.showToast(fetchAll ? "Semua data ditarik!" : "Data 14 hari diperbarui!"); 
+                if (!silent) this.showToast("Seluruh database berhasil disinkronkan!"); 
             } else {
                 throw new Error("Data tidak valid");
             }
@@ -341,11 +340,11 @@ const superApp = {
             console.error("Fetch Error:", e);
             if (!silent) this.showToast("Gagal menarik data. Cek koneksi Anda.", "error"); 
         } finally {
-            // 🚀 KUNCI: Pastikan loading selalu mati apapun yang terjadi
             this.isProcessing = false;
             if (!silent) this.setLoading(false);
         }
     },
+    
     
     getEmptyState: function(icon, title, desc) { return `<div class="flex flex-col items-center justify-center h-full p-8 text-center opacity-70"><div class="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center text-4xl text-slate-300 mb-4 mx-auto"><i class="fas ${icon}"></i></div><h4 class="font-black text-slate-600 text-lg mb-1">${title}</h4><p class="text-xs font-bold text-slate-400">${desc}</p></div>`; },
     showToast: function(msg, type = 'success') {

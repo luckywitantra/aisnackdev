@@ -273,93 +273,78 @@ const superApp = {
     },
 
     
-    pullFreshData: async function(silent = false, fetchAll = false) {
+   pullFreshData: async function(silent = false, fetchAll = false) {
         if (this.isProcessing && !silent) return; 
         
-        // 🚀 PERBAIKAN: Teks loading disesuaikan
+        // 1. Amankan status processing dengan try...finally agar loading pasti mati
         if (!silent) this.setLoading(true, fetchAll ? "Menarik Seluruh Historis Data..." : "Menarik Data 14 Hari Terakhir...");
-        
+        this.isProcessing = true; 
+
         try {
-            // 🚀 PERBAIKAN: Sisipkan parameter history ke URL untuk ditangkap Backend Code.gs
             let historyParam = fetchAll ? "&history=all" : "&history=14";
             const res = await fetch(API_URL + "?ts=" + new Date().getTime() + historyParam, { redirect: 'follow' }); 
             const data = await res.json();
             
             if (data && data.status === 'sukses') { 
                 
-                // --- 🚀 RADAR PENDETEKSI UPDATE VERSI KODINGAN ---
+                // --- 🚀 DETEKSI UPDATE VERSI ---
                 let serverVersion = (data.pengaturan || []).find(x => x.Pengaturan === 'Versi_Aplikasi');
                 if (serverVersion) {
                     let localVersion = localStorage.getItem('app_version');
                     
-                    // Jika baru pertama kali buka, simpan versinya
                     if (!localVersion) {
                         localStorage.setItem('app_version', serverVersion.Nilai);
                     } 
-                    // JIKA VERSI DI GOOGLE SHEETS BERBEDA DENGAN DI HP KASIR
                     else if (localVersion !== serverVersion.Nilai) {
-                        
-                        // 1. Tampilkan Pop-up Pembaruan Paksa
-                        alert(`🚀 UPDATE SISTEM TERSEDIA!\n\nKodingan versi baru (${serverVersion.Nilai}) telah dirilis oleh Owner.\n\nSistem akan dimuat ulang (Refresh) secara otomatis untuk menerapkan pembaruan.`);
-                        
-                        // 2. Perbarui ingatan memori versi di HP
+                        // Opsi: Gunakan Toast agar tidak memblokir user secara paksa jika sedang transaksi
+                        console.log("Versi baru ditemukan, memuat ulang...");
                         localStorage.setItem('app_version', serverVersion.Nilai);
                         
-                        // 3. Paksa Service Worker PWA untuk memeriksa pembaruan file cache
+                        // Perbarui Service Worker
                         if ('serviceWorker' in navigator) {
-                            navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                                for(let registration of registrations) { registration.update(); }
-                            });
+                            const regs = await navigator.serviceWorker.getRegistrations();
+                            for(let reg of regs) { reg.update(); }
                         }
                         
-                        // 4. Paksa aplikasi memuat ulang (reload) detik itu juga
                         window.location.reload(true);
-                        return; // Hentikan fungsi ke bawah agar data lama tidak ditimpa
+                        return; 
                     }
                 }
-                // ------------------------------------------------
                 
                 this.db = data; 
-                localStorage.setItem('aisnack_db_cache', JSON.stringify(data)); 
+                localStorage.setItem('aisnack_db_cache', JSON.stringify(data));
 
-                // ========================================================
-                // 🚀 JEMBATAN SINKRONISASI PENGATURAN PERSONALISASI (BARU)
-                // ========================================================
-                
-                // 1. Set Logo Aplikasi Global
-                let logoData = (this.db.pengaturan || []).find(x => x.Pengaturan === 'Logo_Aplikasi');
-                if (logoData && logoData.Nilai) {
-                    localStorage.setItem('app_logo_url', logoData.Nilai);
-                    if(typeof this.updateAppLogos === 'function') this.updateAppLogos(logoData.Nilai); 
-                }
-                
-                // 2. Set DUAL Promo Layar CFD
-                let pStandby = (this.db.pengaturan || []).find(x => x.Pengaturan === 'Promo_Standby');
-                if (pStandby && pStandby.Nilai) localStorage.setItem('cfd_promo_standby', pStandby.Nilai);
-                
-                let pTransaksi = (this.db.pengaturan || []).find(x => x.Pengaturan === 'Promo_Transaksi');
-                if (pTransaksi && pTransaksi.Nilai) localStorage.setItem('cfd_promo_transaksi', pTransaksi.Nilai);
+                // 🚀 JEMBATAN PENGATURAN
+                let configs = [
+                    { key: 'Logo_Aplikasi', storage: 'app_logo_url', callback: (val) => typeof this.updateAppLogos === 'function' && this.updateAppLogos(val) },
+                    { key: 'Promo_Standby', storage: 'cfd_promo_standby' },
+                    { key: 'Promo_Transaksi', storage: 'cfd_promo_transaksi' },
+                    { key: 'aisnack_receipt_template', storage: 'aisnack_receipt_template' }
+                ];
 
-                // 3. TARIK KEMBALI TEMPLATE STRUK DARI SERVER
-                let tStruk = (this.db.pengaturan || []).find(x => x.Pengaturan === 'aisnack_receipt_template');
-                if (tStruk && tStruk.Nilai) {
-                    localStorage.setItem('aisnack_receipt_template', tStruk.Nilai);
-                }
-                // ========================================================
+                configs.forEach(c => {
+                    let item = (this.db.pengaturan || []).find(x => x.Pengaturan === c.key);
+                    if (item && item.Nilai) {
+                        localStorage.setItem(c.storage, item.Nilai);
+                        if (c.callback) c.callback(item.Nilai);
+                    }
+                });
                 
-                // Hanya perbarui layar jika keranjang kosong (tidak mengganggu transaksi)
-                if (this.cart.length === 0) {
-                    this.refreshData(); 
-                }
+                // Refresh layar jika tidak sedang transaksi
+                if (this.cart.length === 0) this.refreshData(); 
                 
-                // 🚀 PERBAIKAN: Notifikasi disesuaikan
-                if (!silent) this.showToast(fetchAll ? "Seluruh Historis Data Berhasil Ditarik!" : "Data operasional (14 Hari) diperbarui!"); 
-            } 
+                if (!silent) this.showToast(fetchAll ? "Semua data ditarik!" : "Data 14 hari diperbarui!"); 
+            } else {
+                throw new Error("Data tidak valid");
+            }
         } catch (e) { 
-            if (!silent) this.showToast("Gagal menarik data.", "error"); 
+            console.error("Fetch Error:", e);
+            if (!silent) this.showToast("Gagal menarik data. Cek koneksi Anda.", "error"); 
+        } finally {
+            // 🚀 KUNCI: Pastikan loading selalu mati apapun yang terjadi
+            this.isProcessing = false;
+            if (!silent) this.setLoading(false);
         }
-        
-        if (!silent) this.setLoading(false);
     },
     
     getEmptyState: function(icon, title, desc) { return `<div class="flex flex-col items-center justify-center h-full p-8 text-center opacity-70"><div class="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center text-4xl text-slate-300 mb-4 mx-auto"><i class="fas ${icon}"></i></div><h4 class="font-black text-slate-600 text-lg mb-1">${title}</h4><p class="text-xs font-bold text-slate-400">${desc}</p></div>`; },

@@ -989,8 +989,7 @@ const superApp = {
                     logStat.className = 'text-[10px] text-brand-500 font-bold uppercase tracking-widest text-center animate-pulse'; 
                 } 
             }
-
-            // Fungsi penarik data yang dirapikan
+            
             // Fungsi penarik data yang dirapikan
             let performFetch = async () => {
                 let data = null;
@@ -2262,13 +2261,20 @@ changeOutlet: function(val) {
         if (typeof this.showMenuGuide === 'function') setTimeout(() => this.showMenuGuide('terima'), 200);
     }
     
-    // 🚀 Pemicu AI: Sekarang memanggil generateAIReport yang sudah diperbarui (termasuk Profit/HPP)
+    // (di bagian bawah fungsi switchMenu)
     if (menu === 'ai' && typeof this.generateAIReport === 'function') {
         this.generateAIReport();
     }
     if (menu === 'staf' && typeof this.renderStaf === 'function') this.renderStaf();
-    if ((menu === 'gudang' || menu === 'master' || menu === 'outlet') && typeof this.renderGudang === 'function') this.renderGudang();
-},
+    
+    if (menu === 'gudang' || menu === 'master' || menu === 'outlet') {
+        if (typeof this.renderGudang === 'function') {
+            this.renderGudang();
+            // 🚀 Buka tab stok otomatis agar layar tidak blank!
+            this.toggleGudangTab('stok');
+        }
+    }
+}, 
     
    filterProducts: function(key) {
         this._lastSearchKey = key; // 🚀 Simpan memori kata kunci pencarian
@@ -4594,7 +4600,7 @@ executeVoidTrx: async function(trxId) {
                 let stokBadge = isKritis ? 'bg-rose-50 text-rose-600 border-rose-100 shadow-[0_0_10px_rgba(225,29,72,0.15)] animate-pulse' : 'bg-emerald-50 text-emerald-600 border-emerald-100 shadow-sm';
                 
                 let row = `
-                <tr class="border-b border-slate-50 hover:bg-slate-50 transition-colors group">
+                <tr class="table-row-3d border-b border-slate-50 hover:bg-slate-50 transition-all group">
                     <td class="py-4 px-5 whitespace-normal min-w-[150px]">
                         <div class="font-extrabold text-slate-800 text-sm mb-1">${g.Nama_Produk}</div>
                         <div class="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[9px] font-black text-slate-500 uppercase tracking-widest">SKU: ${g.SKU}</div>
@@ -4638,7 +4644,7 @@ executeVoidTrx: async function(trxId) {
                         : `<div class="w-12 h-12 rounded-[1rem] bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-300 shadow-inner shrink-0"><i class="fas fa-image text-xl"></i></div>`;
                     
                     html += `
-                    <tr class="border-b border-slate-50 hover:bg-slate-50 transition-colors group">
+                    <tr class="table-row-3d border-b border-slate-50 hover:bg-slate-50 transition-all group">
                         <td class="py-4 px-5 whitespace-normal min-w-[200px]">
                             <div class="flex items-center gap-3">
                                 ${imgT}
@@ -4664,7 +4670,7 @@ executeVoidTrx: async function(trxId) {
         const outBody = document.getElementById('crud-outlet-tbody');
         if(outBody) {
             outBody.innerHTML = (this.db.outlets || []).map(o => `
-            <tr class="border-b border-slate-50 hover:bg-slate-50 transition-colors group">
+            <tr class="table-row-3d border-b border-slate-50 hover:bg-slate-50 transition-all group">
                 <td class="py-4 px-5 font-black text-sm text-slate-800">${o.ID_Outlet}</td>
                 <td class="py-4 px-5 font-bold text-slate-500">${o.Nama_Outlet}</td>
                 <td class="py-4 px-5 text-center">
@@ -4692,7 +4698,7 @@ executeVoidTrx: async function(trxId) {
                             : `<span class="inline-flex w-12 h-8 items-center justify-center rounded-lg border bg-slate-50 border-slate-200 text-slate-700 font-black text-sm shadow-sm">${stk}</span>`;
 
                         html += `
-                        <tr class="border-b border-slate-50 hover:bg-slate-50 transition-colors group">
+                        <tr class="table-row-3d border-b border-slate-50 hover:bg-slate-50 transition-all group">
                             <td class="py-4 px-5 whitespace-normal min-w-[150px] font-extrabold text-sm text-slate-800">${master.Nama_Produk}</td>
                             <td class="py-4 px-5 whitespace-nowrap text-right">
                                 <span class="text-brand-600 font-black text-lg tracking-tight drop-shadow-sm">Rp ${Number(hrg).toLocaleString('id-ID')}</span>
@@ -4711,26 +4717,28 @@ executeVoidTrx: async function(trxId) {
             mOutBody.innerHTML = html || `<tr><td colspan="4" class="text-center py-12 h-32">${this.getEmptyState('fa-store-slash', 'Cabang Kosong', 'Belum ada menu yang dikirim/dijual di cabang ini')}</td></tr>`;
         }
 
-        // 5. RENDER GLOBAL INVENTORY HEATMAP (Jika fitur ini aktif)
+        // 5. RENDER GLOBAL INVENTORY HEATMAP
         if (typeof this.renderGlobalStockMatrix === 'function') {
             this.renderGlobalStockMatrix();
         }
 
-        // Letakkan kode ini di baris paling bawah sebelum kurung tutup } pada fungsi renderGudang:
-let btnHpp = document.getElementById('tab-gudang-hpp');
-if (btnHpp) {
-    if (this.userRole === 'owner') {
-        btnHpp.classList.remove('hidden');
-    } else {
-        btnHpp.classList.add('hidden');
-    }
+        // 6. TAMPILKAN TAB HPP JIKA OWNER
+        let btnHpp = document.getElementById('tab-gudang-hpp');
+        if (btnHpp) {
+            if (this.userRole === 'owner') {
+                btnHpp.classList.remove('hidden');
+            } else {
+                btnHpp.classList.add('hidden');
+            }
+        }
 
-    // Tambahkan baris ini di akhir renderGudang:
-    if (typeof this.renderMasterHPP === 'function' && document.getElementById('table-body-hpp')) {
-        this.renderMasterHPP();
-    }
-}
+        // 7. Render HPP secara otomatis ke ID yang benar
+        if (typeof this.renderMasterHPP === 'function') {
+            this.renderMasterHPP();
+        }
     },
+
+    
     openCrudBahan: function(action = 'add', sku = '') {
         let m = action === 'edit' ? (this.db.masterProduk || []).find(x => x.SKU === sku) : {};
         let nextId = action === 'edit' ? sku : 'SUP-' + Math.floor(Math.random()*9000+1000);

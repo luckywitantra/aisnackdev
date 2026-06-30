@@ -1531,9 +1531,16 @@ const superApp = {
     // 1. LOGIKA MASTER HPP
     // ==========================================
     renderMasterHPP: function() {
-    // ID ini harus sesuai dengan ID tbody di dalam div gudang-content-hpp
+    console.log("Rendering HPP untuk Outlet:", this.outlet);
+    console.log("Data Harga Stok Outlet:", this.db.hargaStokOutlet);
+   
     const tbody = document.getElementById('table-body-hpp');
     if (!tbody) return;
+
+    if (!this.db || !this.db.masterProduk) {
+        console.warn("Database belum dimuat");
+        return;
+    }
 
     let html = '';
     let no = 1;
@@ -1546,7 +1553,10 @@ const superApp = {
 
     menuJualan.forEach((p) => {
         let hpp = Number(p.HPP || 0);
-        let hargaData = (this.db.hargaStokOutlet || []).find(x => x.SKU === p.SKU && x.ID_Outlet === this.outlet);
+        let hargaData = (this.db.hargaStokOutlet || []).find(x => 
+            String(x.SKU).trim() === String(p.SKU).trim() && 
+            String(x.ID_Outlet).trim() === String(this.outlet).trim()
+        );
         let hargaJual = hargaData ? Number(hargaData.Harga_Jual) : 0;
         
         let marginRp = hargaJual - hpp;
@@ -5299,10 +5309,12 @@ if (btnHpp) {
     },
     
     selectOutlet: function(id) {
-        this.changeOutlet(id);
-        this.updateHeaderOutletName(); // Update nama di header
-        this.closeModal('modal-outlet-selector');
-    },
+    // Gunakan superApp (nama object utama) bukan this, 
+    // agar selalu merujuk ke object yang benar
+    superApp.changeOutlet(id);
+    superApp.updateHeaderOutletName(); 
+    superApp.closeModal('modal-outlet-selector');
+},
 
     renderGlobalStockMatrix: function() {
         if (!this.db || !this.db.masterProduk || !this.db.outlets) return;

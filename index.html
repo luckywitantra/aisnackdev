@@ -279,10 +279,10 @@
       <div class="flex items-center gap-2 lg:gap-3 overflow-x-auto no-scrollbar py-1 pr-1">
         
         <div class="flex items-center bg-white border border-slate-200 rounded-full p-1 shadow-sm shrink-0">
-    <button onclick="superApp.openModal('modal-tarik-data')" class="flex items-center gap-2 px-3 py-1.5 rounded-full hover:bg-slate-100 transition-colors text-[10px] font-extrabold text-slate-500 hover:text-blue-600 group">
-        <i class="fas fa-cloud-download-alt group-hover:-translate-y-0.5 transition-transform"></i>
-        <span class="hidden md:inline">Tarik Data</span>
-    </button>
+    <button onclick="superApp.pullFreshData(false, false)" class="flex items-center gap-2 px-3 py-1.5 rounded-full hover:bg-slate-100 transition-colors text-[10px] font-extrabold text-slate-500 hover:text-blue-600 group">
+    <i class="fas fa-cloud-download-alt group-hover:-translate-y-0.5 transition-transform"></i>
+    <span class="hidden md:inline">Tarik Data</span>
+</button>
     <div class="w-px h-4 bg-slate-200 mx-1"></div>
     <div id="network-indicator" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 cursor-pointer transition-colors shadow-sm hover:bg-emerald-100" onclick="superApp.openSyncCenter()">
         <span id="net-dot" class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse"></span>
@@ -1843,7 +1843,7 @@
 
   
 <!-- 1. PANGGIL APP.JS TERLEBIH DAHULU -->
-  <script src="app.js?v=173"></script>
+  <script src="app.js?v=174"></script>
   
 
   <!-- 2. BARU JALANKAN SCRIPT INLINE ANDA -->
@@ -1938,57 +1938,7 @@
     </div>
 </div>
 
-  <div id="modal-tarik-data" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[9999] hidden flex-col items-center justify-center p-4 transition-opacity">
-    <div class="bg-white rounded-[2rem] w-full max-w-md p-6 lg:p-8 shadow-2xl modal-enter relative overflow-hidden" id="modal-tarik-data-content">
-        
-        <i class="fas fa-database absolute top-0 right-0 -mt-6 -mr-6 text-9xl text-slate-50 opacity-50 pointer-events-none z-0"></i>
-
-        <div class="relative z-10">
-            <div class="flex justify-between items-center mb-6">
-                <div class="flex items-center gap-3">
-                    <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-xl shadow-inner">
-                        <i class="fas fa-cloud-sync"></i>
-                    </div>
-                    <div>
-                        <h3 class="font-extrabold text-xl text-slate-800 tracking-tight">Sinkronisasi Data</h3>
-                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Pilih Mode Tarikan</p>
-                    </div>
-                </div>
-                <button onclick="superApp.closeModal('modal-tarik-data')" class="w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-rose-50 hover:text-rose-500 text-slate-400 rounded-full transition-colors active:scale-90">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-
-            <p class="text-sm font-medium text-slate-500 mb-6">Pilih seberapa banyak data yang ingin Anda unduh dari Server Google Sheets ke dalam mesin kasir ini.</p>
-
-            <div class="space-y-4">
-                <button onclick="superApp.closeModal('modal-tarik-data'); superApp.pullFreshData(false, false);" class="w-full text-left bg-white border-2 border-brand-200 hover:border-brand-500 hover:shadow-lg hover:shadow-orange-100 rounded-2xl p-4 transition-all duration-300 group flex items-start gap-4 active:scale-95">
-                    <div class="w-10 h-10 bg-brand-50 text-brand-500 rounded-full flex items-center justify-center text-lg shrink-0 group-hover:scale-110 transition-transform">
-                        <i class="fas fa-bolt"></i>
-                    </div>
-                    <div>
-                        <h4 class="font-black text-brand-600 text-base mb-1">Tarik Cepat (Operasional)</h4>
-                        <p class="text-xs text-slate-500 font-medium">Hanya menarik data <b>14 hari terakhir</b>. Sangat cepat, hemat kuota, dan optimal untuk operasional kasir sehari-hari.</p>
-                        <span class="inline-block mt-2 bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest">Sangat Direkomendasikan</span>
-                    </div>
-                </button>
-
-                <button onclick="superApp.closeModal('modal-tarik-data'); superApp.pullFreshData(false, true);" class="w-full text-left bg-slate-50 border-2 border-slate-200 hover:border-slate-400 hover:shadow-md rounded-2xl p-4 transition-all duration-300 group flex items-start gap-4 active:scale-95">
-                    <div class="w-10 h-10 bg-slate-200 text-slate-600 rounded-full flex items-center justify-center text-lg shrink-0 group-hover:scale-110 transition-transform">
-                        <i class="fas fa-boxes-packing"></i>
-                    </div>
-                    <div>
-                        <h4 class="font-black text-slate-700 text-base mb-1">Tarik Seluruh Historis</h4>
-                        <p class="text-xs text-slate-500 font-medium">Membongkar seluruh data dari awal aplikasi berjalan. Membutuhkan waktu <i>loading</i> yang lebih lama.</p>
-                        <span class="inline-block mt-2 bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest">Khusus Kebutuhan Audit/Laporan</span>
-                    </div>
-                </button>
-            </div>
-            
-        </div>
-    </div>
-</div>
-  
+ 
   <div id="modal-receipt-builder" class="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[300] hidden flex-col items-center justify-center p-2 md:p-6 transition-opacity">
         <div id="modal-receipt-builder-content" class="bg-slate-50 w-full max-w-6xl h-[95dvh] rounded-[2rem] shadow-2xl flex flex-col overflow-hidden border border-slate-700 modal-enter">
             

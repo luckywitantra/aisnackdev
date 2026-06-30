@@ -1534,34 +1534,23 @@ const superApp = {
     const tbody = document.getElementById('table-body-hpp');
     if (!tbody) return;
 
+    if (!this.db || !this.db.masterProduk) return;
+
     let html = '';
     let no = 1;
 
-    // 1. Ambil data produk master
-    let masterList = this.db.masterProduk || [];
-
-    // 2. Kita gunakan logika yang sama persis dengan tabel 'Harga & Tampil'
-    // Filter produk yang ada di cabang saat ini (atau semua jika Admin/Owner)
-    let filteredMenu = masterList.filter(m => {
-        let isBukanBahan = String(m.Kategori || '').toLowerCase() !== 'bahan' && 
-                           String(m.Kategori || '').toLowerCase() !== 'pendukung';
-        
-        // Cek apakah produk ini ada di outlet yang sedang aktif
-        let hargaData = (this.db.hargaStokOutlet || []).find(x => 
-            String(x.SKU).trim() === String(m.SKU).trim() && 
-            String(x.ID_Outlet).trim() === String(this.outlet).trim()
-        );
-        
-        return isBukanBahan && hargaData; // Hanya tampilkan yang sudah diset di outlet ini
+    // 🚀 PERBAIKAN FILTER: Fokus hanya pada kategori 'AISNACK'
+    let menuJualan = [...(this.db.masterProduk || [])].filter(m => {
+        let kat = String(m.Kategori || '').toUpperCase().trim();
+        return kat === 'AISNACK'; 
     }).sort((a,b) => String(a.Nama_Produk||'').localeCompare(String(b.Nama_Produk||'')));
 
-    // Debugging untuk memastikan data terfilter
-    console.log("Data HPP yang akan di-render:", filteredMenu);
+    console.log("Produk kategori AISNACK yang ditemukan:", menuJualan);
 
-    filteredMenu.forEach((p) => {
+    menuJualan.forEach((p) => {
         let hpp = Number(p.HPP || 0);
         
-        // Ambil harga yang sudah pasti ada karena sudah lolos filter di atas
+        // Pencocokan SKU dan Outlet yang aktif
         let hargaData = (this.db.hargaStokOutlet || []).find(x => 
             String(x.SKU).trim() === String(p.SKU).trim() && 
             String(x.ID_Outlet).trim() === String(this.outlet).trim()
@@ -1571,7 +1560,6 @@ const superApp = {
         let marginRp = hargaJual - hpp;
         let marginPercent = hargaJual > 0 ? ((marginRp / hargaJual) * 100).toFixed(1) : 0;
         
-        // Visual
         let healthColor = marginPercent < 20 ? 'text-rose-600 bg-rose-50 border-rose-200' : 'text-emerald-600 bg-emerald-50 border-emerald-200';
         let barColor = marginPercent < 20 ? 'bg-rose-500' : 'bg-emerald-500';
         let visualPct = Math.min(Math.max(marginPercent, 0), 100);
@@ -1583,33 +1571,33 @@ const superApp = {
                 <p class="font-extrabold text-slate-800 text-sm">${p.Nama_Produk}</p>
                 <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">SKU: ${p.SKU}</p>
             </td>
-            <td class="py-3 px-4 text-right">
-                <span class="font-black text-slate-600 text-sm">Rp ${hargaJual.toLocaleString('id-ID')}</span>
+            <td class="py-4 px-4 text-right">
+                <span class="font-black text-slate-600 text-base">Rp ${hargaJual.toLocaleString('id-ID')}</span>
             </td>
-            <td class="py-3 px-4">
-                <div class="relative w-full max-w-[140px]">
-                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-[10px]">Rp</span>
+            <td class="py-4 px-4">
+                <div class="relative w-full max-w-[150px]">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">Rp</span>
                     <input type="number" id="hpp-input-${p.SKU}" value="${hpp}" 
-                        class="w-full bg-white border-2 border-slate-200 rounded-lg pl-8 pr-2 py-1.5 font-black text-sm text-slate-800 focus:border-amber-500 outline-none transition" 
+                        class="w-full bg-white border-2 border-slate-200 rounded-xl pl-9 pr-3 py-2 font-black text-sm text-slate-800 focus:border-amber-500 outline-none transition" 
                         oninput="superApp.calculateRowMargin('${p.SKU}', ${hargaJual}, this.value)">
                 </div>
             </td>
-            <td class="py-3 px-4">
-                <div class="flex flex-col gap-1 w-[160px]">
-                    <div class="flex justify-between items-center text-[10px]">
-                        <span id="margin-badge-${p.SKU}" class="px-1.5 py-0.5 rounded font-black border uppercase ${healthColor}">${marginPercent}%</span>
-                        <span id="margin-rp-${p.SKU}" class="font-black text-slate-700">Rp ${marginRp.toLocaleString('id-ID')}</span>
+            <td class="py-4 px-4 min-w-[200px]">
+                <div class="flex flex-col gap-2">
+                    <div class="flex justify-between items-end">
+                        <span id="margin-badge-${p.SKU}" class="px-2 py-0.5 rounded text-[10px] font-black border uppercase tracking-widest ${healthColor}">${marginPercent}%</span>
+                        <span id="margin-rp-${p.SKU}" class="font-black text-sm text-slate-700">Rp ${marginRp.toLocaleString('id-ID')}</span>
                     </div>
-                    <div class="w-full bg-slate-100 rounded-full h-1 overflow-hidden">
+                    <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
                         <div id="margin-bar-${p.SKU}" class="h-full ${barColor} transition-all duration-300" style="width: ${visualPct}%"></div>
                     </div>
                 </div>
             </td>
         </tr>`;
     });
-    tbody.innerHTML = html || `<tr><td colspan="5" class="text-center py-10 text-slate-400 font-bold">Data tidak ditemukan di cabang ini.</td></tr>`;
+    tbody.innerHTML = html || `<tr><td colspan="5" class="text-center py-10 text-slate-400">Belum ada menu dengan kategori AISNACK.</td></tr>`;
 },
-
+    
     // Fungsi Kalkulasi Live saat Owner mengetik angka di tabel
     calculateRowMargin: function(sku, hargaJual, newHpp) {
         let hppVal = parseFloat(newHpp) || 0;

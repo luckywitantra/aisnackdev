@@ -1530,13 +1530,11 @@ const superApp = {
     // ==========================================
     // 1. LOGIKA MASTER HPP
     // ==========================================
-    renderMasterHPP: function() {
-    console.log("Rendering HPP untuk Outlet:", this.outlet);
-    console.log("Data Harga Stok Outlet:", this.db.hargaStokOutlet);
-   
+  renderMasterHPP: function() {
     const tbody = document.getElementById('table-body-hpp');
     if (!tbody) return;
 
+    // 1. Pastikan database tersedia
     if (!this.db || !this.db.masterProduk) {
         console.warn("Database belum dimuat");
         return;
@@ -1545,14 +1543,20 @@ const superApp = {
     let html = '';
     let no = 1;
 
-    // Filter produk yang dijual (bukan bahan mentah) untuk ditampilkan di HPP
-    let menuJualan = [...(this.db.masterProduk || [])].filter(m => 
-        String(m.Kategori || '').toLowerCase() !== 'bahan' && 
-        String(m.Kategori || '').toLowerCase() !== 'pendukung'
-    ).sort((a,b) => String(a.Nama_Produk||'').localeCompare(String(b.Nama_Produk||'')));
+    // 2. Filter dengan sanitasi (trim spasi dan toLowerCase)
+    // Seringkali kategori di sheet tertulis "Bahan " (ada spasi) atau "bahan" (kecil)
+    let menuJualan = [...(this.db.masterProduk || [])].filter(m => {
+        let kat = String(m.Kategori || '').toLowerCase().trim();
+        return kat !== 'bahan' && kat !== 'pendukung';
+    }).sort((a,b) => String(a.Nama_Produk||'').localeCompare(String(b.Nama_Produk||'')));
+
+    // Debugging: cek apa yang lolos filter
+    console.log("Produk yang akan ditampilkan di HPP:", menuJualan);
 
     menuJualan.forEach((p) => {
         let hpp = Number(p.HPP || 0);
+        
+        // 3. Pencocokan SKU yang presisi (menggunakan trim)
         let hargaData = (this.db.hargaStokOutlet || []).find(x => 
             String(x.SKU).trim() === String(p.SKU).trim() && 
             String(x.ID_Outlet).trim() === String(this.outlet).trim()
@@ -1562,7 +1566,7 @@ const superApp = {
         let marginRp = hargaJual - hpp;
         let marginPercent = hargaJual > 0 ? ((marginRp / hargaJual) * 100).toFixed(1) : 0;
         
-        // Logika warna indikator
+        // ... (sisanya sama seperti kode sebelumnya) ...
         let healthColor = marginPercent < 20 ? 'text-rose-600 bg-rose-50 border-rose-200' : 'text-emerald-600 bg-emerald-50 border-emerald-200';
         let barColor = marginPercent < 20 ? 'bg-rose-500' : 'bg-emerald-500';
         let visualPct = Math.min(Math.max(marginPercent, 0), 100);
@@ -1600,7 +1604,7 @@ const superApp = {
     });
     tbody.innerHTML = html || `<tr><td colspan="5" class="text-center py-10 text-slate-400">Belum ada menu produk terdaftar.</td></tr>`;
 },
-
+    
     // Fungsi Kalkulasi Live saat Owner mengetik angka di tabel
     calculateRowMargin: function(sku, hargaJual, newHpp) {
         let hppVal = parseFloat(newHpp) || 0;

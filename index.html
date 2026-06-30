@@ -813,7 +813,8 @@
 
       
       <div id="view-ai" class="app-view hidden flex-col h-full bg-slate-50 p-4 md:p-6 lg:p-8 min-h-0 custom-scroll overflow-y-auto">
-    <div class="max-w-7xl mx-auto w-full">
+    <!-- Area PDF Export -->
+    <div id="pdf-export-area" class="max-w-7xl mx-auto w-full">
         
         <!-- HEADER & FILTER -->
         <div class="mb-6 bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col xl:flex-row justify-between items-center gap-4 relative overflow-hidden">
@@ -825,11 +826,20 @@
                 </h2>
                 <p class="text-slate-500 font-medium text-sm mt-1">Asisten Analisa Keuangan, Laba Bersih, & Prediksi Bisnis</p>
             </div>
-            <div class="flex flex-wrap items-center justify-center gap-2 md:gap-3 relative z-10 w-full xl:w-auto">
+            
+            <!-- TOMBOL EKSPOR (WA & PDF) -->
+            <div id="ai-export-btn-row" class="flex flex-wrap items-center justify-center gap-2 md:gap-3 relative z-10 w-full xl:w-auto">
                 <input type="date" id="ai-filter-start" class="border-2 border-slate-200 rounded-xl px-4 py-2.5 font-bold text-sm text-slate-700 outline-none focus:border-indigo-500" onchange="superApp.generateAIReport()">
                 <span class="text-slate-400 font-bold">s/d</span>
                 <input type="date" id="ai-filter-end" class="border-2 border-slate-200 rounded-xl px-4 py-2.5 font-bold text-sm text-slate-700 outline-none focus:border-indigo-500" onchange="superApp.generateAIReport()">
                 <select id="ai-filter-outlet" class="border-2 border-slate-200 rounded-xl px-4 py-2.5 font-bold text-sm text-slate-700 outline-none focus:border-indigo-500 bg-white" onchange="superApp.generateAIReport()"></select>
+                
+                <button onclick="superApp.sendAIReportToWA()" class="bg-[#25D366] text-white px-5 py-2.5 rounded-xl text-sm font-black hover:bg-[#20bd5a] shadow-md transition-all active:scale-95">
+                    <i class="fab fa-whatsapp"></i>
+                </button>
+                <button onclick="superApp.exportAIPDF()" class="bg-rose-500 text-white px-5 py-2.5 rounded-xl text-sm font-black hover:bg-rose-600 shadow-md transition-all active:scale-95">
+                    <i class="fas fa-file-pdf"></i>
+                </button>
             </div>
         </div>
 
@@ -841,33 +851,29 @@
                 </div>
                 <div class="text-center md:text-left">
                     <h3 class="text-indigo-300 font-black text-xs uppercase tracking-widest mb-2">Kesimpulan Eksekutif AI</h3>
-                    <p id="ai-insight-text" class="text-white font-medium text-sm lg:text-base leading-relaxed">Menganalisis jutaan titik data transaksi Anda...</p>
+                    <p id="ai-insight-text" class="text-white font-medium text-sm lg:text-base leading-relaxed">Menganalisis data transaksi Anda...</p>
                 </div>
             </div>
         </div>
 
         <!-- 4 MEGA CARDS (OMSET, HPP, LABA, MARGIN) -->
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm relative overflow-hidden group">
-                <div class="absolute right-0 top-0 w-16 h-16 bg-blue-50 rounded-bl-full flex items-start justify-end p-3 text-blue-500 text-xl group-hover:scale-110 transition-transform"><i class="fas fa-wallet"></i></div>
+            <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm relative overflow-hidden">
                 <p class="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Total Omset Kotor</p>
                 <h3 id="ai-tot-omset" class="text-xl md:text-2xl font-black text-slate-800 tracking-tight">Rp 0</h3>
                 <p class="text-xs text-slate-500 mt-2 font-bold"><span id="ai-tot-struk" class="text-blue-500">0</span> Struk Terbit</p>
             </div>
-            <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm relative overflow-hidden group">
-                <div class="absolute right-0 top-0 w-16 h-16 bg-rose-50 rounded-bl-full flex items-start justify-end p-3 text-rose-500 text-xl group-hover:scale-110 transition-transform"><i class="fas fa-boxes-packing"></i></div>
+            <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm relative overflow-hidden">
                 <p class="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Total Modal (HPP)</p>
                 <h3 id="ai-tot-hpp" class="text-xl md:text-2xl font-black text-rose-600 tracking-tight">Rp 0</h3>
                 <p class="text-xs text-slate-500 mt-2 font-bold">Biaya bahan baku terjual</p>
             </div>
-            <div class="bg-emerald-500 p-5 rounded-3xl shadow-lg shadow-emerald-200 relative overflow-hidden group text-white">
-                <div class="absolute right-0 top-0 w-16 h-16 bg-emerald-400/30 rounded-bl-full flex items-start justify-end p-3 text-white text-xl group-hover:scale-110 transition-transform"><i class="fas fa-hand-holding-dollar"></i></div>
+            <div class="bg-emerald-500 p-5 rounded-3xl shadow-lg shadow-emerald-200 relative overflow-hidden text-white">
                 <p class="text-emerald-100 text-[10px] font-black uppercase tracking-widest mb-1">Laba Bersih</p>
                 <h3 id="ai-tot-laba" class="text-xl md:text-2xl font-black tracking-tight">Rp 0</h3>
                 <p class="text-xs text-emerald-100 mt-2 font-bold">Uang masuk kantong</p>
             </div>
-            <div class="bg-slate-900 p-5 rounded-3xl shadow-xl relative overflow-hidden group text-white">
-                <div class="absolute right-0 top-0 w-16 h-16 bg-white/10 rounded-bl-full flex items-start justify-end p-3 text-white text-xl group-hover:scale-110 transition-transform"><i class="fas fa-percent"></i></div>
+            <div class="bg-slate-900 p-5 rounded-3xl shadow-xl relative overflow-hidden text-white">
                 <p class="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Margin Keuntungan</p>
                 <h3 id="ai-tot-margin" class="text-xl md:text-2xl font-black tracking-tight">0%</h3>
                 <p class="text-xs text-slate-400 mt-2 font-bold">Rasio profitabilitas</p>
@@ -877,51 +883,36 @@
         <!-- GRID GRAFIK: TREN LABA & JAM SIBUK -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col">
-                <h4 class="font-black text-slate-800 mb-1 flex items-center gap-2"><i class="fas fa-chart-line text-emerald-500"></i> Tren Laba Bersih Harian</h4>
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Omset dikurangi HPP per hari</p>
+                <h4 class="font-black text-slate-800 mb-4 flex items-center gap-2"><i class="fas fa-chart-line text-emerald-500"></i> Tren Laba Bersih Harian</h4>
                 <div class="flex-1 min-h-[200px] relative w-full">
                     <canvas id="aiProfitChart"></canvas>
                 </div>
             </div>
             <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col">
-                <h4 class="font-black text-slate-800 mb-1 flex items-center gap-2"><i class="fas fa-clock text-indigo-500"></i> Analitik Jam Sibuk</h4>
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Distribusi Omset Berdasarkan Waktu</p>
+                <h4 class="font-black text-slate-800 mb-4 flex items-center gap-2"><i class="fas fa-clock text-indigo-500"></i> Analitik Jam Sibuk</h4>
                 <div id="ai-hourly-chart" class="flex-1 flex flex-col gap-2 custom-scroll overflow-y-auto max-h-[250px] pr-2"></div>
             </div>
         </div>
 
         <!-- GRID TABEL: MARGIN PRODUK & CABANG -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            <!-- Peringkat Profitabilitas Produk -->
             <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                <h4 class="font-black text-slate-800 mb-4 flex items-center gap-2"><i class="fas fa-ranking-star text-amber-500"></i> Peringkat Laba Produk</h4>
+                <h4 class="font-black text-slate-800 mb-4">Peringkat Laba Produk</h4>
                 <div class="overflow-x-auto custom-scroll max-h-[300px]">
                     <table class="w-full text-sm">
-                        <thead class="sticky top-0 bg-white shadow-[0_2px_0_rgba(0,0,0,0.05)] z-10">
-                            <tr class="text-slate-400 uppercase tracking-widest text-[9px] font-black">
-                                <th class="text-left py-3">Produk</th>
-                                <th class="text-center py-3">Terjual</th>
-                                <th class="text-right py-3 text-emerald-600">Laba Bersih</th>
-                                <th class="text-right py-3">Margin</th>
-                            </tr>
+                        <thead class="sticky top-0 bg-white z-10 text-slate-400 uppercase tracking-widest text-[9px] font-black">
+                            <tr><th class="text-left py-3">Produk</th><th class="text-center py-3">Terjual</th><th class="text-right py-3 text-emerald-600">Laba</th><th class="text-right py-3">Margin</th></tr>
                         </thead>
                         <tbody id="ai-product-profit-tbody"></tbody>
                     </table>
                 </div>
             </div>
-
-            <!-- Komparasi Cabang -->
             <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                <h4 class="font-black text-slate-800 mb-4 flex items-center gap-2"><i class="fas fa-code-compare text-blue-500"></i> Komparasi Performa Cabang</h4>
+                <h4 class="font-black text-slate-800 mb-4">Komparasi Performa Cabang</h4>
                 <div class="overflow-x-auto custom-scroll max-h-[300px]">
                     <table class="w-full text-sm">
-                        <thead class="sticky top-0 bg-white shadow-[0_2px_0_rgba(0,0,0,0.05)] z-10">
-                            <tr class="text-slate-400 uppercase tracking-widest text-[9px] font-black">
-                                <th class="text-left py-3">Cabang</th>
-                                <th class="text-right py-3">Omset</th>
-                                <th class="text-right py-3 text-emerald-600">Laba</th>
-                                <th class="text-center py-3">Metode</th>
-                            </tr>
+                        <thead class="sticky top-0 bg-white z-10 text-slate-400 uppercase tracking-widest text-[9px] font-black">
+                            <tr><th class="text-left py-3">Cabang</th><th class="text-right py-3">Omset</th><th class="text-right py-3 text-emerald-600">Laba</th><th class="text-center py-3">Metode</th></tr>
                         </thead>
                         <tbody id="ai-comparison-tbody"></tbody>
                     </table>
@@ -929,27 +920,14 @@
             </div>
         </div>
 
-        <!-- PREDIKTIF INVENTORY (TETAP ADA) -->
-        <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm mb-8 relative overflow-hidden">
-            <div class="absolute top-0 right-0 w-32 h-32 bg-orange-50 rounded-bl-[100%] z-0 pointer-events-none"></div>
-            <div class="relative z-10">
-                <h4 class="font-black text-slate-800 mb-1 flex items-center gap-2"><i class="fas fa-radar text-orange-500"></i> Radar Prediksi Stok (AI)</h4>
-                <p class="text-slate-500 font-medium text-xs mb-6 max-w-2xl">AI menghitung rata-rata penjualan per jam/hari dan mengalkulasi kapan stok fisik Anda di laci akan benar-benar habis jika tren penjualan berlanjut.</p>
-                <div class="overflow-x-auto custom-scroll border border-slate-100 rounded-2xl">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="bg-slate-50 text-slate-400 border-b border-slate-100 uppercase tracking-widest text-[10px] font-black">
-                                <th class="text-left py-4 px-4">Cabang</th>
-                                <th class="text-left py-4 px-4">Nama Item</th>
-                                <th class="text-center py-4 px-4">Kecepatan Terjual</th>
-                                <th class="text-right py-4 px-4">Sisa Fisik</th>
-                                <th class="text-center py-4 px-4">Sisa Waktu (Prediksi)</th>
-                                <th class="text-center py-4 px-4">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody id="ai-predictive-tbody"></tbody>
-                    </table>
-                </div>
+        <!-- PREDIKTIF INVENTORY -->
+        <div id="ai-predictive-section" class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm mb-8">
+            <h4 class="font-black text-slate-800 mb-1 flex items-center gap-2"><i class="fas fa-radar text-orange-500"></i> Radar Prediksi Stok (AI)</h4>
+            <div class="overflow-x-auto custom-scroll border border-slate-100 rounded-2xl mt-4">
+                <table class="w-full text-sm">
+                    <thead><tr class="bg-slate-50 text-slate-400 uppercase tracking-widest text-[10px] font-black text-left"><th class="py-4 px-4">Cabang</th><th class="py-4 px-4">Nama Item</th><th class="py-4 px-4">Kecepatan</th><th class="py-4 px-4">Sisa</th><th class="py-4 px-4">Prediksi</th><th class="py-4 px-4">Aksi</th></tr></thead>
+                    <tbody id="ai-predictive-tbody"></tbody>
+                </table>
             </div>
         </div>
 

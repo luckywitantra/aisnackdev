@@ -4687,6 +4687,11 @@ if (btnHpp) {
     } else {
         btnHpp.classList.add('hidden');
     }
+
+    // Tambahkan baris ini di akhir renderGudang:
+    if (typeof this.renderMasterHPP === 'function' && document.getElementById('table-body-hpp')) {
+        this.renderMasterHPP();
+    }
 }
     },
     openCrudBahan: function(action = 'add', sku = '') {

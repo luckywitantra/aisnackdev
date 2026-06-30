@@ -249,10 +249,30 @@ const superApp = {
         let fPart = s.split(' ')[0]; let d2 = new Date(fPart); if (!isNaN(d2.getTime())) { d2.setHours(0, 0, 0, 0); return d2; }
         return new Date(0);
     },
+    // 🚀 FITUR BARU: Penarik Data Senyap di Latar Belakang
+    pullBackgroundData: async function() {
+        console.log("Memulai sinkronisasi seluruh riwayat data di latar belakang...");
+        try {
+            // Tarik SEMUA data (history=all)
+            const res = await fetch(API_URL + "?ts=" + new Date().getTime() + "&history=all", { redirect: 'follow' });
+            const data = await res.json();
+            
+            if (data && data.status === 'sukses') {
+                // 1. Timpa database memori lokal dengan data yang sudah 100% lengkap
+                this.db = data;
+                localStorage.setItem('aisnack_db_cache', JSON.stringify(data));
+                
+                // 2. Refresh elemen-elemen senyap jika diperlukan
+                if (typeof this.updatePendingNotifications === 'function') this.updatePendingNotifications();
+                
+                console.log("Sinkronisasi latar belakang selesai! Database lokal kini 100% lengkap.");
+            }
+        } catch (e) {
+            console.log("Sinkronisasi latar belakang gagal, akan dicoba otomatis nanti.", e);
+        }
+    },
 
-    // GLOBAL UTILS
-    // Tambahkan parameter silent (default false)
-    // 🚀 PERBAIKAN: Tambahkan parameter fetchAll = false
+    
     pullFreshData: async function(silent = false, fetchAll = false) {
         if (this.isProcessing && !silent) return; 
         
@@ -971,12 +991,13 @@ const superApp = {
             }
 
             // Fungsi penarik data yang dirapikan
+            // Fungsi penarik data yang dirapikan
             let performFetch = async () => {
                 let data = null;
                 for (let i = 0; i < 3; i++) {
                     try { 
-                        // 🚀 PERBAIKAN: Menambahkan parameter &history=14 agar waktu loading awal sangat cepat
-                        const res = await fetch(API_URL + "?ts=" + new Date().getTime() + "&history=14", { redirect: 'follow' }); 
+                        // 🚀 UBAH MENJADI 30 HARI AGAR LEBIH RELEVAN UNTUK KASIR
+                        const res = await fetch(API_URL + "?ts=" + new Date().getTime() + "&history=30", { redirect: 'follow' }); 
                         data = await res.json(); 
                         if (data && data.status === 'sukses') break; 
                     } catch (e) { 
@@ -986,21 +1007,15 @@ const superApp = {
                 }
                 if (!data || data.status === 'error') throw new Error(data ? data.pesan : "Server Timeout");
 
-                // --- PROSES DATA SUKSES ---
+                // --- PROSES DATA SUKSES (30 HARI) ---
                 this.db = data; 
                 localStorage.setItem('aisnack_db_cache', JSON.stringify(data));
                 
-                // Set Logo
+                // Set Logo & Promo...
                 let logoData = (this.db.pengaturan || []).find(x => x.Pengaturan === 'Logo_Aplikasi');
-                if (logoData) {
-                    localStorage.setItem('app_logo_url', logoData.Nilai);
-                    this.updateAppLogos(logoData.Nilai); 
-                }
-                
-                // Set DUAL Promo CFD
+                if (logoData) { localStorage.setItem('app_logo_url', logoData.Nilai); this.updateAppLogos(logoData.Nilai); }
                 let pStandby = (this.db.pengaturan || []).find(x => x.Pengaturan === 'Promo_Standby');
                 if (pStandby) localStorage.setItem('cfd_promo_standby', pStandby.Nilai);
-                
                 let pTransaksi = (this.db.pengaturan || []).find(x => x.Pengaturan === 'Promo_Transaksi');
                 if (pTransaksi) localStorage.setItem('cfd_promo_transaksi', pTransaksi.Nilai);
 
@@ -1015,26 +1030,13 @@ const superApp = {
                     logStat.innerText = 'Sistem Terkoneksi. Silakan Masukkan PIN.'; 
                     logStat.className = 'text-[10px] text-green-500 font-bold uppercase tracking-widest text-center'; 
                 }
-            };
-           
-            if (cacheDb) { 
-                this.db = JSON.parse(cacheDb);
-                performFetch(); 
-            } else {
-                await performFetch();
-            }
 
-        } catch (err) {
-            const logStat = document.getElementById('login-status');
-            if (logStat && this.db) { 
-                logStat.innerText = 'Offline Mode Aktif (Gunakan PIN Anda)'; 
-                logStat.className = 'text-[10px] text-orange-500 font-bold uppercase tracking-widest text-center'; 
-            } else if (logStat) { 
-                logStat.innerText = 'Gagal! Buka aplikasi pertama kali butuh Internet.'; 
-                logStat.className = 'text-[10px] text-red-500 font-bold uppercase tracking-widest text-center'; 
-            }
-        }
-    },
+                // 🚀 TRIGGER BACKGROUND SYNC SETELAH KASIR BISA MELIHAT LAYAR LOGIN
+                // Beri jeda 3 detik agar HP/Komputer kasir tidak kaget setelah render UI
+                setTimeout(() => {
+                    this.pullBackgroundData();
+                }, 3000);
+            };
     
     addPin: function(num) {
         if (!this.db || !this.db.users) { this.showToast('Sistem sedang memuat data, mohon tunggu sebentar...', 'warning'); return; }

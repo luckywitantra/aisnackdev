@@ -2158,118 +2158,80 @@ refreshData: function() {
         }
     },
     
-    changeOutlet: function(val) { this.outlet = val; this.cart = []; this.renderCart(); this.checkShiftStatus(); this.refreshData(); },
-   switchMenu: function(menu) {
-        // ====================================================================
-        // 🚀 KUNCI KEAMANAN: Batasi menu HPP dan Profit hanya untuk Owner
-        // ====================================================================
-        const menuKhususOwner = ['hpp', 'profit'];
-        
-        // Cek jika menu yang dituju adalah menu sensitif DAN role user bukan owner
-        if (menuKhususOwner.includes(menu) && this.userRole !== 'owner') {
-            if (typeof this.showToast === 'function') {
-                this.showToast("Akses Ditolak! Menu ini khusus untuk Owner.", "error");
-            } else {
-                alert("Akses Ditolak! Menu ini khusus untuk Owner.");
-            }
-            return; // Hentikan eksekusi agar halaman tidak berpindah
-        }
+    switchMenu: function(menu) {
+    // 1. Bersihkan akses (Tidak perlu lagi memblokir hpp/profit karena sudah dilebur)
+    // Cukup sembunyikan semua halaman
+    document.querySelectorAll('.app-view').forEach(el => el.classList.add('hidden'));
+    
+    const colors = {
+        'pos': 'text-brand-500',      
+        'terima': 'text-green-600',   
+        'opname': 'text-purple-600',  
+        'report': 'text-blue-600',    
+        'audit': 'text-indigo-600',   
+        'ai': 'text-indigo-600',      
+        'gudang': 'text-emerald-600', 
+        'outlet': 'text-teal-600',    
+        'staf': 'text-amber-600'
+    };
+    const allColors = Object.values(colors);
 
-        // Jika aman, lanjutkan sembunyikan semua halaman
-        document.querySelectorAll('.app-view').forEach(el => el.classList.add('hidden'));
-        
-        const colors = {
-            'pos': 'text-brand-500',      
-            'terima': 'text-green-600',   
-            'opname': 'text-purple-600',  
-            'report': 'text-blue-600',    
-            'audit': 'text-indigo-600',   
-            'ai': 'text-indigo-600',   
-            'gudang': 'text-emerald-600', 
-            'outlet': 'text-teal-600',    
-            'staf': 'text-amber-600',
-            'master': 'text-emerald-600'
-              
-            
-        };
-        const allColors = Object.values(colors);
+    // [Navigasi Aktif] - Sesuai kode Anda sebelumnya
+    document.querySelectorAll('.nav-btn').forEach(b => { 
+        b.classList.remove('nav-active', 'bg-slate-50', ...allColors); 
+        b.classList.add('text-slate-500'); 
+        let icon = b.querySelector('i');
+        if(icon) { icon.classList.remove(...allColors); icon.classList.add('text-slate-400'); }
+    });
 
-        document.querySelectorAll('.nav-btn').forEach(b => { 
-            b.classList.remove('nav-active', 'bg-slate-50', ...allColors); 
-            b.classList.add('text-slate-500'); 
-            let icon = b.querySelector('i');
-            if(icon) { icon.classList.remove(...allColors); icon.classList.add('text-slate-400'); }
-        });
-
-        const activeNav = document.getElementById(`nav-${menu}`); 
-        if (activeNav) { 
-            let targetColor = colors[menu] || 'text-brand-500';
-            activeNav.classList.add('nav-active', 'bg-slate-50', targetColor); 
-            activeNav.classList.remove('text-slate-500'); 
-            let icon = activeNav.querySelector('i');
-            if(icon) { icon.classList.remove('text-slate-400'); icon.classList.add(targetColor); }
-        }
-
-        // Menggabungkan Menu Master dan Gudang ke satu Halaman HTML yang sama
-        let targetViewId = menu === 'master' ? 'gudang' : menu;
-        const activeView = document.getElementById(`view-${targetViewId}`); 
-        if (activeView) activeView.classList.remove('hidden');
-
-        const titles = { 
-            'pos': 'POS', 'opname': 'Opname Fisik Stok', 'terima': 'Penerimaan Barang', 
-            'audit': 'Audit Laporan', 'report': 'Laporan Terpadu', 'ai': 'CFO Dashboard & Asisten AI', 
-            'gudang': 'Gudang Pusat', 'master': 'Master Varian POS', 'outlet': 'Cabang & Harga Khusus', 'staf': 'Kinerja Karyawan',
-            'hpp': 'Master HPP Produk',      // 🚀 TAMBAHAN: Judul Halaman
-            'profit': 'Analitik Laba Bersih' // 🚀 TAMBAHAN: Judul Halaman
-        };
-        const pageTitle = document.getElementById('page-title'); 
-        if (pageTitle) pageTitle.innerText = titles[menu] || 'Aplikasi';
-
-        const sidebar = document.getElementById('sidebar');
-        if (window.innerWidth < 1024 && sidebar && !sidebar.classList.contains('-translate-x-full')) {
-            this.toggleSidebar();
-        }
-
-        document.querySelectorAll('.nav-mobile-btn').forEach(btn => {
-            let target = btn.dataset.target;
-            btn.classList.remove(...allColors);
-            if(target === menu) {
-                btn.classList.add(colors[target] || 'text-brand-500');
-                btn.classList.remove('text-slate-400');
-            } else {
-                btn.classList.add('text-slate-400');
-            }
-        });
-
-        // ====================================================================
-        // Daftarkan pemicu halaman dan Popup Panduannya
-        // ====================================================================
-        if (menu === 'hpp' && typeof this.renderMasterHPP === 'function') this.renderMasterHPP();
-        if (menu === 'profit') {
-        this.initProfitFilters(); 
-        this.renderProfitReport(); 
+    const activeNav = document.getElementById(`nav-${menu}`); 
+    if (activeNav) { 
+        let targetColor = colors[menu] || 'text-brand-500';
+        activeNav.classList.add('nav-active', 'bg-slate-50', targetColor); 
+        activeNav.classList.remove('text-slate-500'); 
+        let icon = activeNav.querySelector('i');
+        if(icon) { icon.classList.remove('text-slate-400'); icon.classList.add(targetColor); }
     }
-        if (menu === 'pos' && !this.activeShiftId) this.checkShiftStatus();
-        if (menu === 'report' && typeof this.renderReport === 'function') this.renderReport();
-        
-        // Tampilkan Popup setelah merender halaman Opname
-        if (menu === 'opname' && typeof this.renderOpname === 'function') {
-            this.renderOpname();
-            if (typeof this.showMenuGuide === 'function') setTimeout(() => this.showMenuGuide('opname'), 200);
-        }
-        
-        if (menu === 'audit' && typeof this.renderAudit === 'function') this.renderAudit();
-        
-        // Tampilkan Popup setelah merender halaman Terima Barang
-        if (menu === 'terima' && typeof this.renderTerimaBarang === 'function') {
-            this.renderTerimaBarang();
-            if (typeof this.showMenuGuide === 'function') setTimeout(() => this.showMenuGuide('terima'), 200);
-        }
-        
-        if (menu === 'ai' && typeof this.generateAIReport === 'function') this.generateAIReport();
-        if (menu === 'staf' && typeof this.renderStaf === 'function') this.renderStaf();
-        if ((menu === 'gudang' || menu === 'master' || menu === 'outlet') && typeof this.renderGudang === 'function') this.renderGudang();
-    },
+
+    // Menggabungkan Menu Master dan Gudang
+    let targetViewId = menu === 'master' ? 'gudang' : menu;
+    const activeView = document.getElementById(`view-${targetViewId}`); 
+    if (activeView) activeView.classList.remove('hidden');
+
+    const titles = { 
+        'pos': 'POS', 'opname': 'Opname Fisik Stok', 'terima': 'Penerimaan Barang', 
+        'audit': 'Audit Laporan', 'report': 'Laporan Terpadu', 'ai': 'CFO Dashboard & Asisten AI', 
+        'gudang': 'Gudang Pusat', 'master': 'Master Varian POS', 'outlet': 'Cabang & Harga Khusus', 'staf': 'Kinerja Karyawan'
+    };
+    const pageTitle = document.getElementById('page-title'); 
+    if (pageTitle) pageTitle.innerText = titles[menu] || 'Aplikasi';
+
+    // Toggle Sidebar Mobile
+    const sidebar = document.getElementById('sidebar');
+    if (window.innerWidth < 1024 && sidebar && !sidebar.classList.contains('-translate-x-full')) {
+        this.toggleSidebar();
+    }
+
+    // 2. TRIGGER FUNGSI (AI sekarang menangani semuanya)
+    if (menu === 'pos' && !this.activeShiftId) this.checkShiftStatus();
+    if (menu === 'report' && typeof this.renderReport === 'function') this.renderReport();
+    if (menu === 'opname' && typeof this.renderOpname === 'function') {
+        this.renderOpname();
+        if (typeof this.showMenuGuide === 'function') setTimeout(() => this.showMenuGuide('opname'), 200);
+    }
+    if (menu === 'audit' && typeof this.renderAudit === 'function') this.renderAudit();
+    if (menu === 'terima' && typeof this.renderTerimaBarang === 'function') {
+        this.renderTerimaBarang();
+        if (typeof this.showMenuGuide === 'function') setTimeout(() => this.showMenuGuide('terima'), 200);
+    }
+    
+    // 🚀 Pemicu AI: Sekarang memanggil generateAIReport yang sudah diperbarui (termasuk Profit/HPP)
+    if (menu === 'ai' && typeof this.generateAIReport === 'function') {
+        this.generateAIReport();
+    }
+    if (menu === 'staf' && typeof this.renderStaf === 'function') this.renderStaf();
+    if ((menu === 'gudang' || menu === 'master' || menu === 'outlet') && typeof this.renderGudang === 'function') this.renderGudang();
+},
     
    filterProducts: function(key) {
         this._lastSearchKey = key; // 🚀 Simpan memori kata kunci pencarian

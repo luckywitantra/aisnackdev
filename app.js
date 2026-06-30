@@ -878,6 +878,24 @@ const superApp = {
             const totEl = document.getElementById('cfd-total'); if (totEl) totEl.innerText = `Rp ${Number(data.total || 0).toLocaleString('id-ID')}`;
         }
     },
+
+    // 🚀 FITUR BARU: Pencarian Tabel Instan (Live Search)
+    quickSearchTable: function(tbodyId, keyword) {
+        const tbody = document.getElementById(tbodyId);
+        if (!tbody) return;
+        
+        const filterText = keyword.toLowerCase();
+        const rows = tbody.getElementsByTagName('tr');
+
+        for (let i = 0; i < rows.length; i++) {
+            let rowText = rows[i].textContent || rows[i].innerText;
+            if (rowText.toLowerCase().indexOf(filterText) > -1) {
+                rows[i].style.display = "";
+            } else {
+                rows[i].style.display = "none";
+            }
+        }
+    },
     
     // STARTUP & LOGIN
     init: async function() {
@@ -1563,7 +1581,7 @@ const superApp = {
         let visualPct = Math.min(Math.max(marginPercent, 0), 100);
 
         html += `
-        <tr class="hover:bg-slate-50 transition-colors border-b border-slate-100 group">
+        <tr class="table-row-3d hover:bg-slate-50 transition-all border border-slate-100 group">
             <td class="py-4 px-4 text-center font-black text-slate-300">${no++}</td>
             <td class="py-4 px-4">
                 <p class="font-extrabold text-slate-800 text-sm">${p.Nama_Produk}</p>

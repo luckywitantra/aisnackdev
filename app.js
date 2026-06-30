@@ -1531,7 +1531,8 @@ const superApp = {
     // 1. LOGIKA MASTER HPP
     // ==========================================
   renderMasterHPP: function() {
-    const tbody = document.getElementById('table-body-hpp');
+    // 🚀 PERBAIKAN: Arahkan ke ID yang baru dan unik
+    const tbody = document.getElementById('gudang-table-hpp');
     if (!tbody) return;
 
     if (!this.db || !this.db.masterProduk) return;
@@ -1539,13 +1540,10 @@ const superApp = {
     let html = '';
     let no = 1;
 
-    // 🚀 PERBAIKAN FILTER: Fokus hanya pada kategori 'AISNACK'
     let menuJualan = [...(this.db.masterProduk || [])].filter(m => {
         let kat = String(m.Kategori || '').toUpperCase().trim();
         return kat === 'AISNACK'; 
     }).sort((a,b) => String(a.Nama_Produk||'').localeCompare(String(b.Nama_Produk||'')));
-
-    console.log("Produk kategori AISNACK yang ditemukan:", menuJualan);
 
     menuJualan.forEach((p) => {
         let hpp = Number(p.HPP || 0);
@@ -1595,7 +1593,9 @@ const superApp = {
             </td>
         </tr>`;
     });
-    tbody.innerHTML = html || `<tr><td colspan="5" class="text-center py-10 text-slate-400">Belum ada menu dengan kategori AISNACK.</td></tr>`;
+    
+    // Gunakan kembali variabel tbody yang sudah diarahkan ke ID baru
+    tbody.innerHTML = html || `<tr><td colspan="5" class="text-center py-10 text-slate-400 font-bold">Belum ada menu dengan kategori AISNACK di cabang ini.</td></tr>`;
 },
     
     // Fungsi Kalkulasi Live saat Owner mengetik angka di tabel

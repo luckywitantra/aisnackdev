@@ -1534,20 +1534,28 @@ const superApp = {
         const tbody = document.getElementById('table-body-hpp');
         if (!tbody) return;
 
-        let html = '';
-        let no = 1;
+        let dataProduk = this.db.masterProduk || [];
 
-        // Ambil produk yang BUKAN bahan mentah (Hanya menu yang dijual ke pelanggan)
-        let menuJualan = [...(this.db.masterProduk || [])].filter(m => 
-            String(m.Kategori || '').toLowerCase() !== 'Bahan' && 
-            String(m.Kategori || '').toLowerCase() !== 'Pendukung'
-        ).sort((a,b) => String(a.Nama_Produk||'').localeCompare(String(b.Nama_Produk||'')));
+        let menuJualan = dataProduk.filter(m => {
+        let kat = String(m.Kategori || '').toLowerCase().trim();
+        return kat !== 'bahan' && kat !== 'pendukung';
+    }).sort((a,b) => String(a.Nama_Produk||'').localeCompare(String(b.Nama_Produk||'')));
+
+    
+    console.log("Data siap dirender di HPP:", menuJualan);
+
+    let html = '';
+    let no = 1;
 
         menuJualan.forEach((p) => {
             let hpp = Number(p.HPP || 0);
             
             // Ambil harga jual dari cabang Pusat (Atau cabang pertama sebagai patokan/default)
-            let hargaData = (this.db.hargaStokOutlet || []).find(x => x.SKU === p.SKU);
+            let hargaData = (this.db.hargaStokOutlet || []).find(x => 
+            String(x.SKU).trim() === String(p.SKU).trim() && 
+            String(x.ID_Outlet).trim() === String(this.outlet).trim()
+        );
+            
             let hargaJual = hargaData ? Number(hargaData.Harga_Jual) : 0;
             
             let marginRp = hargaJual - hpp;

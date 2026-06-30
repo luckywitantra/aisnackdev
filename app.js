@@ -2167,6 +2167,15 @@ refreshData: function() {
             this.updatePendingNotifications();
         }
     },
+
+    // Pastikan blok kode ini ADA di dalam object superApp
+changeOutlet: function(val) { 
+    this.outlet = val; 
+    this.cart = []; 
+    this.renderCart(); 
+    this.checkShiftStatus(); 
+    this.refreshData(); 
+},
     
     switchMenu: function(menu) {
     // 1. Bersihkan akses (Tidak perlu lagi memblokir hpp/profit karena sudah dilebur)
@@ -5308,9 +5317,8 @@ if (btnHpp) {
         this.openModal('modal-outlet-selector');
     },
     
-    selectOutlet: function(id) {
-    // Gunakan superApp (nama object utama) bukan this, 
-    // agar selalu merujuk ke object yang benar
+  
+selectOutlet: function(id) {
     superApp.changeOutlet(id);
     superApp.updateHeaderOutletName(); 
     superApp.closeModal('modal-outlet-selector');

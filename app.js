@@ -4014,6 +4014,142 @@ submitOpname: async function() {
             });
         }, 500); // 500ms delay sangat krusial
     },
+
+    // ==========================================
+    // EKSPOR CFO DASHBOARD (PDF & WHATSAPP)
+    // ==========================================
+    sendAIReportToWA: function() {
+        // 1. Ambil data filter
+        const fStartEl = document.getElementById('ai-filter-start');
+        const fEndEl = document.getElementById('ai-filter-end');
+        const outletEl = document.getElementById('ai-filter-outlet');
+        
+        let dStart = fStartEl ? fStartEl.value : '-';
+        let dEnd = fEndEl ? fEndEl.value : '-';
+        let outName = outletEl ? outletEl.options[outletEl.selectedIndex].text : 'Semua Cabang';
+
+        // 2. Ambil 5 Metrik Utama
+        let omset = document.getElementById('ai-tot-omset') ? document.getElementById('ai-tot-omset').innerText : 'Rp 0';
+        let struk = document.getElementById('ai-tot-struk') ? document.getElementById('ai-tot-struk').innerText : '0';
+        let hpp = document.getElementById('ai-tot-hpp') ? document.getElementById('ai-tot-hpp').innerText : 'Rp 0';
+        let laba = document.getElementById('ai-tot-laba') ? document.getElementById('ai-tot-laba').innerText : 'Rp 0';
+        let margin = document.getElementById('ai-tot-margin') ? document.getElementById('ai-tot-margin').innerText : '0%';
+        
+        // 3. Ambil Kesimpulan AI
+        let insight = document.getElementById('ai-insight-text') ? document.getElementById('ai-insight-text').innerText : '';
+
+        // 4. Ekstrak Top 5 Produk
+        let topProductsTxt = '';
+        let tpBody = document.getElementById('ai-product-profit-tbody');
+        if (tpBody && tpBody.rows.length > 0 && !tpBody.innerText.includes('Tidak ada')) {
+            for (let i = 0; i < Math.min(tpBody.rows.length, 5); i++) {
+                let row = tpBody.rows[i];
+                let nama = row.cells[0].innerText;
+                let qty = row.cells[1].innerText;
+                let labaItem = row.cells[2].innerText;
+                let marginItem = row.cells[3].innerText;
+                topProductsTxt += `▪️ *${nama}* (${qty}): Laba ${labaItem} [${marginItem}]\n`;
+            }
+        } else {
+            topProductsTxt = "▪️ Belum ada penjualan.\n";
+        }
+
+        // 5. Ekstrak Komparasi Cabang
+        let branchTxt = '';
+        let bcBody = document.getElementById('ai-comparison-tbody');
+        if (bcBody && bcBody.rows.length > 0 && !bcBody.innerText.includes('Tidak ada')) {
+            for (let row of bcBody.rows) {
+                let cName = row.cells[0].innerText.split('\n')[0]; // Ambil nama cabangnya saja
+                let cOmset = row.cells[1].innerText;
+                let cLaba = row.cells[2].innerText;
+                branchTxt += `📍 *${cName}*\n   Omset: ${cOmset} | Laba: ${cLaba}\n`;
+            }
+        } else {
+            branchTxt = "▪️ Tidak ada komparasi.\n";
+        }
+
+        // 6. Rangkai Pesan WhatsApp
+        let text = `*🤖 LAPORAN CFO & ANALISIS AI*\n`;
+        text += `📍 Outlet: *${outName}*\n`;
+        text += `📅 Periode: *${dStart} s/d ${dEnd}*\n`;
+        text += `-----------------------------------\n`;
+        text += `*💰 RINGKASAN KINERJA:*\n`;
+        text += `🛒 Jml Transaksi : *${struk} Struk*\n`;
+        text += `📈 Total Omset   : *${omset}*\n`;
+        text += `📉 Total Modal   : *${hpp}*\n`;
+        text += `💎 Laba Bersih   : *${laba}*\n`;
+        text += `📊 Margin Profit : *${margin}*\n`;
+        text += `-----------------------------------\n`;
+        text += `*🏆 KONTRIBUTOR LABA TERTINGGI:*\n${topProductsTxt}\n`;
+        text += `*🏬 PERBANDINGAN CABANG:*\n${branchTxt}\n`;
+        text += `-----------------------------------\n`;
+        text += `*🧠 KESIMPULAN AI:*\n_${insight}_\n`;
+        text += `-----------------------------------\n`;
+        text += `_Diekstrak otomatis dari Sistem POS Ai-Snack._`;
+
+        // Panggil fungsi modal WA yang sudah kita buat sebelumnya
+        this.showWaModal(text);
+    },
+
+    exportAIPDF: function() {
+        this.showToast("Mempersiapkan PDF CFO Dashboard...");
+        
+        // Ambil elemen seluruh area AI Dashboard
+        const element = document.getElementById('view-ai-content'); 
+        if(!element) {
+            this.showToast("ID view-ai-content tidak ditemukan di HTML", "error");
+            return;
+        }
+        
+        // Simpan style asli
+        const originalStyle = element.getAttribute('style') || '';
+        
+        // 🚀 ANTI-BLANK & PERLUASAN PDF
+        element.style.height = 'max-content';
+        element.style.overflow = 'visible';
+        
+        const scrollables = element.querySelectorAll('.overflow-y-auto, .overflow-x-auto, .custom-scroll');
+        scrollables.forEach(el => {
+            el.setAttribute('data-orig-style', el.getAttribute('style') || '');
+            el.style.overflow = 'visible';
+            el.style.maxHeight = 'none';
+            el.style.height = 'auto';
+        });
+
+        // 🚀 SEMBUNYIKAN BAGIAN RADAR PREDIKSI & TOMBOL
+        const predictSection = document.getElementById('ai-predictive-section');
+        const btnRow = document.getElementById('ai-export-btn-row');
+        
+        let predictDisplay = ''; let btnDisplay = '';
+        if (predictSection) { predictDisplay = predictSection.style.display; predictSection.style.display = 'none'; }
+        if (btnRow) { btnDisplay = btnRow.style.display; btnRow.style.display = 'none'; }
+
+        // Eksekusi PDF setelah Jeda Render (500ms)
+        setTimeout(() => {
+            const opt = { 
+                margin: 0.3, 
+                filename: `CFO_Dashboard_AiSnack_${new Date().getTime()}.pdf`, 
+                image: { type: 'jpeg', quality: 0.98 }, 
+                html2canvas: { scale: 2, useCORS: true, windowWidth: element.scrollWidth }, 
+                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' } 
+            };
+            
+            html2pdf().set(opt).from(element).save().then(() => { 
+                // Kembalikan UI seperti semula setelah diunduh
+                element.setAttribute('style', originalStyle);
+                scrollables.forEach(el => {
+                    el.setAttribute('style', el.getAttribute('data-orig-style') || '');
+                    el.removeAttribute('data-orig-style');
+                });
+                
+                // Munculkan kembali Radar Prediksi & Tombol Ekspor
+                if (predictSection) predictSection.style.display = predictDisplay;
+                if (btnRow) btnRow.style.display = btnDisplay;
+
+                this.showToast("PDF Laporan AI Berhasil Diunduh!", "success"); 
+            });
+        }, 500);
+    },
     
     sendReportToWA: function() {
         // 1. Ambil data rentang tanggal dari filter

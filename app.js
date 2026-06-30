@@ -918,6 +918,7 @@ const superApp = {
     },
     
     // STARTUP & LOGIN
+    // STARTUP & LOGIN
     init: async function() {
         // --- 🚀 RADAR UPDATE APLIKASI (SERVICE WORKER) ---
         if ('serviceWorker' in navigator) {
@@ -925,7 +926,6 @@ const superApp = {
                 registration.addEventListener('updatefound', () => {
                     const newWorker = registration.installing;
                     newWorker.addEventListener('statechange', () => {
-                        // Jika ada service worker baru yang terinstal dan siap mengambil alih
                         if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                             const banner = document.getElementById('update-banner');
                             if (banner) {
@@ -989,13 +989,13 @@ const superApp = {
                     logStat.className = 'text-[10px] text-brand-500 font-bold uppercase tracking-widest text-center animate-pulse'; 
                 } 
             }
-            
+
             // Fungsi penarik data yang dirapikan
             let performFetch = async () => {
                 let data = null;
                 for (let i = 0; i < 3; i++) {
                     try { 
-                        // 🚀 UBAH MENJADI 30 HARI AGAR LEBIH RELEVAN UNTUK KASIR
+                        // 🚀 AWAL BUKA: Tarik 30 hari agar super cepat!
                         const res = await fetch(API_URL + "?ts=" + new Date().getTime() + "&history=30", { redirect: 'follow' }); 
                         data = await res.json(); 
                         if (data && data.status === 'sukses') break; 
@@ -1004,13 +1004,14 @@ const superApp = {
                         await new Promise(r => setTimeout(r, 2000)); 
                     }
                 }
+                
                 if (!data || data.status === 'error') throw new Error(data ? data.pesan : "Server Timeout");
 
-                // --- PROSES DATA SUKSES (30 HARI) ---
+                // --- PROSES DATA SUKSES ---
                 this.db = data; 
                 localStorage.setItem('aisnack_db_cache', JSON.stringify(data));
                 
-                // Set Logo & Promo...
+                // Set Logo & Promo CFD
                 let logoData = (this.db.pengaturan || []).find(x => x.Pengaturan === 'Logo_Aplikasi');
                 if (logoData) { localStorage.setItem('app_logo_url', logoData.Nilai); this.updateAppLogos(logoData.Nilai); }
                 let pStandby = (this.db.pengaturan || []).find(x => x.Pengaturan === 'Promo_Standby');
@@ -1030,13 +1031,34 @@ const superApp = {
                     logStat.className = 'text-[10px] text-green-500 font-bold uppercase tracking-widest text-center'; 
                 }
 
-                // 🚀 TRIGGER BACKGROUND SYNC SETELAH KASIR BISA MELIHAT LAYAR LOGIN
-                // Beri jeda 3 detik agar HP/Komputer kasir tidak kaget setelah render UI
+                // 🚀 TRIGGER BACKGROUND SYNC
+                // Setelah 3 detik aplikasi jalan, secara diam-diam tarik semua historis tahunan
                 setTimeout(() => {
-                    this.pullBackgroundData();
+                    if (typeof this.pullBackgroundData === 'function') {
+                        this.pullBackgroundData();
+                    }
                 }, 3000);
             };
-        },
+
+            // Logika Pembacaan Data
+            if (cacheDb) {
+                performFetch(); // Biarkan proses di belakang layar, kasir sudah bisa masuk pakai PIN
+            } else {
+                await performFetch(); // Blokir layar karena ini instalasi pertama kali
+            }
+
+        } catch (err) {
+            // 🚀 INI ADALAH BLOK CATCH YANG TERHAPUS SEBELUMNYA
+            const logStat = document.getElementById('login-status');
+            if (logStat && this.db) { 
+                logStat.innerText = 'Offline Mode Aktif (Gunakan PIN Anda)'; 
+                logStat.className = 'text-[10px] text-orange-500 font-bold uppercase tracking-widest text-center'; 
+            } else if (logStat) { 
+                logStat.innerText = 'Gagal! Buka aplikasi pertama kali butuh Internet.'; 
+                logStat.className = 'text-[10px] text-red-500 font-bold uppercase tracking-widest text-center'; 
+            }
+        }
+    },
     
     addPin: function(num) {
         if (!this.db || !this.db.users) { this.showToast('Sistem sedang memuat data, mohon tunggu sebentar...', 'warning'); return; }

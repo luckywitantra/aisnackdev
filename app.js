@@ -469,6 +469,8 @@ const superApp = {
             } 
         }
     },
+
+    
     apiPost: async function(payload) {
         if (!this.isOnline) { this.offlineQueue.push(payload); localStorage.setItem('aisnack_offline_queue', JSON.stringify(this.offlineQueue)); this.updateNetworkUI(); return { status: 'sukses', is_offline: true, trx_id: payload.trx_id || payload.id_shift }; }
         try { const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) }); return await res.json(); } 
@@ -1533,54 +1535,118 @@ const superApp = {
         if (!tbody) return;
 
         let html = '';
-        this.filteredProducts.forEach((p, idx) => {
-            let hpp = p.hpp || 0;
-            let hargaJual = p.harga || 0;
-            let margin = hargaJual - hpp;
-            let marginPercent = hargaJual > 0 ? ((margin / hargaJual) * 100).toFixed(1) : 0;
+        let no = 1;
+
+        // Ambil produk yang BUKAN bahan mentah (Hanya menu yang dijual ke pelanggan)
+        let menuJualan = [...(this.db.masterProduk || [])].filter(m => 
+            String(m.Kategori || '').toLowerCase() !== 'bahan' && 
+            String(m.Kategori || '').toLowerCase() !== 'pendukung'
+        ).sort((a,b) => String(a.Nama_Produk||'').localeCompare(String(b.Nama_Produk||'')));
+
+        menuJualan.forEach((p) => {
+            let hpp = Number(p.HPP || 0);
             
-            // Indikator visual margin
-            let badgeClass = marginPercent < 30 ? 'bg-red-50 text-red-600 border-red-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200';
+            // Ambil harga jual dari cabang Pusat (Atau cabang pertama sebagai patokan/default)
+            let hargaData = (this.db.hargaStokOutlet || []).find(x => x.SKU === p.SKU);
+            let hargaJual = hargaData ? Number(hargaData.Harga_Jual) : 0;
+            
+            let marginRp = hargaJual - hpp;
+            let marginPercent = hargaJual > 0 ? ((marginRp / hargaJual) * 100).toFixed(1) : 0;
+            
+            // Logika Indikator Warna Super Interaktif
+            let healthColor = ''; let healthText = ''; let barColor = '';
+            
+            if (hargaJual === 0) {
+                healthColor = 'text-slate-400 bg-slate-100 border-slate-200';
+                healthText = 'Harga Belum Diset'; barColor = 'bg-slate-200';
+            } else if (marginPercent < 20) {
+                healthColor = 'text-rose-600 bg-rose-50 border-rose-200';
+                healthText = marginPercent < 0 ? 'RUGI!' : 'Kritis (Terlalu Tipis)'; barColor = 'bg-rose-500';
+            } else if (marginPercent >= 20 && marginPercent <= 40) {
+                healthColor = 'text-amber-600 bg-amber-50 border-amber-200';
+                healthText = 'Normal / Stabil'; barColor = 'bg-amber-400';
+            } else {
+                healthColor = 'text-emerald-600 bg-emerald-50 border-emerald-200';
+                healthText = 'Sangat Sehat 💎'; barColor = 'bg-emerald-500';
+            }
+
+            // Batasi visual bar maksimal 100% agar UI tidak pecah
+            let visualPct = marginPercent > 100 ? 100 : (marginPercent < 0 ? 0 : marginPercent);
 
             html += `
-            <tr class="hover:bg-slate-50 transition-colors group">
-                <td class="p-4 text-center font-bold text-slate-400">${idx + 1}</td>
-                <td class="p-4">
-                    <p class="font-bold text-slate-800">${p.nama}</p>
-                    <p class="text-xs text-slate-400">SKU: ${p.sku}</p>
+            <tr class="hover:bg-slate-50 transition-colors border-b border-slate-100 group">
+                <td class="py-4 px-4 text-center font-black text-slate-300">${no++}</td>
+                <td class="py-4 px-4">
+                    <p class="font-extrabold text-slate-800 text-sm">${p.Nama_Produk}</p>
+                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">SKU: ${p.SKU}</p>
                 </td>
-                <td class="p-4 font-black text-slate-600 text-right">
-                    Rp ${hargaJual.toLocaleString('id-ID')}
+                <td class="py-4 px-4 text-right">
+                    <span class="font-black text-slate-600 text-base">Rp ${hargaJual.toLocaleString('id-ID')}</span>
                 </td>
-                <td class="p-4">
-                    <div class="relative">
-                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">Rp</span>
-                        <input type="number" id="hpp-input-${p.sku}" value="${hpp}" class="w-full bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2 font-bold text-sm text-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition" onchange="superApp.calculateRowMargin('${p.sku}', ${hargaJual}, this.value)">
+                <td class="py-4 px-4">
+                    <div class="relative w-full max-w-[150px]">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">Rp</span>
+                        <input type="number" id="hpp-input-${p.SKU}" value="${hpp}" class="w-full bg-white border-2 border-slate-200 rounded-xl pl-9 pr-3 py-2 font-black text-sm text-slate-800 focus:border-amber-500 focus:ring-4 focus:ring-amber-500/20 outline-none transition" oninput="superApp.calculateRowMargin('${p.SKU}', ${hargaJual}, this.value)">
                     </div>
                 </td>
-                <td class="p-4 text-right">
-                    <div id="margin-display-${p.sku}" class="inline-block px-2.5 py-1 rounded-md border text-xs font-black ${badgeClass}">
-                        ${marginPercent}%
+                <td class="py-4 px-4 min-w-[200px]">
+                    <div id="margin-box-${p.SKU}" class="flex flex-col gap-2">
+                        <div class="flex justify-between items-end">
+                            <span id="margin-badge-${p.SKU}" class="px-2 py-0.5 rounded text-[10px] font-black border uppercase tracking-widest ${healthColor}">${healthText}</span>
+                            <span id="margin-pct-${p.SKU}" class="font-black text-sm ${healthColor.split(' ')[0]}">${marginPercent}%</span>
+                        </div>
+                        <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden flex">
+                            <div id="margin-bar-${p.SKU}" class="h-full ${barColor} rounded-full transition-all duration-300" style="width: ${visualPct}%"></div>
+                        </div>
+                        <p class="text-[10px] font-bold text-slate-500 text-right mt-0.5">Laba: <span id="margin-rp-${p.SKU}" class="text-slate-700">Rp ${marginRp.toLocaleString('id-ID')}</span></p>
                     </div>
                 </td>
             </tr>`;
         });
-        tbody.innerHTML = html;
+        
+        tbody.innerHTML = html || `<tr><td colspan="5" class="text-center py-10 text-slate-400">Belum ada menu produk terdaftar.</td></tr>`;
     },
 
+    // Fungsi Kalkulasi Live saat Owner mengetik angka di tabel
     calculateRowMargin: function(sku, hargaJual, newHpp) {
         let hppVal = parseFloat(newHpp) || 0;
-        let margin = hargaJual - hppVal;
-        let percent = hargaJual > 0 ? ((margin / hargaJual) * 100).toFixed(1) : 0;
+        let marginRp = hargaJual - hppVal;
+        let marginPercent = hargaJual > 0 ? ((marginRp / hargaJual) * 100).toFixed(1) : 0;
         
-        const badge = document.getElementById(`margin-display-${sku}`);
-        if(badge) {
-            badge.innerText = `${percent}%`;
-            if(percent < 30) {
-                badge.className = 'inline-block px-2.5 py-1 rounded-md border text-xs font-black bg-red-50 text-red-600 border-red-200';
+        const badge = document.getElementById(`margin-badge-${sku}`);
+        const pctEl = document.getElementById(`margin-pct-${sku}`);
+        const barEl = document.getElementById(`margin-bar-${sku}`);
+        const rpEl = document.getElementById(`margin-rp-${sku}`);
+        
+        if(badge && pctEl && barEl && rpEl) {
+            let healthColor = ''; let healthText = ''; let barColor = '';
+            
+            if (hargaJual === 0) {
+                healthColor = 'text-slate-400 bg-slate-100 border-slate-200';
+                healthText = 'Harga Belum Diset'; barColor = 'bg-slate-200';
+            } else if (marginPercent < 20) {
+                healthColor = 'text-rose-600 bg-rose-50 border-rose-200';
+                healthText = marginPercent < 0 ? 'RUGI!' : 'Kritis'; barColor = 'bg-rose-500';
+            } else if (marginPercent >= 20 && marginPercent <= 40) {
+                healthColor = 'text-amber-600 bg-amber-50 border-amber-200';
+                healthText = 'Normal'; barColor = 'bg-amber-400';
             } else {
-                badge.className = 'inline-block px-2.5 py-1 rounded-md border text-xs font-black bg-emerald-50 text-emerald-600 border-emerald-200';
+                healthColor = 'text-emerald-600 bg-emerald-50 border-emerald-200';
+                healthText = 'Sangat Sehat 💎'; barColor = 'bg-emerald-500';
             }
+
+            let visualPct = marginPercent > 100 ? 100 : (marginPercent < 0 ? 0 : marginPercent);
+
+            badge.className = `px-2 py-0.5 rounded text-[10px] font-black border uppercase tracking-widest ${healthColor}`;
+            badge.innerText = healthText;
+            
+            pctEl.className = `font-black text-sm ${healthColor.split(' ')[0]}`;
+            pctEl.innerText = `${marginPercent}%`;
+            
+            barEl.className = `h-full ${barColor} rounded-full transition-all duration-300`;
+            barEl.style.width = `${visualPct}%`;
+            
+            rpEl.innerText = `Rp ${marginRp.toLocaleString('id-ID')}`;
         }
     },
 
@@ -2138,8 +2204,8 @@ refreshData: function() {
             'gudang': 'text-emerald-600', 
             'outlet': 'text-teal-600',    
             'staf': 'text-amber-600',
-            'master': 'text-emerald-600', 
-            'hpp': 'text-emerald-600'     // 🚀 TAMBAHAN: Warna indikator menu HPP
+            'master': 'text-emerald-600'
+              
             
         };
         const allColors = Object.values(colors);
@@ -3134,6 +3200,49 @@ submitOpname: async function() {
         const vBtn = document.getElementById(`tab-audit-${tab}`); if(vBtn) vBtn.className = 'px-5 py-2.5 bg-white text-slate-800 rounded-lg text-sm font-bold shadow-sm whitespace-nowrap transition border border-slate-200';
     },
 
+    // Fungsi Pengatur Tab di Menu Master Gudang
+    toggleGudangTab: function(tab) {
+        const tabs = ['stok', 'menu', 'outlet', 'hpp'];
+        
+        // Reset semua tampilan
+        tabs.forEach(t => {
+            const contentEl = document.getElementById(`gudang-content-${t}`);
+            const btnEl = document.getElementById(`tab-gudang-${t}`);
+            
+            if (contentEl) contentEl.classList.add('hidden');
+            if (btnEl) {
+                // Reset warna tombol ke default (abu-abu/putih)
+                btnEl.className = 'px-5 py-2.5 bg-white text-slate-500 hover:bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold whitespace-nowrap transition active:scale-95';
+                
+                // Khusus tombol HPP, pertahankan class rahasianya jika dia bukan tab aktif
+                if (t === 'hpp' && this.userRole !== 'owner') {
+                    btnEl.classList.add('hidden');
+                } else if (t === 'hpp') {
+                    btnEl.className = 'px-5 py-2.5 bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-200 rounded-xl text-sm font-black whitespace-nowrap transition shadow-sm active:scale-95';
+                }
+            }
+        });
+
+        // Aktifkan tab yang dipilih
+        const activeContent = document.getElementById(`gudang-content-${tab}`);
+        const activeBtn = document.getElementById(`tab-gudang-${tab}`);
+        
+        if (activeContent) activeContent.classList.remove('hidden');
+        if (activeBtn) {
+            if (tab === 'hpp') {
+                activeBtn.className = 'px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white border-transparent rounded-xl text-sm font-black shadow-md whitespace-nowrap transition active:scale-95';
+            } else {
+                activeBtn.className = 'px-5 py-2.5 bg-slate-800 text-white rounded-xl text-sm font-bold shadow-md whitespace-nowrap transition active:scale-95';
+            }
+        }
+        
+        // Panggil render spesifik jika tab HPP dibuka
+        if (tab === 'hpp') {
+            this.renderMasterHPP();
+        }
+    },
+    
+    
     toggleAllAuditCb: function(type, isChecked) {
         let cbs = document.querySelectorAll(`.cb-audit-${type}`); 
         cbs.forEach(cb => cb.checked = isChecked); 
@@ -4623,6 +4732,16 @@ executeVoidTrx: async function(trxId) {
         if (typeof this.renderGlobalStockMatrix === 'function') {
             this.renderGlobalStockMatrix();
         }
+
+        // Letakkan kode ini di baris paling bawah sebelum kurung tutup } pada fungsi renderGudang:
+let btnHpp = document.getElementById('tab-gudang-hpp');
+if (btnHpp) {
+    if (this.userRole === 'owner') {
+        btnHpp.classList.remove('hidden');
+    } else {
+        btnHpp.classList.add('hidden');
+    }
+}
     },
     openCrudBahan: function(action = 'add', sku = '') {
         let m = action === 'edit' ? (this.db.masterProduk || []).find(x => x.SKU === sku) : {};

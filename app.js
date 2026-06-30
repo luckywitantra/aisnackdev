@@ -1036,7 +1036,7 @@ const superApp = {
                 setTimeout(() => {
                     this.pullBackgroundData();
                 }, 3000);
-            };
+            },
     
     addPin: function(num) {
         if (!this.db || !this.db.users) { this.showToast('Sistem sedang memuat data, mohon tunggu sebentar...', 'warning'); return; }

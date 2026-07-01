@@ -4092,25 +4092,25 @@ submitOpname: async function() {
     },
 
  exportAIPDF: async function() {
-        this.showToast("Menyiapkan Laporan PDF Profesional (A4)...", "warning");
-        this.setLoading(true, "Merender Laporan...");
+        this.showToast("Mengekstrak Data untuk PDF Profesional...", "warning");
+        this.setLoading(true, "Merender Laporan A4...");
 
         try {
-            // 1. Ambil Grafik Chart.js dan ubah menjadi gambar statis (Base64)
+            // 1. AMBIL GRAFIK CHART.JS (Ubah ke Gambar Kualitas Tinggi)
             const chartCanvas = document.getElementById('aiProfitChart');
             let chartImgSrc = '';
             if (chartCanvas) {
-                // Background putih agar grafik tidak transparan di PDF
                 const ctx = chartCanvas.getContext('2d');
                 ctx.save();
                 ctx.globalCompositeOperation = 'destination-over';
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(0, 0, chartCanvas.width, chartCanvas.height);
+                // Naikkan resolusi render gambar
                 chartImgSrc = chartCanvas.toDataURL('image/jpeg', 1.0);
                 ctx.restore();
             }
 
-            // 2. Ambil Nilai-Nilai Utama dari Dashboard
+            // 2. AMBIL METRIK UTAMA DARI DASHBOARD
             const dStart = document.getElementById('ai-filter-start')?.value || '-';
             const dEnd = document.getElementById('ai-filter-end')?.value || '-';
             const outletEl = document.getElementById('ai-filter-outlet');
@@ -4123,27 +4123,67 @@ submitOpname: async function() {
             const margin = document.getElementById('ai-tot-margin')?.innerText || '0%';
             const insight = document.getElementById('ai-insight-text')?.innerText || '';
 
-            // 3. Ambil baris tabel yang ada di layar
-            const topProductsHTML = document.getElementById('ai-product-profit-tbody')?.innerHTML || '';
-            const comparisonHTML = document.getElementById('ai-comparison-tbody')?.innerHTML || '';
+            // 3. 🚀 EKSTRAKSI BERSIH TABEL PRODUK
+            let cleanProductTable = '';
+            const prodRows = document.querySelectorAll('#ai-product-profit-tbody tr');
+            if (prodRows.length > 0 && !prodRows[0].innerText.includes('Tidak ada')) {
+                prodRows.forEach(row => {
+                    const cells = row.querySelectorAll('td');
+                    if(cells.length >= 4) {
+                        cleanProductTable += `
+                        <tr style="page-break-inside: avoid;">
+                            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; font-weight: bold; color: #1e293b;">${cells[0].innerText}</td>
+                            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: center; color: #64748b;">${cells[1].innerText}</td>
+                            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: right; color: #059669; font-weight: bold;">${cells[2].innerText}</td>
+                            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #0f172a;">${cells[3].innerText}</td>
+                        </tr>`;
+                    }
+                });
+            } else {
+                cleanProductTable = `<tr><td colspan="4" style="text-align: center; padding: 20px; color: #94a3b8;">Belum ada penjualan</td></tr>`;
+            }
 
-            // 4. SUSUN TEMPLATE HTML KHUSUS KERTAS A4 (Sangat Rapi & Klasik)
+            // 4. 🚀 EKSTRAKSI BERSIH TABEL KOMPARASI CABANG
+            let cleanBranchTable = '';
+            const branchRows = document.querySelectorAll('#ai-comparison-tbody tr');
+            if (branchRows.length > 0 && !branchRows[0].innerText.includes('Tidak ada')) {
+                branchRows.forEach(row => {
+                    const cells = row.querySelectorAll('td');
+                    if(cells.length >= 4) {
+                        // Pecah teks "Nama Cabang" dan "Jumlah Struk" dengan rapi
+                        const branchRaw = cells[0].innerText.split('\n');
+                        const bName = branchRaw[0]?.trim() || '-';
+                        const bStruk = branchRaw[1]?.trim() || '';
+                        
+                        const bOmset = cells[1].innerText.trim();
+                        const bLaba = cells[2].innerText.trim();
+                        
+                        // Ekstrak persentase bayar (Misal: "64%")
+                        const bMetodeRaw = cells[3].innerText.replace(/\n/g, ' ').trim();
+                        const bMetode = bMetodeRaw.split(' ')[0] || '-'; // Ambil angkanya saja
+                        
+                        cleanBranchTable += `
+                        <tr style="page-break-inside: avoid;">
+                            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">
+                                <div style="font-weight: bold; color: #1e293b; font-size: 12px;">${bName}</div>
+                                <div style="font-size: 9px; color: #64748b; margin-top: 2px;">${bStruk}</div>
+                            </td>
+                            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #475569;">${bOmset}</td>
+                            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: right; color: #059669; font-weight: bold;">${bLaba}</td>
+                            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: center;">
+                                <span style="background: #f1f5f9; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 10px; color: #0f172a;">Tunai: ${bMetode}</span>
+                            </td>
+                        </tr>`;
+                    }
+                });
+            } else {
+                cleanBranchTable = `<tr><td colspan="4" style="text-align: center; padding: 20px; color: #94a3b8;">Tidak ada komparasi</td></tr>`;
+            }
+
+            // 5. SUSUN TEMPLATE HTML KERTAS A4 MURNI
             const pdfHtml = `
-                <div style="padding: 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1e293b; background: #ffffff;">
+                <div style="padding: 30px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1e293b; background: #ffffff;">
                     
-                    <style>
-                        /* Menimpa class Tailwind yang terbawa dari layar agar cocok di PDF */
-                        table { width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 11px; }
-                        th { background-color: #f8fafc; color: #475569; font-weight: bold; text-transform: uppercase; padding: 10px; border: 1px solid #cbd5e1; }
-                        td { padding: 10px; border: 1px solid #e2e8f0; vertical-align: middle; }
-                        td span { background: transparent !important; padding: 0 !important; border: none !important; font-size: 11px !important; }
-                        .text-red-500 { color: #ef4444 !important; font-weight: bold; }
-                        .text-emerald-600 { color: #059669 !important; font-weight: bold; }
-                        .bg-emerald-400 { background-color: #34d399 !important; height: 8px; display: inline-block; }
-                        .bg-blue-500 { background-color: #3b82f6 !important; height: 8px; display: inline-block; }
-                        .html2pdf__page-break { page-break-before: always; }
-                    </style>
-
                     <div style="text-align: center; border-bottom: 3px solid #0f172a; padding-bottom: 15px; margin-bottom: 25px;">
                         <h1 style="margin: 0; color: #0f172a; font-size: 24px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px;">Laporan Kinerja Keuangan</h1>
                         <p style="margin: 8px 0 0 0; color: #64748b; font-size: 11px;">Periode: <b>${dStart} s/d ${dEnd}</b> &nbsp;|&nbsp; Outlet: <b>${outletName}</b> &nbsp;|&nbsp; Dicetak: <b>${new Date().toLocaleString('id-ID')}</b></p>
@@ -4156,25 +4196,25 @@ submitOpname: async function() {
 
                     <table style="width: 100%; border-collapse: separate; border-spacing: 10px 0; margin-bottom: 25px; margin-left: -10px; border: none;">
                         <tr>
-                            <td style="width: 25%; padding: 15px 10px; border-radius: 8px; border: 1px solid #cbd5e1; text-align: center; background: #ffffff;">
+                            <td style="width: 25%; padding: 15px 10px; border-radius: 8px; border: 1px solid #cbd5e1; text-align: center; background: #ffffff; vertical-align: top;">
                                 <div style="font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: bold; margin-bottom: 8px;">Total Omset Kotor</div>
-                                <div style="font-size: 18px; font-weight: 900; color: #0f172a; margin: 0;">${omset}</div>
-                                <div style="font-size: 9px; color: #94a3b8; margin-top: 5px;">${struk} Struk Terbit</div>
+                                <div style="font-size: 16px; font-weight: 900; color: #0f172a; margin: 0;">${omset}</div>
+                                <div style="font-size: 9px; color: #94a3b8; margin-top: 5px;">${struk}</div>
                             </td>
-                            <td style="width: 25%; padding: 15px 10px; border-radius: 8px; border: 1px solid #cbd5e1; text-align: center; background: #ffffff;">
+                            <td style="width: 25%; padding: 15px 10px; border-radius: 8px; border: 1px solid #cbd5e1; text-align: center; background: #ffffff; vertical-align: top;">
                                 <div style="font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: bold; margin-bottom: 8px;">Total Modal (HPP)</div>
-                                <div style="font-size: 18px; font-weight: 900; color: #ef4444; margin: 0;">${hpp}</div>
-                                <div style="font-size: 9px; color: #94a3b8; margin-top: 5px;">Bahan Baku Terjual</div>
+                                <div style="font-size: 16px; font-weight: 900; color: #ef4444; margin: 0;">${hpp}</div>
+                                <div style="font-size: 9px; color: #94a3b8; margin-top: 5px;">Bahan Terjual</div>
                             </td>
-                            <td style="width: 25%; padding: 15px 10px; border-radius: 8px; border: 1px solid #059669; text-align: center; background: #10b981;">
+                            <td style="width: 25%; padding: 15px 10px; border-radius: 8px; border: 1px solid #059669; text-align: center; background: #10b981; vertical-align: top;">
                                 <div style="font-size: 9px; text-transform: uppercase; color: #d1fae5; font-weight: bold; margin-bottom: 8px;">Laba Bersih</div>
-                                <div style="font-size: 18px; font-weight: 900; color: #ffffff; margin: 0;">${laba}</div>
+                                <div style="font-size: 16px; font-weight: 900; color: #ffffff; margin: 0;">${laba}</div>
                                 <div style="font-size: 9px; color: #d1fae5; margin-top: 5px;">Profit Aktual</div>
                             </td>
-                            <td style="width: 25%; padding: 15px 10px; border-radius: 8px; border: 1px solid #cbd5e1; text-align: center; background: #ffffff;">
+                            <td style="width: 25%; padding: 15px 10px; border-radius: 8px; border: 1px solid #cbd5e1; text-align: center; background: #ffffff; vertical-align: top;">
                                 <div style="font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: bold; margin-bottom: 8px;">Margin Profit</div>
-                                <div style="font-size: 18px; font-weight: 900; color: #0f172a; margin: 0;">${margin}</div>
-                                <div style="font-size: 9px; color: #94a3b8; margin-top: 5px;">Rasio Keuntungan</div>
+                                <div style="font-size: 16px; font-weight: 900; color: #0f172a; margin: 0;">${margin}</div>
+                                <div style="font-size: 9px; color: #94a3b8; margin-top: 5px;">Rasio Laba</div>
                             </td>
                         </tr>
                     </table>
@@ -4182,35 +4222,35 @@ submitOpname: async function() {
                     ${chartImgSrc ? `
                     <div style="font-size: 14px; font-weight: bold; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; margin: 20px 0 15px 0;">📊 Grafik Tren Laba Bersih Harian</div>
                     <div style="width: 100%; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; text-align: center; background: #fdfdfd; margin-bottom: 20px;">
-                        <img src="${chartImgSrc}" style="max-width: 100%; height: auto; max-height: 250px;" />
+                        <img src="${chartImgSrc}" style="max-width: 100%; height: auto; max-height: 220px;" />
                     </div>` : ''}
 
-                    <div class="html2pdf__page-break"></div>
+                    <div style="page-break-before: always;"></div>
 
                     <div style="font-size: 14px; font-weight: bold; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; margin: 20px 0 15px 0;">🏆 Peringkat Laba Produk (Top Kontributor)</div>
-                    <table>
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 11px;">
                         <thead>
                             <tr>
-                                <th style="text-align: left;">Nama Produk</th>
-                                <th style="text-align: center;">Kuantitas Terjual</th>
-                                <th style="text-align: right;">Total Laba Bersih</th>
-                                <th style="text-align: right;">Margin</th>
+                                <th style="text-align: left; background-color: #f8fafc; color: #475569; font-weight: bold; text-transform: uppercase; padding: 10px; border: 1px solid #cbd5e1;">Nama Produk</th>
+                                <th style="text-align: center; background-color: #f8fafc; color: #475569; font-weight: bold; text-transform: uppercase; padding: 10px; border: 1px solid #cbd5e1;">Kuantitas Terjual</th>
+                                <th style="text-align: right; background-color: #f8fafc; color: #059669; font-weight: bold; text-transform: uppercase; padding: 10px; border: 1px solid #cbd5e1;">Total Laba Bersih</th>
+                                <th style="text-align: right; background-color: #f8fafc; color: #475569; font-weight: bold; text-transform: uppercase; padding: 10px; border: 1px solid #cbd5e1;">Margin</th>
                             </tr>
                         </thead>
-                        <tbody>${topProductsHTML}</tbody>
+                        <tbody>${cleanProductTable}</tbody>
                     </table>
 
                     <div style="font-size: 14px; font-weight: bold; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; margin: 20px 0 15px 0;">🏢 Komparasi Performa Antar Cabang</div>
-                    <table>
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 11px;">
                         <thead>
                             <tr>
-                                <th style="text-align: left;">Cabang</th>
-                                <th style="text-align: right;">Omset Kotor</th>
-                                <th style="text-align: right;">Laba Bersih</th>
-                                <th style="text-align: center;">Rasio Metode Bayar</th>
+                                <th style="text-align: left; background-color: #f8fafc; color: #475569; font-weight: bold; text-transform: uppercase; padding: 10px; border: 1px solid #cbd5e1;">Cabang</th>
+                                <th style="text-align: right; background-color: #f8fafc; color: #475569; font-weight: bold; text-transform: uppercase; padding: 10px; border: 1px solid #cbd5e1;">Omset Kotor</th>
+                                <th style="text-align: right; background-color: #f8fafc; color: #059669; font-weight: bold; text-transform: uppercase; padding: 10px; border: 1px solid #cbd5e1;">Laba Bersih</th>
+                                <th style="text-align: center; background-color: #f8fafc; color: #475569; font-weight: bold; text-transform: uppercase; padding: 10px; border: 1px solid #cbd5e1;">Rasio Pembayaran</th>
                             </tr>
                         </thead>
-                        <tbody>${comparisonHTML}</tbody>
+                        <tbody>${cleanBranchTable}</tbody>
                     </table>
                     
                     <div style="text-align: center; font-size: 9px; color: #94a3b8; margin-top: 40px; font-style: italic;">
@@ -4220,23 +4260,20 @@ submitOpname: async function() {
                 </div>
             `;
 
-            // 5. KONFIGURASI MESIN PDF
+            // 6. KONFIGURASI MESIN PDF
             const opt = { 
-                margin: 0.3, // Margin keliling kertas (inci)
+                margin: 0.3, 
                 filename: `CFO_Laporan_A4_${new Date().getTime()}.pdf`, 
                 image: { type: 'jpeg', quality: 1.0 }, 
                 html2canvas: { 
-                    scale: 2,           // Resolusi ganda agar huruf dan tabel tajam
+                    scale: 2, 
                     useCORS: true, 
-                    logging: false,
-                    letterRendering: true
+                    logging: false
                 }, 
-                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' },
-                pagebreak: { mode: ['css', 'legacy'] } // Deteksi perintah pindah halaman
+                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
             };
 
-            // 6. GENERATE PDF LANGSUNG DARI STRING HTML
-            // Dengan cara ini, PDF terhindar 100% dari isu layar blank
+            // 7. GENERATE PDF LANGSUNG DARI STRING HTML
             await html2pdf().set(opt).from(pdfHtml).save();
 
             this.showToast("PDF A4 Berhasil Diunduh!", "success");

@@ -4105,7 +4105,6 @@ submitOpname: async function() {
                 ctx.globalCompositeOperation = 'destination-over';
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(0, 0, chartCanvas.width, chartCanvas.height);
-                // Naikkan resolusi render gambar
                 chartImgSrc = chartCanvas.toDataURL('image/jpeg', 1.0);
                 ctx.restore();
             }
@@ -4123,7 +4122,31 @@ submitOpname: async function() {
             const margin = document.getElementById('ai-tot-margin')?.innerText || '0%';
             const insight = document.getElementById('ai-insight-text')?.innerText || '';
 
-            // 3. 🚀 EKSTRAKSI BERSIH TABEL PRODUK
+            // 3. 🚀 EKSTRAKSI JAM SIBUK (Dibangun ulang jadi HTML murni agar anti-pecah di PDF)
+            let hourlyHtml = '';
+            const hourlyRows = document.querySelectorAll('#ai-hourly-chart > div');
+            if (hourlyRows.length > 0 && !hourlyRows[0].innerText.includes('Belum ada')) {
+                hourlyRows.forEach(row => {
+                    const time = row.children[0]?.innerText || '-';
+                    // Ambil persentase lebar bar dari atribut style
+                    const barDiv = row.children[1]?.querySelector('div');
+                    const barWidth = barDiv ? barDiv.style.width : '0%';
+                    const amount = row.children[2]?.innerText || 'Rp 0';
+                    
+                    hourlyHtml += `
+                    <div style="display: flex; align-items: center; margin-bottom: 6px; font-size: 10px;">
+                        <div style="width: 35px; font-weight: bold; color: #64748b;">${time}</div>
+                        <div style="flex: 1; background: #f1f5f9; height: 10px; border-radius: 4px; margin: 0 8px; overflow: hidden;">
+                            <div style="width: ${barWidth}; background: #6366f1; height: 100%; border-radius: 4px;"></div>
+                        </div>
+                        <div style="width: 50px; text-align: right; font-weight: bold; color: #0f172a;">${amount}</div>
+                    </div>`;
+                });
+            } else {
+                hourlyHtml = '<div style="text-align: center; color: #94a3b8; font-size: 10px; padding: 20px;">Tidak ada data jam sibuk</div>';
+            }
+
+            // 4. EKSTRAKSI BERSIH TABEL PRODUK
             let cleanProductTable = '';
             const prodRows = document.querySelectorAll('#ai-product-profit-tbody tr');
             if (prodRows.length > 0 && !prodRows[0].innerText.includes('Tidak ada')) {
@@ -4132,10 +4155,10 @@ submitOpname: async function() {
                     if(cells.length >= 4) {
                         cleanProductTable += `
                         <tr style="page-break-inside: avoid;">
-                            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; font-weight: bold; color: #1e293b;">${cells[0].innerText}</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: center; color: #64748b;">${cells[1].innerText}</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: right; color: #059669; font-weight: bold;">${cells[2].innerText}</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #0f172a;">${cells[3].innerText}</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; font-weight: bold; color: #1e293b;">${cells[0].innerText}</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: center; color: #64748b;">${cells[1].innerText}</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: right; color: #059669; font-weight: bold;">${cells[2].innerText}</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #0f172a;">${cells[3].innerText}</td>
                         </tr>`;
                     }
                 });
@@ -4143,35 +4166,31 @@ submitOpname: async function() {
                 cleanProductTable = `<tr><td colspan="4" style="text-align: center; padding: 20px; color: #94a3b8;">Belum ada penjualan</td></tr>`;
             }
 
-            // 4. 🚀 EKSTRAKSI BERSIH TABEL KOMPARASI CABANG
+            // 5. EKSTRAKSI BERSIH TABEL KOMPARASI CABANG
             let cleanBranchTable = '';
             const branchRows = document.querySelectorAll('#ai-comparison-tbody tr');
             if (branchRows.length > 0 && !branchRows[0].innerText.includes('Tidak ada')) {
                 branchRows.forEach(row => {
                     const cells = row.querySelectorAll('td');
                     if(cells.length >= 4) {
-                        // Pecah teks "Nama Cabang" dan "Jumlah Struk" dengan rapi
                         const branchRaw = cells[0].innerText.split('\n');
                         const bName = branchRaw[0]?.trim() || '-';
                         const bStruk = branchRaw[1]?.trim() || '';
-                        
                         const bOmset = cells[1].innerText.trim();
                         const bLaba = cells[2].innerText.trim();
-                        
-                        // Ekstrak persentase bayar (Misal: "64%")
                         const bMetodeRaw = cells[3].innerText.replace(/\n/g, ' ').trim();
-                        const bMetode = bMetodeRaw.split(' ')[0] || '-'; // Ambil angkanya saja
+                        const bMetode = bMetodeRaw.split(' ')[0] || '-'; 
                         
                         cleanBranchTable += `
                         <tr style="page-break-inside: avoid;">
-                            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">
-                                <div style="font-weight: bold; color: #1e293b; font-size: 12px;">${bName}</div>
+                            <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">
+                                <div style="font-weight: bold; color: #1e293b; font-size: 11px;">${bName}</div>
                                 <div style="font-size: 9px; color: #64748b; margin-top: 2px;">${bStruk}</div>
                             </td>
-                            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #475569;">${bOmset}</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: right; color: #059669; font-weight: bold;">${bLaba}</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: center;">
-                                <span style="background: #f1f5f9; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 10px; color: #0f172a;">Tunai: ${bMetode}</span>
+                            <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #475569;">${bOmset}</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: right; color: #059669; font-weight: bold;">${bLaba}</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">
+                                <span style="background: #f8fafc; padding: 3px 6px; border-radius: 4px; border: 1px solid #e2e8f0; font-weight: bold; font-size: 9px; color: #0f172a;">Tunai: ${bMetode}</span>
                             </td>
                         </tr>`;
                     }
@@ -4180,100 +4199,110 @@ submitOpname: async function() {
                 cleanBranchTable = `<tr><td colspan="4" style="text-align: center; padding: 20px; color: #94a3b8;">Tidak ada komparasi</td></tr>`;
             }
 
-            // 5. SUSUN TEMPLATE HTML KERTAS A4 MURNI
+            // 6. SUSUN TEMPLATE HTML KERTAS A4 MURNI
             const pdfHtml = `
                 <div style="padding: 30px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1e293b; background: #ffffff;">
                     
-                    <div style="text-align: center; border-bottom: 3px solid #0f172a; padding-bottom: 15px; margin-bottom: 25px;">
-                        <h1 style="margin: 0; color: #0f172a; font-size: 24px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px;">Laporan Kinerja Keuangan</h1>
-                        <p style="margin: 8px 0 0 0; color: #64748b; font-size: 11px;">Periode: <b>${dStart} s/d ${dEnd}</b> &nbsp;|&nbsp; Outlet: <b>${outletName}</b> &nbsp;|&nbsp; Dicetak: <b>${new Date().toLocaleString('id-ID')}</b></p>
+                    <div style="text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 15px; margin-bottom: 20px;">
+                        <h1 style="margin: 0; color: #0f172a; font-size: 20px; font-weight: 900; text-transform: uppercase; letter-spacing: 1.5px;">Laporan Kinerja Keuangan</h1>
+                        <p style="margin: 6px 0 0 0; color: #64748b; font-size: 10px;">Periode: <b>${dStart} s/d ${dEnd}</b> &nbsp;|&nbsp; Outlet: <b>${outletName}</b> &nbsp;|&nbsp; Dicetak: <b>${new Date().toLocaleString('id-ID')}</b></p>
                     </div>
 
-                    <div style="background-color: #f8fafc; border-left: 5px solid #4f46e5; padding: 15px; border-radius: 4px; font-size: 12px; line-height: 1.6; margin-bottom: 25px;">
-                        <strong style="color: #4f46e5; font-size: 13px; display: block; margin-bottom: 5px; text-transform: uppercase;">Ringkasan Eksekutif AI</strong>
+                    <div style="background-color: #f8fafc; border-left: 4px solid #4f46e5; padding: 12px 15px; border-radius: 4px; font-size: 11px; line-height: 1.5; margin-bottom: 20px;">
+                        <strong style="color: #4f46e5; font-size: 11px; display: block; margin-bottom: 4px; text-transform: uppercase;">Ringkasan Eksekutif AI</strong>
                         ${insight}
                     </div>
 
-                    <table style="width: 100%; border-collapse: separate; border-spacing: 10px 0; margin-bottom: 25px; margin-left: -10px; border: none;">
+                    <table style="width: 100%; border-collapse: separate; border-spacing: 8px 0; margin-bottom: 20px; margin-left: -8px; border: none;">
                         <tr>
-                            <td style="width: 25%; padding: 15px 10px; border-radius: 8px; border: 1px solid #cbd5e1; text-align: center; background: #ffffff; vertical-align: top;">
-                                <div style="font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: bold; margin-bottom: 8px;">Total Omset Kotor</div>
-                                <div style="font-size: 16px; font-weight: 900; color: #0f172a; margin: 0;">${omset}</div>
-                                <div style="font-size: 9px; color: #94a3b8; margin-top: 5px;">${struk}</div>
+                            <td style="width: 25%; padding: 12px 8px; border-radius: 6px; border: 1px solid #cbd5e1; text-align: center; background: #ffffff; vertical-align: top;">
+                                <div style="font-size: 8px; text-transform: uppercase; color: #64748b; font-weight: bold; margin-bottom: 6px;">Total Omset Kotor</div>
+                                <div style="font-size: 15px; font-weight: 900; color: #0f172a; margin: 0;">${omset}</div>
+                                <div style="font-size: 8px; color: #94a3b8; margin-top: 4px;">${struk}</div>
                             </td>
-                            <td style="width: 25%; padding: 15px 10px; border-radius: 8px; border: 1px solid #cbd5e1; text-align: center; background: #ffffff; vertical-align: top;">
-                                <div style="font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: bold; margin-bottom: 8px;">Total Modal (HPP)</div>
-                                <div style="font-size: 16px; font-weight: 900; color: #ef4444; margin: 0;">${hpp}</div>
-                                <div style="font-size: 9px; color: #94a3b8; margin-top: 5px;">Bahan Terjual</div>
+                            <td style="width: 25%; padding: 12px 8px; border-radius: 6px; border: 1px solid #cbd5e1; text-align: center; background: #ffffff; vertical-align: top;">
+                                <div style="font-size: 8px; text-transform: uppercase; color: #64748b; font-weight: bold; margin-bottom: 6px;">Total Modal (HPP)</div>
+                                <div style="font-size: 15px; font-weight: 900; color: #ef4444; margin: 0;">${hpp}</div>
+                                <div style="font-size: 8px; color: #94a3b8; margin-top: 4px;">Bahan Terjual</div>
                             </td>
-                            <td style="width: 25%; padding: 15px 10px; border-radius: 8px; border: 1px solid #059669; text-align: center; background: #10b981; vertical-align: top;">
-                                <div style="font-size: 9px; text-transform: uppercase; color: #d1fae5; font-weight: bold; margin-bottom: 8px;">Laba Bersih</div>
-                                <div style="font-size: 16px; font-weight: 900; color: #ffffff; margin: 0;">${laba}</div>
-                                <div style="font-size: 9px; color: #d1fae5; margin-top: 5px;">Profit Aktual</div>
+                            <td style="width: 25%; padding: 12px 8px; border-radius: 6px; border: 1px solid #059669; text-align: center; background: #10b981; vertical-align: top;">
+                                <div style="font-size: 8px; text-transform: uppercase; color: #d1fae5; font-weight: bold; margin-bottom: 6px;">Laba Bersih</div>
+                                <div style="font-size: 15px; font-weight: 900; color: #ffffff; margin: 0;">${laba}</div>
+                                <div style="font-size: 8px; color: #d1fae5; margin-top: 4px;">Profit Aktual</div>
                             </td>
-                            <td style="width: 25%; padding: 15px 10px; border-radius: 8px; border: 1px solid #cbd5e1; text-align: center; background: #ffffff; vertical-align: top;">
-                                <div style="font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: bold; margin-bottom: 8px;">Margin Profit</div>
-                                <div style="font-size: 16px; font-weight: 900; color: #0f172a; margin: 0;">${margin}</div>
-                                <div style="font-size: 9px; color: #94a3b8; margin-top: 5px;">Rasio Laba</div>
+                            <td style="width: 25%; padding: 12px 8px; border-radius: 6px; border: 1px solid #cbd5e1; text-align: center; background: #ffffff; vertical-align: top;">
+                                <div style="font-size: 8px; text-transform: uppercase; color: #64748b; font-weight: bold; margin-bottom: 6px;">Margin Profit</div>
+                                <div style="font-size: 15px; font-weight: 900; color: #0f172a; margin: 0;">${margin}</div>
+                                <div style="font-size: 8px; color: #94a3b8; margin-top: 4px;">Rasio Laba</div>
                             </td>
                         </tr>
                     </table>
 
-                    ${chartImgSrc ? `
-                    <div style="font-size: 14px; font-weight: bold; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; margin: 20px 0 15px 0;">📊 Grafik Tren Laba Bersih Harian</div>
-                    <div style="width: 100%; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; text-align: center; background: #fdfdfd; margin-bottom: 20px;">
-                        <img src="${chartImgSrc}" style="max-width: 100%; height: auto; max-height: 220px;" />
-                    </div>` : ''}
+                    <table style="width: 100%; border-collapse: collapse; border: none; margin-bottom: 25px;">
+                        <tr>
+                            <td style="width: 60%; padding: 0 10px 0 0; vertical-align: top; border: none;">
+                                <div style="font-size: 12px; font-weight: bold; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; margin-bottom: 12px;">📊 Tren Laba Harian</div>
+                                <div style="width: 100%; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; text-align: center; background: #fdfdfd;">
+                                    ${chartImgSrc ? `<img src="${chartImgSrc}" style="max-width: 100%; height: auto; max-height: 160px;" />` : '<div style="font-size:10px; color:#94a3b8;">Grafik Kosong</div>'}
+                                </div>
+                            </td>
+                            <td style="width: 40%; padding: 0 0 0 10px; vertical-align: top; border: none;">
+                                <div style="font-size: 12px; font-weight: bold; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; margin-bottom: 12px;">⏰ Analitik Jam Sibuk</div>
+                                <div style="width: 100%; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; background: #ffffff;">
+                                    ${hourlyHtml}
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
 
-                    <div style="page-break-before: always;"></div>
-
-                    <div style="font-size: 14px; font-weight: bold; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; margin: 20px 0 15px 0;">🏆 Peringkat Laba Produk (Top Kontributor)</div>
-                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 11px;">
+                    <div style="font-size: 12px; font-weight: bold; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; margin: 15px 0 10px 0;">🏆 Peringkat Laba Produk (Top Kontributor)</div>
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 10px;">
                         <thead>
                             <tr>
-                                <th style="text-align: left; background-color: #f8fafc; color: #475569; font-weight: bold; text-transform: uppercase; padding: 10px; border: 1px solid #cbd5e1;">Nama Produk</th>
-                                <th style="text-align: center; background-color: #f8fafc; color: #475569; font-weight: bold; text-transform: uppercase; padding: 10px; border: 1px solid #cbd5e1;">Kuantitas Terjual</th>
-                                <th style="text-align: right; background-color: #f8fafc; color: #059669; font-weight: bold; text-transform: uppercase; padding: 10px; border: 1px solid #cbd5e1;">Total Laba Bersih</th>
-                                <th style="text-align: right; background-color: #f8fafc; color: #475569; font-weight: bold; text-transform: uppercase; padding: 10px; border: 1px solid #cbd5e1;">Margin</th>
+                                <th style="text-align: left; background-color: #f8fafc; color: #475569; font-weight: bold; text-transform: uppercase; padding: 8px; border: 1px solid #cbd5e1;">Nama Produk</th>
+                                <th style="text-align: center; background-color: #f8fafc; color: #475569; font-weight: bold; text-transform: uppercase; padding: 8px; border: 1px solid #cbd5e1;">Kuantitas Terjual</th>
+                                <th style="text-align: right; background-color: #f8fafc; color: #059669; font-weight: bold; text-transform: uppercase; padding: 8px; border: 1px solid #cbd5e1;">Total Laba Bersih</th>
+                                <th style="text-align: right; background-color: #f8fafc; color: #475569; font-weight: bold; text-transform: uppercase; padding: 8px; border: 1px solid #cbd5e1;">Margin</th>
                             </tr>
                         </thead>
                         <tbody>${cleanProductTable}</tbody>
                     </table>
 
-                    <div style="font-size: 14px; font-weight: bold; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; margin: 20px 0 15px 0;">🏢 Komparasi Performa Antar Cabang</div>
-                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 11px;">
+                    <div style="font-size: 12px; font-weight: bold; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; margin: 15px 0 10px 0;">🏢 Komparasi Performa Antar Cabang</div>
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 10px;">
                         <thead>
                             <tr>
-                                <th style="text-align: left; background-color: #f8fafc; color: #475569; font-weight: bold; text-transform: uppercase; padding: 10px; border: 1px solid #cbd5e1;">Cabang</th>
-                                <th style="text-align: right; background-color: #f8fafc; color: #475569; font-weight: bold; text-transform: uppercase; padding: 10px; border: 1px solid #cbd5e1;">Omset Kotor</th>
-                                <th style="text-align: right; background-color: #f8fafc; color: #059669; font-weight: bold; text-transform: uppercase; padding: 10px; border: 1px solid #cbd5e1;">Laba Bersih</th>
-                                <th style="text-align: center; background-color: #f8fafc; color: #475569; font-weight: bold; text-transform: uppercase; padding: 10px; border: 1px solid #cbd5e1;">Rasio Pembayaran</th>
+                                <th style="text-align: left; background-color: #f8fafc; color: #475569; font-weight: bold; text-transform: uppercase; padding: 8px; border: 1px solid #cbd5e1;">Cabang</th>
+                                <th style="text-align: right; background-color: #f8fafc; color: #475569; font-weight: bold; text-transform: uppercase; padding: 8px; border: 1px solid #cbd5e1;">Omset Kotor</th>
+                                <th style="text-align: right; background-color: #f8fafc; color: #059669; font-weight: bold; text-transform: uppercase; padding: 8px; border: 1px solid #cbd5e1;">Laba Bersih</th>
+                                <th style="text-align: center; background-color: #f8fafc; color: #475569; font-weight: bold; text-transform: uppercase; padding: 8px; border: 1px solid #cbd5e1;">Rasio Pembayaran</th>
                             </tr>
                         </thead>
                         <tbody>${cleanBranchTable}</tbody>
                     </table>
                     
-                    <div style="text-align: center; font-size: 9px; color: #94a3b8; margin-top: 40px; font-style: italic;">
+                    <div style="text-align: center; font-size: 8px; color: #94a3b8; margin-top: 30px; font-style: italic;">
                         Dokumen ini dihasilkan dan diverifikasi secara otomatis oleh Mesin Analitik AI - Sistem POS Ai-Snack.<br>
                         Data bersifat rahasia dan hanya untuk kalangan internal manajemen.
                     </div>
                 </div>
             `;
 
-            // 6. KONFIGURASI MESIN PDF
+            // 7. KONFIGURASI MESIN PDF
             const opt = { 
-                margin: 0.3, 
+                margin: [0.3, 0.3, 0.3, 0.3], // [top, left, bottom, right]
                 filename: `CFO_Laporan_A4_${new Date().getTime()}.pdf`, 
                 image: { type: 'jpeg', quality: 1.0 }, 
                 html2canvas: { 
                     scale: 2, 
                     useCORS: true, 
-                    logging: false
+                    logging: false,
+                    letterRendering: true
                 }, 
-                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' },
+                pagebreak: { mode: ['css', 'legacy'] }
             };
 
-            // 7. GENERATE PDF LANGSUNG DARI STRING HTML
             await html2pdf().set(opt).from(pdfHtml).save();
 
             this.showToast("PDF A4 Berhasil Diunduh!", "success");

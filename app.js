@@ -4096,12 +4096,18 @@ submitOpname: async function() {
         this.setLoading(true, "Merender Laporan...");
 
         try {
-            // 1. Ambil Grafik Chart.js dan ubah menjadi gambar statis resolusi tinggi
-            // (html2canvas sering gagal membaca animasi grafik, jadi kita ubah ke gambar dulu)
+            // 1. Ambil Grafik Chart.js dan ubah menjadi gambar statis (Base64)
             const chartCanvas = document.getElementById('aiProfitChart');
             let chartImgSrc = '';
             if (chartCanvas) {
-                chartImgSrc = chartCanvas.toDataURL('image/png', 1.0);
+                // Background putih agar grafik tidak transparan di PDF
+                const ctx = chartCanvas.getContext('2d');
+                ctx.save();
+                ctx.globalCompositeOperation = 'destination-over';
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, chartCanvas.width, chartCanvas.height);
+                chartImgSrc = chartCanvas.toDataURL('image/jpeg', 1.0);
+                ctx.restore();
             }
 
             // 2. Ambil Nilai-Nilai Utama dari Dashboard
@@ -4117,161 +4123,123 @@ submitOpname: async function() {
             const margin = document.getElementById('ai-tot-margin')?.innerText || '0%';
             const insight = document.getElementById('ai-insight-text')?.innerText || '';
 
-            // 3. Ambil isi baris tabel (tanpa class Tailwind layar)
+            // 3. Ambil baris tabel yang ada di layar
             const topProductsHTML = document.getElementById('ai-product-profit-tbody')?.innerHTML || '';
             const comparisonHTML = document.getElementById('ai-comparison-tbody')?.innerHTML || '';
 
-            // 4. BUAT WADAH KERTAS A4 VIRTUAL DI LATAR BELAKANG (Lebar Tetap 800px)
-            const printContainer = document.createElement('div');
-            printContainer.id = "virtual-a4-paper";
-            printContainer.style.width = '800px'; 
-            printContainer.style.padding = '40px'; // Margin dalam (padding) kertas
-            printContainer.style.background = '#ffffff';
-            printContainer.style.position = 'absolute';
-            printContainer.style.left = '-9999px'; // Sembunyikan dari penglihatan kasir
-            printContainer.style.top = '0';
+            // 4. SUSUN TEMPLATE HTML KHUSUS KERTAS A4 (Sangat Rapi & Klasik)
+            const pdfHtml = `
+                <div style="padding: 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1e293b; background: #ffffff;">
+                    
+                    <style>
+                        /* Menimpa class Tailwind yang terbawa dari layar agar cocok di PDF */
+                        table { width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 11px; }
+                        th { background-color: #f8fafc; color: #475569; font-weight: bold; text-transform: uppercase; padding: 10px; border: 1px solid #cbd5e1; }
+                        td { padding: 10px; border: 1px solid #e2e8f0; vertical-align: middle; }
+                        td span { background: transparent !important; padding: 0 !important; border: none !important; font-size: 11px !important; }
+                        .text-red-500 { color: #ef4444 !important; font-weight: bold; }
+                        .text-emerald-600 { color: #059669 !important; font-weight: bold; }
+                        .bg-emerald-400 { background-color: #34d399 !important; height: 8px; display: inline-block; }
+                        .bg-blue-500 { background-color: #3b82f6 !important; height: 8px; display: inline-block; }
+                        .html2pdf__page-break { page-break-before: always; }
+                    </style>
 
-            // 5. INJEKSI DESAIN CSS & HTML KHUSUS LAPORAN RESMI
-            printContainer.innerHTML = `
-                <style>
-                    /* Reset & Base Font */
-                    #virtual-a4-paper * { font-family: 'Arial', sans-serif !important; box-sizing: border-box; color: #1e293b; }
-                    
-                    /* Header Laporan Resmi */
-                    .pdf-header { text-align: center; border-bottom: 3px solid #0f172a; padding-bottom: 20px; margin-bottom: 30px; }
-                    .pdf-header h1 { margin: 0; color: #0f172a; font-size: 28px; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; }
-                    .pdf-header p { margin: 8px 0 0 0; color: #64748b; font-size: 12px; }
-                    
-                    /* Insight Box (Kesimpulan AI) */
-                    .insight-box { background-color: #f8fafc; border-left: 5px solid #4f46e5; padding: 20px; border-radius: 0 12px 12px 0; font-size: 13px; line-height: 1.6; margin-bottom: 30px; }
-                    .insight-box strong { color: #4f46e5; font-size: 14px; display: block; margin-bottom: 5px; text-transform: uppercase;}
-                    
-                    /* Kartu Metrik 4 Kolom */
-                    .kpi-grid { display: flex; gap: 15px; margin-bottom: 30px; }
-                    .kpi-card { flex: 1; padding: 20px 10px; border-radius: 12px; border: 1px solid #cbd5e1; text-align: center; background: #ffffff; }
-                    .kpi-card.laba { background-color: #10b981; border-color: #059669; }
-                    .kpi-card.laba * { color: #ffffff !important; }
-                    .kpi-title { font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 800; letter-spacing: 1px; margin-bottom: 10px; }
-                    .kpi-val { font-size: 22px; font-weight: 900; color: #0f172a; margin: 0; }
-                    .kpi-sub { font-size: 10px; color: #94a3b8; margin-top: 8px; font-weight: bold; }
-                    
-                    /* Wadah Grafik */
-                    .section-title { font-size: 18px; font-weight: 900; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin: 30px 0 20px 0; display: flex; align-items: center; }
-                    .chart-box { width: 100%; border: 1px solid #e2e8f0; border-radius: 16px; padding: 20px; text-align: center; background: #fdfdfd; margin-bottom: 20px; }
-                    .chart-box img { max-width: 100%; height: auto; display: block; margin: 0 auto; }
-                    
-                    /* Tabel Data Rapi & Klasik */
-                    table { width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 12px; }
-                    th { background-color: #f1f5f9; color: #334155; font-weight: 800; text-transform: uppercase; padding: 12px; border-top: 2px solid #cbd5e1; border-bottom: 2px solid #cbd5e1; font-size: 10px; letter-spacing: 0.5px; }
-                    td { padding: 12px; border-bottom: 1px solid #e2e8f0; }
-                    tr:nth-child(even) td { background-color: #f8fafc; }
-                    .text-right { text-align: right; }
-                    .text-center { text-align: center; }
-                    
-                    /* Pemaksaan Pembersihan Class Tailwind bawaan */
-                    td span { background: transparent !important; padding: 0 !important; color: inherit !important; border: none !important; font-size: inherit !important; }
-                    
-                    /* Fitur Pindah Halaman Otomatis */
-                    .page-break { page-break-before: always; }
-                    .footer-note { text-align: center; font-size: 9px; color: #94a3b8; margin-top: 50px; font-style: italic; }
-                </style>
-
-                <div class="pdf-header">
-                    <h1>Laporan Performa Keuangan</h1>
-                    <p>Periode: <b>${dStart} s/d ${dEnd}</b> &nbsp;|&nbsp; Outlet: <b>${outletName}</b> &nbsp;|&nbsp; Dicetak: <b>${new Date().toLocaleString('id-ID')}</b></p>
-                </div>
-
-                <div class="insight-box">
-                    <strong>Ringkasan Eksekutif AI</strong>
-                    ${insight}
-                </div>
-
-                <div class="kpi-grid">
-                    <div class="kpi-card">
-                        <div class="kpi-title">Total Omset Kotor</div>
-                        <div class="kpi-val">${omset}</div>
-                        <div class="kpi-sub">${struk} Struk Terbit</div>
+                    <div style="text-align: center; border-bottom: 3px solid #0f172a; padding-bottom: 15px; margin-bottom: 25px;">
+                        <h1 style="margin: 0; color: #0f172a; font-size: 24px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px;">Laporan Kinerja Keuangan</h1>
+                        <p style="margin: 8px 0 0 0; color: #64748b; font-size: 11px;">Periode: <b>${dStart} s/d ${dEnd}</b> &nbsp;|&nbsp; Outlet: <b>${outletName}</b> &nbsp;|&nbsp; Dicetak: <b>${new Date().toLocaleString('id-ID')}</b></p>
                     </div>
-                    <div class="kpi-card">
-                        <div class="kpi-title">Total Modal (HPP)</div>
-                        <div class="kpi-val" style="color: #ef4444;">${hpp}</div>
-                        <div class="kpi-sub">Bahan Baku Terjual</div>
-                    </div>
-                    <div class="kpi-card laba">
-                        <div class="kpi-title">Laba Bersih</div>
-                        <div class="kpi-val">${laba}</div>
-                        <div class="kpi-sub" style="color: #d1fae5 !important;">Profit Aktual</div>
-                    </div>
-                    <div class="kpi-card">
-                        <div class="kpi-title">Margin Profit</div>
-                        <div class="kpi-val">${margin}</div>
-                        <div class="kpi-sub">Rasio Keuntungan</div>
-                    </div>
-                </div>
 
-                ${chartImgSrc ? `
-                <div class="section-title">📊 Grafik Tren Laba Bersih Harian</div>
-                <div class="chart-box">
-                    <img src="${chartImgSrc}" />
-                </div>` : ''}
+                    <div style="background-color: #f8fafc; border-left: 5px solid #4f46e5; padding: 15px; border-radius: 4px; font-size: 12px; line-height: 1.6; margin-bottom: 25px;">
+                        <strong style="color: #4f46e5; font-size: 13px; display: block; margin-bottom: 5px; text-transform: uppercase;">Ringkasan Eksekutif AI</strong>
+                        ${insight}
+                    </div>
 
-                <div class="page-break"></div>
-
-                <div class="section-title">🏆 Peringkat Laba Produk (Top Kontributor)</div>
-                <table>
-                    <thead>
+                    <table style="width: 100%; border-collapse: separate; border-spacing: 10px 0; margin-bottom: 25px; margin-left: -10px; border: none;">
                         <tr>
-                            <th style="text-align: left;">Nama Produk</th>
-                            <th class="text-center">Kuantitas Terjual</th>
-                            <th class="text-right">Total Laba Bersih</th>
-                            <th class="text-right">Margin</th>
+                            <td style="width: 25%; padding: 15px 10px; border-radius: 8px; border: 1px solid #cbd5e1; text-align: center; background: #ffffff;">
+                                <div style="font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: bold; margin-bottom: 8px;">Total Omset Kotor</div>
+                                <div style="font-size: 18px; font-weight: 900; color: #0f172a; margin: 0;">${omset}</div>
+                                <div style="font-size: 9px; color: #94a3b8; margin-top: 5px;">${struk} Struk Terbit</div>
+                            </td>
+                            <td style="width: 25%; padding: 15px 10px; border-radius: 8px; border: 1px solid #cbd5e1; text-align: center; background: #ffffff;">
+                                <div style="font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: bold; margin-bottom: 8px;">Total Modal (HPP)</div>
+                                <div style="font-size: 18px; font-weight: 900; color: #ef4444; margin: 0;">${hpp}</div>
+                                <div style="font-size: 9px; color: #94a3b8; margin-top: 5px;">Bahan Baku Terjual</div>
+                            </td>
+                            <td style="width: 25%; padding: 15px 10px; border-radius: 8px; border: 1px solid #059669; text-align: center; background: #10b981;">
+                                <div style="font-size: 9px; text-transform: uppercase; color: #d1fae5; font-weight: bold; margin-bottom: 8px;">Laba Bersih</div>
+                                <div style="font-size: 18px; font-weight: 900; color: #ffffff; margin: 0;">${laba}</div>
+                                <div style="font-size: 9px; color: #d1fae5; margin-top: 5px;">Profit Aktual</div>
+                            </td>
+                            <td style="width: 25%; padding: 15px 10px; border-radius: 8px; border: 1px solid #cbd5e1; text-align: center; background: #ffffff;">
+                                <div style="font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: bold; margin-bottom: 8px;">Margin Profit</div>
+                                <div style="font-size: 18px; font-weight: 900; color: #0f172a; margin: 0;">${margin}</div>
+                                <div style="font-size: 9px; color: #94a3b8; margin-top: 5px;">Rasio Keuntungan</div>
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody>${topProductsHTML}</tbody>
-                </table>
+                    </table>
 
-                <div class="section-title">🏢 Komparasi Performa Antar Cabang</div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th style="text-align: left;">Cabang</th>
-                            <th class="text-right">Omset Kotor</th>
-                            <th class="text-right">Laba Bersih</th>
-                            <th class="text-center">Rasio Pembayaran</th>
-                        </tr>
-                    </thead>
-                    <tbody>${comparisonHTML}</tbody>
-                </table>
-                
-                <div class="footer-note">
-                    Dokumen ini dihasilkan dan diverifikasi secara otomatis oleh Mesin Analitik AI - Sistem POS Ai-Snack.<br>
-                    Data bersifat rahasia dan hanya untuk kalangan internal manajemen.
+                    ${chartImgSrc ? `
+                    <div style="font-size: 14px; font-weight: bold; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; margin: 20px 0 15px 0;">📊 Grafik Tren Laba Bersih Harian</div>
+                    <div style="width: 100%; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; text-align: center; background: #fdfdfd; margin-bottom: 20px;">
+                        <img src="${chartImgSrc}" style="max-width: 100%; height: auto; max-height: 250px;" />
+                    </div>` : ''}
+
+                    <div class="html2pdf__page-break"></div>
+
+                    <div style="font-size: 14px; font-weight: bold; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; margin: 20px 0 15px 0;">🏆 Peringkat Laba Produk (Top Kontributor)</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="text-align: left;">Nama Produk</th>
+                                <th style="text-align: center;">Kuantitas Terjual</th>
+                                <th style="text-align: right;">Total Laba Bersih</th>
+                                <th style="text-align: right;">Margin</th>
+                            </tr>
+                        </thead>
+                        <tbody>${topProductsHTML}</tbody>
+                    </table>
+
+                    <div style="font-size: 14px; font-weight: bold; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; margin: 20px 0 15px 0;">🏢 Komparasi Performa Antar Cabang</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="text-align: left;">Cabang</th>
+                                <th style="text-align: right;">Omset Kotor</th>
+                                <th style="text-align: right;">Laba Bersih</th>
+                                <th style="text-align: center;">Rasio Metode Bayar</th>
+                            </tr>
+                        </thead>
+                        <tbody>${comparisonHTML}</tbody>
+                    </table>
+                    
+                    <div style="text-align: center; font-size: 9px; color: #94a3b8; margin-top: 40px; font-style: italic;">
+                        Dokumen ini dihasilkan dan diverifikasi secara otomatis oleh Mesin Analitik AI - Sistem POS Ai-Snack.<br>
+                        Data bersifat rahasia dan hanya untuk kalangan internal manajemen.
+                    </div>
                 </div>
             `;
 
-            // 6. Masukkan kertas virtual ke dalam HTML secara tersembunyi
-            document.body.appendChild(printContainer);
-
-            // 7. KONFIGURASI PDF (Format Kertas A4 Profesional)
+            // 5. KONFIGURASI MESIN PDF
             const opt = { 
-                margin: 0.4, // Margin tepi kertas (dalam inci)
+                margin: 0.3, // Margin keliling kertas (inci)
                 filename: `CFO_Laporan_A4_${new Date().getTime()}.pdf`, 
-                image: { type: 'jpeg', quality: 1 }, 
+                image: { type: 'jpeg', quality: 1.0 }, 
                 html2canvas: { 
-                    scale: 2, // Resolusi tinggi agar tabel/huruf tajam
+                    scale: 2,           // Resolusi ganda agar huruf dan tabel tajam
                     useCORS: true, 
                     logging: false,
-                    windowWidth: 800 // Mengunci lebar render agar sesuai desain virtual kita
+                    letterRendering: true
                 }, 
-                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' } 
+                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' },
+                pagebreak: { mode: ['css', 'legacy'] } // Deteksi perintah pindah halaman
             };
 
-            // 8. Eksekusi Render ke PDF
-            await html2pdf().set(opt).from(printContainer).save();
-            
-            // 9. Bersihkan Kertas Virtual dari HTML agar tidak memakan memori
-            document.body.removeChild(printContainer);
-            this.showToast("PDF A4 Berhasil Diunduh secara Profesional!", "success");
+            // 6. GENERATE PDF LANGSUNG DARI STRING HTML
+            // Dengan cara ini, PDF terhindar 100% dari isu layar blank
+            await html2pdf().set(opt).from(pdfHtml).save();
+
+            this.showToast("PDF A4 Berhasil Diunduh!", "success");
 
         } catch (error) {
             console.error("PDF Export Error:", error);

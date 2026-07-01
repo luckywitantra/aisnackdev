@@ -4091,55 +4091,195 @@ submitOpname: async function() {
         this.showWaModal(text);
     },
 
-  exportAIPDF: function() {
-    this.showToast("Mempersiapkan PDF Profesional...");
-    
-    const element = document.getElementById('view-ai-content'); 
-    if(!element) return this.showToast("ID view-ai-content tidak ditemukan", "error");
-    
-    // Simpan style asli untuk dikembalikan nanti
-    const originalStyle = element.getAttribute('style') || '';
-    
-    // 🚀 Trik PDF Profesional: Clone elemen agar tidak mengganggu layar kasir
-    const clone = element.cloneNode(true);
-    clone.style.width = '1000px'; 
-    clone.style.background = '#ffffff';
-    clone.style.padding = '40px';
-    
-    // Sembunyikan tombol-tombol agar tidak ikut tercetak
-    const btnRow = clone.querySelector('#ai-export-btn-row');
-    if (btnRow) btnRow.style.display = 'none';
+ exportAIPDF: async function() {
+        this.showToast("Menyiapkan Laporan PDF Profesional (A4)...", "warning");
+        this.setLoading(true, "Merender Laporan...");
 
-    // 🚀 Paksa semua tabel untuk tampil penuh (buka overflow)
-    const tables = clone.querySelectorAll('table');
-    tables.forEach(table => {
-        table.style.width = '100%';
-        table.style.borderCollapse = 'collapse';
-        table.style.marginBottom = '20px';
-        table.querySelectorAll('th, td').forEach(cell => {
-            cell.style.padding = '12px';
-            cell.style.border = '1px solid #e2e8f0';
-        });
-    });
+        try {
+            // 1. Ambil Grafik Chart.js dan ubah menjadi gambar statis resolusi tinggi
+            // (html2canvas sering gagal membaca animasi grafik, jadi kita ubah ke gambar dulu)
+            const chartCanvas = document.getElementById('aiProfitChart');
+            let chartImgSrc = '';
+            if (chartCanvas) {
+                chartImgSrc = chartCanvas.toDataURL('image/png', 1.0);
+            }
 
-    // 🚀 Konfigurasi PDF yang lebih presisi
-    const opt = { 
-        margin: 0.2, 
-        filename: `Laporan_CFO_AiSnack_${new Date().getTime()}.pdf`, 
-        image: { type: 'jpeg', quality: 1 }, 
-        html2canvas: { 
-            scale: 2, 
-            useCORS: true, 
-            logging: false,
-            windowWidth: 1000 
-        }, 
-        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' } 
-    };
-    
-    html2pdf().set(opt).from(clone).save().then(() => {
-        this.showToast("PDF Laporan Berhasil Diunduh!", "success");
-    });
-},
+            // 2. Ambil Nilai-Nilai Utama dari Dashboard
+            const dStart = document.getElementById('ai-filter-start')?.value || '-';
+            const dEnd = document.getElementById('ai-filter-end')?.value || '-';
+            const outletEl = document.getElementById('ai-filter-outlet');
+            const outletName = outletEl ? outletEl.options[outletEl.selectedIndex].text : 'Semua Cabang';
+            
+            const omset = document.getElementById('ai-tot-omset')?.innerText || 'Rp 0';
+            const struk = document.getElementById('ai-tot-struk')?.innerText || '0';
+            const hpp = document.getElementById('ai-tot-hpp')?.innerText || 'Rp 0';
+            const laba = document.getElementById('ai-tot-laba')?.innerText || 'Rp 0';
+            const margin = document.getElementById('ai-tot-margin')?.innerText || '0%';
+            const insight = document.getElementById('ai-insight-text')?.innerText || '';
+
+            // 3. Ambil isi baris tabel (tanpa class Tailwind layar)
+            const topProductsHTML = document.getElementById('ai-product-profit-tbody')?.innerHTML || '';
+            const comparisonHTML = document.getElementById('ai-comparison-tbody')?.innerHTML || '';
+
+            // 4. BUAT WADAH KERTAS A4 VIRTUAL DI LATAR BELAKANG (Lebar Tetap 800px)
+            const printContainer = document.createElement('div');
+            printContainer.id = "virtual-a4-paper";
+            printContainer.style.width = '800px'; 
+            printContainer.style.padding = '40px'; // Margin dalam (padding) kertas
+            printContainer.style.background = '#ffffff';
+            printContainer.style.position = 'absolute';
+            printContainer.style.left = '-9999px'; // Sembunyikan dari penglihatan kasir
+            printContainer.style.top = '0';
+
+            // 5. INJEKSI DESAIN CSS & HTML KHUSUS LAPORAN RESMI
+            printContainer.innerHTML = `
+                <style>
+                    /* Reset & Base Font */
+                    #virtual-a4-paper * { font-family: 'Arial', sans-serif !important; box-sizing: border-box; color: #1e293b; }
+                    
+                    /* Header Laporan Resmi */
+                    .pdf-header { text-align: center; border-bottom: 3px solid #0f172a; padding-bottom: 20px; margin-bottom: 30px; }
+                    .pdf-header h1 { margin: 0; color: #0f172a; font-size: 28px; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; }
+                    .pdf-header p { margin: 8px 0 0 0; color: #64748b; font-size: 12px; }
+                    
+                    /* Insight Box (Kesimpulan AI) */
+                    .insight-box { background-color: #f8fafc; border-left: 5px solid #4f46e5; padding: 20px; border-radius: 0 12px 12px 0; font-size: 13px; line-height: 1.6; margin-bottom: 30px; }
+                    .insight-box strong { color: #4f46e5; font-size: 14px; display: block; margin-bottom: 5px; text-transform: uppercase;}
+                    
+                    /* Kartu Metrik 4 Kolom */
+                    .kpi-grid { display: flex; gap: 15px; margin-bottom: 30px; }
+                    .kpi-card { flex: 1; padding: 20px 10px; border-radius: 12px; border: 1px solid #cbd5e1; text-align: center; background: #ffffff; }
+                    .kpi-card.laba { background-color: #10b981; border-color: #059669; }
+                    .kpi-card.laba * { color: #ffffff !important; }
+                    .kpi-title { font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 800; letter-spacing: 1px; margin-bottom: 10px; }
+                    .kpi-val { font-size: 22px; font-weight: 900; color: #0f172a; margin: 0; }
+                    .kpi-sub { font-size: 10px; color: #94a3b8; margin-top: 8px; font-weight: bold; }
+                    
+                    /* Wadah Grafik */
+                    .section-title { font-size: 18px; font-weight: 900; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin: 30px 0 20px 0; display: flex; align-items: center; }
+                    .chart-box { width: 100%; border: 1px solid #e2e8f0; border-radius: 16px; padding: 20px; text-align: center; background: #fdfdfd; margin-bottom: 20px; }
+                    .chart-box img { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+                    
+                    /* Tabel Data Rapi & Klasik */
+                    table { width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 12px; }
+                    th { background-color: #f1f5f9; color: #334155; font-weight: 800; text-transform: uppercase; padding: 12px; border-top: 2px solid #cbd5e1; border-bottom: 2px solid #cbd5e1; font-size: 10px; letter-spacing: 0.5px; }
+                    td { padding: 12px; border-bottom: 1px solid #e2e8f0; }
+                    tr:nth-child(even) td { background-color: #f8fafc; }
+                    .text-right { text-align: right; }
+                    .text-center { text-align: center; }
+                    
+                    /* Pemaksaan Pembersihan Class Tailwind bawaan */
+                    td span { background: transparent !important; padding: 0 !important; color: inherit !important; border: none !important; font-size: inherit !important; }
+                    
+                    /* Fitur Pindah Halaman Otomatis */
+                    .page-break { page-break-before: always; }
+                    .footer-note { text-align: center; font-size: 9px; color: #94a3b8; margin-top: 50px; font-style: italic; }
+                </style>
+
+                <div class="pdf-header">
+                    <h1>Laporan Performa Keuangan</h1>
+                    <p>Periode: <b>${dStart} s/d ${dEnd}</b> &nbsp;|&nbsp; Outlet: <b>${outletName}</b> &nbsp;|&nbsp; Dicetak: <b>${new Date().toLocaleString('id-ID')}</b></p>
+                </div>
+
+                <div class="insight-box">
+                    <strong>Ringkasan Eksekutif AI</strong>
+                    ${insight}
+                </div>
+
+                <div class="kpi-grid">
+                    <div class="kpi-card">
+                        <div class="kpi-title">Total Omset Kotor</div>
+                        <div class="kpi-val">${omset}</div>
+                        <div class="kpi-sub">${struk} Struk Terbit</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-title">Total Modal (HPP)</div>
+                        <div class="kpi-val" style="color: #ef4444;">${hpp}</div>
+                        <div class="kpi-sub">Bahan Baku Terjual</div>
+                    </div>
+                    <div class="kpi-card laba">
+                        <div class="kpi-title">Laba Bersih</div>
+                        <div class="kpi-val">${laba}</div>
+                        <div class="kpi-sub" style="color: #d1fae5 !important;">Profit Aktual</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-title">Margin Profit</div>
+                        <div class="kpi-val">${margin}</div>
+                        <div class="kpi-sub">Rasio Keuntungan</div>
+                    </div>
+                </div>
+
+                ${chartImgSrc ? `
+                <div class="section-title">📊 Grafik Tren Laba Bersih Harian</div>
+                <div class="chart-box">
+                    <img src="${chartImgSrc}" />
+                </div>` : ''}
+
+                <div class="page-break"></div>
+
+                <div class="section-title">🏆 Peringkat Laba Produk (Top Kontributor)</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="text-align: left;">Nama Produk</th>
+                            <th class="text-center">Kuantitas Terjual</th>
+                            <th class="text-right">Total Laba Bersih</th>
+                            <th class="text-right">Margin</th>
+                        </tr>
+                    </thead>
+                    <tbody>${topProductsHTML}</tbody>
+                </table>
+
+                <div class="section-title">🏢 Komparasi Performa Antar Cabang</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="text-align: left;">Cabang</th>
+                            <th class="text-right">Omset Kotor</th>
+                            <th class="text-right">Laba Bersih</th>
+                            <th class="text-center">Rasio Pembayaran</th>
+                        </tr>
+                    </thead>
+                    <tbody>${comparisonHTML}</tbody>
+                </table>
+                
+                <div class="footer-note">
+                    Dokumen ini dihasilkan dan diverifikasi secara otomatis oleh Mesin Analitik AI - Sistem POS Ai-Snack.<br>
+                    Data bersifat rahasia dan hanya untuk kalangan internal manajemen.
+                </div>
+            `;
+
+            // 6. Masukkan kertas virtual ke dalam HTML secara tersembunyi
+            document.body.appendChild(printContainer);
+
+            // 7. KONFIGURASI PDF (Format Kertas A4 Profesional)
+            const opt = { 
+                margin: 0.4, // Margin tepi kertas (dalam inci)
+                filename: `CFO_Laporan_A4_${new Date().getTime()}.pdf`, 
+                image: { type: 'jpeg', quality: 1 }, 
+                html2canvas: { 
+                    scale: 2, // Resolusi tinggi agar tabel/huruf tajam
+                    useCORS: true, 
+                    logging: false,
+                    windowWidth: 800 // Mengunci lebar render agar sesuai desain virtual kita
+                }, 
+                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' } 
+            };
+
+            // 8. Eksekusi Render ke PDF
+            await html2pdf().set(opt).from(printContainer).save();
+            
+            // 9. Bersihkan Kertas Virtual dari HTML agar tidak memakan memori
+            document.body.removeChild(printContainer);
+            this.showToast("PDF A4 Berhasil Diunduh secara Profesional!", "success");
+
+        } catch (error) {
+            console.error("PDF Export Error:", error);
+            this.showToast("Gagal merender PDF.", "error");
+        } finally {
+            this.setLoading(false);
+        }
+    },
     
     sendReportToWA: function() {
         // 1. Ambil data rentang tanggal dari filter

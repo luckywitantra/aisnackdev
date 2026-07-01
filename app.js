@@ -4091,65 +4091,52 @@ submitOpname: async function() {
         this.showWaModal(text);
     },
 
-    exportAIPDF: function() {
-        this.showToast("Mempersiapkan PDF CFO Dashboard...");
-        
-        // Ambil elemen seluruh area AI Dashboard
-        const element = document.getElementById('view-ai-content'); 
-        if(!element) {
-            this.showToast("ID view-ai-content tidak ditemukan di HTML", "error");
-            return;
-        }
-        
-        // Simpan style asli
-        const originalStyle = element.getAttribute('style') || '';
-        
-        // 🚀 ANTI-BLANK & PERLUASAN PDF
-        element.style.height = 'max-content';
-        element.style.overflow = 'visible';
-        
-        const scrollables = element.querySelectorAll('.overflow-y-auto, .overflow-x-auto, .custom-scroll');
-        scrollables.forEach(el => {
-            el.setAttribute('data-orig-style', el.getAttribute('style') || '');
-            el.style.overflow = 'visible';
-            el.style.maxHeight = 'none';
-            el.style.height = 'auto';
-        });
+   exportAIPDF: function() {
+    this.showToast("Mempersiapkan PDF Profesional...");
+    
+    // 1. Ambil elemen yang ingin dicetak
+    const sourceElement = document.getElementById('view-ai-content'); 
+    if(!sourceElement) return this.showToast("Konten tidak ditemukan", "error");
 
-        // 🚀 SEMBUNYIKAN BAGIAN RADAR PREDIKSI & TOMBOL
-        const predictSection = document.getElementById('ai-predictive-section');
-        const btnRow = document.getElementById('ai-export-btn-row');
-        
-        let predictDisplay = ''; let btnDisplay = '';
-        if (predictSection) { predictDisplay = predictSection.style.display; predictSection.style.display = 'none'; }
-        if (btnRow) { btnDisplay = btnRow.style.display; btnRow.style.display = 'none'; }
+    // 2. Clone elemen agar tidak merusak tampilan dashboard asli saat dimanipulasi
+    const clone = sourceElement.cloneNode(true);
+    
+    // Tambahkan style paksa untuk PDF (White background, full content)
+    clone.style.width = '1000px'; // Lebar tetap agar layout tidak hancur di kertas
+    clone.style.background = '#ffffff';
+    clone.style.padding = '40px';
+    
+    // 3. Hapus elemen yang tidak perlu di PDF (Tabel Prediksi & Tombol)
+    const toRemove = clone.querySelectorAll('#ai-predictive-section, #ai-export-btn-row');
+    toRemove.forEach(el => el.remove());
 
-        // Eksekusi PDF setelah Jeda Render (500ms)
-        setTimeout(() => {
-            const opt = { 
-                margin: 0.3, 
-                filename: `CFO_Dashboard_AiSnack_${new Date().getTime()}.pdf`, 
-                image: { type: 'jpeg', quality: 0.98 }, 
-                html2canvas: { scale: 2, useCORS: true, windowWidth: element.scrollWidth }, 
-                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' } 
-            };
-            
-            html2pdf().set(opt).from(element).save().then(() => { 
-                // Kembalikan UI seperti semula setelah diunduh
-                element.setAttribute('style', originalStyle);
-                scrollables.forEach(el => {
-                    el.setAttribute('style', el.getAttribute('data-orig-style') || '');
-                    el.removeAttribute('data-orig-style');
-                });
-                
-                // Munculkan kembali Radar Prediksi & Tombol Ekspor
-                if (predictSection) predictSection.style.display = predictDisplay;
-                if (btnRow) btnRow.style.display = btnDisplay;
+    // 4. Paksa semua elemen overflow menjadi visible
+    const allScrolls = clone.querySelectorAll('.custom-scroll, .overflow-y-auto, .overflow-x-auto');
+    allScrolls.forEach(el => {
+        el.style.overflow = 'visible';
+        el.style.maxHeight = 'none';
+        el.style.height = 'auto';
+    });
 
-                this.showToast("PDF Laporan AI Berhasil Diunduh!", "success"); 
-            });
-        }, 500);
-    },
+    // 5. Konfigurasi PDF
+    const opt = { 
+        margin: 0.3, 
+        filename: `Laporan_CFO_${new Date().toLocaleDateString()}.pdf`, 
+        image: { type: 'jpeg', quality: 1 }, // Kualitas tinggi
+        html2canvas: { 
+            scale: 2, 
+            useCORS: true, 
+            logging: false,
+            backgroundColor: '#ffffff'
+        }, 
+        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' } 
+    };
+
+    // 6. Eksekusi
+    html2pdf().set(opt).from(clone).save().then(() => {
+        this.showToast("PDF Laporan Berhasil Diunduh!", "success");
+    });
+},
     
     sendReportToWA: function() {
         // 1. Ambil data rentang tanggal dari filter

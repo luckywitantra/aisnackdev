@@ -4091,48 +4091,51 @@ submitOpname: async function() {
         this.showWaModal(text);
     },
 
-   exportAIPDF: function() {
+  exportAIPDF: function() {
     this.showToast("Mempersiapkan PDF Profesional...");
     
-    // 1. Ambil elemen yang ingin dicetak
-    const sourceElement = document.getElementById('view-ai-content'); 
-    if(!sourceElement) return this.showToast("Konten tidak ditemukan", "error");
-
-    // 2. Clone elemen agar tidak merusak tampilan dashboard asli saat dimanipulasi
-    const clone = sourceElement.cloneNode(true);
+    const element = document.getElementById('view-ai-content'); 
+    if(!element) return this.showToast("ID view-ai-content tidak ditemukan", "error");
     
-    // Tambahkan style paksa untuk PDF (White background, full content)
-    clone.style.width = '1000px'; // Lebar tetap agar layout tidak hancur di kertas
+    // Simpan style asli untuk dikembalikan nanti
+    const originalStyle = element.getAttribute('style') || '';
+    
+    // 🚀 Trik PDF Profesional: Clone elemen agar tidak mengganggu layar kasir
+    const clone = element.cloneNode(true);
+    clone.style.width = '1000px'; 
     clone.style.background = '#ffffff';
     clone.style.padding = '40px';
     
-    // 3. Hapus elemen yang tidak perlu di PDF (Tabel Prediksi & Tombol)
-    const toRemove = clone.querySelectorAll('#ai-predictive-section, #ai-export-btn-row');
-    toRemove.forEach(el => el.remove());
+    // Sembunyikan tombol-tombol agar tidak ikut tercetak
+    const btnRow = clone.querySelector('#ai-export-btn-row');
+    if (btnRow) btnRow.style.display = 'none';
 
-    // 4. Paksa semua elemen overflow menjadi visible
-    const allScrolls = clone.querySelectorAll('.custom-scroll, .overflow-y-auto, .overflow-x-auto');
-    allScrolls.forEach(el => {
-        el.style.overflow = 'visible';
-        el.style.maxHeight = 'none';
-        el.style.height = 'auto';
+    // 🚀 Paksa semua tabel untuk tampil penuh (buka overflow)
+    const tables = clone.querySelectorAll('table');
+    tables.forEach(table => {
+        table.style.width = '100%';
+        table.style.borderCollapse = 'collapse';
+        table.style.marginBottom = '20px';
+        table.querySelectorAll('th, td').forEach(cell => {
+            cell.style.padding = '12px';
+            cell.style.border = '1px solid #e2e8f0';
+        });
     });
 
-    // 5. Konfigurasi PDF
+    // 🚀 Konfigurasi PDF yang lebih presisi
     const opt = { 
-        margin: 0.3, 
-        filename: `Laporan_CFO_${new Date().toLocaleDateString()}.pdf`, 
-        image: { type: 'jpeg', quality: 1 }, // Kualitas tinggi
+        margin: 0.2, 
+        filename: `Laporan_CFO_AiSnack_${new Date().getTime()}.pdf`, 
+        image: { type: 'jpeg', quality: 1 }, 
         html2canvas: { 
             scale: 2, 
             useCORS: true, 
             logging: false,
-            backgroundColor: '#ffffff'
+            windowWidth: 1000 
         }, 
         jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' } 
     };
-
-    // 6. Eksekusi
+    
     html2pdf().set(opt).from(clone).save().then(() => {
         this.showToast("PDF Laporan Berhasil Diunduh!", "success");
     });

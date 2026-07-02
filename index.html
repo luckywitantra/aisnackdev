@@ -1139,7 +1139,7 @@
                     <div class="flex flex-col sm:flex-row gap-2.5 w-full lg:w-auto items-center">
                         <div class="relative w-full sm:w-64">
                             <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs md:text-sm"></i>
-                            <input type="text" onkeyup="superApp.quickSearchTable('gudang-tbody-utama', this.value); superApp.quickSearchTable('gudang-tbody-pendukung', this.value);" placeholder="Cari bahan..." class="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl md:rounded-2xl pl-9.5 pr-4 py-2 md:py-2.5 text-xs md:text-sm font-bold text-slate-700 outline-none transition-all shadow-inner">
+                            <input type="text" onkeyup="superApp.quickSearchTable('gudang-tbody-utama', this.value); superApp.quickSearchTable('gudang-tbody-pendukung', this.value);" placeholder="Cari bahan..." class="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl md:rounded-2xl pl-9 pr-4 py-2 md:py-2.5 text-xs md:text-sm font-bold text-slate-700 outline-none transition-all shadow-inner">
                         </div>
                         
                         <div class="hidden md:flex gap-2">
@@ -1155,10 +1155,10 @@
 
                 <div class="flex gap-1.5 bg-slate-100/90 p-1 rounded-xl md:rounded-2xl border border-slate-200/60 w-full md:w-max mb-3 shrink-0 relative z-10">
                     <button onclick="superApp.switchGudangStokSubTab('utama')" id="subtab-gstok-utama" class="flex-1 md:flex-none py-2 md:py-2.5 px-4 md:px-5 bg-white text-emerald-600 rounded-lg md:rounded-xl text-xs md:text-sm font-black shadow-2xs transition flex items-center justify-center gap-1.5 border border-slate-200/60">
-                        <i class="fas fa-box-open"></i> A. Bahan Utama
+                        <i class="fas fa-box-open"></i> A. Bahan Utama <span id="count-gstok-utama" class="bg-emerald-50 text-emerald-700 px-1.5 py-0.2 rounded text-[9px]">0</span>
                     </button>
                     <button onclick="superApp.switchGudangStokSubTab('pendukung')" id="subtab-gstok-pendukung" class="flex-1 md:flex-none py-2 md:py-2.5 px-4 md:px-5 text-slate-500 hover:text-slate-800 rounded-lg md:rounded-xl text-xs md:text-sm font-bold transition flex items-center justify-center gap-1.5 border border-transparent">
-                        <i class="fas fa-pump-soap"></i> B. Pendukung
+                        <i class="fas fa-pump-soap"></i> B. Pendukung <span id="count-gstok-pendukung" class="bg-slate-200 text-slate-600 px-1.5 py-0.2 rounded text-[9px]">0</span>
                     </button>
                 </div>
 
@@ -1177,7 +1177,9 @@
                 </div>
 
                 <div class="md:hidden flex-1 overflow-y-auto custom-scroll content-start space-y-2.5 relative z-10 pr-0.5 pb-16" id="gudang-mobile-stok">
-                    </div>
+                    <div id="gudang-mob-stok-utama" class="space-y-2.5"></div>
+                    <div id="gudang-mob-stok-pendukung" class="hidden space-y-2.5"></div>
+                </div>
             </div>
         </div>
 

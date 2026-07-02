@@ -580,79 +580,89 @@
     </div>
 </div>
 
-      <div id="view-audit" class="app-view hidden flex-col lg:min-h-[80vh] min-h-max gap-4 pb-20 md:pb-0">
-        <div class="bg-white p-4 lg:p-8 rounded-[2rem] shadow-sm border border-slate-100 text-slate-800 flex flex-col h-full min-h-0 relative overflow-hidden">
-            
-            <div class="absolute top-0 right-0 -mt-8 -mr-8 text-9xl text-slate-50 opacity-50 pointer-events-none">
-                <i class="fas fa-user-shield"></i>
-            </div>
-
-            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 border-b border-slate-100 pb-5 gap-5 shrink-0 relative z-10">
-                <div class="flex items-center gap-4">
-                    <div class="w-14 h-14 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-2xl flex items-center justify-center text-white text-2xl shadow-lg shadow-indigo-200/50">
-                        <i class="fas fa-user-check"></i>
-                    </div>
-                    <div>
-                        <h3 class="font-extrabold text-2xl text-slate-800 tracking-tight">Audit & Approval</h3>
-                        <p class="text-xs md:text-sm font-bold text-slate-500 mt-1">Otorisasi massal laporan operasional kasir.</p>
-                    </div>
-                </div>
-                
-                <div id="bulk-action-bar" class="hidden flex gap-2 w-full lg:w-auto mt-2 lg:mt-0">
-                    <button onclick="superApp.processBulkApproval('Disetujui')" class="flex-1 lg:flex-none bg-gradient-to-r from-emerald-400 to-green-500 text-white px-5 py-3 rounded-xl text-sm font-extrabold hover:from-emerald-500 hover:to-green-600 shadow-[0_8px_15px_rgba(34,197,94,0.25)] transition-all hover:-translate-y-1 active:translate-y-0 active:scale-95 flex justify-center items-center gap-2">
-                        <i class="fas fa-check-double text-lg"></i> Setuju Terpilih
-                    </button>
-                    <button onclick="superApp.processBulkApproval('Ditolak')" class="flex-1 lg:flex-none bg-gradient-to-r from-rose-500 to-red-600 text-white px-5 py-3 rounded-xl text-sm font-extrabold hover:from-rose-600 hover:to-red-700 shadow-[0_8px_15px_rgba(239,68,68,0.25)] transition-all hover:-translate-y-1 active:translate-y-0 active:scale-95 flex justify-center items-center gap-2">
-                        <i class="fas fa-ban text-lg"></i> Tolak Terpilih
-                    </button>
-                </div>
-            </div>
-
-            <div class="flex gap-2 bg-slate-50 p-1.5 rounded-xl shadow-inner border border-slate-200 overflow-x-auto mb-4 shrink-0 relative z-10">
-                <button onclick="superApp.toggleAuditTab('opname')" id="tab-audit-opname" class="px-6 py-3 bg-white text-brand-600 rounded-lg text-sm font-extrabold shadow-sm whitespace-nowrap transition border border-slate-200">
-                    <i class="fas fa-clipboard-list mr-1"></i> Audit Opname Fisik
-                </button>
-                <button onclick="superApp.toggleAuditTab('terima')" id="tab-audit-terima" class="px-6 py-3 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg text-sm font-extrabold whitespace-nowrap transition border border-transparent">
-                    <i class="fas fa-dolly mr-1"></i> Audit Barang Masuk
-                </button>
-            </div>
-            
-            <div id="audit-content-opname" class="flex-1 overflow-x-auto overflow-y-auto bg-white rounded-2xl border border-slate-200 min-h-0 custom-scroll relative shadow-inner">
-                <table class="w-full text-left whitespace-nowrap text-sm">
-                    <thead class="text-slate-500 border-b border-slate-200 sticky top-0 bg-white/95 backdrop-blur-sm z-10 shadow-sm">
-                        <tr>
-                            <th class="py-4 px-4 text-center w-12"><input type="checkbox" class="w-5 h-5 rounded cursor-pointer accent-brand-500 hover:scale-110 transition-transform" onchange="superApp.toggleAllAuditCb('opname', this.checked)"></th>
-                            <th class="py-4 px-4 font-bold uppercase tracking-widest text-[10px]">Waktu</th>
-                            <th class="py-4 px-4 font-bold uppercase tracking-widest text-[10px]">Outlet & Kasir</th>
-                            <th class="py-4 px-4 font-bold uppercase tracking-widest text-[10px]">Item Laporan</th>
-                            <th class="py-4 px-4 font-bold uppercase tracking-widest text-[10px] text-center">Sys vs Fisik</th>
-                            <th class="py-4 px-4 font-bold uppercase tracking-widest text-[10px] text-right">Selisih</th>
-                            <th class="py-4 px-4 font-bold uppercase tracking-widest text-[10px]">Alasan Kasir</th>
-                        </tr>
-                    </thead>
-                    <tbody id="audit-opname-tbody" class="font-bold divide-y divide-slate-100 text-slate-700"></tbody>
-                </table>
-            </div>
-
-            <div id="audit-content-terima" class="hidden flex-1 overflow-x-auto overflow-y-auto bg-white rounded-2xl border border-slate-200 min-h-0 custom-scroll relative shadow-inner">
-                <table class="w-full text-left whitespace-nowrap text-sm">
-                    <thead class="text-slate-500 border-b border-slate-200 sticky top-0 bg-white/95 backdrop-blur-sm z-10 shadow-sm">
-                        <tr>
-                            <th class="py-4 px-4 text-center w-12"><input type="checkbox" class="w-5 h-5 rounded cursor-pointer accent-brand-500 hover:scale-110 transition-transform" onchange="superApp.toggleAllAuditCb('terima', this.checked)"></th>
-                            <th class="py-4 px-4 font-bold uppercase tracking-widest text-[10px]">Waktu</th>
-                            <th class="py-4 px-4 font-bold uppercase tracking-widest text-[10px]">Outlet & Kasir</th>
-                            <th class="py-4 px-4 font-bold uppercase tracking-widest text-[10px]">Item Masuk</th>
-                            <th class="py-4 px-4 font-bold uppercase tracking-widest text-[10px] text-center">Qty Diterima</th>
-                            <th class="py-4 px-4 font-bold uppercase tracking-widest text-[10px]">Catatan Kasir</th>
-                        </tr>
-                    </thead>
-                    <tbody id="audit-terima-tbody" class="font-bold divide-y divide-slate-100 text-slate-700"></tbody>
-                </table>
-            </div>
-            
+      <!-- ========================================================= -->
+<!-- VIEW: AUDIT & APPROVAL (ULTRA-MODERN REDESIGN)            -->
+<!-- ========================================================= -->
+<div id="view-audit" class="app-view hidden flex-col lg:min-h-[80vh] min-h-max gap-5 pb-20 md:pb-6 transition-all duration-300">
+    <div class="bg-white p-5 md:p-8 rounded-[2.5rem] shadow-[0_10px_35px_-5px_rgba(0,0,0,0.04)] border border-slate-100/80 text-slate-800 flex flex-col h-full min-h-0 relative overflow-hidden group">
+        
+        <!-- Watermark Latar Belakang -->
+        <div class="absolute top-0 right-0 -mt-8 -mr-10 text-[11rem] text-slate-50/80 pointer-events-none transition-transform duration-700 group-hover:scale-105 group-hover:rotate-6 z-0">
+            <i class="fas fa-user-shield"></i>
         </div>
-      </div>
 
+        <!-- HEADER SEKSI -->
+        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 border-b border-slate-100 pb-6 gap-5 shrink-0 relative z-10">
+            <div class="flex items-center gap-4">
+                <div class="w-14 h-14 md:w-16 md:h-16 bg-gradient-to-br from-indigo-500 via-blue-500 to-cyan-500 rounded-[1.35rem] flex items-center justify-center text-white text-2xl md:text-3xl shadow-lg shadow-indigo-500/25 shrink-0 transform transition-transform group-hover:scale-105">
+                    <i class="fas fa-user-check"></i>
+                </div>
+                <div>
+                    <h3 class="font-black text-2xl md:text-3xl text-slate-800 tracking-tight">Audit & Approval</h3>
+                    <p class="text-xs md:text-sm font-bold text-slate-400 mt-1 uppercase tracking-widest">Otorisasi Laporan Operasional</p>
+                </div>
+            </div>
+            
+            <!-- TOMBOL AKSI MASSAL (Bulk Action) -->
+            <div id="bulk-action-bar" class="hidden flex gap-2.5 w-full lg:w-auto mt-2 lg:mt-0">
+                <button onclick="superApp.processBulkApproval('Disetujui')" class="flex-1 lg:flex-none bg-gradient-to-r from-emerald-500 via-teal-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white px-5 py-3.5 rounded-2xl text-xs md:text-sm font-black shadow-[0_8px_20px_-4px_rgba(16,185,129,0.35)] transition-all hover:-translate-y-0.5 active:translate-y-0 active:scale-95 flex justify-center items-center gap-2.5 tracking-wide">
+                    <i class="fas fa-check-double text-base md:text-lg"></i> <span>Setuju Terpilih</span>
+                </button>
+                <button onclick="superApp.processBulkApproval('Ditolak')" class="flex-1 lg:flex-none bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-white px-5 py-3.5 rounded-2xl text-xs md:text-sm font-black shadow-[0_8px_20px_-4px_rgba(239,68,68,0.35)] transition-all hover:-translate-y-0.5 active:translate-y-0 active:scale-95 flex justify-center items-center gap-2.5 tracking-wide">
+                    <i class="fas fa-ban text-base md:text-lg"></i> <span>Tolak Terpilih</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- PILL TABS -->
+        <div class="flex gap-2 bg-slate-50 p-1.5 rounded-2xl shadow-inner border border-slate-200 overflow-x-auto mb-5 shrink-0 relative z-10 w-full lg:w-max custom-scroll">
+            <button onclick="superApp.toggleAuditTab('opname')" id="tab-audit-opname" class="px-6 py-3 bg-white text-indigo-600 rounded-xl text-xs md:text-sm font-black shadow-sm whitespace-nowrap transition border border-slate-200 flex items-center gap-2">
+                <i class="fas fa-clipboard-list text-indigo-500 opacity-80"></i> Audit Opname Fisik
+            </button>
+            <button onclick="superApp.toggleAuditTab('terima')" id="tab-audit-terima" class="px-6 py-3 text-slate-500 hover:bg-white hover:text-slate-800 rounded-xl text-xs md:text-sm font-bold whitespace-nowrap transition border border-transparent flex items-center gap-2">
+                <i class="fas fa-dolly text-slate-400 opacity-80"></i> Audit Barang Masuk
+            </button>
+        </div>
+        
+        <!-- TABEL 1: AUDIT OPNAME -->
+        <div id="audit-content-opname" class="flex-1 overflow-x-auto overflow-y-auto bg-white rounded-[1.25rem] border border-slate-100 min-h-[300px] custom-scroll relative shadow-sm">
+            <table class="w-full text-left whitespace-nowrap text-sm border-collapse">
+                <thead class="text-slate-400 border-b border-slate-100 sticky top-0 bg-slate-50/90 backdrop-blur-md z-10 shadow-sm text-[10px] uppercase tracking-wider font-black">
+                    <tr>
+                        <th class="py-3.5 px-4 text-center w-12"><input type="checkbox" class="w-5 h-5 rounded border-slate-300 cursor-pointer accent-indigo-500 hover:scale-110 transition-transform shadow-sm" onchange="superApp.toggleAllAuditCb('opname', this.checked)"></th>
+                        <th class="py-3.5 px-4">Waktu</th>
+                        <th class="py-3.5 px-4">Outlet & Kasir</th>
+                        <th class="py-3.5 px-4">Item Laporan</th>
+                        <th class="py-3.5 px-4 text-center">Sys vs Fisik</th>
+                        <th class="py-3.5 px-4 text-right">Selisih</th>
+                        <th class="py-3.5 px-4">Alasan Kasir</th>
+                    </tr>
+                </thead>
+                <tbody id="audit-opname-tbody" class="font-bold divide-y divide-slate-50 text-slate-700"></tbody>
+            </table>
+        </div>
+
+        <!-- TABEL 2: AUDIT TERIMA BARANG -->
+        <div id="audit-content-terima" class="hidden flex-1 overflow-x-auto overflow-y-auto bg-white rounded-[1.25rem] border border-slate-100 min-h-[300px] custom-scroll relative shadow-sm">
+            <table class="w-full text-left whitespace-nowrap text-sm border-collapse">
+                <thead class="text-slate-400 border-b border-slate-100 sticky top-0 bg-slate-50/90 backdrop-blur-md z-10 shadow-sm text-[10px] uppercase tracking-wider font-black">
+                    <tr>
+                        <th class="py-3.5 px-4 text-center w-12"><input type="checkbox" class="w-5 h-5 rounded border-slate-300 cursor-pointer accent-indigo-500 hover:scale-110 transition-transform shadow-sm" onchange="superApp.toggleAllAuditCb('terima', this.checked)"></th>
+                        <th class="py-3.5 px-4">Waktu</th>
+                        <th class="py-3.5 px-4">Outlet & Kasir</th>
+                        <th class="py-3.5 px-4">Item Masuk</th>
+                        <th class="py-3.5 px-4 text-center">Qty Diterima</th>
+                        <th class="py-3.5 px-4">Catatan Kasir</th>
+                    </tr>
+                </thead>
+                <tbody id="audit-terima-tbody" class="font-bold divide-y divide-slate-50 text-slate-700"></tbody>
+            </table>
+        </div>
+        
+    </div>
+</div>
+
+      
     <div id="view-report" class="app-view hidden flex-col lg:min-h-[80vh] min-h-max gap-5 pb-20 md:pb-6 transition-all duration-300">
     
     <div class="bg-white p-5 md:p-8 rounded-[2.5rem] shadow-[0_10px_35px_-5px_rgba(0,0,0,0.04)] border border-slate-100/80 text-slate-800 flex flex-col h-full min-h-0 relative overflow-hidden group">

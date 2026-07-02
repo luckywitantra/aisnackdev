@@ -2788,18 +2788,25 @@ changeOutlet: function(val) {
         }
     },
 
-    // 🚀 PERBARUI RENDER TERIMA BARANG AGAR MENGISI SUB-TAB
+   // =========================================================
+    // 🚀 1. RENDER TERIMA BARANG (TERHUBUNG KE SUB-TAB & MOBILE)
+    // =========================================================
     renderTerimaBarang: function() {
-        const lbl = document.getElementById('lbl-terima-outlet'); if (lbl) lbl.innerText = this.outlet;
-        let hu = ''; let hp = ''; let hum = ''; let hpm = ''; let cUtama = 0; let cPend = 0;
+        const lbl = document.getElementById('lbl-terima-outlet'); 
+        if (lbl) lbl.innerText = this.outlet;
+
+        let hu = ''; let hp = ''; let hum = ''; let hpm = ''; 
+        let cUtama = 0; let cPend = 0;
         
         [...(this.db.masterProduk || [])].sort((a, b) => String(a.Nama_Produk || '').localeCompare(String(b.Nama_Produk || ''))).forEach(m => {
             let kat = String(m.Kategori || '').toLowerCase();
             if (kat === 'bahan' || kat === 'pendukung') {
+                
+                // --- BARIS TABEL DESKTOP ---
                 let strHtml = `
-                <tr class="border-b border-slate-50 hover:bg-slate-50/80 transition-colors group">
+                <tr class="border-b border-slate-100 hover:bg-slate-50/80 transition-colors group">
                     <td class="py-3.5 px-5 min-w-[200px] whitespace-normal">
-                        <div class="font-extrabold text-sm text-slate-800">${m.Nama_Produk}</div>
+                        <div class="font-extrabold text-sm text-slate-800 leading-snug">${m.Nama_Produk}</div>
                         <div class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">SKU: ${m.SKU}</div>
                     </td>
                     <td class="py-3.5 px-5 text-center w-[180px]">
@@ -2810,15 +2817,16 @@ changeOutlet: function(val) {
                     </td>
                 </tr>`;
                 
+                // --- KARTU PADAT MOBILE ---
                 let strMobile = `
-                <div class="bg-white p-4 rounded-[1.25rem] border border-slate-100 shadow-sm hover:shadow-md transition-all flex flex-col gap-3 group">
-                    <div>
-                        <h4 class="font-extrabold text-sm text-slate-800">${m.Nama_Produk}</h4>
-                        <p class="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">SKU: ${m.SKU}</p>
+                <div class="bg-white p-3.5 rounded-2xl border border-slate-100 shadow-2xs hover:shadow-sm transition-all flex flex-col gap-2.5 group">
+                    <div class="flex justify-between items-start gap-2">
+                        <h4 class="font-extrabold text-sm text-slate-800 leading-snug">${m.Nama_Produk}</h4>
+                        <span class="text-[9px] text-slate-400 font-bold bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 shrink-0 uppercase">${m.SKU}</span>
                     </div>
-                    <div class="flex gap-2.5 mt-1">
-                        <input type="text" id="trm-qty-mob-${m.SKU}" class="w-20 bg-slate-50 border-2 border-slate-200 focus:border-emerald-500 rounded-xl px-2 py-2.5 text-center outline-none font-black text-emerald-600 transition-all shadow-inner cursor-pointer text-sm" readonly onclick="osKeyboard.open('trm-qty-mob-${m.SKU}', 'numeric')" placeholder="Qty">
-                        <input type="text" id="trm-note-mob-${m.SKU}" class="flex-1 bg-slate-50 border border-slate-200 focus:border-emerald-50 rounded-xl px-3.5 py-2.5 outline-none text-xs font-bold text-slate-700 transition-all cursor-pointer" readonly onclick="osKeyboard.open('trm-note-mob-${m.SKU}', 'text')" placeholder="Catatan...">
+                    <div class="flex gap-2">
+                        <input type="text" id="trm-qty-mob-${m.SKU}" class="w-20 bg-slate-50 border-2 border-slate-200 focus:border-emerald-500 rounded-xl px-2 py-2 text-center outline-none font-black text-emerald-600 transition-all shadow-inner cursor-pointer text-sm" readonly onclick="osKeyboard.open('trm-qty-mob-${m.SKU}', 'numeric')" placeholder="Qty">
+                        <input type="text" id="trm-note-mob-${m.SKU}" class="flex-1 bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-3 py-2 outline-none text-xs font-bold text-slate-700 transition-all cursor-pointer" readonly onclick="osKeyboard.open('trm-note-mob-${m.SKU}', 'text')" placeholder="Catatan fisik/kurir...">
                     </div>
                 </div>`;
                 
@@ -2827,21 +2835,32 @@ changeOutlet: function(val) {
             }
         });
 
-        const tU = document.getElementById('terima-tbody-utama'); if (tU) tU.innerHTML = hu || `<tr><td colspan="3" class="py-12">${this.getEmptyState('fa-box-open', 'Belum Ada Bahan', 'Tambahkan bahan di menu gudang')}</td></tr>`;
-        const tP = document.getElementById('terima-tbody-pendukung'); if (tP) tP.innerHTML = hp || `<tr><td colspan="3" class="py-12">${this.getEmptyState('fa-pump-soap', 'Belum Ada Barang', 'Tambahkan pendukung di gudang')}</td></tr>`;
+        // Injeksi ke Tabel Desktop
+        const tU = document.getElementById('terima-tbody-utama'); 
+        if (tU) tU.innerHTML = hu || `<tr><td colspan="3" class="py-12">${this.getEmptyState('fa-box-open', 'Belum Ada Bahan', 'Tambahkan bahan di menu gudang')}</td></tr>`;
+        const tP = document.getElementById('terima-tbody-pendukung'); 
+        if (tP) tP.innerHTML = hp || `<tr><td colspan="3" class="py-12">${this.getEmptyState('fa-pump-soap', 'Belum Ada Barang', 'Tambahkan pendukung di gudang')}</td></tr>`;
         
-        const mU = document.getElementById('terima-mob-utama'); if (mU) mU.innerHTML = hum || '<div class="text-center py-10 text-slate-400 text-xs font-bold">Tidak ada bahan utama</div>';
-        const mP = document.getElementById('terima-mob-pendukung'); if (mP) mP.innerHTML = hpm || '<div class="text-center py-10 text-slate-400 text-xs font-bold">Tidak ada barang pendukung</div>';
+        // Injeksi ke Kartu Mobile
+        const mU = document.getElementById('terima-mob-utama'); 
+        if (mU) mU.innerHTML = hum || '<div class="text-center py-10 text-slate-400 text-xs font-bold border-2 border-dashed border-slate-200 rounded-2xl bg-white/50">Tidak ada bahan utama</div>';
+        const mP = document.getElementById('terima-mob-pendukung'); 
+        if (mP) mP.innerHTML = hpm || '<div class="text-center py-10 text-slate-400 text-xs font-bold border-2 border-dashed border-slate-200 rounded-2xl bg-white/50">Tidak ada barang pendukung</div>';
 
-        // Update angka badge
+        // Update Angka Badge pada Sub-Tab
         const bU = document.getElementById('count-terima-utama'); if(bU) bU.innerText = cUtama;
         const bP = document.getElementById('count-terima-pendukung'); if(bP) bP.innerText = cPend;
     },
 
-    // 🚀 PERBARUI RENDER OPNAME AGAR MENGISI SUB-TAB
+    // =========================================================
+    // 🚀 2. RENDER OPNAME FISIK (TERHUBUNG KE SUB-TAB & MOBILE)
+    // =========================================================
     renderOpname: function() {
-        const lbl = document.getElementById('lbl-opname-outlet'); if (lbl) lbl.innerText = this.outlet;
-        let hu = ''; let hp = ''; let hum = ''; let hpm = ''; let cUtama = 0; let cPend = 0;
+        const lbl = document.getElementById('lbl-opname-outlet'); 
+        if (lbl) lbl.innerText = this.outlet;
+
+        let hu = ''; let hp = ''; let hum = ''; let hpm = ''; 
+        let cUtama = 0; let cPend = 0;
         let autoFillData = []; 
 
         let roleStr = this.currentUser ? String(this.currentUser.Role).toLowerCase() : '';
@@ -2854,25 +2873,48 @@ changeOutlet: function(val) {
                 let sys = sData ? Number(sData.Stok_Toko) : 0;
                 autoFillData.push({ idDesk: `opn-fisik-${m.SKU}`, idMob: `opn-fisik-mob-${m.SKU}`, val: sys });
 
-                let sysHtmlDesk = isAdmin ? `<button onclick="superApp.openDetailStokOpname('${m.SKU}')" class="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-xl border border-indigo-200/60 hover:bg-indigo-500 hover:text-white transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5 mx-auto w-full max-w-[80px]" title="Lihat Analisis & Tren"><i class="fas fa-chart-area"></i> <span id="opn-sys-${m.SKU}" class="font-black">${sys}</span></button>` : `<span id="opn-sys-${m.SKU}" class="font-black text-indigo-600 text-lg">${sys}</span>`;
-                let sysHtmlMob = isAdmin ? `<button onclick="superApp.openDetailStokOpname('${m.SKU}')" class="inline-flex items-center gap-1.5 bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-md border border-indigo-200/60 shadow-sm active:scale-95"><i class="fas fa-chart-area text-[10px]"></i> <span id="opn-sys-mob-${m.SKU}" class="font-black">${sys}</span></button>` : `<span id="opn-sys-mob-${m.SKU}" class="font-black text-indigo-600">${sys}</span>`;
+                let sysHtmlDesk = isAdmin 
+                    ? `<button onclick="superApp.openDetailStokOpname('${m.SKU}')" class="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-xl border border-indigo-200/60 hover:bg-indigo-500 hover:text-white transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5 mx-auto w-full max-w-[80px]" title="Lihat Analisis & Tren"><i class="fas fa-chart-area"></i> <span id="opn-sys-${m.SKU}" class="font-black">${sys}</span></button>` 
+                    : `<span id="opn-sys-${m.SKU}" class="font-black text-indigo-600 text-base">${sys}</span>`;
+                
+                let sysHtmlMob = isAdmin 
+                    ? `<button onclick="superApp.openDetailStokOpname('${m.SKU}')" class="inline-flex items-center gap-1.5 bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-md border border-indigo-200/60 shadow-sm active:scale-95"><i class="fas fa-chart-area text-[10px]"></i> <span id="opn-sys-mob-${m.SKU}" class="font-black">${sys}</span></button>` 
+                    : `<span id="opn-sys-mob-${m.SKU}" class="font-black text-indigo-600">${sys}</span>`;
 
+                // --- BARIS TABEL DESKTOP ---
                 let desk = `
-                <tr class="border-b border-slate-50 hover:bg-slate-50/80 transition-colors group">
-                    <td class="py-3.5 px-5 min-w-[200px] whitespace-normal"><div class="font-extrabold text-sm text-slate-800">${m.Nama_Produk}</div><div class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">SKU: ${m.SKU}</div></td>
+                <tr class="border-b border-slate-100 hover:bg-slate-50/80 transition-colors group">
+                    <td class="py-3.5 px-5 min-w-[200px] whitespace-normal">
+                        <div class="font-extrabold text-sm text-slate-800 leading-snug">${m.Nama_Produk}</div>
+                        <div class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">SKU: ${m.SKU}</div>
+                    </td>
                     <td class="py-3.5 px-5 text-center">${sysHtmlDesk}</td>
-                    <td class="py-3.5 px-5 text-center"><input type="text" id="opn-fisik-${m.SKU}" class="w-24 bg-slate-50 hover:bg-white focus:bg-white border-2 border-slate-200 focus:border-purple-500 rounded-xl px-3 py-2 text-center outline-none font-black text-purple-600 transition-all shadow-inner cursor-pointer text-sm" value="${sys}" readonly onclick="osKeyboard.open('opn-fisik-${m.SKU}', 'numeric')" oninput="superApp.calcOpname('${m.SKU}')"></td>
+                    <td class="py-3.5 px-5 text-center">
+                        <input type="text" id="opn-fisik-${m.SKU}" class="w-24 bg-slate-50 hover:bg-white focus:bg-white border-2 border-slate-200 focus:border-purple-500 rounded-xl px-3 py-2 text-center outline-none font-black text-purple-600 transition-all shadow-inner cursor-pointer text-sm" value="${sys}" readonly onclick="osKeyboard.open('opn-fisik-${m.SKU}', 'numeric')" oninput="superApp.calcOpname('${m.SKU}')">
+                    </td>
                     <td class="py-3.5 px-5 text-right font-black text-slate-300 text-xl" id="opn-selisih-${m.SKU}">0</td>
-                    <td class="py-3.5 px-5 min-w-[250px]"><input type="text" id="opn-note-${m.SKU}" class="w-full bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-purple-500 rounded-xl px-3.5 py-2 outline-none text-xs font-bold text-slate-700 transition-all cursor-pointer" readonly onclick="osKeyboard.open('opn-note-${m.SKU}', 'text')" placeholder="Kondisi Fisik..."></td>
+                    <td class="py-3.5 px-5 min-w-[250px]">
+                        <input type="text" id="opn-note-${m.SKU}" class="w-full bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-purple-500 rounded-xl px-3.5 py-2 outline-none text-xs font-bold text-slate-700 transition-all cursor-pointer" readonly onclick="osKeyboard.open('opn-note-${m.SKU}', 'text')" placeholder="Kondisi Fisik...">
+                    </td>
                 </tr>`;
                 
+                // --- KARTU PADAT MOBILE ---
                 let mob = `
-                <div class="bg-white p-4 rounded-[1.25rem] border border-slate-100 shadow-sm hover:shadow-md transition-all flex flex-col gap-3 group">
-                    <div class="flex justify-between items-start">
-                        <div><h4 class="font-extrabold text-sm text-slate-800">${m.Nama_Produk}</h4><div class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 flex items-center gap-2">Sys: ${sysHtmlMob}</div></div>
-                        <span class="font-black text-slate-300 text-2xl" id="opn-selisih-mob-${m.SKU}">0</span>
+                <div class="bg-white p-3.5 rounded-2xl border border-slate-100 shadow-2xs hover:shadow-sm transition-all flex flex-col gap-2.5 group">
+                    <div class="flex justify-between items-center gap-2">
+                        <div>
+                            <h4 class="font-extrabold text-sm text-slate-800 leading-snug">${m.Nama_Produk}</h4>
+                            <div class="text-[10px] text-slate-400 font-bold uppercase mt-0.5 flex items-center gap-1.5">Sys: ${sysHtmlMob}</div>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <span class="text-[8px] text-slate-400 uppercase font-black tracking-wider block">Selisih</span>
+                            <span class="font-black text-slate-300 text-xl leading-none" id="opn-selisih-mob-${m.SKU}">0</span>
+                        </div>
                     </div>
-                    <div class="flex gap-2.5 mt-1"><input type="text" id="opn-fisik-mob-${m.SKU}" class="w-20 bg-slate-50 border-2 border-slate-200 focus:border-purple-500 rounded-xl px-2 py-2.5 text-center outline-none font-black text-purple-600 transition-all shadow-inner cursor-pointer text-sm" value="${sys}" readonly onclick="osKeyboard.open('opn-fisik-mob-${m.SKU}', 'numeric')" oninput="superApp.calcOpnameMob('${m.SKU}')"><input type="text" id="opn-note-mob-${m.SKU}" class="flex-1 bg-slate-50 border border-slate-200 focus:border-purple-500 rounded-xl px-3.5 py-2.5 outline-none text-xs font-bold text-slate-700 transition-all cursor-pointer" readonly onclick="osKeyboard.open('opn-note-mob-${m.SKU}', 'text')" placeholder="Catatan..."></div>
+                    <div class="flex gap-2 pt-1 border-t border-slate-50">
+                        <input type="text" id="opn-fisik-mob-${m.SKU}" class="w-20 bg-slate-50 border-2 border-slate-200 focus:border-purple-500 rounded-xl px-2 py-2 text-center outline-none font-black text-purple-600 text-sm cursor-pointer" value="${sys}" readonly onclick="osKeyboard.open('opn-fisik-mob-${m.SKU}', 'numeric')" oninput="superApp.calcOpnameMob('${m.SKU}')">
+                        <input type="text" id="opn-note-mob-${m.SKU}" class="flex-1 bg-slate-50 border border-slate-200 focus:border-purple-500 rounded-xl px-3 py-2 outline-none text-xs font-bold text-slate-700 cursor-pointer" readonly onclick="osKeyboard.open('opn-note-mob-${m.SKU}', 'text')" placeholder="Alasan selisih...">
+                    </div>
                 </div>`;
 
                 if (kat === 'bahan') { hu += desk; hum += mob; cUtama++; } 
@@ -2880,19 +2922,29 @@ changeOutlet: function(val) {
             }
         });
 
-        const tU = document.getElementById('opname-tbody-utama'); if (tU) tU.innerHTML = hu || `<tr><td colspan="5" class="py-12">${this.getEmptyState('fa-box-open', 'Belum Ada Bahan', 'Tambahkan bahan di menu gudang')}</td></tr>`;
-        const tP = document.getElementById('opname-tbody-pendukung'); if (tP) tP.innerHTML = hp || `<tr><td colspan="5" class="py-12">${this.getEmptyState('fa-pump-soap', 'Belum Ada Barang', 'Tambahkan pendukung di gudang')}</td></tr>`;
+        // Injeksi ke Tabel Desktop
+        const tU = document.getElementById('opname-tbody-utama'); 
+        if (tU) tU.innerHTML = hu || `<tr><td colspan="5" class="py-12">${this.getEmptyState('fa-box-open', 'Belum Ada Bahan', 'Tambahkan bahan di menu gudang')}</td></tr>`;
+        const tP = document.getElementById('opname-tbody-pendukung'); 
+        if (tP) tP.innerHTML = hp || `<tr><td colspan="5" class="py-12">${this.getEmptyState('fa-pump-soap', 'Belum Ada Barang', 'Tambahkan pendukung di gudang')}</td></tr>`;
         
-        const mU = document.getElementById('opname-mob-utama'); if (mU) mU.innerHTML = hum || '<div class="text-center py-10 text-slate-400 text-xs font-bold">Tidak ada bahan utama</div>';
-        const mP = document.getElementById('opname-mob-pendukung'); if (mP) mP.innerHTML = hpm || '<div class="text-center py-10 text-slate-400 text-xs font-bold">Tidak ada barang pendukung</div>';
+        // Injeksi ke Kartu Mobile
+        const mU = document.getElementById('opname-mob-utama'); 
+        if (mU) mU.innerHTML = hum || '<div class="text-center py-10 text-slate-400 text-xs font-bold border-2 border-dashed border-slate-200 rounded-2xl bg-white/50">Tidak ada bahan utama</div>';
+        const mP = document.getElementById('opname-mob-pendukung'); 
+        if (mP) mP.innerHTML = hpm || '<div class="text-center py-10 text-slate-400 text-xs font-bold border-2 border-dashed border-slate-200 rounded-2xl bg-white/50">Tidak ada barang pendukung</div>';
 
+        // Update Angka Badge pada Sub-Tab
         const bU = document.getElementById('count-opname-utama'); if(bU) bU.innerText = cUtama;
         const bP = document.getElementById('count-opname-pendukung'); if(bP) bP.innerText = cPend;
 
+        // Auto-fill Nilai Stok Sistem ke Input Fisik (Setelah DOM Selesai Render)
         setTimeout(() => {
             autoFillData.forEach(item => {
-                let elDesk = document.getElementById(item.idDesk); let elMob = document.getElementById(item.idMob);
-                if (elDesk) elDesk.value = item.val; if (elMob) elMob.value = item.val;
+                let elDesk = document.getElementById(item.idDesk); 
+                let elMob = document.getElementById(item.idMob);
+                if (elDesk) elDesk.value = item.val; 
+                if (elMob) elMob.value = item.val;
             });
         }, 50); 
     },

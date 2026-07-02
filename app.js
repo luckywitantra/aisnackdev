@@ -3322,45 +3322,78 @@ submitOpname: async function() {
     },
 
     // Fungsi Pengatur Tab di Menu Master Gudang
+    // =========================================================
+    // 🚀 SWITCHER TAB UTAMA GUDANG & MASTER
+    // =========================================================
     toggleGudangTab: function(tab) {
         const tabs = ['stok', 'menu', 'outlet', 'hpp'];
         
-        // Reset semua tampilan
+        // CSS Tab Aktif (Hitam Elegan)
+        const activeClass = 'snap-start px-5 py-2.5 bg-slate-900 text-white rounded-2xl text-xs md:text-sm font-black shadow-md whitespace-nowrap transition-all flex items-center gap-2 shrink-0 border border-slate-800';
+        
+        // CSS Tab Mati
+        const inactiveClass = 'snap-start px-5 py-2.5 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-800 rounded-2xl text-xs md:text-sm font-bold whitespace-nowrap transition-all flex items-center gap-2 shrink-0 border border-slate-200/80';
+
         tabs.forEach(t => {
-            const contentEl = document.getElementById(`gudang-content-${t}`);
-            const btnEl = document.getElementById(`tab-gudang-${t}`);
-            
-            if (contentEl) contentEl.classList.add('hidden');
-            if (btnEl) {
-                // Reset warna tombol ke default (abu-abu/putih)
-                btnEl.className = 'px-5 py-2.5 bg-white text-slate-500 hover:bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold whitespace-nowrap transition active:scale-95';
-                
-                // Khusus tombol HPP, pertahankan class rahasianya jika dia bukan tab aktif
-                if (t === 'hpp' && this.userRole !== 'owner') {
-                    btnEl.classList.add('hidden');
-                } else if (t === 'hpp') {
-                    btnEl.className = 'px-5 py-2.5 bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-200 rounded-xl text-sm font-black whitespace-nowrap transition shadow-sm active:scale-95';
-                }
-            }
+            const content = document.getElementById(`gudang-content-${t}`);
+            const btn = document.getElementById(`tab-gudang-${t}`);
+            if (content) content.classList.add('hidden');
+            if (btn) btn.className = inactiveClass;
         });
 
-        // Aktifkan tab yang dipilih
         const activeContent = document.getElementById(`gudang-content-${tab}`);
         const activeBtn = document.getElementById(`tab-gudang-${tab}`);
         
-        if (activeContent) activeContent.classList.remove('hidden');
-        if (activeBtn) {
-            if (tab === 'hpp') {
-                activeBtn.className = 'px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white border-transparent rounded-xl text-sm font-black shadow-md whitespace-nowrap transition active:scale-95';
-            } else {
-                activeBtn.className = 'px-5 py-2.5 bg-slate-800 text-white rounded-xl text-sm font-bold shadow-md whitespace-nowrap transition active:scale-95';
-            }
+        if (activeContent) {
+            activeContent.classList.remove('hidden');
+            activeContent.classList.add('flex');
         }
-        
-        // Panggil render spesifik jika tab HPP dibuka
-        if (tab === 'hpp') {
-            this.renderMasterHPP();
+        if (activeBtn) activeBtn.className = activeClass;
+    },
+
+    // =========================================================
+    // 🚀 SUB-TAB SWITCHER STOK PUSAT (UTAMA / PENDUKUNG)
+    // =========================================================
+    switchGudangStokSubTab: function(tab) {
+        const tbUtama = document.getElementById('gudang-tbody-utama');
+        const tbPend = document.getElementById('gudang-tbody-pendukung');
+        const btnUtama = document.getElementById('subtab-gstok-utama');
+        const btnPend = document.getElementById('subtab-gstok-pendukung');
+
+        const activeClass = 'flex-1 md:flex-none px-5 py-2.5 bg-white text-emerald-600 rounded-xl text-xs md:text-sm font-black shadow-sm transition flex items-center justify-center gap-2 border border-slate-200/60';
+        const inactiveClass = 'flex-1 md:flex-none px-5 py-2.5 text-slate-500 hover:text-slate-800 rounded-xl text-xs md:text-sm font-bold transition flex items-center justify-center gap-2 border border-transparent';
+
+        if (tab === 'utama') {
+            if(tbUtama) tbUtama.classList.remove('hidden'); if(tbPend) tbPend.classList.add('hidden');
+            if(btnUtama) btnUtama.className = activeClass; if(btnPend) btnPend.className = inactiveClass;
+        } else {
+            if(tbUtama) tbUtama.classList.add('hidden'); if(tbPend) tbPend.classList.remove('hidden');
+            if(btnUtama) btnUtama.className = inactiveClass; if(btnPend) btnPend.className = activeClass;
         }
+    },
+
+    // =========================================================
+    // 🚀 SUB-TAB SWITCHER MANAJEMEN CABANG
+    // =========================================================
+    switchOutletSubTab: function(tab) {
+        const sections = ['daftar', 'harga', 'matrix'];
+        const activeClass = 'flex-1 md:flex-none px-5 py-2.5 bg-white text-blue-600 rounded-xl text-xs md:text-sm font-black shadow-sm transition flex items-center justify-center gap-2 border border-slate-200/60';
+        const inactiveClass = 'flex-1 md:flex-none px-5 py-2.5 text-slate-500 hover:text-slate-800 rounded-xl text-xs md:text-sm font-bold transition flex items-center justify-center gap-2 border border-transparent';
+
+        sections.forEach(s => {
+            const sec = document.getElementById(`out-section-${s}`);
+            const btn = document.getElementById(`subtab-out-${s}`);
+            if(sec) sec.classList.add('hidden');
+            if(btn) btn.className = inactiveClass;
+        });
+
+        const activeSec = document.getElementById(`out-section-${tab}`);
+        const activeBtn = document.getElementById(`subtab-out-${tab}`);
+        if(activeSec) {
+            activeSec.classList.remove('hidden');
+            activeSec.classList.add('flex');
+        }
+        if(activeBtn) activeBtn.className = activeClass;
     },
     
     

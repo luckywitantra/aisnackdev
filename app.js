@@ -3321,18 +3321,10 @@ submitOpname: async function() {
         const vBtn = document.getElementById(`tab-audit-${tab}`); if(vBtn) vBtn.className = activeClass;
     },
 
-    // Fungsi Pengatur Tab di Menu Master Gudang
-    // =========================================================
-    // 🚀 SWITCHER TAB UTAMA GUDANG & MASTER
-    // =========================================================
     toggleGudangTab: function(tab) {
         const tabs = ['stok', 'menu', 'outlet', 'hpp'];
-        
-        // CSS Tab Aktif (Hitam Elegan)
-        const activeClass = 'snap-start px-5 py-2.5 bg-slate-900 text-white rounded-2xl text-xs md:text-sm font-black shadow-md whitespace-nowrap transition-all flex items-center gap-2 shrink-0 border border-slate-800';
-        
-        // CSS Tab Mati
-        const inactiveClass = 'snap-start px-5 py-2.5 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-800 rounded-2xl text-xs md:text-sm font-bold whitespace-nowrap transition-all flex items-center gap-2 shrink-0 border border-slate-200/80';
+        const activeClass = 'snap-start px-4 md:px-5 py-2 md:py-2.5 bg-slate-900 text-white rounded-xl md:rounded-2xl text-xs md:text-sm font-black shadow-sm whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 border border-slate-800';
+        const inactiveClass = 'snap-start px-4 md:px-5 py-2 md:py-2.5 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-800 rounded-xl md:rounded-2xl text-xs md:text-sm font-bold whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 border border-slate-200/80';
 
         tabs.forEach(t => {
             const content = document.getElementById(`gudang-content-${t}`);
@@ -3343,12 +3335,43 @@ submitOpname: async function() {
 
         const activeContent = document.getElementById(`gudang-content-${tab}`);
         const activeBtn = document.getElementById(`tab-gudang-${tab}`);
-        
         if (activeContent) {
             activeContent.classList.remove('hidden');
             activeContent.classList.add('flex');
         }
         if (activeBtn) activeBtn.className = activeClass;
+
+        // 🚀 KELOLA STICKY BOTTOM BAR KHUSUS HP
+        const mobBar = document.getElementById('gudang-mobile-bottom-bar');
+        if (mobBar) {
+            if (tab === 'stok') {
+                mobBar.innerHTML = `
+                <button onclick="superApp.openCrudBahan()" class="flex-1 bg-slate-900 text-white font-black py-3 rounded-xl text-xs flex items-center justify-center gap-2 active:scale-95">
+                    <i class="fas fa-plus text-emerald-400"></i> BAHAN BARU
+                </button>
+                <button onclick="superApp.openRestokModal()" class="flex-[1.5] bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-black py-3 rounded-xl text-xs shadow-md shadow-emerald-500/25 flex items-center justify-center gap-2 active:scale-95">
+                    <i class="fas fa-truck-loading"></i> RESTOK SUPLIER
+                </button>`;
+            } else if (tab === 'menu') {
+                mobBar.innerHTML = `
+                <button onclick="superApp.openCrudMasterMenu('add')" class="w-full bg-gradient-to-r from-brand-500 to-orange-500 text-white font-black py-3 rounded-xl text-xs shadow-md shadow-orange-500/25 flex items-center justify-center gap-2 active:scale-95">
+                    <i class="fas fa-plus"></i> TAMBAH MENU POS BARU
+                </button>`;
+            } else if (tab === 'outlet') {
+                mobBar.innerHTML = `
+                <button onclick="superApp.openCrudOutlet('add')" class="flex-1 bg-slate-900 text-white font-black py-3 rounded-xl text-xs flex items-center justify-center gap-2 active:scale-95">
+                    <i class="fas fa-plus text-emerald-400"></i> TOKO BARU
+                </button>
+                <button onclick="superApp.openDistribusiModal()" class="flex-[1.5] bg-blue-600 text-white font-black py-3 rounded-xl text-xs shadow-md shadow-blue-500/25 flex items-center justify-center gap-2 active:scale-95">
+                    <i class="fas fa-truck-fast"></i> DISTRIBUSI SUPLAI
+                </button>`;
+            } else if (tab === 'hpp') {
+                mobBar.innerHTML = `
+                <button onclick="superApp.saveHPP()" class="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black py-3 rounded-xl text-xs shadow-md shadow-orange-500/25 flex items-center justify-center gap-2 active:scale-95">
+                    <i class="fas fa-save"></i> SIMPAN PERUBAHAN HPP
+                </button>`;
+            }
+        }
     },
 
     // =========================================================

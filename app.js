@@ -3527,11 +3527,11 @@ submitOpname: async function() {
     toggleReportTab: function(tab) {
         const tabs = ['trx', 'rekap', 'kas', 'selisih', 'bom'];
         
-        // CSS untuk Tab Aktif (Hitam Elegan)
-        const activeClass = 'snap-start px-5 py-2.5 bg-slate-900 text-white rounded-2xl text-xs md:text-sm font-black shadow-md whitespace-nowrap transition-all flex items-center gap-2 shrink-0 border border-slate-800';
+        // CSS Tab Aktif (Nyala Biru/Brand)
+        const activeClass = 'px-6 py-3 bg-white text-brand-600 rounded-xl text-xs md:text-sm font-black shadow-sm whitespace-nowrap transition border border-slate-200 flex items-center gap-2 shrink-0';
         
-        // CSS untuk Tab Mati (Abu-abu Terang)
-        const inactiveClass = 'snap-start px-5 py-2.5 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-800 rounded-2xl text-xs md:text-sm font-bold whitespace-nowrap transition-all border border-slate-200/80 flex items-center gap-2 shrink-0';
+        // CSS Tab Tidak Aktif (Mati)
+        const inactiveClass = 'px-6 py-3 text-slate-500 hover:bg-white hover:text-slate-800 rounded-xl text-xs md:text-sm font-bold whitespace-nowrap transition border border-transparent flex items-center gap-2 shrink-0';
 
         tabs.forEach(t => {
             const content = document.getElementById(`report-content-${t}`);
@@ -3543,13 +3543,13 @@ submitOpname: async function() {
         const activeContent = document.getElementById(`report-content-${tab}`);
         const activeBtn = document.getElementById(`tab-${tab}`);
         
-        // Memunculkan area konten
+        // Menampilkan tab yang dipilih
         if (activeContent) {
             activeContent.classList.remove('hidden');
-            activeContent.classList.add('flex'); // Pastikan flexbox aktif
+            activeContent.classList.add('flex');
         }
         
-        // Mewarnai tab
+        // Mengubah warna tombol tab yang dipilih
         if (activeBtn) activeBtn.className = activeClass;
     },
     

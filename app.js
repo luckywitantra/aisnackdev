@@ -3304,10 +3304,18 @@ submitOpname: async function() {
     toggleAuditTab: function(tab) {
         const co = document.getElementById('audit-content-opname'); if(co) co.classList.add('hidden'); 
         const ct = document.getElementById('audit-content-terima'); if(ct) ct.classList.add('hidden');
-        const to = document.getElementById('tab-audit-opname'); if(to) to.className = 'px-5 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg text-sm font-bold whitespace-nowrap transition border border-transparent';
-        const tt = document.getElementById('tab-audit-terima'); if(tt) tt.className = 'px-5 py-2.5 text-slate-500 hover:bg-slate-100 rounded-lg text-sm font-bold whitespace-nowrap transition border border-transparent';
+        
+        // CSS untuk Tab Tidak Aktif (Mati)
+        const inactiveClass = 'px-6 py-3 text-slate-500 hover:bg-white hover:text-slate-800 rounded-xl text-xs md:text-sm font-bold whitespace-nowrap transition border border-transparent flex items-center gap-2';
+        
+        // CSS untuk Tab Aktif (Menyala)
+        const activeClass = 'px-6 py-3 bg-white text-indigo-600 rounded-xl text-xs md:text-sm font-black shadow-sm whitespace-nowrap transition border border-slate-200 flex items-center gap-2';
+        
+        const to = document.getElementById('tab-audit-opname'); if(to) to.className = inactiveClass;
+        const tt = document.getElementById('tab-audit-terima'); if(tt) tt.className = inactiveClass;
+        
         const vContent = document.getElementById(`audit-content-${tab}`); if(vContent) vContent.classList.remove('hidden'); 
-        const vBtn = document.getElementById(`tab-audit-${tab}`); if(vBtn) vBtn.className = 'px-5 py-2.5 bg-white text-slate-800 rounded-lg text-sm font-bold shadow-sm whitespace-nowrap transition border border-slate-200';
+        const vBtn = document.getElementById(`tab-audit-${tab}`); if(vBtn) vBtn.className = activeClass;
     },
 
     // Fungsi Pengatur Tab di Menu Master Gudang

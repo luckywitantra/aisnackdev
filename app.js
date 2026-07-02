@@ -3375,25 +3375,31 @@ submitOpname: async function() {
     },
 
     // =========================================================
-    // 🚀 SUB-TAB SWITCHER STOK PUSAT (UTAMA / PENDUKUNG)
+    // 🚀 1. SWITCHER SUB-TAB STOK PUSAT (DESKTOP & MOBILE SYNC)
     // =========================================================
     switchGudangStokSubTab: function(tab) {
         const tbUtama = document.getElementById('gudang-tbody-utama');
         const tbPend = document.getElementById('gudang-tbody-pendukung');
+        const mobUtama = document.getElementById('gudang-mob-stok-utama');
+        const mobPend = document.getElementById('gudang-mob-stok-pendukung');
         const btnUtama = document.getElementById('subtab-gstok-utama');
         const btnPend = document.getElementById('subtab-gstok-pendukung');
 
-        const activeClass = 'flex-1 md:flex-none px-5 py-2.5 bg-white text-emerald-600 rounded-xl text-xs md:text-sm font-black shadow-sm transition flex items-center justify-center gap-2 border border-slate-200/60';
-        const inactiveClass = 'flex-1 md:flex-none px-5 py-2.5 text-slate-500 hover:text-slate-800 rounded-xl text-xs md:text-sm font-bold transition flex items-center justify-center gap-2 border border-transparent';
+        const activeClass = 'flex-1 md:flex-none py-2 md:py-2.5 px-4 md:px-5 bg-white text-emerald-600 rounded-lg md:rounded-xl text-xs md:text-sm font-black shadow-2xs transition flex items-center justify-center gap-1.5 border border-slate-200/60';
+        const inactiveClass = 'flex-1 md:flex-none py-2 md:py-2.5 px-4 md:px-5 text-slate-500 hover:text-slate-800 rounded-lg md:rounded-xl text-xs md:text-sm font-bold transition flex items-center justify-center gap-1.5 border border-transparent';
 
         if (tab === 'utama') {
             if(tbUtama) tbUtama.classList.remove('hidden'); if(tbPend) tbPend.classList.add('hidden');
+            if(mobUtama) mobUtama.classList.remove('hidden'); if(mobPend) mobPend.classList.add('hidden');
             if(btnUtama) btnUtama.className = activeClass; if(btnPend) btnPend.className = inactiveClass;
         } else {
             if(tbUtama) tbUtama.classList.add('hidden'); if(tbPend) tbPend.classList.remove('hidden');
+            if(mobUtama) mobUtama.classList.add('hidden'); if(mobPend) mobPend.classList.remove('hidden');
             if(btnUtama) btnUtama.className = inactiveClass; if(btnPend) btnPend.className = activeClass;
         }
     },
+
+   
 
     // =========================================================
     // 🚀 SUB-TAB SWITCHER MANAJEMEN CABANG
@@ -5089,44 +5095,69 @@ executeVoidTrx: async function(trxId) {
         };
         reader.readAsDataURL(file);
     },
+    
     renderGudang: function() {
         const gBodyUtama = document.getElementById('gudang-tbody-utama');
         const gBodyPendukung = document.getElementById('gudang-tbody-pendukung');
+        
+        // 🚀 Wadah tambahan untuk Mobile (Jika belum ada di HTML, tambahkan <div id="gudang-mob-utama"></div>)
+        const gMobUtama = document.getElementById('gudang-mob-utama');
+        const gMobPend = document.getElementById('gudang-mob-pendukung');
+
         let htmlUtama = ''; let htmlPendukung = '';
+        let mobUtama = ''; let mobPend = '';
 
         let sortedMaster = [...(this.db.masterProduk || [])].sort((a,b) => String(a.Nama_Produk||'').localeCompare(String(b.Nama_Produk||'')));
         
-        // 1. RENDER GUDANG PUSAT (STOK FISIK)
         sortedMaster.forEach(g => {
-            if(String(g.Kategori||'').toLowerCase() === 'bahan' || String(g.Kategori||'').toLowerCase() === 'pendukung') {
+            let kat = String(g.Kategori||'').toLowerCase();
+            if(kat === 'bahan' || kat === 'pendukung') {
                 let stok = (this.db.stokGudang || []).find(x => x.SKU === g.SKU)?.Stok_Pusat || 0;
                 let isKritis = stok <= 5;
-                let stokBadge = isKritis ? 'bg-rose-50 text-rose-600 border-rose-100 shadow-[0_0_10px_rgba(225,29,72,0.15)] animate-pulse' : 'bg-emerald-50 text-emerald-600 border-emerald-100 shadow-sm';
+                let stokBadge = isKritis ? 'bg-rose-50 text-rose-600 border-rose-100 animate-pulse' : 'bg-emerald-50 text-emerald-600 border-emerald-100';
                 
+                // BARIS TABEL DESKTOP
                 let row = `
                 <tr class="table-row-3d border-b border-slate-50 hover:bg-slate-50 transition-all group">
-                    <td class="py-4 px-5 whitespace-normal min-w-[150px]">
-                        <div class="font-extrabold text-slate-800 text-sm mb-1">${g.Nama_Produk}</div>
-                        <div class="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[9px] font-black text-slate-500 uppercase tracking-widest">SKU: ${g.SKU}</div>
+                    <td class="py-4 px-5 whitespace-normal">
+                        <div class="font-extrabold text-slate-800 text-sm mb-0.5">${g.Nama_Produk}</div>
+                        <div class="inline-flex px-1.5 py-0.5 rounded bg-slate-100 text-[9px] font-black text-slate-500 uppercase tracking-widest">SKU: ${g.SKU}</div>
                     </td>
-                    <td class="py-4 px-5 whitespace-nowrap text-right">
-                        <span class="inline-flex w-14 h-9 items-center justify-center rounded-xl border font-black text-lg ${stokBadge}">${stok}</span>
+                    <td class="py-4 px-5 text-right">
+                        <span class="inline-flex w-16 h-9 items-center justify-center rounded-xl border font-black text-lg ${stokBadge}">${stok}</span>
                     </td>
-                    <td class="py-4 px-5 whitespace-nowrap text-center">
+                    <td class="py-4 px-5 text-center">
                         <div class="flex items-center justify-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                            <button onclick="superApp.openCrudBahan('edit', '${g.SKU}')" class="w-9 h-9 flex items-center justify-center rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white hover:shadow-lg hover:shadow-blue-200 transition-all active:scale-90" title="Edit Bahan"><i class="fas fa-edit"></i></button> 
-                            <button onclick="superApp.deleteCrud('Master_Produk', '${g.SKU}')" class="w-9 h-9 flex items-center justify-center rounded-xl bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white hover:shadow-lg hover:shadow-rose-200 transition-all active:scale-90" title="Hapus Bahan"><i class="fas fa-trash"></i></button>
+                            <button onclick="superApp.openCrudBahan('edit', '${g.SKU}')" class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white transition-all active:scale-90"><i class="fas fa-edit"></i></button>
+                            <button onclick="superApp.deleteCrud('Master_Produk', '${g.SKU}')" class="w-9 h-9 rounded-xl bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all active:scale-90"><i class="fas fa-trash"></i></button>
                         </div>
                     </td>
                 </tr>`;
-                
-                if(String(g.Kategori||'').toLowerCase() === 'bahan') htmlUtama += row; else htmlPendukung += row;
+
+                // KARTU MOBILE (Hanya muncul di HP)
+                let mobCard = `
+                <div class="md:hidden bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex justify-between items-center">
+                    <div>
+                        <div class="font-black text-sm text-slate-800">${g.Nama_Produk}</div>
+                        <div class="text-[9px] text-slate-400 font-bold uppercase mt-1">SKU: ${g.SKU}</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-[9px] font-black text-slate-400 uppercase">Sisa</div>
+                        <div class="font-black text-lg ${isKritis ? 'text-rose-600' : 'text-emerald-600'}">${stok}</div>
+                    </div>
+                </div>`;
+
+                if(kat === 'bahan') { htmlUtama += row; mobUtama += mobCard; } 
+                else { htmlPendukung += row; mobPend += mobCard; }
             }
         });
         
-        if(gBodyUtama) gBodyUtama.innerHTML = htmlUtama || `<tr><td colspan="3" class="text-center py-10 h-32">${this.getEmptyState('fa-box', 'Bahan Kosong', 'Belum ada bahan baku utama.')}</td></tr>`;
-        if(gBodyPendukung) gBodyPendukung.innerHTML = htmlPendukung || `<tr><td colspan="3" class="text-center py-10 h-32">${this.getEmptyState('fa-pump-soap', 'Pendukung Kosong', 'Belum ada barang kemasan/saus.')}</td></tr>`;
-        
+        // Update DOM
+        if(gBodyUtama) gBodyUtama.innerHTML = htmlUtama || `<tr><td colspan="3" class="text-center py-10 text-slate-400 font-bold text-xs">Kosong</td></tr>`;
+        if(gBodyPendukung) gBodyPendukung.innerHTML = htmlPendukung || `<tr><td colspan="3" class="text-center py-10 text-slate-400 font-bold text-xs">Kosong</td></tr>`;
+        if(gMobUtama) gMobUtama.innerHTML = mobUtama || '<div class="p-4 text-center text-slate-400 text-xs">Kosong</div>';
+        if(gMobPend) gMobPend.innerHTML = mobPend || '<div class="p-4 text-center text-slate-400 text-xs">Kosong</div>';
+       
         // 2. RENDER MASTER PRODUK (MENU POS)
         const masterBody = document.getElementById('master-tbody');
         if(masterBody) {

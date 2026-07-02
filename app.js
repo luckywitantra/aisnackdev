@@ -2740,20 +2740,93 @@ changeOutlet: function(val) {
         this.closeModal('modal-wa-history');
         this.showWaModal(waText);
     },
-    renderTerimaBarang: function() {
-        const lbl = document.getElementById('lbl-terima-outlet'); if (lbl) lbl.innerText = this.outlet;
+renderTerimaBarang: function() {
+        const lbl = document.getElementById('lbl-terima-outlet'); 
+        if (lbl) lbl.innerText = this.outlet;
+        
         let hu = ''; let hp = ''; let hum = ''; let hpm = '';
+        
         [...(this.db.masterProduk || [])].sort((a, b) => String(a.Nama_Produk || '').localeCompare(String(b.Nama_Produk || ''))).forEach(m => {
             if (String(m.Kategori || '').toLowerCase() === 'bahan' || String(m.Kategori || '').toLowerCase() === 'pendukung') {
-                let strHtml = `<tr class="border-b border-slate-50"><td class="py-3 px-4 min-w-[150px] whitespace-normal text-slate-800">${m.Nama_Produk}<br><span class="text-[10px] text-slate-400 font-normal">${m.SKU}</span></td><td class="py-3 px-4 text-center"><input type="text" id="trm-qty-${m.SKU}" class="w-24 border-2 border-slate-200 rounded-lg px-2 py-1 text-center outline-none focus:border-brand-500 bg-white text-slate-800 font-bold cursor-pointer" readonly onclick="osKeyboard.open('trm-qty-${m.SKU}', 'numeric')" placeholder="0"></td><td class="py-3 px-4"><input type="text" id="trm-note-${m.SKU}" class="w-full border border-slate-200 rounded-lg px-3 py-1 outline-none text-xs text-slate-800 cursor-pointer" readonly onclick="osKeyboard.open('trm-note-${m.SKU}', 'text')" placeholder="Keterangan kurir/kondisi..."></td></tr>`;
-                let strMobile = `<div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3"><h4 class="font-extrabold text-sm text-slate-800">${m.Nama_Produk}</h4><div class="flex gap-2"><input type="text" id="trm-qty-mob-${m.SKU}" class="w-1/3 border-2 border-slate-200 rounded-xl px-3 py-2 text-center outline-none focus:border-brand-500 bg-white text-slate-800 font-bold text-sm cursor-pointer" readonly onclick="osKeyboard.open('trm-qty-mob-${m.SKU}', 'numeric')" placeholder="Qty"><input type="text" id="trm-note-mob-${m.SKU}" class="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2 outline-none text-xs text-slate-800 cursor-pointer" readonly onclick="osKeyboard.open('trm-note-mob-${m.SKU}', 'text')" placeholder="Catatan..."></div></div>`;
-                if (String(m.Kategori || '').toLowerCase() === 'bahan') { hu += strHtml; hum += strMobile; } else { hp += strHtml; hpm += strMobile; }
+                
+                // 🚀 TAMPILAN DESKTOP (Tabel Row)
+                let strHtml = `
+                <tr class="border-b border-slate-50 hover:bg-slate-50/80 transition-colors group">
+                    <td class="py-3.5 px-5 min-w-[200px] whitespace-normal">
+                        <div class="font-extrabold text-sm text-slate-800">${m.Nama_Produk}</div>
+                        <div class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">SKU: ${m.SKU}</div>
+                    </td>
+                    <td class="py-3.5 px-5 text-center w-[180px]">
+                        <input type="text" id="trm-qty-${m.SKU}" class="w-24 bg-slate-50 hover:bg-white focus:bg-white border-2 border-slate-200 focus:border-emerald-500 rounded-xl px-3 py-2 text-center outline-none font-black text-emerald-600 transition-all shadow-inner cursor-pointer text-sm" readonly onclick="osKeyboard.open('trm-qty-${m.SKU}', 'numeric')" placeholder="0">
+                    </td>
+                    <td class="py-3.5 px-5 min-w-[250px]">
+                        <input type="text" id="trm-note-${m.SKU}" class="w-full bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-emerald-500 rounded-xl px-3.5 py-2 outline-none text-xs font-bold text-slate-700 transition-all cursor-pointer" readonly onclick="osKeyboard.open('trm-note-${m.SKU}', 'text')" placeholder="Keterangan kurir / kondisi fisik...">
+                    </td>
+                </tr>`;
+                
+                // 🚀 TAMPILAN MOBILE (Card Layout)
+                let strMobile = `
+                <div class="bg-white p-4 rounded-[1.25rem] border border-slate-100 shadow-sm hover:shadow-md transition-all flex flex-col gap-3 group">
+                    <div>
+                        <h4 class="font-extrabold text-sm text-slate-800">${m.Nama_Produk}</h4>
+                        <p class="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">SKU: ${m.SKU}</p>
+                    </div>
+                    <div class="flex gap-2.5 mt-1">
+                        <input type="text" id="trm-qty-mob-${m.SKU}" class="w-20 bg-slate-50 border-2 border-slate-200 focus:border-emerald-500 rounded-xl px-2 py-2.5 text-center outline-none font-black text-emerald-600 transition-all shadow-inner cursor-pointer text-sm" readonly onclick="osKeyboard.open('trm-qty-mob-${m.SKU}', 'numeric')" placeholder="Qty">
+                        <input type="text" id="trm-note-mob-${m.SKU}" class="flex-1 bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 outline-none text-xs font-bold text-slate-700 transition-all cursor-pointer" readonly onclick="osKeyboard.open('trm-note-mob-${m.SKU}', 'text')" placeholder="Catatan...">
+                    </div>
+                </div>`;
+                
+                if (String(m.Kategori || '').toLowerCase() === 'bahan') { 
+                    hu += strHtml; hum += strMobile; 
+                } else { 
+                    hp += strHtml; hpm += strMobile; 
+                }
             }
         });
-        const tU = document.getElementById('terima-tbody-utama'); if (tU) tU.innerHTML = hu || this.getEmptyState('fa-box-open', 'Belum Ada Bahan', 'Tambahkan bahan di menu gudang');
-        const tP = document.getElementById('terima-tbody-pendukung'); if (tP) tP.innerHTML = hp || this.getEmptyState('fa-box-open', 'Belum Ada Barang', 'Tambahkan pendukung di gudang');
-        const tMob = document.getElementById('terima-mobile-cards'); if (tMob) tMob.innerHTML = `<h4 class="font-extrabold text-brand-600 mt-2 mb-2 bg-brand-50 p-3 rounded-xl border border-brand-100 text-sm">A. Bahan Utama</h4>` + (hum || '<p class="text-xs text-center">Kosong</p>') + `<h4 class="font-extrabold text-slate-600 mt-6 mb-2 bg-slate-100 p-3 rounded-xl border border-slate-200 text-sm">B. Pendukung & Packaging</h4>` + (hpm || '<p class="text-xs text-center">Kosong</p>');
+
+        // INJEKSI KE TABEL DESKTOP
+        const tU = document.getElementById('terima-tbody-utama'); 
+        if (tU) tU.innerHTML = hu || `<tr><td colspan="3" class="py-12">${this.getEmptyState('fa-box-open', 'Belum Ada Bahan', 'Tambahkan bahan di menu gudang')}</td></tr>`;
+        
+        const tP = document.getElementById('terima-tbody-pendukung'); 
+        if (tP) tP.innerHTML = hp || `<tr><td colspan="3" class="py-12">${this.getEmptyState('fa-pump-soap', 'Belum Ada Barang', 'Tambahkan pendukung di gudang')}</td></tr>`;
+
+        // 🚀 INJEKSI KE MOBILE CARDS (Dengan Header Modern)
+        const tMob = document.getElementById('terima-mobile-cards'); 
+        if (tMob) {
+            let mobileLayout = '';
+            
+            // Kategori Bahan Utama
+            mobileLayout += `
+            <div class="sticky top-0 z-20 bg-[#f4f7f9]/95 backdrop-blur-md pt-1 pb-3 mb-1">
+                <div class="flex items-center justify-between bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent p-3.5 rounded-2xl border-l-4 border-emerald-500">
+                    <h4 class="font-black text-emerald-950 text-xs tracking-widest uppercase flex items-center gap-2.5">
+                        <i class="fas fa-box-open text-emerald-600 text-base"></i> A. Bahan Utama
+                    </h4>
+                </div>
+            </div>
+            <div class="flex flex-col gap-3 mb-6">
+                ${hum || '<div class="text-center py-8 text-slate-400 text-xs font-bold border-2 border-dashed border-slate-200 rounded-2xl bg-white/50">Tidak ada bahan utama</div>'}
+            </div>`;
+
+            // Kategori Pendukung
+            mobileLayout += `
+            <div class="sticky top-0 z-20 bg-[#f4f7f9]/95 backdrop-blur-md pt-1 pb-3 mb-1">
+                <div class="flex items-center justify-between bg-gradient-to-r from-slate-500/10 via-slate-500/5 to-transparent p-3.5 rounded-2xl border-l-4 border-slate-600">
+                    <h4 class="font-black text-slate-800 text-xs tracking-widest uppercase flex items-center gap-2.5">
+                        <i class="fas fa-pump-soap text-slate-600 text-base"></i> B. Barang Pendukung
+                    </h4>
+                </div>
+            </div>
+            <div class="flex flex-col gap-3">
+                ${hpm || '<div class="text-center py-8 text-slate-400 text-xs font-bold border-2 border-dashed border-slate-200 rounded-2xl bg-white/50">Tidak ada barang pendukung</div>'}
+            </div>`;
+
+            tMob.innerHTML = mobileLayout;
+        }
     },
+    
    submitTerimaBarang: async function() {
     if (this.isProcessing) return;
     

@@ -152,41 +152,61 @@
     </div>
 </div>
 
-  <div id="login-screen" class="fixed inset-0 bg-slate-900 z-[200] flex flex-col items-center justify-center p-4">
-    <div class="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl flex flex-col items-center border border-slate-200">
-        <!-- Logo -->
-        <div class="w-20 h-20 bg-gradient-to-br from-orange-500 to-amber-500 rounded-[1.5rem] flex items-center justify-center shadow-lg mb-4 p-3 shrink-0">
-            <img src="https://cdn-icons-png.flaticon.com/512/3081/3081308.png" class="w-full h-full object-contain filter drop-shadow-md">
-        </div>
-        
-        <h2 class="text-2xl font-black text-slate-800 mb-1">Masuk Sistem</h2>
-        <p class="text-xs font-bold text-slate-400 mb-6 uppercase tracking-widest">Otorisasi PIN</p>
-      
-        <!-- Indikator PIN -->
-        <div class="flex gap-4 mb-6 justify-center">
-            <div class="w-4 h-4 rounded-full border-2 border-slate-300 bg-slate-100 pin-dot" id="dot-1"></div>
-            <div class="w-4 h-4 rounded-full border-2 border-slate-300 bg-slate-100 pin-dot" id="dot-2"></div>
-            <div class="w-4 h-4 rounded-full border-2 border-slate-300 bg-slate-100 pin-dot" id="dot-3"></div>
-            <div class="w-4 h-4 rounded-full border-2 border-slate-300 bg-slate-100 pin-dot" id="dot-4"></div>
-        </div>
+  <!-- ========================================================= -->
+<!-- LOGIN SCREEN (CINEMATIC GLASSMORPHISM REDESIGN)           -->
+<!-- ========================================================= -->
+<div id="login-screen" class="fixed inset-0 bg-slate-950 z-[200] flex flex-col items-center justify-center p-4 overflow-hidden relative">
+    
+    <!-- Latar Belakang Cinematic (Glowing Orbs) -->
+    <div class="absolute top-0 left-1/4 w-[500px] h-[500px] bg-brand-500/20 rounded-full blur-[120px] pointer-events-none mix-blend-screen"></div>
+    <div class="absolute bottom-0 right-1/4 w-[600px] h-[600px] bg-indigo-500/15 rounded-full blur-[150px] pointer-events-none mix-blend-screen"></div>
 
-        <!-- Numpad Grid -->
-        <div class="grid grid-cols-3 gap-3 w-full mb-4">
-            <button class="py-4 font-black text-xl bg-slate-50 rounded-2xl hover:bg-slate-100 active:scale-95 transition-all" onclick="superApp.addPin('1')">1</button>
-            <button class="py-4 font-black text-xl bg-slate-50 rounded-2xl hover:bg-slate-100 active:scale-95 transition-all" onclick="superApp.addPin('2')">2</button>
-            <button class="py-4 font-black text-xl bg-slate-50 rounded-2xl hover:bg-slate-100 active:scale-95 transition-all" onclick="superApp.addPin('3')">3</button>
-            <button class="py-4 font-black text-xl bg-slate-50 rounded-2xl hover:bg-slate-100 active:scale-95 transition-all" onclick="superApp.addPin('4')">4</button>
-            <button class="py-4 font-black text-xl bg-slate-50 rounded-2xl hover:bg-slate-100 active:scale-95 transition-all" onclick="superApp.addPin('5')">5</button>
-            <button class="py-4 font-black text-xl bg-slate-50 rounded-2xl hover:bg-slate-100 active:scale-95 transition-all" onclick="superApp.addPin('6')">6</button>
-            <button class="py-4 font-black text-xl bg-slate-50 rounded-2xl hover:bg-slate-100 active:scale-95 transition-all" onclick="superApp.addPin('7')">7</button>
-            <button class="py-4 font-black text-xl bg-slate-50 rounded-2xl hover:bg-slate-100 active:scale-95 transition-all" onclick="superApp.addPin('8')">8</button>
-            <button class="py-4 font-black text-xl bg-slate-50 rounded-2xl hover:bg-slate-100 active:scale-95 transition-all" onclick="superApp.addPin('9')">9</button>
-            <button class="py-4 text-lg bg-slate-50 text-slate-400 rounded-2xl hover:bg-slate-100 active:scale-95 transition-all" onclick="superApp.clearPin()"><i class="fas fa-times"></i></button>
-            <button class="py-4 font-black text-xl bg-slate-50 rounded-2xl hover:bg-slate-100 active:scale-95 transition-all" onclick="superApp.addPin('0')">0</button>
-            <button class="py-4 text-lg bg-red-50 text-red-500 rounded-2xl hover:bg-red-100 active:scale-95 transition-all" onclick="superApp.delPin()"><i class="fas fa-backspace"></i></button>
+    <!-- Kotak Login Utama -->
+    <div class="bg-white/90 backdrop-blur-2xl rounded-[2.5rem] w-full max-w-[360px] p-8 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] flex flex-col items-center border border-white/40 relative z-10 modal-enter transition-all duration-500">
+        
+        <!-- Logo -->
+        <div class="w-20 h-20 bg-gradient-to-br from-brand-500 via-orange-500 to-amber-500 rounded-[1.5rem] flex items-center justify-center shadow-lg shadow-brand-500/30 mb-5 p-3 relative group">
+            <div class="absolute inset-0 bg-white/20 rounded-[1.5rem] opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <img src="https://cdn-icons-png.flaticon.com/512/3081/3081308.png" class="app-logo-img w-full h-full object-contain filter drop-shadow-sm group-hover:scale-110 transition-transform duration-300">
         </div>
         
-        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest text-center mt-2 animate-pulse" id="login-status">Memuat Database...</p>
+        <h2 class="text-2xl font-black text-slate-800 mb-1 tracking-tight drop-shadow-sm">Masuk Sistem</h2>
+        <p class="text-[11px] font-black text-slate-400 mb-8 uppercase tracking-widest">Otorisasi PIN Kasir</p>
+      
+        <div id="pin-numpad-container" class="w-full transition-all duration-300">
+            <!-- Indikator PIN (Dots) -->
+            <div class="flex gap-5 mb-8 justify-center">
+                <div class="w-4 h-4 rounded-full bg-slate-200/80 shadow-inner pin-dot transition-all duration-300 transform" id="dot-1"></div>
+                <div class="w-4 h-4 rounded-full bg-slate-200/80 shadow-inner pin-dot transition-all duration-300 transform" id="dot-2"></div>
+                <div class="w-4 h-4 rounded-full bg-slate-200/80 shadow-inner pin-dot transition-all duration-300 transform" id="dot-3"></div>
+                <div class="w-4 h-4 rounded-full bg-slate-200/80 shadow-inner pin-dot transition-all duration-300 transform" id="dot-4"></div>
+            </div>
+            
+            <!-- Keypad Numerik Modern -->
+            <div class="grid grid-cols-3 gap-3 w-full mb-2">
+                <button class="h-16 text-2xl font-black rounded-[1.25rem] bg-transparent hover:bg-white text-slate-700 hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all active:scale-90 active:bg-slate-100" onclick="superApp.addPin('1')">1</button>
+                <button class="h-16 text-2xl font-black rounded-[1.25rem] bg-transparent hover:bg-white text-slate-700 hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all active:scale-90 active:bg-slate-100" onclick="superApp.addPin('2')">2</button>
+                <button class="h-16 text-2xl font-black rounded-[1.25rem] bg-transparent hover:bg-white text-slate-700 hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all active:scale-90 active:bg-slate-100" onclick="superApp.addPin('3')">3</button>
+                <button class="h-16 text-2xl font-black rounded-[1.25rem] bg-transparent hover:bg-white text-slate-700 hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all active:scale-90 active:bg-slate-100" onclick="superApp.addPin('4')">4</button>
+                <button class="h-16 text-2xl font-black rounded-[1.25rem] bg-transparent hover:bg-white text-slate-700 hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all active:scale-90 active:bg-slate-100" onclick="superApp.addPin('5')">5</button>
+                <button class="h-16 text-2xl font-black rounded-[1.25rem] bg-transparent hover:bg-white text-slate-700 hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all active:scale-90 active:bg-slate-100" onclick="superApp.addPin('6')">6</button>
+                <button class="h-16 text-2xl font-black rounded-[1.25rem] bg-transparent hover:bg-white text-slate-700 hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all active:scale-90 active:bg-slate-100" onclick="superApp.addPin('7')">7</button>
+                <button class="h-16 text-2xl font-black rounded-[1.25rem] bg-transparent hover:bg-white text-slate-700 hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all active:scale-90 active:bg-slate-100" onclick="superApp.addPin('8')">8</button>
+                <button class="h-16 text-2xl font-black rounded-[1.25rem] bg-transparent hover:bg-white text-slate-700 hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all active:scale-90 active:bg-slate-100" onclick="superApp.addPin('9')">9</button>
+                
+                <!-- Tombol Hapus (Clear) -->
+                <button class="h-16 text-xl font-black rounded-[1.25rem] bg-transparent text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all active:scale-90 flex justify-center items-center" onclick="superApp.clearPin()"><i class="fas fa-times"></i></button>
+                
+                <button class="h-16 text-2xl font-black rounded-[1.25rem] bg-transparent hover:bg-white text-slate-700 hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all active:scale-90 active:bg-slate-100" onclick="superApp.addPin('0')">0</button>
+                
+                <!-- Tombol Backspace -->
+                <button class="h-16 text-xl font-black rounded-[1.25rem] bg-transparent text-rose-400 hover:bg-rose-50 hover:text-rose-600 transition-all active:scale-90 flex justify-center items-center" onclick="superApp.delPin()"><i class="fas fa-backspace"></i></button>
+            </div>
+        
+        <!-- Status Label -->
+        <div class="mt-4 h-6 flex items-center justify-center">
+            <p class="text-[10px] text-brand-500 font-bold uppercase tracking-widest text-center animate-pulse bg-brand-50 px-3 py-1 rounded-full border border-brand-100 hidden" id="login-status">Memuat Database Google...</p>
+        </div>
     </div>
 </div>
   

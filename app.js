@@ -5715,16 +5715,6 @@ executeVoidTrx: async function(trxId) {
         }
     },
 
-    gnTarget: null,
-    
-    toggleReportFilter: function() {
-        const modal = document.getElementById('mobile-filter-modal');
-        if(modal.classList.contains('translate-y-full')) {
-            modal.classList.remove('translate-y-full');
-        } else {
-            modal.classList.add('translate-y-full');
-        }
-    },
 
     openGiantNumpad: function(targetId, title, subtitle) {
         this.gnTarget = document.getElementById(targetId);

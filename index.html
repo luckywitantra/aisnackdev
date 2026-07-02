@@ -685,76 +685,65 @@
             <i class="fas fa-chart-pie"></i>
         </div>
 
-        <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center border-b border-slate-100 pb-5 mb-5 shrink-0 relative z-10 gap-5">
-            <div class="flex items-center gap-4 w-full xl:w-auto justify-between md:justify-start">
+        <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center border-b border-slate-100 pb-5 mb-5 shrink-0 relative z-10 gap-5 w-full">
+            <div class="flex items-center justify-between w-full xl:w-auto gap-4">
                 <div class="flex items-center gap-4">
                     <div class="w-14 h-14 md:w-16 md:h-16 bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 rounded-[1.35rem] flex items-center justify-center text-white text-2xl md:text-3xl shadow-lg shadow-blue-500/25 shrink-0 transform transition-transform group-hover:scale-105">
                         <i class="fas fa-chart-pie"></i>
                     </div>
                     <div>
-                        <h3 class="font-black text-2xl md:text-3xl text-slate-800 tracking-tight">Laporan Operasional</h3>
-                        <p class="text-xs md:text-sm font-bold text-slate-400 mt-1 uppercase tracking-widest">Riwayat, Kas & Analisis BOM</p>
+                        <h3 class="font-black text-2xl md:text-3xl text-slate-800 tracking-tight">Laporan</h3>
+                        <p class="text-xs md:text-sm font-bold text-slate-400 mt-1 uppercase tracking-widest">Operasional & Analisis</p>
                     </div>
                 </div>
-                <button onclick="superApp.toggleReportFilter()" class="xl:hidden bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-100 px-4 py-2.5 rounded-xl shadow-sm font-extrabold text-xs transition active:scale-95 flex items-center gap-2">
-                    <i class="fas fa-filter"></i> Filter
+                
+                <button onclick="document.getElementById('inline-filter-panel').classList.toggle('hidden'); document.getElementById('inline-filter-panel').classList.toggle('flex');" class="xl:hidden bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-100 px-4 py-2.5 rounded-xl shadow-sm font-extrabold text-xs transition active:scale-95 flex items-center gap-2 shrink-0">
+                    <i class="fas fa-sliders-h"></i> Filter
                 </button>
             </div>
             
             <div class="flex gap-2 bg-slate-50 p-1.5 rounded-2xl shadow-inner border border-slate-200 overflow-x-auto w-full xl:w-auto custom-scroll shrink-0">
                 <button onclick="superApp.toggleReportTab('trx')" id="tab-trx" class="px-5 py-2.5 bg-white text-brand-600 rounded-xl text-xs md:text-sm font-extrabold shadow-sm whitespace-nowrap transition border border-slate-200"><i class="fas fa-home mr-1.5 opacity-70"></i>Dashboard</button>
-                <button onclick="superApp.toggleReportTab('rekap')" id="tab-rekap" class="px-5 py-2.5 text-slate-500 hover:bg-white hover:text-slate-800 rounded-xl text-xs md:text-sm font-bold whitespace-nowrap transition border border-transparent"><i class="fas fa-list mr-1.5 opacity-70"></i>Rekap Jualan</button>
+                <button onclick="superApp.toggleReportTab('rekap')" id="tab-rekap" class="px-5 py-2.5 text-slate-500 hover:bg-white hover:text-slate-800 rounded-xl text-xs md:text-sm font-bold whitespace-nowrap transition border border-transparent"><i class="fas fa-list mr-1.5 opacity-70"></i>Rekap</button>
                 <button onclick="superApp.toggleReportTab('kas')" id="tab-kas" class="px-5 py-2.5 text-slate-500 hover:bg-white hover:text-slate-800 rounded-xl text-xs md:text-sm font-bold whitespace-nowrap transition border border-transparent"><i class="fas fa-money-bill-transfer mr-1.5 opacity-70"></i>Kas Keluar</button>
-                <button onclick="superApp.toggleReportTab('selisih')" id="tab-selisih" class="px-5 py-2.5 text-slate-500 hover:bg-white hover:text-slate-800 rounded-xl text-xs md:text-sm font-bold whitespace-nowrap transition border border-transparent"><i class="fas fa-clipboard-check mr-1.5 opacity-70"></i>Audit Selisih</button>
-                <button onclick="superApp.toggleReportTab('bom')" id="tab-bom" class="px-5 py-2.5 text-slate-500 hover:bg-white hover:text-slate-800 rounded-xl text-xs md:text-sm font-bold whitespace-nowrap transition border border-transparent"><i class="fas fa-boxes-stacked mr-1.5 opacity-70"></i>Analisis BOM</button>
+                <button onclick="superApp.toggleReportTab('selisih')" id="tab-selisih" class="px-5 py-2.5 text-slate-500 hover:bg-white hover:text-slate-800 rounded-xl text-xs md:text-sm font-bold whitespace-nowrap transition border border-transparent"><i class="fas fa-clipboard-check mr-1.5 opacity-70"></i>Audit</button>
+                <button onclick="superApp.toggleReportTab('bom')" id="tab-bom" class="px-5 py-2.5 text-slate-500 hover:bg-white hover:text-slate-800 rounded-xl text-xs md:text-sm font-bold whitespace-nowrap transition border border-transparent"><i class="fas fa-boxes-stacked mr-1.5 opacity-70"></i>BOM</button>
             </div>
         </div>
 
-        <div id="mobile-filter-modal" class="fixed inset-x-0 bottom-0 bg-white rounded-t-[2.5rem] shadow-[0_-20px_50px_rgba(0,0,0,0.15)] p-6 z-[80] transform translate-y-full transition-transform duration-400 xl:static xl:translate-y-0 xl:bg-transparent xl:shadow-none xl:p-0 xl:flex xl:flex-col xl:justify-between xl:items-end gap-4 shrink-0 w-full max-h-[85dvh] overflow-y-auto custom-scroll relative z-20 mb-2">
+        <div id="inline-filter-panel" class="hidden xl:flex flex-col xl:flex-row w-full gap-3 xl:gap-4 items-center justify-end mb-6 bg-slate-50 xl:bg-transparent p-5 xl:p-0 rounded-[1.5rem] border border-slate-200 xl:border-none shadow-inner xl:shadow-none transition-all origin-top relative z-10">
             
-            <div class="flex justify-between items-center mb-6 xl:hidden border-b border-slate-100 pb-4 shrink-0 w-full">
-                <div>
-                    <h3 class="font-black text-xl text-slate-800 tracking-tight">Filter Laporan</h3>
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Sesuaikan Data Tampilan</p>
-                </div>
-                <button onclick="superApp.toggleReportFilter()" class="w-10 h-10 bg-slate-50 hover:bg-rose-50 hover:text-rose-500 rounded-full flex items-center justify-center text-slate-400 transition-colors shadow-sm border border-slate-200/50 active:scale-90"><i class="fas fa-times text-lg"></i></button>
+            <div class="relative w-full xl:w-64 shrink-0">
+                <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                <input type="text" id="filter-search-trx" placeholder="Cari Resi atau Item..." class="w-full h-[52px] bg-white border-2 border-slate-200 rounded-[1.25rem] pl-11 pr-4 py-2 font-bold text-sm text-slate-700 outline-none focus:border-brand-500 transition-all shadow-sm cursor-pointer hover:border-slate-300" readonly onclick="osKeyboard.open('filter-search-trx', 'text')" oninput="superApp.renderReport()">
             </div>
-            
-            <div class="flex flex-col xl:flex-row gap-4 xl:gap-3 w-full items-center">
-                
-                <div class="relative w-full xl:flex-1">
-                    <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                    <input type="text" id="filter-search-trx" placeholder="Cari Resi atau Item..." class="w-full h-full min-h-[54px] bg-slate-50 xl:bg-white border-2 border-slate-200 rounded-[1.25rem] pl-11 pr-4 py-3 font-bold text-sm text-slate-700 outline-none focus:border-brand-500 focus:bg-white transition-all cursor-pointer shadow-inner xl:shadow-sm" readonly onclick="osKeyboard.open('filter-search-trx', 'text')" oninput="superApp.renderReport()">
+
+            <div class="flex items-center w-full xl:w-auto bg-white rounded-[1.25rem] border-2 border-slate-200 shadow-sm shrink-0 overflow-hidden focus-within:border-brand-500 transition-all">
+                <div class="flex-1 flex flex-col justify-center px-3 py-1.5 hover:bg-slate-50 cursor-pointer" onclick="document.getElementById('filter-start').showPicker()">
+                    <label class="text-[8px] font-black text-slate-400 uppercase tracking-widest cursor-pointer">Tgl Awal</label>
+                    <input type="date" id="filter-start" class="w-full bg-transparent border-none p-0 m-0 font-black text-xs md:text-sm text-slate-800 outline-none cursor-pointer" onchange="superApp.renderReport()">
                 </div>
-                
-                <div class="grid grid-cols-2 gap-3 w-full xl:w-auto">
-                    <div class="bg-slate-50 xl:bg-white border-2 border-slate-200 rounded-[1.25rem] p-2 flex flex-col focus-within:border-brand-500 focus-within:bg-white transition-all shadow-inner xl:shadow-sm group cursor-pointer" onclick="document.getElementById('filter-start').showPicker()">
-                        <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2 pt-0.5 group-focus-within:text-brand-500">Tgl Awal</label>
-                        <input type="date" id="filter-start" class="w-full bg-transparent border-none px-1.5 pb-0.5 font-black text-xs md:text-sm text-slate-700 outline-none cursor-pointer" onchange="superApp.renderReport()">
-                    </div>
-                    <div class="bg-slate-50 xl:bg-white border-2 border-slate-200 rounded-[1.25rem] p-2 flex flex-col focus-within:border-brand-500 focus-within:bg-white transition-all shadow-inner xl:shadow-sm group cursor-pointer" onclick="document.getElementById('filter-end').showPicker()">
-                        <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2 pt-0.5 group-focus-within:text-brand-500">Tgl Akhir</label>
-                        <input type="date" id="filter-end" class="w-full bg-transparent border-none px-1.5 pb-0.5 font-black text-xs md:text-sm text-slate-700 outline-none cursor-pointer" onchange="superApp.renderReport()">
-                    </div>
-                </div>
-                
-                <select id="report-outlet-filter" class="w-full xl:w-auto h-[54px] bg-slate-50 xl:bg-white border-2 border-slate-200 rounded-[1.25rem] px-4 font-bold text-sm outline-none shadow-inner xl:shadow-sm hidden text-slate-700 cursor-pointer focus:border-brand-500 focus:bg-white transition-all" onchange="superApp.renderReport()"></select>
-                
-                <div class="grid grid-cols-4 xl:flex gap-3 w-full xl:w-auto mt-2 xl:mt-0">
-                    <button onclick="superApp.exportPDF()" class="col-span-1 xl:flex-none h-[54px] xl:px-5 bg-rose-50 hover:bg-rose-500 text-rose-600 hover:text-white border border-rose-200 hover:border-rose-500 rounded-[1.25rem] font-bold shadow-sm transition-all flex justify-center items-center active:scale-95 group" title="Unduh PDF">
-                        <i class="fas fa-file-pdf text-xl group-hover:scale-110 transition-transform"></i>
-                    </button>
-                    <button onclick="superApp.sendReportToWA()" class="col-span-3 xl:flex-none h-[54px] px-6 bg-gradient-to-r from-[#25D366] to-[#128C7E] text-white rounded-[1.25rem] font-black shadow-[0_8px_15px_rgba(37,211,102,0.3)] hover:shadow-[0_10px_20px_rgba(37,211,102,0.4)] transition-all hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2.5 active:scale-95" title="Kirim Laporan ke WA Owner">
-                        <i class="fab fa-whatsapp text-xl"></i><span>Lapor WA</span>
-                    </button>
+                <div class="w-px h-8 bg-slate-200"></div>
+                <div class="flex-1 flex flex-col justify-center px-3 py-1.5 hover:bg-slate-50 cursor-pointer" onclick="document.getElementById('filter-end').showPicker()">
+                    <label class="text-[8px] font-black text-slate-400 uppercase tracking-widest cursor-pointer">Tgl Akhir</label>
+                    <input type="date" id="filter-end" class="w-full bg-transparent border-none p-0 m-0 font-black text-xs md:text-sm text-slate-800 outline-none cursor-pointer" onchange="superApp.renderReport()">
                 </div>
             </div>
-            
-            <button onclick="superApp.toggleReportFilter()" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-black py-4 rounded-2xl mt-6 xl:hidden active:scale-95 transition-all shadow-[0_8px_25px_rgba(0,0,0,0.2)] tracking-widest text-sm border border-slate-700 flex justify-center items-center gap-2">
-                <i class="fas fa-check-circle text-emerald-400 text-lg"></i> TERAPKAN FILTER
-            </button>
+
+            <select id="report-outlet-filter" class="w-full xl:w-auto h-[52px] bg-white border-2 border-slate-200 rounded-[1.25rem] px-4 font-bold text-sm outline-none shadow-sm hidden text-slate-700 cursor-pointer focus:border-brand-500 shrink-0" onchange="superApp.renderReport()"></select>
+
+            <div class="flex gap-2.5 w-full xl:w-auto shrink-0 mt-2 xl:mt-0 pt-2 xl:pt-0 border-t xl:border-t-0 border-slate-200/60">
+                <button onclick="superApp.exportPDF()" class="flex-1 xl:flex-none h-[52px] xl:px-5 bg-rose-50 hover:bg-rose-500 text-rose-600 hover:text-white border border-rose-200 hover:border-rose-500 rounded-[1.25rem] font-bold shadow-sm transition-all flex items-center justify-center gap-2.5 active:scale-95 group" title="Unduh PDF">
+                    <i class="fas fa-file-pdf text-xl group-hover:scale-110 transition-transform"></i> 
+                    <span class="xl:hidden font-black">Cetak PDF</span>
+                </button>
+                <button onclick="superApp.sendReportToWA()" class="flex-[2] xl:flex-none h-[52px] px-6 bg-gradient-to-r from-[#25D366] to-[#128C7E] text-white rounded-[1.25rem] font-black shadow-md shadow-green-200 hover:shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2.5" title="Kirim WA Laporan">
+                    <i class="fab fa-whatsapp text-xl"></i><span>Lapor WA</span>
+                </button>
+            </div>
         </div>
-        <div id="pdf-export-area" class="bg-white rounded-[2rem] flex-1 flex flex-col min-h-0 relative z-10 w-full mt-2">
+
+        <div id="pdf-export-area" class="bg-white rounded-[2rem] flex-1 flex flex-col min-h-0 relative z-10 w-full mt-1">
             
             <div class="text-center mb-6 border-b border-slate-100 pb-4 shrink-0 hidden md:block">
                 <h2 class="text-xl font-black uppercase tracking-widest text-slate-800 mb-1">Laporan Operasional</h2>

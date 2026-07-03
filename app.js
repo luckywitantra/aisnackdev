@@ -2426,80 +2426,96 @@ changeOutlet: function(val) {
         this.renderCart(); 
     },
     
-    renderCart: function() {
-        const cont = document.getElementById('cart-container'); let total = 0, items = 0, html = ''; if (!cont) return;
+   renderCart: function() {
+        const cont = document.getElementById('cart-container'); 
+        let total = 0, items = 0, html = ''; 
+        if (!cont) return;
         
-        // 🚀 FITUR 1: Tombol Hapus Semua (Muncul jika ada isinya)
+        // 🚀 FITUR 1: Tombol Hapus Semua Minimalis (Muncul jika keranjang terisi)
         if (this.cart.length > 0) {
             html += `
-            <div class="flex justify-between items-center mb-3 px-1">
-                <span class="text-[10px] font-black text-slate-400 tracking-widest uppercase">Daftar Pesanan</span>
-                <button onclick="superApp.clearCart()" class="text-[10px] font-black text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm active:scale-95">
-                    <i class="fas fa-trash-alt"></i> Hapus Semua
+            <div class="flex justify-between items-center mb-3.5 px-1 shrink-0">
+                <span class="text-[10px] font-black text-slate-400 tracking-widest uppercase flex items-center gap-1.5">
+                    <i class="fas fa-list-ul text-slate-300"></i> Daftar Pesanan
+                </span>
+                <button onclick="superApp.clearCart()" class="text-[10px] font-black text-rose-500 hover:text-rose-600 bg-rose-50/80 hover:bg-rose-100 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 shadow-2xs active:scale-90 border border-rose-100/60">
+                    <i class="fas fa-trash-alt text-[11px]"></i> Hapus Semua
                 </button>
             </div>`;
         }
 
         this.cart.forEach((i, idx) => {
-            total += (i.price * i.qty); items += i.qty;
+            total += (i.price * i.qty); 
+            items += i.qty;
             
             // Logika hitung sisa stok aktual di keranjang
-            let sisaBahanDiKeranjang = 0; let refBahan = i.sku_bahan || i.sku;
+            let sisaBahanDiKeranjang = 0; 
+            let refBahan = i.sku_bahan || i.sku;
             this.cart.forEach(c => { if ((c.sku_bahan || c.sku) === refBahan) sisaBahanDiKeranjang += c.qty; });
             let stokTersisaVisual = i.maxStok - sisaBahanDiKeranjang;
 
-            // 🚀 FITUR 2: Wrapper UI untuk Swipe-to-Delete
+            // Efek visual jika stok limit/habis
+            let stokLimitStyle = stokTersisaVisual <= 0 
+                ? 'bg-rose-50 text-rose-600 border-rose-200 animate-pulse font-black' 
+                : (stokTersisaVisual <= 5 ? 'bg-amber-50 text-amber-600 border-amber-200 font-extrabold' : 'bg-slate-50 text-slate-400 border-slate-100 font-bold');
+
+            // 🚀 FITUR 2: Wrapper Kartu Pesanan dengan Swipe-to-Delete Modern
             html += `
-            <div class="relative overflow-hidden rounded-[1.25rem] mb-3 bg-rose-500 shadow-[0_4px_12px_rgba(0,0,0,0.03)] group">
+            <div class="relative overflow-hidden rounded-2xl mb-2.5 bg-rose-500 shadow-2xs group select-none transition-all">
                 
-                <button onclick="superApp.changeQty(${idx}, -999)" class="absolute inset-y-0 right-0 w-20 flex flex-col items-center justify-center text-white text-[10px] font-black transition-colors hover:bg-rose-600 active:bg-rose-700">
-                    <i class="fas fa-trash-alt mb-1 text-base drop-shadow-sm"></i> HAPUS
+                <button onclick="superApp.changeQty(${idx}, -999)" class="absolute inset-y-0 right-0 w-20 flex flex-col items-center justify-center text-white text-[10px] font-black transition-colors hover:bg-rose-600 active:bg-rose-700 tracking-wider">
+                    <i class="fas fa-trash-alt mb-1 text-base drop-shadow-sm group-hover:scale-110 transition-transform"></i> HAPUS
                 </button>
 
-                <div class="flex bg-white border border-slate-100 p-3.5 rounded-[1.25rem] items-center gap-3 text-slate-800 transition-transform duration-300 transform relative z-10 w-full"
+                <div class="flex bg-white border border-slate-100/80 p-3.5 rounded-2xl items-center gap-3 text-slate-800 transition-transform duration-300 transform relative z-10 w-full hover:border-slate-200"
                      ontouchstart="this.startX = event.touches[0].clientX; this.style.transition = 'none';"
                      ontouchmove="let diff = this.startX - event.touches[0].clientX; if(diff > 0 && diff < 100) { this.style.transform = 'translateX(-' + diff + 'px)'; }"
-                     ontouchend="let diff = this.startX - event.changedTouches[0].clientX; this.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'; if(diff > 40) { this.style.transform = 'translateX(-80px)'; } else { this.style.transform = 'translateX(0)'; }">
+                     ontouchend="let diff = this.startX - event.changedTouches[0].clientX; this.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'; if(diff > 45) { this.style.transform = 'translateX(-80px)'; } else { this.style.transform = 'translateX(0)'; }">
                     
-                    <div class="flex-1 min-w-0">
-                        <h4 class="font-extrabold text-sm truncate text-slate-800 mb-0.5">${i.nama}</h4>
-                        <div class="flex items-center gap-2">
-                            <p class="text-brand-500 font-black text-sm tracking-tight">Rp ${(i.price * i.qty).toLocaleString('id-ID')}</p>
-                            <span class="text-[10px] text-slate-400 font-bold border border-slate-100 px-1.5 py-0.5 rounded-md ${stokTersisaVisual <= 0 ? 'bg-red-50 text-red-500 border-red-100' : ''}">Sisa: ${stokTersisaVisual}</span>
+                    <div class="flex-1 min-w-0 pr-1">
+                        <h4 class="font-extrabold text-xs md:text-sm truncate text-slate-800 mb-1 leading-snug">${i.nama}</h4>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <p class="text-brand-600 font-black text-xs md:text-sm tracking-tight">Rp ${(i.price * i.qty).toLocaleString('id-ID')}</p>
+                            <span class="text-[9px] border px-1.5 py-0.5 rounded-md ${stokLimitStyle}">Sisa: ${stokTersisaVisual}</span>
                         </div>
                     </div>
 
-                    <div class="flex bg-slate-50 rounded-xl border border-slate-200 shadow-inner p-1 overflow-hidden shrink-0 items-center">
-                        <button onclick="superApp.changeQty(${idx}, -1)" class="w-8 h-8 flex items-center justify-center font-black text-slate-400 hover:text-brand-600 hover:bg-white rounded-lg transition-all hover:shadow-sm active:scale-90"><i class="fas fa-minus text-xs"></i></button>
-                        <span class="w-8 flex items-center justify-center text-sm font-black text-slate-800">${i.qty}</span>
-                        <button onclick="superApp.changeQty(${idx}, 1)" class="w-8 h-8 flex items-center justify-center font-black text-slate-400 hover:text-brand-600 hover:bg-white rounded-lg transition-all hover:shadow-sm active:scale-90"><i class="fas fa-plus text-xs"></i></button>
+                    <div class="flex bg-slate-100/80 rounded-xl border border-slate-200/60 p-1 shrink-0 items-center shadow-inner">
+                        <button onclick="superApp.changeQty(${idx}, -1)" class="w-7 h-7 md:w-8 md:h-8 flex items-center justify-center font-black text-slate-500 hover:text-rose-600 hover:bg-white rounded-lg transition-all shadow-2xs active:scale-90"><i class="fas fa-minus text-[10px]"></i></button>
+                        <span class="w-7 md:w-8 flex items-center justify-center text-xs md:text-sm font-black text-slate-800 tracking-tight">${i.qty}</span>
+                        <button onclick="superApp.changeQty(${idx}, 1)" class="w-7 h-7 md:w-8 md:h-8 flex items-center justify-center font-black text-slate-500 hover:text-emerald-600 hover:bg-white rounded-lg transition-all shadow-2xs active:scale-90"><i class="fas fa-plus text-[10px]"></i></button>
                     </div>
 
                 </div>
             </div>`;
         });
         
-        cont.innerHTML = this.cart.length ? html : this.getEmptyState('fa-shopping-basket', 'Keranjang Kosong', 'Yuk, tambahkan pesanan!');
+        // Render isi keranjang atau Empty State modern
+        cont.innerHTML = this.cart.length ? html : this.getEmptyState('fa-shopping-basket', 'Keranjang Kosong', 'Yuk, sentuh produk di samping untuk memesan!');
         
-        const totalEl = document.getElementById('total-price'); if (totalEl) totalEl.innerText = `Rp ${total.toLocaleString('id-ID')}`;
-        const badge = document.getElementById('cart-badge'); if (badge) badge.innerText = `${items} Item`;
+        // Update Total Tagihan & Badge Item
+        const totalEl = document.getElementById('total-price'); 
+        if (totalEl) totalEl.innerText = `Rp ${total.toLocaleString('id-ID')}`;
         
-        // Update Mobile Floating Button
+        const badge = document.getElementById('cart-badge'); 
+        if (badge) badge.innerText = `${items} Item`;
+        
+        // Update Floating Bottom Button (Khusus HP)
         const mobQty = document.getElementById('mobile-cart-qty'); 
-        if (mobQty) mobQty.innerText = `${items} ITEM`;
+        if (mobQty) mobQty.innerText = `${items} Item`;
         
         const mobTotal = document.getElementById('mobile-cart-total'); 
         if (mobTotal) mobTotal.innerText = `Rp ${total.toLocaleString('id-ID')}`;
 
         this.payTotal = total; 
         
+        // Sinkronisasi ulang tampilan kartu katalog (agar angka overlay pesanan ter-update)
         if (document.getElementById('product-list')) {
             this.renderProducts();
         }
 
         this.syncStorage(); 
     },
-
     // 🚀 FUNGSI BARU: Kosongkan seluruh isi keranjang
     clearCart: function() {
         if (this.cart.length === 0) return;

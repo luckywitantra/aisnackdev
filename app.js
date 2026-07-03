@@ -1331,6 +1331,142 @@ const superApp = {
         input.click();
     },
 
+    // =========================================================
+    // 🚀 RENDER USER / KARYAWAN (DUAL RENDER PC & MOBILE)
+    // =========================================================
+    renderUsers: function() {
+        const tbody = document.getElementById('stok-user-tbody');
+        const mobContainer = document.getElementById('stok-user-mobile-container');
+        
+        let htmlDesk = '';
+        let htmlMob = '';
+
+        // Pastikan database user tersedia, urutkan berdasarkan nama
+        let users = [...(this.db.users || [])].sort((a, b) => String(a.Nama || '').localeCompare(String(b.Nama || '')));
+
+        users.forEach(u => {
+            let role = String(u.Role || '').toLowerCase();
+            let roleBadge = '';
+            
+            // Indikator Desain Khusus Berdasarkan Role
+            if (role.includes('owner')) {
+                roleBadge = 'bg-purple-50 text-purple-700 border-purple-200';
+            } else if (role.includes('manager') || role.includes('admin')) {
+                roleBadge = 'bg-blue-50 text-blue-700 border-blue-200';
+            } else {
+                roleBadge = 'bg-slate-50 text-slate-600 border-slate-200';
+            }
+
+            // Ambil Nama Outlet Terkait
+            let currentOutlet = u.ID_Outlet || 'Semua Cabang';
+            if (currentOutlet !== 'Semua Cabang') {
+                let ot = (this.db.outlets || []).find(x => x.ID_Outlet === u.ID_Outlet);
+                if (ot) currentOutlet = ot.Nama_Outlet;
+            }
+
+            // --- STRUKTUR DESKTOP (TABEL) ---
+            htmlDesk += `
+            <tr class="table-row-3d border-b border-slate-50 hover:bg-slate-50 transition-all group">
+                <td class="py-4 px-5 whitespace-normal">
+                    <div class="font-extrabold text-slate-800 text-sm mb-0.5">${u.Nama}</div>
+                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">ID: ${u.Username || u.ID_User || '-'}</div>
+                </td>
+                <td class="py-4 px-5">
+                    <span class="bg-indigo-50/60 text-indigo-600 border border-indigo-100 px-2.5 py-1 rounded-lg text-xs font-black uppercase"><i class="fas fa-store mr-1.5 opacity-70"></i>${currentOutlet}</span>
+                </td>
+                <td class="py-4 px-5 text-center">
+                    <code class="bg-slate-100 px-2.5 py-1 rounded-lg font-mono text-xs font-black text-slate-600 tracking-widest">••••</code>
+                </td>
+                <td class="py-4 px-5 text-center">
+                    <span class="inline-flex px-2.5 py-1 rounded-full border text-[10px] font-black uppercase tracking-wider ${roleBadge}">${u.Role}</span>
+                </td>
+                <td class="py-4 px-5 text-center">
+                    <div class="flex items-center justify-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
+                        <button onclick="superApp.openCrudUser('edit', '${u.Username || u.ID_User}')" class="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white transition-all active:scale-90 flex items-center justify-center" title="Edit Staf"><i class="fas fa-edit text-xs"></i></button>
+                        <button onclick="superApp.deleteCrud('Users', '${u.Username || u.ID_User}')" class="w-8 h-8 rounded-xl bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all active:scale-90 flex items-center justify-center" title="Hapus Staf"><i class="fas fa-trash text-xs"></i></button>
+                    </div>
+                </td>
+            </tr>`;
+
+            // --- STRUKTUR MOBILE (KARTU KAPSUL PADAT) ---
+            htmlMob += `
+            <div class="bg-white p-3.5 rounded-2xl border border-slate-100 shadow-2xs hover:shadow-sm transition-all flex justify-between items-center gap-3">
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-2">
+                        <h4 class="font-extrabold text-sm text-slate-800 truncate">${u.Nama}</h4>
+                        <span class="px-2 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-wider ${roleBadge} shrink-0">${u.Role}</span>
+                    </div>
+                    <div class="text-[10px] text-slate-500 font-bold mt-1 flex items-center gap-1.5">
+                        <i class="fas fa-store text-indigo-400 text-xs"></i> ${currentOutlet}
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0 border-l border-slate-50 pl-2.5">
+                    <button onclick="superApp.openCrudUser('edit', '${u.Username || u.ID_User}')" class="w-8 h-8 rounded-xl bg-slate-50 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 font-bold flex items-center justify-center active:scale-90"><i class="fas fa-edit text-xs"></i></button>
+                    <button onclick="superApp.deleteCrud('Users', '${u.Username || u.ID_User}')" class="w-8 h-8 rounded-xl bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 font-bold flex items-center justify-center active:scale-90"><i class="fas fa-trash text-xs"></i></button>
+                </div>
+            </div>`;
+        });
+
+        if (tbody) tbody.innerHTML = htmlDesk || `<tr><td colspan="5" class="py-12 text-center text-slate-400 font-bold text-xs">Belum ada data staf</td></tr>`;
+        if (mobContainer) mobContainer.innerHTML = htmlMob || `<div class="p-6 text-center text-slate-400 text-xs font-bold border-2 border-dashed border-slate-200 rounded-2xl bg-white/50">Belum ada data staf</div>`;
+    },
+
+    openCrudUser: function(mode, userId = '') {
+        let u = mode === 'edit' ? this.db.users.find(x => (x.Username || x.ID_User) === userId) : null;
+        
+        let titleHtml = mode === 'edit' ? 'Edit Profil Staf' : 'Daftarkan Staf Baru';
+        let btnText = mode === 'edit' ? 'Simpan Perubahan' : 'Daftarkan Karyawan';
+
+        // Bangun opsi outlet secara dinamis dari database
+        let outletOptions = `<option value="Semua Cabang">Semua Cabang (Akses Global)</option>`;
+        (this.db.outlets || []).forEach(o => {
+            let selected = (u && u.ID_Outlet === o.ID_Outlet) ? 'selected' : '';
+            outletOptions += `<option value="${o.ID_Outlet}" ${selected}>${o.Nama_Outlet}</option>`;
+        });
+
+        let formHtml = `
+        <div class="space-y-4 text-left p-1">
+            <div class="flex flex-col">
+                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Nama Lengkap Karyawan</label>
+                <input type="text" id="form-user-name" value="${u ? u.Nama : ''}" class="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-4 font-bold text-sm outline-none focus:border-purple-500 focus:bg-white transition-all" placeholder="Contoh: Budi Santoso">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="flex flex-col">
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Username ID</label>
+                    <input type="text" id="form-user-id" value="${u ? (u.Username || u.ID_User) : ''}" ${mode === 'edit' ? 'readonly' : ''} class="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-4 font-bold text-sm outline-none focus:border-purple-500 focus:bg-white transition-all ${mode === 'edit' ? 'opacity-60 bg-slate-100 cursor-not-allowed' : ''}" placeholder="budi123">
+                </div>
+                <div class="flex flex-col">
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">PIN Otorisasi (4 Digit)</label>
+                    <input type="password" id="form-user-pin" maxlength="4" class="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-4 font-mono text-center font-black text-lg outline-none focus:border-purple-500 focus:bg-white transition-all" placeholder="••••">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="flex flex-col">
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Hak Akses (Role)</label>
+                    <select id="form-user-role" class="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-4 font-bold text-sm outline-none focus:border-purple-500 focus:bg-white transition-all cursor-pointer">
+                        <option value="Kasir" ${u && u.Role === 'Kasir' ? 'selected' : ''}>Kasir / Operator</option>
+                        <option value="Manajer" ${u && u.Role === 'Manajer' ? 'selected' : ''}>Manajer Toko</option>
+                        <option value="Admin" ${u && u.Role === 'Admin' ? 'selected' : ''}>Admin Gudang</option>
+                        <option value="Owner" ${u && u.Role === 'Owner' ? 'selected' : ''}>Owner / Pemilik</option>
+                    </select>
+                </div>
+                <div class="flex flex-col">
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Penempatan Kerja</label>
+                    <select id="form-user-outlet" class="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl px-4 font-bold text-sm outline-none focus:border-purple-500 focus:bg-white transition-all cursor-pointer">
+                        ${outletOptions}
+                    </select>
+                </div>
+            </div>
+        </div>`;
+
+        // Panggil komponen UI SweetAlert / Modal Box bawaan framework Anda
+        this.showModalBox(titleHtml, formHtml, btnText, function() {
+            // Logika fungsi simpan (this.saveUserKaryawan) dipanggil di sini
+        });
+    },
+
+    
+
     renderReceiptCanvas: function() {
         const canvas = document.getElementById('receipt-canvas');
         if(!canvas) return;

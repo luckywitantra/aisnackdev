@@ -5950,69 +5950,124 @@ selectOutlet: function(id) {
     superApp.closeModal('modal-outlet-selector');
 },
 
-    renderGlobalStockMatrix: function() {
+   renderGlobalStockMatrix: function() {
         if (!this.db || !this.db.masterProduk || !this.db.outlets) return;
 
         let outlets = this.db.outlets || [];
         
-        // 1. BUAT HEADER TABEL SECARA DINAMIS
+        // 1. BUAT HEADER TABEL DESKTOP SECARA DINAMIS
         let thHtml = `<tr>
-            <th class="py-4 px-4 sticky left-0 bg-white z-20 shadow-[2px_0_10px_rgba(0,0,0,0.05)] font-black uppercase tracking-widest text-[10px] text-slate-400">Nama Bahan Baku</th>
-            <th class="py-4 px-4 text-center font-black uppercase tracking-widest text-[10px] bg-blue-50/50 text-blue-600 border-l border-r border-blue-100/50">Gudang Pusat</th>`;
+            <th class="py-3.5 px-4 sticky left-0 bg-slate-50/95 backdrop-blur-md z-20 border-b border-r border-slate-200/80 font-black uppercase tracking-widest text-[10px] text-slate-500 min-w-[180px]">Nama Bahan Baku</th>
+            <th class="py-3.5 px-4 text-center font-black uppercase tracking-widest text-[10px] bg-blue-50/80 text-blue-600 border-b border-l border-r border-blue-100 min-w-[120px]">Gudang Pusat</th>`;
         
-        // Looping nama outlet ke samping
         outlets.forEach(o => {
-            thHtml += `<th class="py-4 px-4 text-center font-black uppercase tracking-widest text-[10px]">${o.Nama_Outlet}</th>`;
+            thHtml += `<th class="py-3.5 px-4 text-center font-black uppercase tracking-widest text-[10px] border-b border-slate-100 min-w-[110px] text-slate-600">${o.Nama_Outlet}</th>`;
         });
         thHtml += `</tr>`;
         
         const thead = document.getElementById('heatmap-thead');
-        if (thead) {
-            // Karena ini efek sticky ke kiri, kita atur z-index manual pada kolom pertama
-            thead.innerHTML = thHtml;
-        }
+        if (thead) thead.innerHTML = thHtml;
 
-        // 2. BUAT BARIS DATA (PRODUK & STOK)
-        let trHtml = '';
-        
-        // Tambahkan || [] agar tidak terjadi crash 'not iterable' jika data lambat dimuat
+        // 2. LOGIKA FILTER BAHAN (Fleksibel menangkap bahan baku & pendukung)
         let sortedBahan = [...(this.db.masterProduk || [])]
-            .filter(m => String(m.Kategori).toLowerCase() === 'bahan' || String(m.Kategori).toLowerCase() === 'pendukung')
+            .filter(m => {
+                let kat = String(m.Kategori || '').toLowerCase();
+                return kat === 'bahan' || kat === 'pendukung' || kat.includes('bahan') || kat.includes('pendukung') || (!kat.includes('menu') && !m.Harga_Jual);
+            })
             .sort((a,b) => String(a.Nama_Produk).localeCompare(String(b.Nama_Produk)));
 
+        let trHtml = '';
+        let mobCardsHtml = '';
+
         sortedBahan.forEach(m => {
+            let katName = String(m.Kategori || 'Bahan').toUpperCase();
+            
+            // --- A. DATA GUDANG PUSAT ---
+            let stokPusat = (this.db.stokGudang || []).find(x => x.SKU === m.SKU)?.Stok_Pusat || 0;
+            let isPusatKritis = Number(stokPusat) <= 5;
+            let badgePusat = isPusatKritis ? 'bg-rose-50 text-rose-600 border-rose-200 font-black animate-pulse' : 'bg-blue-50 text-blue-600 border-blue-200 font-extrabold';
+
+            // --- B. RENDER BARIS TABEL DESKTOP ---
             let rowHtml = `
-                <td class="py-3 px-4 font-bold text-slate-800 text-sm sticky left-0 bg-white z-10 shadow-[2px_0_10px_rgba(0,0,0,0.03)] border-r border-slate-50">
-                    ${m.Nama_Produk} <br>
-                    <span class="text-[9px] font-black uppercase text-slate-400 tracking-widest">${m.Kategori}</span>
+                <td class="py-3 px-4 sticky left-0 bg-white/95 backdrop-blur-md z-10 border-r border-slate-100 group-hover:bg-slate-50 transition-colors">
+                    <div class="font-extrabold text-slate-800 text-xs md:text-sm leading-snug">${m.Nama_Produk}</div>
+                    <span class="inline-block mt-0.5 text-[8px] font-black uppercase px-1.5 py-0.2 rounded bg-slate-100 text-slate-500 tracking-widest">${katName}</span>
+                </td>
+                <td class="py-3 px-4 text-center bg-blue-50/20 border-r border-blue-50">
+                    <span class="inline-flex w-14 h-8 items-center justify-center rounded-xl border text-sm shadow-2xs ${badgePusat}">${stokPusat}</span>
                 </td>`;
 
-            // Data Stok Gudang Pusat
-            let stokPusat = (this.db.stokGudang || []).find(x => x.SKU === m.SKU)?.Stok_Pusat || 0;
-            rowHtml += `<td class="py-3 px-4 text-center font-black text-blue-600 bg-blue-50/30 text-base border-l border-r border-blue-50">${stokPusat}</td>`;
+            // --- C. RENDER CABANG UNTUK MOBILE & DESKTOP ---
+            let mobOutletsGrid = '';
 
-            // Data Stok Tiap Outlet
             outlets.forEach(o => {
                 let stokToko = (this.db.hargaStokOutlet || []).find(x => x.SKU === m.SKU && x.ID_Outlet === o.ID_Outlet)?.Stok_Toko || 0;
+                let isKritis = Number(stokToko) <= 5;
                 
-                // Indikator Warna Heatmap
                 let badgeClass = '';
-                if (stokToko <= 5) badgeClass = 'bg-rose-100 text-rose-700 border-rose-200 shadow-[0_0_10px_rgba(225,29,72,0.2)]';
-                else if (stokToko <= 15) badgeClass = 'bg-amber-100 text-amber-700 border-amber-200';
-                else badgeClass = 'bg-emerald-50 text-emerald-600 border-emerald-100';
+                if (isKritis) badgeClass = 'bg-rose-50 text-rose-600 border-rose-200 font-black shadow-[0_0_10px_rgba(225,29,72,0.15)] animate-pulse';
+                else if (stokToko <= 15) badgeClass = 'bg-amber-50 text-amber-700 border-amber-200 font-extrabold';
+                else badgeClass = 'bg-slate-50 text-slate-700 border-slate-200 font-bold';
 
-                rowHtml += `<td class="py-3 px-4 text-center">
-                    <span class="inline-flex w-12 h-8 items-center justify-center rounded-lg border font-black text-sm ${badgeClass} transition-transform hover:scale-110 cursor-default">
+                // Tambahkan sel ke tabel desktop
+                rowHtml += `
+                <td class="py-3 px-4 text-center">
+                    <span class="inline-flex w-12 h-8 items-center justify-center rounded-xl border text-xs ${badgeClass} transition-transform hover:scale-110 cursor-default shadow-2xs">
                         ${stokToko}
                     </span>
                 </td>`;
+
+                // Tambahkan lencana cabang ke kartu mobile
+                mobOutletsGrid += `
+                <div class="flex items-center justify-between p-2 rounded-xl border ${isKritis ? 'bg-rose-50/80 border-rose-200' : 'bg-slate-50 border-slate-100'}">
+                    <span class="text-[11px] font-extrabold text-slate-600 truncate mr-1">${o.Nama_Outlet}</span>
+                    <span class="inline-flex min-w-[2.25rem] h-6 px-1.5 items-center justify-center rounded-lg border text-xs ${badgeClass}">
+                        ${stokToko}
+                    </span>
+                </div>`;
             });
 
-            trHtml += `<tr class="border-b border-slate-50 hover:bg-slate-50 transition-colors">${rowHtml}</tr>`;
+            trHtml += `<tr class="border-b border-slate-50 hover:bg-slate-50/80 transition-colors group">${rowHtml}</tr>`;
+
+            // --- D. RENDER KARTU MOBILE KHUSUS HP ---
+            mobCardsHtml += `
+            <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-2xs flex flex-col gap-3">
+                <div class="flex justify-between items-start gap-2 pb-2.5 border-b border-slate-100">
+                    <div>
+                        <h4 class="font-extrabold text-sm text-slate-800 leading-snug">${m.Nama_Produk}</h4>
+                        <span class="text-[9px] font-black uppercase text-slate-400 tracking-widest mt-0.5 inline-block">${katName}</span>
+                    </div>
+                    <div class="text-right shrink-0">
+                        <span class="text-[8px] font-black text-blue-500 uppercase tracking-widest block">Gudang Pusat</span>
+                        <span class="inline-flex mt-0.5 px-2.5 py-1 rounded-lg border text-xs ${badgePusat}">${stokPusat}</span>
+                    </div>
+                </div>
+                
+                <div>
+                    <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Stok di Masing-Masing Cabang:</span>
+                    <div class="grid grid-cols-2 gap-2">
+                        ${mobOutletsGrid}
+                    </div>
+                </div>
+            </div>`;
         });
 
+        // 3. SUNTIKKAN KE TABEL DESKTOP
         const tbody = document.getElementById('heatmap-tbody');
-        if (tbody) tbody.innerHTML = trHtml || `<tr><td colspan="${outlets.length + 2}" class="text-center py-8 text-slate-400">Belum ada data bahan baku</td></tr>`;
+        if (tbody) tbody.innerHTML = trHtml || `<tr><td colspan="${outlets.length + 2}" class="text-center py-10 text-slate-400 font-bold text-xs">Belum ada data bahan baku</td></tr>`;
+
+        // 4. SUNTIKKAN KE KARTU MOBILE (Otomatis membuat wadah jika belum ada)
+        let mobContainer = document.getElementById('heatmap-mobile-container');
+        if (!mobContainer && tbody) {
+            // Jika wadah mobile belum ada di HTML, kita sisipkan langsung di bawah tabel
+            mobContainer = document.createElement('div');
+            mobContainer.id = 'heatmap-mobile-container';
+            mobContainer.className = 'md:hidden space-y-3 pt-2 pb-20';
+            tbody.closest('table').parentNode.appendChild(mobContainer);
+        }
+        if (mobContainer) {
+            mobContainer.innerHTML = mobCardsHtml || '<div class="p-6 text-center text-slate-400 text-xs font-bold border-2 border-dashed border-slate-200 rounded-2xl bg-white/50">Belum ada data bahan baku</div>';
+        }
     },
 
     // 🚀 AUTO-SYNC BACKGROUND PROCESS (Setiap 3 Menit)

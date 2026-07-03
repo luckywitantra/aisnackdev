@@ -5096,27 +5096,28 @@ executeVoidTrx: async function(trxId) {
         reader.readAsDataURL(file);
     },
     
-    renderGudang: function() {
+   renderGudang: function() {
         const gBodyUtama = document.getElementById('gudang-tbody-utama');
         const gBodyPendukung = document.getElementById('gudang-tbody-pendukung');
         
-        // 🚀 Wadah tambahan untuk Mobile (Jika belum ada di HTML, tambahkan <div id="gudang-mob-utama"></div>)
-        const gMobUtama = document.getElementById('gudang-mob-utama');
-        const gMobPend = document.getElementById('gudang-mob-pendukung');
+        // 🚀 Wadah untuk Mobile Cards
+        const gMobUtama = document.getElementById('gudang-mob-stok-utama');
+        const gMobPend = document.getElementById('gudang-mob-stok-pendukung');
 
         let htmlUtama = ''; let htmlPendukung = '';
         let mobUtama = ''; let mobPend = '';
 
         let sortedMaster = [...(this.db.masterProduk || [])].sort((a,b) => String(a.Nama_Produk||'').localeCompare(String(b.Nama_Produk||'')));
         
+        // 1. RENDER GUDANG PUSAT (DESKTOP TABLE & MOBILE CARDS)
         sortedMaster.forEach(g => {
             let kat = String(g.Kategori||'').toLowerCase();
             if(kat === 'bahan' || kat === 'pendukung') {
                 let stok = (this.db.stokGudang || []).find(x => x.SKU === g.SKU)?.Stok_Pusat || 0;
                 let isKritis = stok <= 5;
-                let stokBadge = isKritis ? 'bg-rose-50 text-rose-600 border-rose-100 animate-pulse' : 'bg-emerald-50 text-emerald-600 border-emerald-100';
+                let stokBadge = isKritis ? 'bg-rose-50 text-rose-600 border-rose-100 shadow-[0_0_10px_rgba(225,29,72,0.15)] animate-pulse' : 'bg-emerald-50 text-emerald-600 border-emerald-100 shadow-sm';
                 
-                // BARIS TABEL DESKTOP
+                // --- BARIS TABEL DESKTOP ---
                 let row = `
                 <tr class="table-row-3d border-b border-slate-50 hover:bg-slate-50 transition-all group">
                     <td class="py-4 px-5 whitespace-normal">
@@ -5128,22 +5129,27 @@ executeVoidTrx: async function(trxId) {
                     </td>
                     <td class="py-4 px-5 text-center">
                         <div class="flex items-center justify-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                            <button onclick="superApp.openCrudBahan('edit', '${g.SKU}')" class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white transition-all active:scale-90"><i class="fas fa-edit"></i></button>
-                            <button onclick="superApp.deleteCrud('Master_Produk', '${g.SKU}')" class="w-9 h-9 rounded-xl bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all active:scale-90"><i class="fas fa-trash"></i></button>
+                            <button onclick="superApp.openCrudBahan('edit', '${g.SKU}')" class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white transition-all active:scale-90" title="Edit Bahan"><i class="fas fa-edit"></i></button>
+                            <button onclick="superApp.deleteCrud('Master_Produk', '${g.SKU}')" class="w-9 h-9 rounded-xl bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all active:scale-90" title="Hapus Bahan"><i class="fas fa-trash"></i></button>
                         </div>
                     </td>
                 </tr>`;
 
-                // KARTU MOBILE (Hanya muncul di HP)
+                // --- KARTU MOBILE KHUSUS HP ---
                 let mobCard = `
-                <div class="md:hidden bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex justify-between items-center">
-                    <div>
-                        <div class="font-black text-sm text-slate-800">${g.Nama_Produk}</div>
-                        <div class="text-[9px] text-slate-400 font-bold uppercase mt-1">SKU: ${g.SKU}</div>
+                <div class="bg-white p-3.5 rounded-2xl border border-slate-100 shadow-2xs hover:shadow-sm transition-all flex justify-between items-center gap-3 group">
+                    <div class="min-w-0 flex-1">
+                        <div class="font-extrabold text-sm text-slate-800 leading-snug truncate">${g.Nama_Produk}</div>
+                        <div class="inline-flex mt-1 px-1.5 py-0.5 rounded bg-slate-50 border border-slate-100 text-[9px] font-black text-slate-400 uppercase tracking-widest">SKU: ${g.SKU}</div>
                     </div>
-                    <div class="text-right">
-                        <div class="text-[9px] font-black text-slate-400 uppercase">Sisa</div>
-                        <div class="font-black text-lg ${isKritis ? 'text-rose-600' : 'text-emerald-600'}">${stok}</div>
+                    <div class="flex items-center gap-3 shrink-0">
+                        <div class="text-right">
+                            <span class="text-[8px] text-slate-400 font-black uppercase tracking-wider block">Sisa Pusat</span>
+                            <span class="font-black text-lg leading-none ${isKritis ? 'text-rose-600 animate-pulse' : 'text-emerald-600'}">${stok}</span>
+                        </div>
+                        <div class="flex items-center border-l border-slate-100 pl-2.5">
+                            <button onclick="superApp.openCrudBahan('edit', '${g.SKU}')" class="w-8 h-8 rounded-xl bg-slate-50 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 font-bold flex items-center justify-center active:scale-90"><i class="fas fa-edit text-xs"></i></button>
+                        </div>
                     </div>
                 </div>`;
 
@@ -5152,11 +5158,11 @@ executeVoidTrx: async function(trxId) {
             }
         });
         
-        // Update DOM
-        if(gBodyUtama) gBodyUtama.innerHTML = htmlUtama || `<tr><td colspan="3" class="text-center py-10 text-slate-400 font-bold text-xs">Kosong</td></tr>`;
-        if(gBodyPendukung) gBodyPendukung.innerHTML = htmlPendukung || `<tr><td colspan="3" class="text-center py-10 text-slate-400 font-bold text-xs">Kosong</td></tr>`;
-        if(gMobUtama) gMobUtama.innerHTML = mobUtama || '<div class="p-4 text-center text-slate-400 text-xs">Kosong</div>';
-        if(gMobPend) gMobPend.innerHTML = mobPend || '<div class="p-4 text-center text-slate-400 text-xs">Kosong</div>';
+        // Update DOM Stok Pusat
+        if(gBodyUtama) gBodyUtama.innerHTML = htmlUtama || `<tr><td colspan="3" class="text-center py-10 text-slate-400 font-bold text-xs">Belum ada bahan utama</td></tr>`;
+        if(gBodyPendukung) gBodyPendukung.innerHTML = htmlPendukung || `<tr><td colspan="3" class="text-center py-10 text-slate-400 font-bold text-xs">Belum ada barang pendukung</td></tr>`;
+        if(gMobUtama) gMobUtama.innerHTML = mobUtama || '<div class="p-6 text-center text-slate-400 text-xs font-bold border-2 border-dashed border-slate-200 rounded-2xl bg-white/50">Belum ada bahan utama</div>';
+        if(gMobPend) gMobPend.innerHTML = mobPend || '<div class="p-6 text-center text-slate-400 text-xs font-bold border-2 border-dashed border-slate-200 rounded-2xl bg-white/50">Belum ada barang pendukung</div>';
        
         // 2. RENDER MASTER PRODUK (MENU POS)
         const masterBody = document.getElementById('master-tbody');

@@ -1151,10 +1151,10 @@
 
                 <div class="flex gap-1.5 bg-slate-100/90 p-1 rounded-xl md:rounded-2xl border border-slate-200/60 w-full md:w-max mb-3 shrink-0 relative z-10">
                     <button onclick="superApp.switchGudangStokSubTab('utama')" id="subtab-gstok-utama" class="flex-1 md:flex-none py-2 md:py-2.5 px-4 md:px-5 bg-white text-emerald-600 rounded-lg md:rounded-xl text-xs md:text-sm font-black shadow-2xs transition flex items-center justify-center gap-1.5 border border-slate-200/60">
-                        <i class="fas fa-box-open"></i> A. Bahan Utama <span id="count-gstok-utama" class="bg-emerald-50 text-emerald-700 px-1.5 py-0.2 rounded text-[9px]">0</span>
+                        <i class="fas fa-box-open"></i> A. Bahan Utama <span id="count-gstok-utama" class="bg-emerald-50 text-emerald-700 px-1.5 py-0.2 rounded text-[9px] font-black">0</span>
                     </button>
                     <button onclick="superApp.switchGudangStokSubTab('pendukung')" id="subtab-gstok-pendukung" class="flex-1 md:flex-none py-2 md:py-2.5 px-4 md:px-5 text-slate-500 hover:text-slate-800 rounded-lg md:rounded-xl text-xs md:text-sm font-bold transition flex items-center justify-center gap-1.5 border border-transparent">
-                        <i class="fas fa-pump-soap"></i> B. Pendukung <span id="count-gstok-pendukung" class="bg-slate-200 text-slate-600 px-1.5 py-0.2 rounded text-[9px]">0</span>
+                        <i class="fas fa-pump-soap"></i> B. Pendukung <span id="count-gstok-pendukung" class="bg-slate-200 text-slate-600 px-1.5 py-0.2 rounded text-[9px] font-black">0</span>
                     </button>
                 </div>
 
@@ -1172,10 +1172,11 @@
                     </table>
                 </div>
 
-                <div class="md:hidden flex-1 overflow-y-auto custom-scroll content-start space-y-2.5 relative z-10 pr-0.5 pb-16" id="gudang-mobile-stok">
+                <div class="md:hidden flex-1 overflow-y-auto custom-scroll content-start space-y-2.5 relative z-10 pr-0.5 pb-20" id="gudang-mobile-stok">
                     <div id="gudang-mob-stok-utama" class="space-y-2.5"></div>
                     <div id="gudang-mob-stok-pendukung" class="hidden space-y-2.5"></div>
                 </div>
+
             </div>
         </div>
 
@@ -1322,6 +1323,16 @@
         </div>
 
     </div>
+
+    <div id="gudang-mobile-bottom-bar" class="fixed bottom-[64px] inset-x-0 p-2.5 bg-white/95 backdrop-blur-md border-t border-slate-200/80 shadow-[0_-8px_20px_rgba(0,0,0,0.08)] flex gap-2 md:hidden z-50">
+        <button onclick="superApp.openCrudBahan()" class="flex-1 bg-slate-900 text-white font-black py-3 rounded-xl text-xs flex items-center justify-center gap-2 active:scale-95">
+            <i class="fas fa-plus text-emerald-400"></i> BAHAN BARU
+        </button>
+        <button onclick="superApp.openRestokModal()" class="flex-[1.5] bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-black py-3 rounded-xl text-xs shadow-md shadow-emerald-500/25 flex items-center justify-center gap-2 active:scale-95">
+            <i class="fas fa-truck-loading"></i> RESTOK SUPLIER
+        </button>
+    </div>
+</div>
 
     <div id="gudang-mobile-bottom-bar" class="fixed bottom-[64px] inset-x-0 p-2.5 bg-white/95 backdrop-blur-md border-t border-slate-200/80 shadow-[0_-8px_20px_rgba(0,0,0,0.08)] flex gap-2 md:hidden z-50">
         <button onclick="superApp.openCrudBahan()" class="flex-1 bg-slate-900 text-white font-black py-3 rounded-xl text-xs flex items-center justify-center gap-2 active:scale-95">

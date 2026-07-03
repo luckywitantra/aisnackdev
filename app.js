@@ -5096,7 +5096,7 @@ executeVoidTrx: async function(trxId) {
         reader.readAsDataURL(file);
     },
     
-   renderGudang: function() {
+  renderGudang: function() {
         const gBodyUtama = document.getElementById('gudang-tbody-utama');
         const gBodyPendukung = document.getElementById('gudang-tbody-pendukung');
         
@@ -5106,13 +5106,16 @@ executeVoidTrx: async function(trxId) {
 
         let htmlUtama = ''; let htmlPendukung = '';
         let mobUtama = ''; let mobPend = '';
+        let countUtama = 0; let countPend = 0;
 
         let sortedMaster = [...(this.db.masterProduk || [])].sort((a,b) => String(a.Nama_Produk||'').localeCompare(String(b.Nama_Produk||'')));
         
         // 1. RENDER GUDANG PUSAT (DESKTOP TABLE & MOBILE CARDS)
         sortedMaster.forEach(g => {
             let kat = String(g.Kategori||'').toLowerCase();
-            if(kat === 'bahan' || kat === 'pendukung') {
+            
+            // Filter Fleksibel: Menangkap barang mentah maupun pendukung
+            if(kat === 'bahan' || kat === 'pendukung' || kat.includes('bahan') || kat.includes('pendukung') || (!kat.includes('menu') && !g.Harga_Jual)) {
                 let stok = (this.db.stokGudang || []).find(x => x.SKU === g.SKU)?.Stok_Pusat || 0;
                 let isKritis = stok <= 5;
                 let stokBadge = isKritis ? 'bg-rose-50 text-rose-600 border-rose-100 shadow-[0_0_10px_rgba(225,29,72,0.15)] animate-pulse' : 'bg-emerald-50 text-emerald-600 border-emerald-100 shadow-sm';
@@ -5153,17 +5156,26 @@ executeVoidTrx: async function(trxId) {
                     </div>
                 </div>`;
 
-                if(kat === 'bahan') { htmlUtama += row; mobUtama += mobCard; } 
-                else { htmlPendukung += row; mobPend += mobCard; }
+                if(kat === 'bahan' || kat.includes('bahan') || (!kat.includes('pendukung') && !kat.includes('kemasan'))) { 
+                    htmlUtama += row; mobUtama += mobCard; countUtama++;
+                } else { 
+                    htmlPendukung += row; mobPend += mobCard; countPend++;
+                }
             }
         });
         
-        // Update DOM Stok Pusat
+        // Update DOM Stok Pusat (Desktop & Mobile)
         if(gBodyUtama) gBodyUtama.innerHTML = htmlUtama || `<tr><td colspan="3" class="text-center py-10 text-slate-400 font-bold text-xs">Belum ada bahan utama</td></tr>`;
         if(gBodyPendukung) gBodyPendukung.innerHTML = htmlPendukung || `<tr><td colspan="3" class="text-center py-10 text-slate-400 font-bold text-xs">Belum ada barang pendukung</td></tr>`;
         if(gMobUtama) gMobUtama.innerHTML = mobUtama || '<div class="p-6 text-center text-slate-400 text-xs font-bold border-2 border-dashed border-slate-200 rounded-2xl bg-white/50">Belum ada bahan utama</div>';
         if(gMobPend) gMobPend.innerHTML = mobPend || '<div class="p-6 text-center text-slate-400 text-xs font-bold border-2 border-dashed border-slate-200 rounded-2xl bg-white/50">Belum ada barang pendukung</div>';
        
+        // 🚀 Update Lencana Angka (Badge) di Tombol Sub-Tab
+        const badgeUtama = document.getElementById('count-gstok-utama');
+        const badgePendukung = document.getElementById('count-gstok-pendukung');
+        if(badgeUtama) badgeUtama.innerText = countUtama;
+        if(badgePendukung) badgePendukung.innerText = countPend;
+
         // 2. RENDER MASTER PRODUK (MENU POS)
         const masterBody = document.getElementById('master-tbody');
         if(masterBody) {

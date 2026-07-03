@@ -1292,19 +1292,25 @@
                 </div>
 
                 <div id="out-section-matrix" class="hidden flex-1 flex flex-col min-h-0 relative z-10">
-                    <div class="flex justify-between items-center mb-3 pb-3 border-b border-slate-100 shrink-0">
-                        <h4 class="font-black text-slate-800 text-sm md:text-base">Sebaran Stok Cabang</h4>
-                        <button onclick="superApp.openDistribusiModal()" class="hidden md:flex bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-black shadow-sm transition active:scale-95 items-center gap-2">
-                            <i class="fas fa-truck-fast text-blue-400"></i> Distribusi Suplai
-                        </button>
-                    </div>
-                    <div class="flex-1 overflow-x-auto overflow-y-auto custom-scroll rounded-2xl border border-slate-100">
-                        <table class="w-full text-left text-sm whitespace-nowrap border-collapse">
-                            <thead id="heatmap-thead" class="bg-slate-50/90 sticky top-0 z-10 text-slate-400 font-black text-[10px] uppercase tracking-wider border-b border-slate-100"></thead>
-                            <tbody id="heatmap-tbody" class="divide-y divide-slate-50 font-bold text-slate-700"></tbody>
-                        </table>
-                    </div>
-                </div>
+    <div class="flex justify-between items-center mb-3 pb-3 border-b border-slate-100 shrink-0">
+        <div>
+            <h4 class="font-black text-slate-800 text-sm md:text-base">Sebaran Stok Cabang</h4>
+            <p class="hidden md:block text-xs text-slate-400 font-bold">Pantau perbandingan stok antara gudang pusat dan seluruh outlet</p>
+        </div>
+        <button onclick="superApp.openDistribusiModal()" class="hidden md:flex bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-black shadow-sm transition active:scale-95 items-center gap-2">
+            <i class="fas fa-truck-fast text-blue-400"></i> Distribusi Suplai
+        </button>
+    </div>
+    
+    <div class="flex-1 overflow-x-auto overflow-y-auto custom-scroll rounded-2xl md:border border-slate-100">
+        <table class="w-full text-left text-sm whitespace-nowrap border-collapse hidden md:table">
+            <thead id="heatmap-thead" class="bg-slate-50/90 sticky top-0 z-20 text-slate-400 font-black text-[10px] uppercase tracking-wider border-b border-slate-100"></thead>
+            <tbody id="heatmap-tbody" class="divide-y divide-slate-50 font-bold text-slate-700"></tbody>
+        </table>
+        
+        <div id="heatmap-mobile-container" class="md:hidden space-y-3 pb-20"></div>
+    </div>
+</div>
             </div>
         </div>
 

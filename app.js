@@ -1553,6 +1553,238 @@ const superApp = {
         }
     },
 
+
+    // =========================================================
+    // 🚀 1. RENDER MANAJEMEN USER (PC & MOBILE DUAL RENDER)
+    // =========================================================
+    renderUserManagement: function() {
+        if (!this.db || !this.db.users) return;
+
+        // Populate Dropdown Filter Outlet jika belum terisi
+        const filterOutEl = document.getElementById('user-outlet-filter');
+        if (filterOutEl && filterOutEl.options.length <= 1) {
+            let opts = '<option value="Semua">Semua Cabang</option>';
+            (this.db.outlets || []).forEach(o => {
+                opts += `<option value="${o.ID_Outlet}">${o.Nama_Outlet}</option>`;
+            });
+            filterOutEl.innerHTML = opts;
+        }
+
+        let searchKey = (document.getElementById('user-search-input')?.value || '').toLowerCase();
+        let selectedOutlet = filterOutEl ? filterOutEl.value : 'Semua';
+
+        let tbodyDesk = document.getElementById('user-mgt-tbody');
+        let mobContainer = document.getElementById('user-mgt-mobile');
+        
+        let htmlDesk = ''; let htmlMob = '';
+        let totAll = 0, totKasir = 0, totAdmin = 0;
+
+        let sortedUsers = [...this.db.users].sort((a,b) => String(a.Nama||'').localeCompare(String(b.Nama||'')));
+
+        sortedUsers.forEach(u => {
+            let nama = String(u.Nama || '-');
+            let uname = String(u.Username || u.ID_User || '-');
+            let role = String(u.Role || 'Kasir');
+            let outId = String(u.Outlet || u.ID_Outlet || 'Semua');
+
+            // Filter Pencarian & Outlet
+            let matchSearch = nama.toLowerCase().includes(searchKey) || uname.toLowerCase().includes(searchKey);
+            let matchOutlet = selectedOutlet === 'Semua' || outId === selectedOutlet;
+
+            if (!matchSearch || !matchOutlet) return;
+
+            // Hitung KPI
+            totAll++;
+            if (role.toLowerCase().includes('kasir')) totKasir++;
+            else totAdmin++;
+
+            // Nama Outlet Visual
+            let outName = outId;
+            let findOut = (this.db.outlets || []).find(x => x.ID_Outlet === outId);
+            if (findOut) outName = findOut.Nama_Outlet;
+
+            // Badge Desain Role
+            let roleBadge = '';
+            if (role.toLowerCase().includes('owner')) roleBadge = 'bg-purple-50 text-purple-700 border-purple-200';
+            else if (role.toLowerCase().includes('admin') || role.toLowerCase().includes('manajer')) roleBadge = 'bg-amber-50 text-amber-700 border-amber-200';
+            else roleBadge = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+
+            // --- STRUKTUR TABEL DESKTOP ---
+            htmlDesk += `
+            <tr class="table-row-3d border-b border-slate-50 hover:bg-slate-50/80 transition-all group">
+                <td class="py-4 px-5 whitespace-normal">
+                    <div class="font-extrabold text-slate-800 text-sm leading-snug">${nama}</div>
+                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">ID: @${uname}</div>
+                </td>
+                <td class="py-4 px-5 whitespace-nowrap">
+                    <span class="bg-indigo-50 text-indigo-600 border border-indigo-100 px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-wider"><i class="fas fa-store mr-1.5 opacity-70"></i>${outName}</span>
+                </td>
+                <td class="py-4 px-5 text-center whitespace-nowrap">
+                    <code class="bg-slate-100 px-3 py-1 rounded-lg font-mono text-xs font-black text-slate-500 tracking-widest">••••</code>
+                </td>
+                <td class="py-4 px-5 text-center whitespace-nowrap">
+                    <span class="inline-flex px-2.5 py-1 rounded-full border text-[10px] font-black uppercase tracking-wider ${roleBadge}">${role}</span>
+                </td>
+                <td class="py-4 px-5 text-center whitespace-nowrap">
+                    <div class="flex items-center justify-center gap-2 opacity-70 group-hover:opacity-100 transition-opacity">
+                        <button onclick="superApp.openCrudUser('edit', '${uname}')" class="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white transition-all active:scale-90 flex items-center justify-center" title="Edit User"><i class="fas fa-edit text-xs"></i></button>
+                        <button onclick="superApp.executeDeleteUser('${uname}')" class="w-8 h-8 rounded-xl bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all active:scale-90 flex items-center justify-center" title="Hapus User"><i class="fas fa-trash text-xs"></i></button>
+                    </div>
+                </td>
+            </tr>`;
+
+            // --- STRUKTUR KARTU MOBILE ---
+            htmlMob += `
+            <div class="bg-white p-3.5 rounded-2xl border border-slate-100 shadow-2xs hover:shadow-sm transition-all flex justify-between items-center gap-3">
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-2">
+                        <h4 class="font-extrabold text-sm text-slate-800 truncate">${nama}</h4>
+                        <span class="px-2 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-wider ${roleBadge} shrink-0">${role}</span>
+                    </div>
+                    <div class="flex items-center gap-3 mt-1.5 text-[10px] text-slate-400 font-bold">
+                        <span><i class="fas fa-user text-slate-300 mr-1"></i>@${uname}</span>
+                        <span><i class="fas fa-store text-indigo-400 mr-1"></i>${outName}</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1.5 shrink-0 border-l border-slate-50 pl-2">
+                    <button onclick="superApp.openCrudUser('edit', '${uname}')" class="w-8 h-8 rounded-xl bg-slate-50 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 font-bold flex items-center justify-center active:scale-90"><i class="fas fa-edit text-xs"></i></button>
+                    <button onclick="superApp.executeDeleteUser('${uname}')" class="w-8 h-8 rounded-xl bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 font-bold flex items-center justify-center active:scale-90"><i class="fas fa-trash text-xs"></i></button>
+                </div>
+            </div>`;
+        });
+
+        // Update DOM
+        if (tbodyDesk) tbodyDesk.innerHTML = htmlDesk || `<tr><td colspan="5" class="py-12 text-center text-slate-400 font-bold text-xs">User tidak ditemukan</td></tr>`;
+        if (mobContainer) mobContainer.innerHTML = htmlMob || `<div class="p-6 text-center text-slate-400 text-xs font-bold border-2 border-dashed border-slate-200 rounded-2xl bg-white/50">User tidak ditemukan</div>`;
+
+        // Update KPI
+        if (document.getElementById('usr-tot-all')) document.getElementById('usr-tot-all').innerText = totAll;
+        if (document.getElementById('usr-tot-kasir')) document.getElementById('usr-tot-kasir').innerText = totKasir;
+        if (document.getElementById('usr-tot-admin')) document.getElementById('usr-tot-admin').innerText = totAdmin;
+    },
+
+    // =========================================================
+    // 🚀 2. MODAL FORM TAMBAH & EDIT USER
+    // =========================================================
+    openCrudUser: function(mode, username = '') {
+        let u = mode === 'edit' ? (this.db.users || []).find(x => (x.Username || x.ID_User) === username) : null;
+        
+        // Pilihan Cabang Dinamis
+        let outletOptions = `<option value="Pusat">Semua Cabang / Pusat (Akses Global)</option>`;
+        (this.db.outlets || []).forEach(o => {
+            let sel = (u && (u.Outlet === o.ID_Outlet || u.ID_Outlet === o.ID_Outlet)) ? 'selected' : '';
+            outletOptions += `<option value="${o.ID_Outlet}" ${sel}>Cabang ${o.Nama_Outlet}</option>`;
+        });
+
+        let inputs = `
+            ${this.makeInput('Nama Lengkap Karyawan', 'usr-nama', u ? u.Nama : '', 'text', 'Nama asli untuk laporan absen & audit')}
+            <div class="grid grid-cols-2 gap-3">
+                ${this.makeInput('Username ID', 'usr-id', u ? (u.Username || u.ID_User) : '', 'text', 'Untuk login sistem', mode === 'edit')}
+                ${this.makeInput('PIN Otorisasi (4 Digit)', 'usr-pin', '', 'password', mode === 'edit' ? 'Kosongkan jika PIN tetap' : 'Wajib 4 Angka')}
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="text-xs font-bold text-slate-500 block mb-1 uppercase tracking-widest">Hak Akses (Role)</label>
+                    <select id="frm-usr-role" class="w-full border-2 border-slate-200 rounded-xl px-3.5 py-3 font-bold text-sm bg-white outline-none focus:border-purple-500 transition cursor-pointer">
+                        <option value="Kasir" ${u && u.Role === 'Kasir' ? 'selected' : ''}>Kasir / Operator</option>
+                        <option value="Manajer" ${u && u.Role === 'Manajer' ? 'selected' : ''}>Manajer Toko</option>
+                        <option value="Admin" ${u && u.Role === 'Admin' ? 'selected' : ''}>Admin Gudang</option>
+                        <option value="Owner" ${u && u.Role === 'Owner' ? 'selected' : ''}>Owner / Pemilik</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-slate-500 block mb-1 uppercase tracking-widest">Penempatan Kerja</label>
+                    <select id="frm-usr-outlet" class="w-full border-2 border-slate-200 rounded-xl px-3.5 py-3 font-bold text-sm bg-white outline-none focus:border-purple-500 transition cursor-pointer">
+                        ${outletOptions}
+                    </select>
+                </div>
+            </div>`;
+
+        this.buildForm(mode === 'edit' ? "Edit Profil Pengguna" : "Tambah User Baru", inputs, `superApp.executeSaveUser('${mode}', '${mode === 'edit' ? username : ''}')`);
+        
+        // Aktifkan Numpad virtual saat input PIN dklik
+        setTimeout(() => {
+            let pinInput = document.getElementById('frm-usr-pin');
+            if (pinInput) {
+                pinInput.setAttribute('readonly', 'readonly');
+                pinInput.classList.add('cursor-pointer');
+                pinInput.onclick = () => osKeyboard.open('frm-usr-pin', 'numeric');
+            }
+        }, 100);
+    },
+
+    // =========================================================
+    // 🚀 3. EKSEKUSI SIMPAN DATA USER
+    // =========================================================
+    executeSaveUser: async function(mode, oldUsername) {
+        if (this.isProcessing) return;
+        const fNama = document.getElementById('frm-usr-nama')?.value.trim();
+        const fId = document.getElementById('frm-usr-id')?.value.trim();
+        const fPin = document.getElementById('frm-usr-pin')?.value.trim();
+        const fRole = document.getElementById('frm-usr-role')?.value;
+        const fOutlet = document.getElementById('frm-usr-outlet')?.value;
+
+        if (!fNama || !fId) return this.showToast("Nama Lengkap dan Username wajib diisi!", "error");
+        if (mode === 'add' && (!fPin || fPin.length !== 4)) return this.showToast("PIN baru wajib 4 digit angka!", "error");
+
+        this.setLoading(true, "Menyimpan Data Pengguna...");
+
+        // Update Memori Lokal Secara Instan (Agar UI Cepat)
+        if (!this.db.users) this.db.users = [];
+        if (mode === 'add') {
+            this.db.users.push({ Username: fId, ID_User: fId, Nama: fNama, Role: fRole, Outlet: fOutlet, ID_Outlet: fOutlet, PIN: fPin });
+        } else {
+            let idx = this.db.users.findIndex(x => (x.Username || x.ID_User) === oldUsername);
+            if (idx > -1) {
+                this.db.users[idx].Nama = fNama;
+                this.db.users[idx].Role = fRole;
+                this.db.users[idx].Outlet = fOutlet;
+                this.db.users[idx].ID_Outlet = fOutlet;
+                if (fPin && fPin.length === 4) this.db.users[idx].PIN = fPin;
+            }
+        }
+        localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
+
+        // Kirim ke Backend Google Sheets
+        const payload = { action: 'save_user', mode: mode, old_username: oldUsername, username: fId, nama: fNama, role: fRole, outlet: fOutlet, pin: fPin };
+        let res = await this.apiPost(payload);
+
+        this.closeModal('modal-form');
+        this.renderUserManagement();
+        this.showToast(mode === 'edit' ? "Profil pengguna diperbarui!" : "Pengguna baru berhasil ditambahkan!");
+        this.setLoading(false);
+
+        // Tarik data baru di background jika online
+        if (!res.is_offline) {
+            fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' })
+                .then(r => r.json()).then(data => { if (data.status === 'sukses') { this.db = data; localStorage.setItem('aisnack_db_cache', JSON.stringify(data)); this.renderUserManagement(); } });
+        }
+    },
+
+    // =========================================================
+    // 🚀 4. EKSEKUSI HAPUS USER
+    // =========================================================
+    executeDeleteUser: async function(username) {
+        if (this.isProcessing) return;
+        if (this.currentUser && this.currentUser.Username === username) {
+            return this.showToast("Anda tidak dapat menghapus akun yang sedang Anda gunakan saat ini!", "error");
+        }
+        if (!confirm(`Yakin ingin menghapus hak akses untuk pengguna "@${username}"?`)) return;
+
+        this.setLoading(true, "Menghapus Pengguna...");
+
+        // Hapus dari Memori Lokal
+        this.db.users = (this.db.users || []).filter(x => (x.Username || x.ID_User) !== username);
+        localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
+
+        const payload = { action: 'delete_user', username: username };
+        await this.apiPost(payload);
+
+        this.renderUserManagement();
+        this.showToast("Pengguna berhasil dihapus!");
+        this.setLoading(false);
+    },
+
     // ==========================================
     // 1. LOGIKA MASTER HPP
     // ==========================================

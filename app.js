@@ -2432,7 +2432,7 @@ changeOutlet: function(val) {
     this.refreshData(); 
 },
     
-    switchMenu: function(menu) {
+   switchMenu: function(menu) {
     // 1. Bersihkan akses (Tidak perlu lagi memblokir hpp/profit karena sudah dilebur)
     // Cukup sembunyikan semua halaman
     document.querySelectorAll('.app-view').forEach(el => el.classList.add('hidden'));
@@ -2446,7 +2446,8 @@ changeOutlet: function(val) {
         'ai': 'text-indigo-600',      
         'gudang': 'text-emerald-600', 
         'outlet': 'text-teal-600',    
-        'staf': 'text-amber-600'
+        'staf': 'text-amber-600',
+        'user': 'text-purple-600' // 🚀 TAMBAHAN: Warna ungu elegan untuk Manajemen User
     };
     const allColors = Object.values(colors);
 
@@ -2475,7 +2476,8 @@ changeOutlet: function(val) {
     const titles = { 
         'pos': 'POS', 'opname': 'Opname Fisik Stok', 'terima': 'Penerimaan Barang', 
         'audit': 'Audit Laporan', 'report': 'Laporan Terpadu', 'ai': 'CFO Dashboard & Asisten AI', 
-        'gudang': 'Gudang Pusat', 'master': 'Master Varian POS', 'outlet': 'Cabang & Harga Khusus', 'staf': 'Kinerja Karyawan'
+        'gudang': 'Gudang Pusat', 'master': 'Master Varian POS', 'outlet': 'Cabang & Harga Khusus', 'staf': 'Kinerja Karyawan',
+        'user': 'Manajemen Pengguna' // 🚀 TAMBAHAN: Judul halaman otomatis untuk User
     };
     const pageTitle = document.getElementById('page-title'); 
     if (pageTitle) pageTitle.innerText = titles[menu] || 'Aplikasi';
@@ -2499,11 +2501,15 @@ changeOutlet: function(val) {
         if (typeof this.showMenuGuide === 'function') setTimeout(() => this.showMenuGuide('terima'), 200);
     }
     
-    // (di bagian bawah fungsi switchMenu)
     if (menu === 'ai' && typeof this.generateAIReport === 'function') {
         this.generateAIReport();
     }
     if (menu === 'staf' && typeof this.renderStaf === 'function') this.renderStaf();
+    
+    // 🚀 TAMBAHAN: Trigger fungsi render saat menu Manajemen User dibuka
+    if (menu === 'user' && typeof this.renderUserManagement === 'function') {
+        this.renderUserManagement();
+    }
     
     if (menu === 'gudang' || menu === 'master' || menu === 'outlet') {
         if (typeof this.renderGudang === 'function') {
@@ -2512,7 +2518,7 @@ changeOutlet: function(val) {
             this.toggleGudangTab('stok');
         }
     }
-}, 
+},
     
    filterProducts: function(key) {
         this._lastSearchKey = key; // 🚀 Simpan memori kata kunci pencarian

@@ -1743,38 +1743,68 @@ const superApp = {
         this.calcMonthlyAccumulation(netSales);
     },
 
-    calcMonthlyAccumulation: function(todayNetSales) {
-        let d = new Date();
-        let currMonth = d.getMonth() + 1;
-        let currYear = d.getFullYear();
+    // =========================================================
+    // 🚀 ENGINE AKUMULASI PRESISI (BATAS TANGGAL 1 s/d TANGGAL LAPORAN)
+    // =========================================================
+    calcMonthlyAccumulation: function(liveNetSales) {
+        // 1. Ambil tanggal yang sedang aktif di form input (misal: "Senin, 05-07-2026")
+        let tglTeks = document.getElementById('daily-form-date')?.innerText || '';
+        let targetDate = new Date();
+        
+        // Ekstrak Hari, Bulan, dan Tahun dari teks tanggal form
+        let match = tglTeks.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+        let targetDay = targetDate.getDate();
+        let targetMonth = targetDate.getMonth() + 1;
+        let targetYear = targetDate.getFullYear();
+
+        if (match) {
+            targetDay = parseInt(match[1], 10);
+            targetMonth = parseInt(match[2], 10);
+            targetYear = parseInt(match[3], 10);
+        }
 
         let accumPreviousDays = 0;
+        let activeReportId = this.editReportId; // ID laporan jika sedang mode Edit
+
+        // 2. Jumlahkan HANYA laporan masa lalu sebelum tanggal target (Tanggal 1 s/d H-1)
         (this.db.laporanHarian || []).forEach(rep => {
             if (rep.Outlet === this.outlet || this.outlet === 'Pusat') {
-                // Bersihkan format string tanggal (baik DD-MM-YYYY maupun format berkoma)
+                // Abaikan laporan yang sedang diedit agar tidak hitung ganda (double-count)
+                if (activeReportId && rep.ID_Laporan === activeReportId) return;
+
                 let cleanStr = (rep.Tanggal || '').split(',').pop().trim();
-                let match = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-                if (match) {
-                    let m = parseInt(match[2], 10);
-                    let y = parseInt(match[3], 10);
-                    if (m === currMonth && y === currYear) {
-                        accumPreviousDays += Number(rep.Net_Sales || 0);
+                let repMatch = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+                if (repMatch) {
+                    let rDay = parseInt(repMatch[1], 10);
+                    let rMonth = parseInt(repMatch[2], 10);
+                    let rYear = parseInt(repMatch[3], 10);
+
+                    // 🚀 KUNCI PRESISI: Bulan & Tahun sama, DAN Hari lebih kecil dari tanggal laporan
+                    // Abaikan juga laporan jika statusnya 'Ditolak'
+                    if (rYear === targetYear && rMonth === targetMonth && rDay < targetDay) {
+                        if (rep.Status_Approval !== 'Ditolak') {
+                            accumPreviousDays += Number(rep.Net_Sales || 0);
+                        }
                     }
                 }
             }
         });
 
-        let totalAccumMonth = accumPreviousDays + todayNetSales;
-        let pct = Math.min(Math.round((totalAccumMonth / this.targetBulanan) * 100), 100);
-        let kurang = Math.max(this.targetBulanan - totalAccumMonth, 0);
+        // 3. Total Akumulasi = (Jumlah Tanggal 1 s/d H-1) + Omset Hari H di Form
+        let totalAccumUpToDate = accumPreviousDays + Number(liveNetSales || 0);
+        
+        let pct = Math.min(Math.round((totalAccumUpToDate / this.targetBulanan) * 100), 100);
+        let kurang = Math.max(this.targetBulanan - totalAccumUpToDate, 0);
 
-        if (document.getElementById('accum-net-sales')) document.getElementById('accum-net-sales').innerText = `Rp ${totalAccumMonth.toLocaleString('id-ID')}`;
+        // Update Radar UI di layar
+        if (document.getElementById('accum-net-sales')) document.getElementById('accum-net-sales').innerText = `Rp ${totalAccumUpToDate.toLocaleString('id-ID')}`;
         if (document.getElementById('accum-target')) document.getElementById('accum-target').innerText = `Rp ${this.targetBulanan.toLocaleString('id-ID')}`;
         if (document.getElementById('accum-progress-bar')) document.getElementById('accum-progress-bar').style.width = `${pct}%`;
         if (document.getElementById('accum-percent')) document.getElementById('accum-percent').innerText = `Progress: ${pct}%`;
         if (document.getElementById('accum-remaining')) document.getElementById('accum-remaining').innerText = `Kurang: Rp ${kurang.toLocaleString('id-ID')}`;
 
-        this.currentAccumMonth = totalAccumMonth;
+        this.currentAccumMonth = totalAccumUpToDate;
+        return totalAccumUpToDate;
     },
 
     setTargetBulanan: function() {
@@ -1834,11 +1864,16 @@ const superApp = {
             }
         } catch (e) {}
 
+        // Di dalam submitLaporanHarian saat membentuk payload:
         let isEdit = (this.editReportId !== null);
         let idRep = isEdit ? this.editReportId : ('REP-' + Date.now());
         
+        // 🚀 JIKA EDIT OLEH KASIR -> Status: 'Pending Edit', JIKA OWNER -> 'Disetujui'
+        let isOwner = this.currentUser && (this.currentUser.Role === 'owner' || this.currentUser.Role === 'supervisor');
+        let statusApp = (isEdit && !isOwner) ? 'Pending Edit' : 'Disetujui';
+
         const payload = {
-            action: isEdit ? 'update_laporan_harian' : 'save_laporan_harian', // 🚀 Dinamis Action
+            action: isEdit ? 'update_laporan_harian' : 'save_laporan_harian',
             id_laporan: idRep,
             outlet: this.outlet,
             tanggal: tglTeks,
@@ -1851,9 +1886,10 @@ const superApp = {
             pengeluaran_json: JSON.stringify(expValid),
             total_pengeluaran: totExp,
             akumulasi_bulan: this.currentAccumMonth || netSales,
-            kasir: (this.currentUser && this.currentUser.Username) ? this.currentUser.Username : 'Kasir'
+            kasir: (this.currentUser && this.currentUser.Username) ? this.currentUser.Username : 'Kasir',
+            status_approval: statusApp // 🚀 Kirim status ke backend
         };
-
+        
         if (!this.db.laporanHarian) this.db.laporanHarian = [];
         
         if (isEdit) {
@@ -1888,6 +1924,7 @@ const superApp = {
         this.showWaModal(waText);
     },
 
+   
     resetDailyForm: function() {
         // Reset memori edit
         this.editReportId = null;
@@ -1924,20 +1961,63 @@ const superApp = {
             let net = Number(item.Net_Sales || 0);
             let cash = Number(item.Cash || 0);
             let qris = Number(item.QRIS || 0);
+            
+            // 🚀 1. Deteksi Status & Role Pengguna
+            let status = item.Status_Approval || 'Disetujui';
+            let isOwner = this.currentUser && (this.currentUser.Role === 'owner' || this.currentUser.Role === 'supervisor');
 
+            // 🚀 2. Buat Badge Peringatan Status
+            let badgeStatus = '';
+            if (status === 'Pending Edit') {
+                badgeStatus = `<span class="mt-1 inline-block bg-amber-100 text-amber-700 border border-amber-300 px-2 py-0.5 rounded-md text-[9px] font-black animate-pulse"><i class="fas fa-clock mr-1"></i>Menunggu Persetujuan Edit</span>`;
+            } else if (status === 'Ditolak') {
+                badgeStatus = `<span class="mt-1 inline-block bg-rose-100 text-rose-600 border border-rose-200 px-2 py-0.5 rounded-md text-[9px] font-black"><i class="fas fa-xmark mr-1"></i>Revisi Ditolak Owner</span>`;
+            }
+
+            // 🚀 3. Buat Tombol Eksekusi Khusus Owner (Hanya muncul saat status 'Pending Edit')
+            let tombolOwnerDesk = (status === 'Pending Edit' && isOwner) ? `
+                <div class="flex gap-1 mt-1.5 pt-1.5 border-t border-slate-200">
+                    <button type="button" onclick="superApp.eksekusiApprovalEdit('${item.ID_Laporan}', 'Disetujui')" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-1 px-1.5 rounded text-[10px] font-black shadow-2xs transition active:scale-95" title="Setujui Revisi">✔ Setujui</button>
+                    <button type="button" onclick="superApp.eksekusiApprovalEdit('${item.ID_Laporan}', 'Ditolak')" class="flex-1 bg-rose-500 hover:bg-rose-600 text-white py-1 px-1.5 rounded text-[10px] font-black shadow-2xs transition active:scale-95" title="Tolak Revisi">✖ Tolak</button>
+                </div>
+            ` : '';
+
+            let tombolOwnerMob = (status === 'Pending Edit' && isOwner) ? `
+                <div class="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
+                    <button type="button" onclick="superApp.eksekusiApprovalEdit('${item.ID_Laporan}', 'Disetujui')" class="bg-emerald-500 hover:bg-emerald-600 text-white py-2 rounded-xl text-xs font-black shadow-2xs active:scale-95 flex items-center justify-center gap-1"><i class="fas fa-check"></i> Setujui Revisi</button>
+                    <button type="button" onclick="superApp.eksekusiApprovalEdit('${item.ID_Laporan}', 'Ditolak')" class="bg-rose-500 hover:bg-rose-600 text-white py-2 rounded-xl text-xs font-black shadow-2xs active:scale-95 flex items-center justify-center gap-1"><i class="fas fa-xmark"></i> Tolak</button>
+                </div>
+            ` : '';
+
+            // 🚀 4. Render HTML Baris Tabel Desktop
             deskHtml += `
-            <tr class="border-b border-slate-50 hover:bg-slate-50 transition report-row" data-date="${item.Tanggal}">
-                <td class="py-3 px-4"><span class="font-extrabold text-slate-800">${item.Tanggal}</span><br><span class="text-[10px] text-amber-600 font-bold">${item.Cuaca || '-'}</span></td>
+            <tr class="border-b border-slate-50 hover:bg-slate-50 transition report-row ${status === 'Pending Edit' ? 'bg-amber-50/40' : ''}" data-date="${item.Tanggal}">
+                <td class="py-3 px-4">
+                    <span class="font-extrabold text-slate-800">${item.Tanggal}</span><br>
+                    <span class="text-[10px] text-amber-600 font-bold">${item.Cuaca || '-'}</span>
+                    <div>${badgeStatus}</div>
+                </td>
                 <td class="py-3 px-4 text-right font-black text-rose-600 text-base">Rp ${net.toLocaleString('id-ID')}</td>
                 <td class="py-3 px-4 text-right text-xs"><span class="text-slate-700">C: Rp ${cash.toLocaleString('id-ID')}</span><br><span class="text-blue-600">Q: Rp ${qris.toLocaleString('id-ID')}</span></td>
                 <td class="py-3 px-4 text-center text-xs font-bold">${item.Bill} Bill / ${item.Pcs} Pcs</td>
-                <td class="py-3 px-4 text-center"><button type="button" onclick="superApp.resendLaporanHarianWa('${item.ID_Laporan}')" class="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-black shadow-sm transition active:scale-95"><i class="fab fa-whatsapp mr-1"></i> WA</button></td>
+                <td class="py-3 px-4 text-center">
+                    <div class="flex items-center justify-center gap-1.5">
+                        <button type="button" onclick="superApp.editLaporanHarian('${item.ID_Laporan}')" class="bg-amber-100 hover:bg-amber-500 text-amber-600 hover:text-white p-1.5 w-8 h-8 rounded-lg text-xs font-black transition active:scale-95" title="Ajukan Revisi / Edit"><i class="fas fa-pen"></i></button>
+                        <button type="button" onclick="superApp.resendLaporanHarianWa('${item.ID_Laporan}')" class="bg-emerald-500 hover:bg-emerald-600 text-white px-2.5 py-1.5 h-8 rounded-lg text-xs font-black shadow-sm transition active:scale-95 flex items-center gap-1"><i class="fab fa-whatsapp"></i> WA</button>
+                    </div>
+                    ${tombolOwnerDesk}
+                </td>
             </tr>`;
 
+            // 🚀 5. Render HTML Kartu Mobile HP
             mobHtml += `
-            <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-2xs flex flex-col gap-2.5 report-mob-card" data-date="${item.Tanggal}">
+            <div class="bg-white p-4 rounded-2xl border ${status === 'Pending Edit' ? 'border-amber-300 bg-amber-50/20' : 'border-slate-100'} shadow-2xs flex flex-col gap-2.5 report-mob-card" data-date="${item.Tanggal}">
                 <div class="flex justify-between items-start pb-2 border-b border-slate-100">
-                    <div><h4 class="font-extrabold text-sm text-slate-800">${item.Tanggal}</h4><span class="text-[10px] font-bold text-amber-600">${item.Cuaca || '-'}</span></div>
+                    <div>
+                        <h4 class="font-extrabold text-sm text-slate-800">${item.Tanggal}</h4>
+                        <span class="text-[10px] font-bold text-amber-600">${item.Cuaca || '-'}</span>
+                        <div>${badgeStatus}</div>
+                    </div>
                     <div class="text-right"><span class="text-[9px] font-black text-slate-400 block uppercase">Net Sales</span><span class="font-black text-rose-600 text-base">Rp ${net.toLocaleString('id-ID')}</span></div>
                 </div>
                 <div class="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100 font-bold">
@@ -1945,7 +2025,11 @@ const superApp = {
                     <div>QRIS: <span class="text-blue-600 font-black">Rp ${qris.toLocaleString('id-ID')}</span></div>
                     <div class="col-span-2 text-center text-slate-500 pt-1 border-t border-slate-200/60 font-black">${item.Bill} Bill | ${item.Pcs} Pcs Terjual</div>
                 </div>
-                <button type="button" onclick="superApp.resendLaporanHarianWa('${item.ID_Laporan}')" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-2.5 rounded-xl text-xs font-black shadow-sm flex items-center justify-center gap-1.5 active:scale-95"><i class="fab fa-whatsapp text-sm"></i> Kirim Ulang ke WA Owner</button>
+                <div class="flex gap-2 pt-0.5">
+                    <button type="button" onclick="superApp.editLaporanHarian('${item.ID_Laporan}')" class="w-11 bg-amber-100 hover:bg-amber-200 text-amber-600 rounded-xl text-xs font-black flex items-center justify-center active:scale-95" title="Edit / Ajukan Revisi"><i class="fas fa-pen"></i></button>
+                    <button type="button" onclick="superApp.resendLaporanHarianWa('${item.ID_Laporan}')" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-2.5 rounded-xl text-xs font-black shadow-sm flex items-center justify-center gap-1.5 active:scale-95"><i class="fab fa-whatsapp text-sm"></i> Kirim Ulang ke WA Owner</button>
+                </div>
+                ${tombolOwnerMob}
             </div>`;
         });
 
@@ -1954,14 +2038,69 @@ const superApp = {
         if (document.getElementById('laporan-harian-count')) document.getElementById('laporan-harian-count').innerText = `${count} Laporan`;
     },
 
+    // =========================================================
+    // 🚀 ENGINE PERSETUJUAN OWNER (SETUJUI / TOLAK REVISI)
+    // =========================================================
+    eksekusiApprovalEdit: async function(idRep, keputusan) {
+        if (!confirm(`Apakah Anda yakin ingin ${keputusan === 'Disetujui' ? 'MENYETUJUI' : 'MENOLAK'} revisi laporan ini?`)) return;
+
+        this.setLoading(true, "Memproses persetujuan...");
+        
+        // 1. Update di memori lokal kasir/owner
+        let rep = (this.db.laporanHarian || []).find(x => x.ID_Laporan === idRep);
+        if (rep) rep.Status_Approval = keputusan;
+        localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
+
+        // 2. Kirim status ke server Google Sheets
+        await this.apiPost({
+            action: 'approve_edit_laporan',
+            id_laporan: idRep,
+            keputusan: keputusan
+        });
+
+        this.setLoading(false);
+        this.showToast(`Revisi laporan telah ${keputusan}!`, keputusan === 'Disetujui' ? 'success' : 'info');
+        this.renderLaporanHarianHistory();
+    },
+
+    // =========================================================
+    // 🚀 KIRIM ULANG WA DENGAN KALKULASI AKUMULASI DINAMIS
+    // =========================================================
     resendLaporanHarianWa: function(id) {
         let rep = (this.db.laporanHarian || []).find(x => x.ID_Laporan === id);
         if (!rep) return;
+
         let net = Number(rep.Net_Sales || 0);
         let bill = Number(rep.Bill || 0);
         let pcs = Number(rep.Pcs || 0);
         let amountPaid = bill > 0 ? Math.round(net / bill) : 0;
         let amountPcs = pcs > 0 ? Math.round(net / pcs) : 0;
+
+        // 🚀 Hitung Akumulasi Dinamis Khusus dari Tgl 1 s/d Tanggal Laporan Ini
+        let exactAccumulation = net;
+        let match = (rep.Tanggal || '').match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+        if (match) {
+            let targetDay = parseInt(match[1], 10);
+            let targetMonth = parseInt(match[2], 10);
+            let targetYear = parseInt(match[3], 10);
+            let sumPast = 0;
+
+            (this.db.laporanHarian || []).forEach(item => {
+                if ((item.Outlet === rep.Outlet || rep.Outlet === 'Pusat') && item.ID_Laporan !== rep.ID_Laporan) {
+                    let rMatch = (item.Tanggal || '').match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+                    if (rMatch) {
+                        let rDay = parseInt(rMatch[1], 10);
+                        let rMonth = parseInt(rMatch[2], 10);
+                        let rYear = parseInt(rMatch[3], 10);
+                        // Hitung hanya tanggal sebelum laporan ini (Tgl 1 s/d H-1)
+                        if (rYear === targetYear && rMonth === targetMonth && rDay < targetDay && item.Status_Approval !== 'Ditolak') {
+                            sumPast += Number(item.Net_Sales || 0);
+                        }
+                    }
+                }
+            });
+            exactAccumulation = sumPast + net;
+        }
 
         let expText = '-'; let totExp = 0;
         try {
@@ -1985,7 +2124,7 @@ const superApp = {
             waText += `Net Cash Laci: Rp.${(Number(rep.Cash||0) - totExp).toLocaleString('id-ID')}\n`;
         }
         waText += `Total penjualan : Rp.${net.toLocaleString('id-ID')}\n`;
-        waText += `Akumulasi bulanan: Rp.${Number(rep.Akumulasi_Bulan || net).toLocaleString('id-ID')}\n`;
+        waText += `Akumulasi bulanan: Rp.${exactAccumulation.toLocaleString('id-ID')}\n`; // 🚀 Akumulasi Presisi
         waText += `Target penjualan: Rp.${this.targetBulanan.toLocaleString('id-ID')}`;
 
         this.showWaModal(waText);
@@ -2111,35 +2250,6 @@ const superApp = {
     editReportId: null, // Memori menyimpan ID laporan jika sedang mode Edit
 
     // =========================================================
-    // 🚀 ENGINE OTORISASI SUPERVISOR / OWNER
-    // =========================================================
-    verifyAuthPIN: function(actionName) {
-        // Jika yang login sudah Owner/Supervisor, lolos otomatis
-        if (this.currentUser && (this.currentUser.Role === 'owner' || this.currentUser.Role === 'supervisor')) {
-            return true;
-        }
-
-        // Jika Kasir, minta PIN Owner/Supervisor
-        let inputPin = prompt(`🔒 OTORISASI DIBUTUHKAN\nMasukkan PIN Owner / Supervisor untuk ${actionName}:`);
-        if (!inputPin) return false;
-
-        // Cek PIN di database karyawan
-        let authUser = (this.db.users || []).find(u => 
-            String(u.PIN) === String(inputPin).trim() && 
-            (u.Role === 'owner' || u.Role === 'supervisor')
-        );
-
-        if (authUser) {
-            this.showToast(`Otorisasi diterima dari: ${authUser.Username}`);
-            return true;
-        } else {
-            alert("❌ PIN Salah atau Anda tidak memiliki otoritas!");
-            return false;
-        }
-    },
-
-    
-    // =========================================================
     // 🚀 1. ENGINE KALENDER (SAAT BULATAN TANGGAL DIKLIK)
     // =========================================================
     openReportByDate: function(dateStr) {
@@ -2237,50 +2347,33 @@ const superApp = {
     // 🚀 3. ENGINE EDIT DATA (AUTO-POPULATE & OTORISASI PIN)
     // =========================================================
     editLaporanHarian: function(idRep) {
-        // 1. GERBANG OTORISASI: Wajib masukkan PIN Owner / Supervisor
-        if (!this.verifyAuthPIN("Mengedit Laporan Masa Lalu")) return;
-
-        // 2. Cari Data Laporan di Memori
+        // 🚀 Bebaskan akses tanpa PIN! Staf boleh edit untuk mengajukan revisi
         let rep = (this.db.laporanHarian || []).find(x => x.ID_Laporan === idRep);
         if (!rep) return this.showToast("Data laporan tidak ditemukan!", "error");
 
-        // 3. Masukkan ke Mode Edit
         this.editReportId = rep.ID_Laporan;
         
         let titleEl = document.getElementById('form-title-mode');
         let btnCancel = document.getElementById('btn-cancel-edit');
-        let dateEl = document.getElementById('daily-form-date');
-
-        if (titleEl) titleEl.innerText = "✏️ Mode Edit Laporan";
+        if (titleEl) titleEl.innerText = "📝 Ajukan Revisi Laporan";
         if (btnCancel) btnCancel.classList.remove('hidden');
-        if (dateEl) dateEl.innerText = rep.Tanggal;
 
-        // 4. 🚀 AUTO-POPULATE: Isi kolom input dengan data lama
+        // Isi form dengan angka lama
         if (document.getElementById('daily-cash')) document.getElementById('daily-cash').value = Number(rep.Cash || 0).toLocaleString('id-ID');
         if (document.getElementById('daily-qris')) document.getElementById('daily-qris').value = Number(rep.QRIS || 0).toLocaleString('id-ID');
         if (document.getElementById('daily-bill')) document.getElementById('daily-bill').value = rep.Bill || 0;
         if (document.getElementById('daily-pcs')) document.getElementById('daily-pcs').value = rep.Pcs || 0;
 
-        // 5. Load Ulang Rincian Pengeluaran Lama
         this.dailyExpensesList = [];
         try {
             let expArr = JSON.parse(rep.Pengeluaran_JSON || '[]');
-            expArr.forEach(x => {
-                let id = Date.now() + Math.random().toString(36).substr(2, 4);
-                this.dailyExpensesList.push({ id, nama: String(x.nama).toUpperCase(), nominal: x.nominal });
-            });
+            expArr.forEach(x => this.addDailyExpenseRow(x.nama, x.nominal));
         } catch(e) {}
-        
-        if (this.dailyExpensesList.length === 0) {
-            this.addDailyExpenseRow();
-        } else {
-            this.renderDailyExpenseRows();
-        }
+        if (this.dailyExpensesList.length === 0) this.addDailyExpenseRow();
 
-        // 6. Kalkulasi Ulang Live & Pindah Tab ke Form Input
         this.calcDailyReportLive();
         this.switchLapHarianSubTab('input');
-        this.showToast(`Data tanggal ${rep.Tanggal} berhasil dimuat ke form.`);
+        this.showToast("Silakan ubah data. Hasil edit akan dikirim ke Owner untuk disetujui.");
     },
 
 

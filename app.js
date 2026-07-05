@@ -2156,26 +2156,73 @@ const superApp = {
         }
     },
 
+    // =========================================================
+    // 🚀 1. ENGINE KALENDER (SAAT BULATAN TANGGAL DIKLIK)
+    // =========================================================
+    openReportByDate: function(dateStr) {
+        // dateStr format dari kalender biasanya: YYYY-MM-DD
+        let d = new Date(dateStr);
+        let days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+        let pad = n => String(n).padStart(2, '0');
+        let targetTglStr = `${days[d.getDay()]}, ${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
+
+        // 1. Cek apakah di tanggal tersebut sudah ada laporan untuk outlet ini?
+        let existingReport = (this.db.laporanHarian || []).find(x => 
+            (x.Outlet === this.outlet || this.outlet === 'Pusat') && 
+            x.Tanggal.includes(`${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`)
+        );
+
+        if (existingReport) {
+            // 🚀 JIKA DATA SUDAH ADA: Langsung minta otorisasi & isi form (Auto-Populate)
+            if (confirm(`📅 Data untuk tanggal ${targetTglStr} SUDAH TERISI (Net Sales: Rp ${Number(existingReport.Net_Sales||0).toLocaleString('id-ID')}).\n\nIngin membuka dan mengedit data ini?`)) {
+                this.editLaporanHarian(existingReport.ID_Laporan);
+            }
+        } else {
+            // 🚀 JIKA DATA KOSONG: Minta otorisasi untuk input tanggal mundur
+            if (!this.verifyAuthPIN(`Input Baru Tanggal Mundur (${targetTglStr})`)) return;
+            
+            this.resetDailyForm(true); // Reset form tanpa konfirmasi ulang
+            const dateEl = document.getElementById('daily-form-date');
+            if (dateEl) dateEl.innerText = targetTglStr;
+            this.showToast(`Form siap untuk input tanggal: ${targetTglStr}`);
+            this.switchLapHarianSubTab('input');
+        }
+    },
+
+    // =========================================================
+    // 🚀 2. ENGINE BACKDATE PICKER (SAAT IKON KALENDER DI FORM DIKLIK)
+    // =========================================================
     applyBackdate: function(dateVal) {
         if (!dateVal) return;
         let d = new Date(dateVal);
         let days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
         let pad = n => String(n).padStart(2, '0');
-        let tglStr = `${days[d.getDay()]}, ${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
+        let targetTglStr = `${days[d.getDay()]}, ${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
         
-        const dateEl = document.getElementById('daily-form-date');
-        if (dateEl) dateEl.innerText = tglStr;
-        this.showToast(`Tanggal form diubah ke: ${tglStr}`);
+        // Cek apakah tanggal yang dipilih dari date picker sudah punya data
+        let existingReport = (this.db.laporanHarian || []).find(x => 
+            (x.Outlet === this.outlet || this.outlet === 'Pusat') && 
+            x.Tanggal.includes(`${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`)
+        );
+
+        if (existingReport) {
+            this.showToast("Data tanggal tersebut sudah ada, memuat mode edit...");
+            this.editLaporanHarian(existingReport.ID_Laporan);
+        } else {
+            const dateEl = document.getElementById('daily-form-date');
+            if (dateEl) dateEl.innerText = targetTglStr;
+            this.showToast(`Tanggal form dialihkan ke: ${targetTglStr}`);
+        }
     },
 
     // =========================================================
-    // 🚀 FITUR EDIT DATA MASA LALU
+    // 🚀 3. ENGINE EDIT DATA (AUTO-POPULATE & OTORISASI PIN)
     // =========================================================
     editLaporanHarian: function(idRep) {
-        // 1. Minta Otorisasi PIN
+        // 1. GERBANG OTORISASI: Wajib masukkan PIN Owner / Supervisor
         if (!this.verifyAuthPIN("Mengedit Laporan Masa Lalu")) return;
 
-        // 2. Cari Data Laporan
+        // 2. Cari Data Laporan di Memori
         let rep = (this.db.laporanHarian || []).find(x => x.ID_Laporan === idRep);
         if (!rep) return this.showToast("Data laporan tidak ditemukan!", "error");
 
@@ -2186,30 +2233,36 @@ const superApp = {
         let btnCancel = document.getElementById('btn-cancel-edit');
         let dateEl = document.getElementById('daily-form-date');
 
-        if (titleEl) titleEl.innerText = "✏️ Edit Laporan";
+        if (titleEl) titleEl.innerText = "✏️ Mode Edit Laporan";
         if (btnCancel) btnCancel.classList.remove('hidden');
         if (dateEl) dateEl.innerText = rep.Tanggal;
 
-        // 4. Isi Form dengan Angka Lama
+        // 4. 🚀 AUTO-POPULATE: Isi kolom input dengan data lama
         if (document.getElementById('daily-cash')) document.getElementById('daily-cash').value = Number(rep.Cash || 0).toLocaleString('id-ID');
         if (document.getElementById('daily-qris')) document.getElementById('daily-qris').value = Number(rep.QRIS || 0).toLocaleString('id-ID');
         if (document.getElementById('daily-bill')) document.getElementById('daily-bill').value = rep.Bill || 0;
         if (document.getElementById('daily-pcs')) document.getElementById('daily-pcs').value = rep.Pcs || 0;
 
-        // Load Rincian Pengeluaran
+        // 5. Load Ulang Rincian Pengeluaran Lama
         this.dailyExpensesList = [];
         try {
             let expArr = JSON.parse(rep.Pengeluaran_JSON || '[]');
             expArr.forEach(x => {
-                this.addDailyExpenseRow(x.nama, x.nominal);
+                let id = Date.now() + Math.random().toString(36).substr(2, 4);
+                this.dailyExpensesList.push({ id, nama: String(x.nama).toUpperCase(), nominal: x.nominal });
             });
         } catch(e) {}
-        if (this.dailyExpensesList.length === 0) this.addDailyExpenseRow();
+        
+        if (this.dailyExpensesList.length === 0) {
+            this.addDailyExpenseRow();
+        } else {
+            this.renderDailyExpenseRows();
+        }
 
-        // 5. Kalkulasi Ulang & Alihkan ke Tab Input
+        // 6. Kalkulasi Ulang Live & Pindah Tab ke Form Input
         this.calcDailyReportLive();
         this.switchLapHarianSubTab('input');
-        this.showToast("Data dimuat. Silakan perbaiki angka dan klik Simpan.");
+        this.showToast(`Data tanggal ${rep.Tanggal} berhasil dimuat ke form.`);
     },
 
 

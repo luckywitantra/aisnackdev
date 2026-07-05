@@ -1818,6 +1818,9 @@ const superApp = {
     },
 
     // 4. Simpan & Buat Teks Laporan WhatsApp Presisi
+   // =========================================================
+    // 🚀 SUBMIT LAPORAN (STAF EDIT MASUK KE KOTAK REVISI)
+    // =========================================================
     submitLaporanHarian: async function() {
         if (this.isProcessing) return;
         let cash = this.getNumericValue(document.getElementById('daily-cash')?.value || 0);
@@ -1829,48 +1832,19 @@ const superApp = {
         if (bill === 0 || pcs === 0) return this.showToast("Jumlah Bill dan Pcs terjual wajib diisi!", "error");
 
         let netSales = cash + qris;
-        let amountPaid = bill > 0 ? Math.round(netSales / bill) : 0;
-        let amountPcs = pcs > 0 ? Math.round(netSales / pcs) : 0;
-
         let expValid = this.dailyExpensesList.filter(x => x.nama.trim() !== '' && Number(x.nominal) > 0);
-        let expText = expValid.length > 0 ? expValid.map(x => `▪️ ${x.nama}: Rp ${Number(x.nominal).toLocaleString('id-ID')}`).join('\n') : '-';
         let totExp = 0; expValid.forEach(x => totExp += Number(x.nominal));
 
         let tglTeks = document.getElementById('daily-form-date')?.innerText || "Hari Ini";
         let cuaca = this.currentDailyWeather || "31°C";
 
-        let waText = `Outlet \n*Ai-CHA ${this.outlet}*\n${tglTeks}\ncuaca : ${cuaca}\n\n`;
-        waText += `Net Sales: Rp.${netSales.toLocaleString('id-ID')}\n`;
-        waText += `Amount Paid: ${amountPaid.toLocaleString('id-ID')}\n`;
-        waText += `Amount pcs : ${amountPcs.toLocaleString('id-ID')}\n`;
-        waText += `Bill : ${bill.toLocaleString('id-ID')}\n`;
-        waText += `Discount: -.\n`;
-        waText += `Cash: Rp.${cash.toLocaleString('id-ID')}\n`;
-        waText += `QRIS: Rp.${qris.toLocaleString('id-ID')}\n`;
-        if (expValid.length > 0) {
-            waText += `Pengeluaran:\n${expText}\nTotal Pengeluaran: Rp.${totExp.toLocaleString('id-ID')}\n`;
-            waText += `Net Cash Laci: Rp.${(cash - totExp).toLocaleString('id-ID')}\n`;
-        }
-        waText += `Total penjualan : Rp.${netSales.toLocaleString('id-ID')}\n`;
-        waText += `Akumulasi bulanan: Rp.${(this.currentAccumMonth || netSales).toLocaleString('id-ID')}\n`;
-        waText += `Target penjualan: Rp.${this.targetBulanan.toLocaleString('id-ID')}`;
-
-        this.setLoading(true, "Menyimpan Laporan Harian...");
-
-        // 🚀 1. SALIN CLIPBOARD DI AWAL SAAT TOMBOL BARU DIKLIK (MENCEGAH BLUR ERROR)
-        try {
-            if (navigator.clipboard && window.isSecureContext) {
-                navigator.clipboard.writeText(waText).catch(() => {});
-            }
-        } catch (e) {}
-
-        // Di dalam submitLaporanHarian saat membentuk payload:
         let isEdit = (this.editReportId !== null);
         let idRep = isEdit ? this.editReportId : ('REP-' + Date.now());
         
-        // 🚀 JIKA EDIT OLEH KASIR -> Status: 'Pending Edit', JIKA OWNER -> 'Disetujui'
         let isOwner = this.currentUser && (this.currentUser.Role === 'owner' || this.currentUser.Role === 'supervisor');
         let statusApp = (isEdit && !isOwner) ? 'Pending Edit' : 'Disetujui';
+
+        this.setLoading(true, isEdit && !isOwner ? "Mengirim Pengajuan Revisi..." : "Menyimpan Laporan...");
 
         const payload = {
             action: isEdit ? 'update_laporan_harian' : 'save_laporan_harian',
@@ -1887,41 +1861,91 @@ const superApp = {
             total_pengeluaran: totExp,
             akumulasi_bulan: this.currentAccumMonth || netSales,
             kasir: (this.currentUser && this.currentUser.Username) ? this.currentUser.Username : 'Kasir',
-            status_approval: statusApp // 🚀 Kirim status ke backend
+            status_approval: statusApp
         };
-        
+
         if (!this.db.laporanHarian) this.db.laporanHarian = [];
-        
+        let idx = this.db.laporanHarian.findIndex(x => x.ID_Laporan === idRep);
+
         if (isEdit) {
-            // Update data di memori lokal kasir
-            let idx = this.db.laporanHarian.findIndex(x => x.ID_Laporan === idRep);
-            if (idx > -1) {
+            if (statusApp === 'Pending Edit' && idx > -1) {
+                // 🚀 STAF EDIT: Jangan sentuh angka asli di memori! Taruh di Revisi_JSON
+                this.db.laporanHarian[idx].Status_Approval = 'Pending Edit';
+                this.db.laporanHarian[idx].Revisi_JSON = JSON.stringify({
+                    cash, qris, net_sales: netSales, bill, pcs, 
+                    pengeluaran_json: JSON.stringify(expValid), total_pengeluaran: totExp,
+                    editor: payload.kasir
+                });
+            } else if (idx > -1) {
+                // 🚀 OWNER EDIT: Langsung timpa angka asli
                 this.db.laporanHarian[idx] = {
-                    ID_Laporan: idRep, Outlet: this.outlet, Tanggal: tglTeks, Cuaca: cuaca,
+                    ...this.db.laporanHarian[idx],
                     Cash: cash, QRIS: qris, Net_Sales: netSales, Bill: bill, Pcs: pcs,
-                    Pengeluaran_JSON: JSON.stringify(expValid), Akumulasi_Bulan: this.currentAccumMonth || netSales
+                    Pengeluaran_JSON: JSON.stringify(expValid), Total_Pengeluaran: totExp,
+                    Status_Approval: 'Disetujui', Revisi_JSON: ''
                 };
             }
         } else {
-            // Push data baru
             this.db.laporanHarian.push({
                 ID_Laporan: idRep, Outlet: this.outlet, Tanggal: tglTeks, Cuaca: cuaca,
                 Cash: cash, QRIS: qris, Net_Sales: netSales, Bill: bill, Pcs: pcs,
-                Pengeluaran_JSON: JSON.stringify(expValid), Akumulasi_Bulan: this.currentAccumMonth || netSales
+                Pengeluaran_JSON: JSON.stringify(expValid), Status_Approval: 'Disetujui'
             });
         }
         localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
 
-        // 🚀 2. EKSEKUSI API SERVER
-        let res = await this.apiPost(payload);
+        await this.apiPost(payload);
         this.setLoading(false);
-        this.showToast(isEdit ? "Laporan Berhasil Diperbarui!" : "Laporan Harian Tersimpan!");
-        this.resetDailyForm(); // Keluar dari mode edit setelah sukses
-        this.renderLaporanHarianHistory();
-        if (typeof this.renderCalendar === 'function') this.renderCalendar();
         
-        // 🚀 3. MUNCULKAN MODAL WA Tanpa Error Console
-        this.showWaModal(waText);
+        if (statusApp === 'Pending Edit') {
+            alert("⏳ REVISI TERKIRIM KE OWNER\n\nAngka laporan resmi TIDAK AKAN BERUBAH sebelum disetujui oleh Owner.");
+        } else {
+            this.showToast("Laporan Berhasil Tersimpan!");
+        }
+        
+        this.resetDailyForm();
+        this.renderLaporanHarianHistory();
+    },
+
+    // =========================================================
+    // 🚀 EKSEKUSI APPROVAL OWNER (SETUJUI / TOLAK)
+    // =========================================================
+    eksekusiApprovalEdit: async function(idRep, keputusan) {
+        if (!confirm(`Apakah Anda yakin ingin ${keputusan === 'Disetujui' ? 'MENYETUJUI' : 'MENOLAK'} revisi laporan ini?`)) return;
+
+        this.setLoading(true, "Memproses persetujuan...");
+        
+        let idx = (this.db.laporanHarian || []).findIndex(x => x.ID_Laporan === idRep);
+        if (idx > -1) {
+            if (keputusan === 'Disetujui') {
+                // 🚀 JIKA DISETUJUI: Pindahkan angka dari kotak revisi ke angka asli!
+                try {
+                    let rev = JSON.parse(this.db.laporanHarian[idx].Revisi_JSON || '{}');
+                    if (rev.net_sales !== undefined) {
+                        this.db.laporanHarian[idx].Cash = rev.cash;
+                        this.db.laporanHarian[idx].QRIS = rev.qris;
+                        this.db.laporanHarian[idx].Net_Sales = rev.net_sales;
+                        this.db.laporanHarian[idx].Bill = rev.bill;
+                        this.db.laporanHarian[idx].Pcs = rev.pcs;
+                        this.db.laporanHarian[idx].Pengeluaran_JSON = rev.pengeluaran_json;
+                        this.db.laporanHarian[idx].Total_Pengeluaran = rev.total_pengeluaran;
+                    }
+                } catch(e) {}
+            }
+            this.db.laporanHarian[idx].Status_Approval = 'Disetujui';
+            this.db.laporanHarian[idx].Revisi_JSON = '';
+            localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
+        }
+
+        await this.apiPost({
+            action: 'approve_edit_laporan',
+            id_laporan: idRep,
+            keputusan: keputusan
+        });
+
+        this.setLoading(false);
+        this.showToast(`Revisi telah ${keputusan}! Angka pembukuan diperbarui.`, 'success');
+        this.renderLaporanHarianHistory();
     },
 
    
@@ -1974,7 +1998,24 @@ const superApp = {
                 badgeStatus = `<span class="mt-1 inline-block bg-rose-100 text-rose-600 border border-rose-200 px-2 py-0.5 rounded-md text-[9px] font-black"><i class="fas fa-xmark mr-1"></i>Revisi Ditolak Owner</span>`;
             }
 
-            // 🚀 3. Buat Tombol Eksekusi Khusus Owner (Hanya muncul saat status 'Pending Edit')
+            // 🚀 3. Baca Kotak Revisi & Tampilkan Rincian Perubahan Angka
+            let infoRevisi = '';
+            if (status === 'Pending Edit') {
+                try {
+                    let rev = JSON.parse(item.Revisi_JSON || '{}');
+                    if (rev.net_sales !== undefined) {
+                        infoRevisi = `
+                        <div class="mt-1.5 p-2 bg-amber-100/90 border border-amber-300 rounded-lg text-[10px] text-amber-900 leading-tight">
+                            <b>📌 Pengajuan Revisi oleh ${rev.editor || 'Staf'}:</b><br>
+                            Net Sales Baru: <b class="text-rose-600">Rp ${Number(rev.net_sales).toLocaleString('id-ID')}</b> (Lama: Rp ${net.toLocaleString('id-ID')})<br>
+                            Cash: Rp ${Number(rev.cash||0).toLocaleString('id-ID')} | QRIS: Rp ${Number(rev.qris||0).toLocaleString('id-ID')}<br>
+                            Bill: <b>${rev.bill}</b> | Pcs: <b>${rev.pcs}</b>
+                        </div>`;
+                    }
+                } catch(e){}
+            }
+
+            // 🚀 4. Buat Tombol Eksekusi Khusus Owner (Hanya muncul saat status 'Pending Edit')
             let tombolOwnerDesk = (status === 'Pending Edit' && isOwner) ? `
                 <div class="flex gap-1 mt-1.5 pt-1.5 border-t border-slate-200">
                     <button type="button" onclick="superApp.eksekusiApprovalEdit('${item.ID_Laporan}', 'Disetujui')" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-1 px-1.5 rounded text-[10px] font-black shadow-2xs transition active:scale-95" title="Setujui Revisi">✔ Setujui</button>
@@ -1989,18 +2030,19 @@ const superApp = {
                 </div>
             ` : '';
 
-            // 🚀 4. Render HTML Baris Tabel Desktop
+            // 🚀 5. Render HTML Baris Tabel Desktop
             deskHtml += `
             <tr class="border-b border-slate-50 hover:bg-slate-50 transition report-row ${status === 'Pending Edit' ? 'bg-amber-50/40' : ''}" data-date="${item.Tanggal}">
                 <td class="py-3 px-4">
                     <span class="font-extrabold text-slate-800">${item.Tanggal}</span><br>
                     <span class="text-[10px] text-amber-600 font-bold">${item.Cuaca || '-'}</span>
                     <div>${badgeStatus}</div>
+                    ${infoRevisi}
                 </td>
-                <td class="py-3 px-4 text-right font-black text-rose-600 text-base">Rp ${net.toLocaleString('id-ID')}</td>
-                <td class="py-3 px-4 text-right text-xs"><span class="text-slate-700">C: Rp ${cash.toLocaleString('id-ID')}</span><br><span class="text-blue-600">Q: Rp ${qris.toLocaleString('id-ID')}</span></td>
-                <td class="py-3 px-4 text-center text-xs font-bold">${item.Bill} Bill / ${item.Pcs} Pcs</td>
-                <td class="py-3 px-4 text-center">
+                <td class="py-3 px-4 text-right font-black text-rose-600 text-base align-top">Rp ${net.toLocaleString('id-ID')}</td>
+                <td class="py-3 px-4 text-right text-xs align-top"><span class="text-slate-700">C: Rp ${cash.toLocaleString('id-ID')}</span><br><span class="text-blue-600">Q: Rp ${qris.toLocaleString('id-ID')}</span></td>
+                <td class="py-3 px-4 text-center text-xs font-bold align-top">${item.Bill} Bill / ${item.Pcs} Pcs</td>
+                <td class="py-3 px-4 text-center align-top">
                     <div class="flex items-center justify-center gap-1.5">
                         <button type="button" onclick="superApp.editLaporanHarian('${item.ID_Laporan}')" class="bg-amber-100 hover:bg-amber-500 text-amber-600 hover:text-white p-1.5 w-8 h-8 rounded-lg text-xs font-black transition active:scale-95" title="Ajukan Revisi / Edit"><i class="fas fa-pen"></i></button>
                         <button type="button" onclick="superApp.resendLaporanHarianWa('${item.ID_Laporan}')" class="bg-emerald-500 hover:bg-emerald-600 text-white px-2.5 py-1.5 h-8 rounded-lg text-xs font-black shadow-sm transition active:scale-95 flex items-center gap-1"><i class="fab fa-whatsapp"></i> WA</button>
@@ -2009,7 +2051,7 @@ const superApp = {
                 </td>
             </tr>`;
 
-            // 🚀 5. Render HTML Kartu Mobile HP
+            // 🚀 6. Render HTML Kartu Mobile HP
             mobHtml += `
             <div class="bg-white p-4 rounded-2xl border ${status === 'Pending Edit' ? 'border-amber-300 bg-amber-50/20' : 'border-slate-100'} shadow-2xs flex flex-col gap-2.5 report-mob-card" data-date="${item.Tanggal}">
                 <div class="flex justify-between items-start pb-2 border-b border-slate-100">
@@ -2020,6 +2062,7 @@ const superApp = {
                     </div>
                     <div class="text-right"><span class="text-[9px] font-black text-slate-400 block uppercase">Net Sales</span><span class="font-black text-rose-600 text-base">Rp ${net.toLocaleString('id-ID')}</span></div>
                 </div>
+                ${infoRevisi}
                 <div class="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100 font-bold">
                     <div>Cash: <span class="text-slate-800 font-black">Rp ${cash.toLocaleString('id-ID')}</span></div>
                     <div>QRIS: <span class="text-blue-600 font-black">Rp ${qris.toLocaleString('id-ID')}</span></div>
@@ -2038,31 +2081,7 @@ const superApp = {
         if (document.getElementById('laporan-harian-count')) document.getElementById('laporan-harian-count').innerText = `${count} Laporan`;
     },
 
-    // =========================================================
-    // 🚀 ENGINE PERSETUJUAN OWNER (SETUJUI / TOLAK REVISI)
-    // =========================================================
-    eksekusiApprovalEdit: async function(idRep, keputusan) {
-        if (!confirm(`Apakah Anda yakin ingin ${keputusan === 'Disetujui' ? 'MENYETUJUI' : 'MENOLAK'} revisi laporan ini?`)) return;
-
-        this.setLoading(true, "Memproses persetujuan...");
-        
-        // 1. Update di memori lokal kasir/owner
-        let rep = (this.db.laporanHarian || []).find(x => x.ID_Laporan === idRep);
-        if (rep) rep.Status_Approval = keputusan;
-        localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
-
-        // 2. Kirim status ke server Google Sheets
-        await this.apiPost({
-            action: 'approve_edit_laporan',
-            id_laporan: idRep,
-            keputusan: keputusan
-        });
-
-        this.setLoading(false);
-        this.showToast(`Revisi laporan telah ${keputusan}!`, keputusan === 'Disetujui' ? 'success' : 'info');
-        this.renderLaporanHarianHistory();
-    },
-
+    
     // =========================================================
     // 🚀 KIRIM ULANG WA DENGAN KALKULASI AKUMULASI DINAMIS
     // =========================================================

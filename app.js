@@ -1827,6 +1827,13 @@ const superApp = {
 
         this.setLoading(true, "Menyimpan Laporan Harian...");
 
+        // 🚀 1. SALIN CLIPBOARD DI AWAL SAAT TOMBOL BARU DIKLIK (MENCEGAH BLUR ERROR)
+        try {
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(waText).catch(() => {});
+            }
+        } catch (e) {}
+
         let idRep = 'REP-' + Date.now();
         const payload = {
             action: 'save_laporan_harian',
@@ -1853,11 +1860,15 @@ const superApp = {
         });
         localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
 
+        // 🚀 2. EKSEKUSI API SERVER
         let res = await this.apiPost(payload);
+        
         this.setLoading(false);
         this.showToast("Laporan Harian Tersimpan di Sistem!");
         this.renderLaporanHarianHistory();
         if (typeof this.renderCalendar === 'function') this.renderCalendar();
+        
+        // 🚀 3. MUNCULKAN MODAL WA Tanpa Error Console
         this.showWaModal(waText);
     },
 

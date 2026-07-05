@@ -13,6 +13,19 @@
         --brand-600: #ea580c;
       }
 
+    
+#calendar-grid {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.5rem;
+}
+.calendar-day {
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
 #view-ai-content table {
     width: 100%;
     border-collapse: collapse;

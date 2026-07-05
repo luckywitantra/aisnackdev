@@ -3439,39 +3439,56 @@ changeOutlet: function(val) {
         }).catch(err => { console.log("Masuk ke antrean offline."); });
     },
     
-    // TERIMA BARANG, OPNAME & WA MODAL
-    showWaModal: function(waText) {
-        try { navigator.clipboard.writeText(waText); } catch (err) { 
-            let txtArea = document.createElement("textarea"); txtArea.value = waText; document.body.appendChild(txtArea); 
-            txtArea.select(); try { document.execCommand("copy"); } catch(e){} document.body.removeChild(txtArea); 
+   // =========================================================
+    // 🚀 MODAL WHATSAPP DENGAN SAFE CLIPBOARD COPY
+    // =========================================================
+    showWaModal: async function(text, customNumber = '') {
+        // 1. Coba salin ke clipboard dengan proteksi Try-Catch & Fallback
+        try {
+            if (navigator.clipboard && window.isSecureContext && document.hasFocus()) {
+                await navigator.clipboard.writeText(text);
+                this.showToast("Teks laporan otomatis disalin ke clipboard!");
+            } else {
+                // Fallback tradisional untuk browser HP / saat kehilangan fokus
+                let textArea = document.createElement("textarea");
+                textArea.value = text;
+                textArea.style.position = "fixed";
+                textArea.style.left = "-999999px";
+                textArea.style.top = "-999999px";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    this.showToast("Teks laporan berhasil disalin!");
+                } catch (err) {
+                    console.warn("Fallback copy gagal, pengguna harus salin manual.");
+                }
+                textArea.remove();
+            }
+        } catch (err) {
+            console.warn("Clipboard API dicegah browser: ", err.message);
         }
-        let waUrl = `https://wa.me/?text=${encodeURIComponent(waText)}`; 
-        const btnGoWa = document.getElementById('btn-go-wa');
-        const btnCopyWa = document.getElementById('btn-copy-wa');
 
-        if (btnGoWa) {
-            btnGoWa.onclick = () => {
-                let popWin = window.open(waUrl, '_blank'); 
-                if(!popWin || popWin.closed || typeof popWin.closed === 'undefined') {
-                    window.location.href = waUrl; 
+        // 2. Tampilkan Pop-Up Modal WA seperti biasa
+        let modal = document.getElementById('modal-wa');
+        let textAreaModal = document.getElementById('wa-preview-text');
+        
+        if (textAreaModal) textAreaModal.value = text;
+        this.pendingWaText = text;
+        this.pendingWaNumber = customNumber;
+
+        if (modal) {
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            setTimeout(() => {
+                let content = modal.querySelector('div');
+                if (content) {
+                    content.classList.remove('scale-95', 'opacity-0');
+                    content.classList.add('scale-100', 'opacity-100');
                 }
-                this.closeModal('modal-wa-confirm');
-            };
+            }, 10);
         }
-        if (btnCopyWa) {
-            btnCopyWa.onclick = () => {
-                try { navigator.clipboard.writeText(waText); } catch (err) { 
-                    let txtArea = document.createElement("textarea"); txtArea.value = waText; document.body.appendChild(txtArea); 
-                    txtArea.select(); try { document.execCommand("copy"); } catch(e){} document.body.removeChild(txtArea); 
-                }
-                this.showToast("Teks Berhasil Disalin!", "success");
-                btnCopyWa.innerHTML = `<i class="fas fa-check"></i> Sudah Tersalin!`;
-                setTimeout(() => { btnCopyWa.innerHTML = `<i class="fas fa-copy"></i> Salin Teks Laporan`; }, 2000);
-            };
-        }
-        const mWa = document.getElementById('modal-wa-confirm'); 
-        const mWac = document.getElementById('modal-wa-confirm-content');
-        if(mWa && mWac) { mWa.classList.remove('hidden'); setTimeout(() => mWac.classList.add('modal-enter-active'), 10); }
     },
     openWaHistory: function(type) {
         const tbody = document.getElementById('wa-history-tbody');

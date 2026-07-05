@@ -1605,6 +1605,7 @@ const superApp = {
             this.addDailyExpenseRow(); 
         }
 
+        this.fetchMasterPengeluaran();
         this.calcDailyReportLive();
         this.renderLaporanHarianHistory();
     },
@@ -1665,35 +1666,55 @@ const superApp = {
     },
 
     // 2. Baris Pengeluaran Dinamis
-    addDailyExpenseRow: function(nama = '', nominal = '') {
-        let id = Date.now() + Math.random().toString(36).substr(2, 4);
-        this.dailyExpensesList.push({ id, nama, nominal });
-        this.renderDailyExpenseRows();
+   addDailyExpenseRow: function(nama = '', nominal = '') {
+    let id = Date.now() + Math.random().toString(36).substr(2, 4);
+    this.dailyExpensesList.push({ id, nama: nama.toUpperCase(), nominal }); // 🚀 Paksa Uppercase
+    this.renderDailyExpenseRows();
     },
+    
     removeDailyExpenseRow: function(id) {
         this.dailyExpensesList = this.dailyExpensesList.filter(x => x.id !== id);
         this.renderDailyExpenseRows();
         this.calcDailyReportLive();
     },
     renderDailyExpenseRows: function() {
-        const cont = document.getElementById('daily-expenses-list');
-        if (!cont) return;
-        if (this.dailyExpensesList.length === 0) {
-            cont.innerHTML = `<p class="text-[10px] text-slate-400 italic text-center py-2">Tidak ada pengeluaran hari ini.</p>`;
-            return;
-        }
-        cont.innerHTML = this.dailyExpensesList.map(item => `
-            <div class="flex items-center gap-2">
-                <input type="text" value="${item.nama}" oninput="superApp.updateDailyExpName('${item.id}', this.value)" placeholder="Nama pengeluaran (cth: Es Batu)" class="flex-1 h-9 bg-slate-50 border border-slate-200 focus:border-rose-500 rounded-xl px-3 text-xs font-bold text-slate-700 outline-none">
-                <input type="text" inputmode="numeric" value="${item.nominal ? Number(item.nominal).toLocaleString('id-ID') : ''}" oninput="superApp.formatRupiahInput(this); superApp.updateDailyExpNominal('${item.id}', this.value);" placeholder="Rp 0" class="w-28 h-9 bg-slate-50 border border-slate-200 focus:border-rose-500 rounded-xl px-2.5 text-xs font-black text-rose-600 text-right outline-none">
-                <button type="button" onclick="superApp.removeDailyExpenseRow('${item.id}')" class="w-8 h-8 bg-rose-50 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl transition flex items-center justify-center shrink-0"><i class="fas fa-trash text-xs"></i></button>
-            </div>
-        `).join('');
-    },
+    const cont = document.getElementById('daily-expenses-list');
+    if (!cont) return;
+
+    // Ambil daftar unik dari database (untuk autocomplete)
+    let daftarPengeluaran = [...new Set((this.db.masterPengeluaran || []).map(x => x.Nama))];
+
+    cont.innerHTML = this.dailyExpensesList.map(item => `
+        <div class="flex items-center gap-2">
+            <input type="text" list="exp-datalist" value="${item.nama}" 
+                   oninput="superApp.updateDailyExpName('${item.id}', this.value)" 
+                   placeholder="Nama pengeluaran..." 
+                   class="flex-1 h-9 bg-slate-50 border border-slate-200 focus:border-rose-500 rounded-xl px-3 text-xs font-black text-slate-700 outline-none uppercase shadow-inner">
+            
+            <input type="text" inputmode="numeric" value="${item.nominal ? Number(item.nominal).toLocaleString('id-ID') : ''}" 
+                   oninput="superApp.formatRupiahInput(this); superApp.updateDailyExpNominal('${item.id}', this.value);" 
+                   placeholder="Rp 0" 
+                   class="w-28 h-9 bg-slate-50 border border-slate-200 focus:border-rose-500 rounded-xl px-2.5 text-xs font-black text-rose-600 text-right outline-none shadow-inner">
+            
+            <button type="button" onclick="superApp.removeDailyExpenseRow('${item.id}')" class="w-8 h-8 bg-rose-50 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl transition flex items-center justify-center shrink-0">
+                <i class="fas fa-trash text-xs"></i>
+            </button>
+        </div>
+    `).join('') + `
+    <datalist id="exp-datalist">
+        ${daftarPengeluaran.map(n => `<option value="${n}">`).join('')}
+    </datalist>`;
+},
+    
     updateDailyExpName: function(id, val) {
-        let item = this.dailyExpensesList.find(x => x.id === id);
-        if (item) item.nama = val;
+    let item = this.dailyExpensesList.find(x => x.id === id);
+    if (item) {
+        item.nama = val.toUpperCase(); // 🚀 Paksa Uppercase secara real-time
+        // Jika ingin ada fitur Autocomplete, tambahkan pemanggilan fungsi di sini
+        }
     },
+    
+    
     updateDailyExpNominal: function(id, val) {
         let item = this.dailyExpensesList.find(x => x.id === id);
         if (item) {
@@ -1956,6 +1977,21 @@ const superApp = {
             if (btnInput) btnInput.className = inactiveClass;
             if (btnRiwayat) btnRiwayat.className = activeClass;
         }
+    },
+
+    fetchMasterPengeluaran: function() {
+        // Pastikan URL API sudah benar (tambahkan parameter action agar di-handle di GAS)
+        fetch(API_URL + "?action=get_master_data")
+        .then(r => r.json())
+        .then(data => {
+            // Simpan ke db.masterPengeluaran agar datalist bisa membaca datanya
+            this.db.masterPengeluaran = data; 
+            // Re-render baris pengeluaran agar <datalist> terupdate
+            if (typeof this.renderDailyExpenseRows === 'function') {
+                this.renderDailyExpenseRows();
+            }
+        })
+        .catch(e => console.error("Gagal ambil master pengeluaran:", e));
     },
 
 

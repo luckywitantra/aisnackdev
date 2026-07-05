@@ -1756,6 +1756,39 @@
     </div>
   </div>
 
+
+  <div id="modal-confirm-terima" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] hidden items-center justify-center p-4 transition-opacity duration-300">
+    <div id="modal-confirm-terima-content" class="bg-white rounded-[2rem] max-w-md w-full p-6 md:p-7 shadow-2xl border border-slate-100 transform scale-95 opacity-0 transition-all duration-300 modal-enter flex flex-col text-center">
+        
+        <div id="terima-confirm-icon-box" class="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 border-[6px] border-emerald-100/60 shadow-inner">
+            <i class="fas fa-truck-loading animate-bounce"></i>
+        </div>
+
+        <h3 id="terima-confirm-title" class="font-black text-xl text-slate-800 tracking-tight">Konfirmasi Barang Datang</h3>
+        <p id="terima-confirm-subtitle" class="text-xs font-bold text-slate-400 mt-1">Verifikasi jumlah barang yang dikirim kurir pusat.</p>
+
+        <div id="terima-confirm-summary" class="my-5 bg-slate-50 border border-slate-200/80 rounded-2xl p-4 text-left space-y-2.5 shadow-inner">
+            </div>
+
+        <div id="terima-confirm-warning-box" class="bg-amber-50 border border-amber-200/80 rounded-xl p-3 text-left flex items-start gap-2.5 mb-6">
+            <i class="fas fa-circle-info text-amber-500 text-base mt-0.5 shrink-0"></i>
+            <p class="text-[11px] font-bold text-amber-800 leading-relaxed">
+                Stok toko <b>tidak langsung bertambah</b>. Laporan ini memerlukan otorisasi dan persetujuan dari Owner di menu Audit.
+            </p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 mt-auto">
+            <button onclick="superApp.closeModal('modal-confirm-terima')" class="w-full py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-extrabold text-xs md:text-sm rounded-xl transition active:scale-95">
+                Hitung Ulang
+            </button>
+            <button id="btn-confirm-terima-execute" class="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black text-xs md:text-sm rounded-xl shadow-lg shadow-emerald-500/25 transition active:scale-95 flex items-center justify-center gap-2">
+                <i class="fas fa-paper-plane text-xs"></i> Kirim Laporan
+            </button>
+        </div>
+
+    </div>
+</div>
+  
   <div id="modal-confirm-opname" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] hidden items-center justify-center p-4 transition-opacity duration-300">
     <div id="modal-confirm-opname-content" class="bg-white rounded-[2rem] max-w-md w-full p-6 md:p-7 shadow-2xl border border-slate-100 transform scale-95 opacity-0 transition-all duration-300 modal-enter flex flex-col text-center">
         

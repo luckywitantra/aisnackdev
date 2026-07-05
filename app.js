@@ -1994,6 +1994,60 @@ const superApp = {
         .catch(e => console.error("Gagal ambil master pengeluaran:", e));
     },
 
+    renderCalendar: function() {
+    const grid = document.getElementById('calendar-grid');
+    if (!grid) return;
+    
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    
+    // Header bulan
+    document.getElementById('calendar-month-name').innerText = now.toLocaleString('id-ID', { month: 'long', year: 'numeric' });
+
+    // Cek tanggal yang sudah terisi di database
+    const terisiDates = (this.db.laporanHarian || []).map(l => {
+        let tgl = this.parseDateId((l.Tanggal || '').split(' ')[1] || l.Tanggal);
+        return `${tgl.getDate()}-${tgl.getMonth()}-${tgl.getFullYear()}`;
+    });
+
+    const firstDay = new Date(year, month, 1).getDay(); // 0 (Minggu) sampai 6 (Sabtu)
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    
+    // Hapus tanggal lama (sisakan header hari)
+    grid.innerHTML = `<div class="text-slate-400">Sen</div><div class="text-slate-400">Sel</div><div class="text-slate-400">Rab</div><div class="text-slate-400">Kam</div><div class="text-slate-400">Jum</div><div class="text-slate-400">Sab</div><div class="text-slate-400">Min</div>`;
+    
+    // Geser index agar Senin jadi awal (dari 0=Minggu menjadi 6=Minggu)
+    let offset = (firstDay === 0) ? 6 : firstDay - 1;
+    for(let i=0; i<offset; i++) grid.appendChild(document.createElement('div'));
+    
+    for(let d=1; d<=daysInMonth; d++) {
+        let dateKey = `${d}-${month}-${year}`;
+        let isDone = terisiDates.includes(dateKey);
+        let div = document.createElement('div');
+        div.className = `h-8 w-8 flex items-center justify-center rounded-full cursor-pointer transition ${isDone ? 'bg-emerald-500 text-white font-black' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`;
+        div.innerText = d;
+        div.onclick = () => this.openReportByDate(`${year}-${month+1}-${d}`);
+        grid.appendChild(div);
+    }
+},
+
+openReportByDate: function(dateStr) {
+    // 1. Cari data
+    let report = (this.db.laporanHarian || []).find(x => this.cleanDateOnly(x.Tanggal) === this.cleanDateOnly(dateStr));
+    
+    if (report) {
+        // Jika sudah ada, load ke form untuk edit
+        this.showToast("Memuat laporan tanggal " + dateStr);
+        // Tambahkan logika pengisian form Anda di sini
+    } else {
+        // Jika belum ada, reset form
+        this.resetDailyForm();
+        this.showToast("Belum ada laporan untuk tanggal " + dateStr);
+    }
+    this.switchLapHarianSubTab('input');
+},
+
 
     // =========================================================
     // 🚀 1. RENDER MANAJEMEN USER (PC & MOBILE DUAL RENDER)

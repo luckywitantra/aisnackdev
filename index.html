@@ -1756,6 +1756,38 @@
     </div>
   </div>
 
+  <div id="modal-confirm-opname" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] hidden items-center justify-center p-4 transition-opacity duration-300">
+    <div id="modal-confirm-opname-content" class="bg-white rounded-[2rem] max-w-md w-full p-6 md:p-7 shadow-2xl border border-slate-100 transform scale-95 opacity-0 transition-all duration-300 modal-enter flex flex-col text-center">
+        
+        <div class="w-20 h-20 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 border-[6px] border-purple-100/60 shadow-inner">
+            <i class="fas fa-clipboard-check animate-bounce"></i>
+        </div>
+
+        <h3 class="font-black text-xl text-slate-800 tracking-tight">Verifikasi Audit Opname</h3>
+        <p class="text-xs font-bold text-slate-400 mt-1">Pastikan hitungan fisik di laci & gudang sudah akurat.</p>
+
+        <div id="opname-confirm-summary" class="my-5 bg-slate-50 border border-slate-200/80 rounded-2xl p-4 text-left space-y-2.5 shadow-inner">
+            </div>
+
+        <div class="bg-amber-50 border border-amber-200/80 rounded-xl p-3 text-left flex items-start gap-2.5 mb-6">
+            <i class="fas fa-shield-halved text-amber-500 text-base mt-0.5 shrink-0"></i>
+            <p class="text-[11px] font-bold text-amber-800 leading-relaxed">
+                Stok di sistem <b>tidak akan langsung berubah</b>. Laporan ini akan masuk ke daftar Audit untuk diverifikasi oleh Owner.
+            </p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 mt-auto">
+            <button onclick="superApp.closeModal('modal-confirm-opname')" class="w-full py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-extrabold text-xs md:text-sm rounded-xl transition active:scale-95">
+                Periksa Lagi
+            </button>
+            <button id="btn-confirm-opname-execute" class="w-full py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-black text-xs md:text-sm rounded-xl shadow-lg shadow-purple-500/25 transition active:scale-95 flex items-center justify-center gap-2">
+                <i class="fas fa-paper-plane text-xs"></i> Ya, Kirim Audit
+            </button>
+        </div>
+
+    </div>
+</div>
+
   <div id="modal-payment" class="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-[150] hidden flex items-center justify-center p-4 transition-opacity">
     <div class="bg-white rounded-[2rem] w-full max-w-md max-h-[90dvh] p-5 md:p-6 shadow-2xl modal-enter text-slate-800 flex flex-col overflow-hidden border border-slate-100" id="modal-payment-content">
       

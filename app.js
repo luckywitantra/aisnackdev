@@ -1932,7 +1932,7 @@ const superApp = {
     },
 
     // =========================================================
-    // 🚀 SWITCHER SUB-TAB LAPORAN HARIAN (KHUSUS MOBILE HP)
+    // 🚀 SWITCHER SUB-TAB LAPORAN HARIAN (RESPONSIVE FULL HEIGHT)
     // =========================================================
     switchLapHarianSubTab: function(tab) {
         const secInput = document.getElementById('lapharian-sec-input');
@@ -1946,13 +1946,13 @@ const superApp = {
         if (tab === 'input') {
             // Tampilkan Form Input di HP
             if (secInput) secInput.className = "w-full lg:w-[480px] xl:w-[540px] bg-white p-4 md:p-7 rounded-[1.5rem] md:rounded-[2rem] shadow-sm border border-slate-100 flex flex-col shrink-0";
-            if (secRiwayat) secRiwayat.className = "hidden lg:flex flex-1 flex-col gap-4 md:gap-6 min-w-0 min-h-0";
+            if (secRiwayat) secRiwayat.className = "hidden lg:flex flex-1 flex-col gap-4 md:gap-6 min-w-0 w-full lg:h-full";
             if (btnInput) btnInput.className = activeClass;
             if (btnRiwayat) btnRiwayat.className = inactiveClass;
         } else {
-            // Tampilkan Riwayat & Target di HP
+            // Tampilkan Riwayat & Target di HP (Paksa Tinggi Penuh)
             if (secInput) secInput.className = "hidden lg:flex lg:w-[480px] xl:w-[540px] bg-white p-4 md:p-7 rounded-[1.5rem] md:rounded-[2rem] shadow-sm border border-slate-100 flex-col shrink-0";
-            if (secRiwayat) secRiwayat.className = "flex flex-1 flex-col gap-4 md:gap-6 min-w-0 min-h-0";
+            if (secRiwayat) secRiwayat.className = "flex flex-1 flex-col gap-4 md:gap-6 min-w-0 w-full min-h-[75vh]";
             if (btnInput) btnInput.className = inactiveClass;
             if (btnRiwayat) btnRiwayat.className = activeClass;
         }

@@ -2001,34 +2001,53 @@ const superApp = {
     const year = now.getFullYear();
     const month = now.getMonth();
     
-    // Header bulan
+    // 1. Tampilkan Nama Bulan
     document.getElementById('calendar-month-name').innerText = now.toLocaleString('id-ID', { month: 'long', year: 'numeric' });
 
-    // Cek tanggal yang sudah terisi di database
+    // 2. Ambil semua tanggal yang sudah terisi di laporanHarian
+    // Format tanggal di DB harus konsisten: DD/MM/YYYY
     const terisiDates = (this.db.laporanHarian || []).map(l => {
-        let tgl = this.parseDateId((l.Tanggal || '').split(' ')[1] || l.Tanggal);
-        return `${tgl.getDate()}-${tgl.getMonth()}-${tgl.getFullYear()}`;
+        let parts = l.Tanggal.split('/'); // Asumsi format DD/MM/YYYY
+        return `${parseInt(parts[0])}-${parseInt(parts[1])-1}-${parts[2]}`;
     });
 
-    const firstDay = new Date(year, month, 1).getDay(); // 0 (Minggu) sampai 6 (Sabtu)
+    const firstDay = new Date(year, month, 1).getDay(); 
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     
-    // Hapus tanggal lama (sisakan header hari)
-    grid.innerHTML = `<div class="text-slate-400">Sen</div><div class="text-slate-400">Sel</div><div class="text-slate-400">Rab</div><div class="text-slate-400">Kam</div><div class="text-slate-400">Jum</div><div class="text-slate-400">Sab</div><div class="text-slate-400">Min</div>`;
+    // 3. Reset Grid (Sisakan Header Sen-Min)
+    const headerHtml = `<div class="text-slate-400">Sen</div><div class="text-slate-400">Sel</div><div class="text-slate-400">Rab</div><div class="text-slate-400">Kam</div><div class="text-slate-400">Jum</div><div class="text-slate-400">Sab</div><div class="text-slate-400">Min</div>`;
+    grid.innerHTML = headerHtml;
     
-    // Geser index agar Senin jadi awal (dari 0=Minggu menjadi 6=Minggu)
     let offset = (firstDay === 0) ? 6 : firstDay - 1;
     for(let i=0; i<offset; i++) grid.appendChild(document.createElement('div'));
     
     for(let d=1; d<=daysInMonth; d++) {
         let dateKey = `${d}-${month}-${year}`;
         let isDone = terisiDates.includes(dateKey);
+        
         let div = document.createElement('div');
-        div.className = `h-8 w-8 flex items-center justify-center rounded-full cursor-pointer transition ${isDone ? 'bg-emerald-500 text-white font-black' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`;
+        div.className = `calendar-day rounded-full text-xs font-black cursor-pointer transition-all ${isDone ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`;
         div.innerText = d;
-        div.onclick = () => this.openReportByDate(`${year}-${month+1}-${d}`);
+        
+        // Klik tanggal untuk memfilter riwayat
+        div.onclick = () => {
+            this.filterRiwayatByDate(d, month + 1, year);
+        };
         grid.appendChild(div);
     }
+},
+
+filterRiwayatByDate: function(d, m, y) {
+    let dateStr = `${String(d).padStart(2,'0')}/${String(m).padStart(2,'0')}/${y}`;
+    this.showToast("Menampilkan laporan: " + dateStr);
+    
+    // Filter tabel riwayat berdasarkan tanggal yang diklik
+    const rows = document.querySelectorAll('#laporan-harian-tbody tr');
+    rows.forEach(row => {
+        // Asumsi kolom pertama adalah Tanggal & Cuaca
+        let rowDate = row.cells[0].innerText;
+        row.style.display = rowDate.includes(dateStr) ? "" : "none";
+    });
 },
 
 openReportByDate: function(dateStr) {

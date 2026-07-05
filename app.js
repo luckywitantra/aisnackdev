@@ -2247,107 +2247,110 @@ const superApp = {
         });
     },
 
-    editReportId: null, // Memori menyimpan ID laporan jika sedang mode Edit
+   editReportId: null, // Memori menyimpan ID laporan jika sedang mode Edit
 
     // =========================================================
-    // 🚀 1. ENGINE KALENDER (SAAT BULATAN TANGGAL DIKLIK)
+    // 🚀 HELPER STANDARISASI TANGGAL (ANTI-MELESET)
     // =========================================================
-    openReportByDate: function(dateStr) {
-        // dateStr format dari kalender biasanya: YYYY-MM-DD
-        let d = new Date(dateStr);
+    normalizeDateObj: function(dateInput) {
+        if (!dateInput) return new Date();
+        if (dateInput instanceof Date) return dateInput;
+        
+        // Bersihkan string tanggal
+        let str = String(dateInput).split(',').pop().trim();
+        let match = str.match(/(\d{1,4})[\/\-](\d{1,2})[\/\-](\d{1,4})/);
+        
+        if (match) {
+            let p1 = parseInt(match[1], 10);
+            let p2 = parseInt(match[2], 10);
+            let p3 = parseInt(match[3], 10);
+            
+            // Cek format YYYY-MM-DD vs DD-MM-YYYY
+            if (p1 > 1000) {
+                return new Date(p1, p2 - 1, p3); // YYYY-MM-DD
+            } else {
+                return new Date(p3, p2 - 1, p1); // DD-MM-YYYY
+            }
+        }
+        let d = new Date(dateInput);
+        return isNaN(d.getTime()) ? new Date() : d;
+    },
+
+    formatToIndoDate: function(dateObj) {
+        let d = this.normalizeDateObj(dateObj);
         let days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
         let pad = n => String(n).padStart(2, '0');
-        let targetTglStr = `${days[d.getDay()]}, ${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
+        return `${days[d.getDay()]}, ${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
+    },
 
-        // 1. Cek apakah di tanggal tersebut sudah ada laporan untuk outlet ini?
-        let existingReport = (this.db.laporanHarian || []).find(x => 
-            (x.Outlet === this.outlet || this.outlet === 'Pusat') && 
-            x.Tanggal.includes(`${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`)
-        );
-
-        if (existingReport) {
-            // 🚀 JIKA DATA SUDAH ADA: Langsung minta otorisasi & isi form (Auto-Populate)
-            if (confirm(`📅 Data untuk tanggal ${targetTglStr} SUDAH TERISI (Net Sales: Rp ${Number(existingReport.Net_Sales||0).toLocaleString('id-ID')}).\n\nIngin membuka dan mengedit data ini?`)) {
-                this.editLaporanHarian(existingReport.ID_Laporan);
-            }
-        } else {
-            // 🚀 JIKA DATA KOSONG: Minta otorisasi untuk input tanggal mundur
-            if (!this.verifyAuthPIN(`Input Baru Tanggal Mundur (${targetTglStr})`)) return;
-            
-            this.resetDailyForm(true); // Reset form tanpa konfirmasi ulang
-            const dateEl = document.getElementById('daily-form-date');
-            if (dateEl) dateEl.innerText = targetTglStr;
-            this.showToast(`Form siap untuk input tanggal: ${targetTglStr}`);
-            this.switchLapHarianSubTab('input');
-        }
+    formatToInputDate: function(dateObj) {
+        let d = this.normalizeDateObj(dateObj);
+        let pad = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     },
 
     // =========================================================
-    // 🚀 2. ENGINE BACKDATE PICKER (SAAT IKON KALENDER DI FORM DIKLIK)
-    // =========================================================
-    // =========================================================
-    // 🚀 FITUR BACKDATE PICKER (ANTI-ERROR USER GESTURE)
+    // 🚀 1. BUKA KALENDER FORM (BEBAS PIN DI AWAL)
     // =========================================================
     changeReportDateWithAuth: function() {
-        // 1. Langsung buka kalender saat tombol diklik agar diizinkan browser
+        // Langsung buka kalender tanpa hambatan PIN!
         let picker = document.getElementById('hidden-date-picker');
         if (picker) {
             try {
-                if (typeof picker.showPicker === 'function') {
-                    picker.showPicker();
-                } else {
-                    picker.click();
-                }
-            } catch (err) {
-                // Fallback jika browser lawas memblokir showPicker
+                if (typeof picker.showPicker === 'function') picker.showPicker();
+                else picker.click();
+            } catch (e) {
                 picker.click();
             }
-        } else {
-            this.showToast("Elemen date picker tidak ditemukan di HTML!", "error");
         }
     },
 
+    // =========================================================
+    // 🚀 2. ENGINE PEMILIHAN TANGGAL TERPADU (SINKRON DI KEDUA MENU)
+    // =========================================================
     applyBackdate: function(dateVal) {
         if (!dateVal) return;
-        
-        let d = new Date(dateVal);
-        let days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+        let targetDateObj = this.normalizeDateObj(dateVal);
         let pad = n => String(n).padStart(2, '0');
-        let targetTglStr = `${days[d.getDay()]}, ${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
+        let dateKeySearch = `${pad(targetDateObj.getDate())}-${pad(targetDateObj.getMonth() + 1)}-${targetDateObj.getFullYear()}`;
+        let dateKeySearchSlash = `${pad(targetDateObj.getDate())}/${pad(targetDateObj.getMonth() + 1)}/${targetDateObj.getFullYear()}`;
 
-        // 1. Cek apakah tanggal yang dipilih sudah punya laporan
+        // Cari apakah laporan untuk tanggal & outlet ini sudah ada di database
         let existingReport = (this.db.laporanHarian || []).find(x => 
             (x.Outlet === this.outlet || this.outlet === 'Pusat') && 
-            x.Tanggal.includes(`${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`)
+            (String(x.Tanggal).includes(dateKeySearch) || String(x.Tanggal).includes(dateKeySearchSlash))
         );
 
         if (existingReport) {
-            // 🚀 JIKA DATA SUDAH ADA: Minta PIN untuk mengedit data lama
-            if (confirm(`📅 Laporan tanggal ${targetTglStr} SUDAH TERISI.\nIngin meminta otorisasi PIN untuk mengeditnya?`)) {
-                this.editLaporanHarian(existingReport.ID_Laporan);
-            }
+            // 🚀 DATA SUDAH ADA -> Masuk ke Mode Edit secara sinkron
+            this.editLaporanHarian(existingReport.ID_Laporan);
         } else {
-            // 🚀 JIKA DATA BELUM ADA: Minta PIN untuk menginput tanggal mundur
-            if (!this.verifyAuthPIN(`Input Mundur Tanggal (${targetTglStr})`)) {
-                // Jika PIN salah/batal, kosongkan kembali picker
-                document.getElementById('hidden-date-picker').value = '';
-                return;
-            }
+            // 🚀 DATA KOSONG -> Masuk ke Mode Input Baru untuk Tanggal Pilihan
+            this.resetDailyForm(true); // Reset tanpa konfirmasi ulang
             
-            // Jika PIN sukses, alihkan form ke tanggal masa lalu
-            this.resetDailyForm(true);
-            const dateEl = document.getElementById('daily-form-date');
-            if (dateEl) dateEl.innerText = targetTglStr;
-            this.showToast(`Otorisasi sukses! Form dialihkan ke tanggal: ${targetTglStr}`, "success");
+            let indoStr = this.formatToIndoDate(targetDateObj);
+            let inputStr = this.formatToInputDate(targetDateObj);
+
+            let dateEl = document.getElementById('daily-form-date');
+            let picker = document.getElementById('hidden-date-picker');
+            
+            if (dateEl) dateEl.innerText = indoStr;
+            if (picker) picker.value = inputStr;
+
+            this.showToast(`Form siap untuk input tanggal: ${indoStr}`);
             this.switchLapHarianSubTab('input');
         }
     },
 
+    openReportByDate: function(dateStr) {
+        // Teruskan ke mesin applyBackdate agar sinkron 100%
+        this.applyBackdate(dateStr);
+    },
+
     // =========================================================
-    // 🚀 3. ENGINE EDIT DATA (AUTO-POPULATE & OTORISASI PIN)
+    // 🚀 3. ENGINE EDIT DATA (SINKRONISASI TANGGAL SANGAT PRESISI)
     // =========================================================
     editLaporanHarian: function(idRep) {
-        // 🚀 Bebaskan akses tanpa PIN! Staf boleh edit untuk mengajukan revisi
         let rep = (this.db.laporanHarian || []).find(x => x.ID_Laporan === idRep);
         if (!rep) return this.showToast("Data laporan tidak ditemukan!", "error");
 
@@ -2355,8 +2358,16 @@ const superApp = {
         
         let titleEl = document.getElementById('form-title-mode');
         let btnCancel = document.getElementById('btn-cancel-edit');
+        let dateEl = document.getElementById('daily-form-date');
+        let picker = document.getElementById('hidden-date-picker');
+
         if (titleEl) titleEl.innerText = "📝 Ajukan Revisi Laporan";
         if (btnCancel) btnCancel.classList.remove('hidden');
+
+        // 🚀 STANDARISASI TANGGAL AGAR TETAP BENAR DI FORM & KALENDER
+        let targetDateObj = this.normalizeDateObj(rep.Tanggal);
+        if (dateEl) dateEl.innerText = this.formatToIndoDate(targetDateObj);
+        if (picker) picker.value = this.formatToInputDate(targetDateObj);
 
         // Isi form dengan angka lama
         if (document.getElementById('daily-cash')) document.getElementById('daily-cash').value = Number(rep.Cash || 0).toLocaleString('id-ID');
@@ -2364,6 +2375,7 @@ const superApp = {
         if (document.getElementById('daily-bill')) document.getElementById('daily-bill').value = rep.Bill || 0;
         if (document.getElementById('daily-pcs')) document.getElementById('daily-pcs').value = rep.Pcs || 0;
 
+        // Muat pengeluaran lama
         this.dailyExpensesList = [];
         try {
             let expArr = JSON.parse(rep.Pengeluaran_JSON || '[]');
@@ -2371,10 +2383,12 @@ const superApp = {
         } catch(e) {}
         if (this.dailyExpensesList.length === 0) this.addDailyExpenseRow();
 
+        // Kalkulasi ulang & alihkan ke tab Input
         this.calcDailyReportLive();
         this.switchLapHarianSubTab('input');
-        this.showToast("Silakan ubah data. Hasil edit akan dikirim ke Owner untuk disetujui.");
+        this.showToast(`Memuat data tanggal ${this.formatToIndoDate(targetDateObj)} untuk diperbaiki.`);
     },
+
 
 
     // =========================================================

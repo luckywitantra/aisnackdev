@@ -2138,24 +2138,7 @@ const superApp = {
         }
     },
 
-    // =========================================================
-    // 🚀 FITUR BACKDATE (INPUT TANGGAL MASA LALU)
-    // =========================================================
-    changeReportDateWithAuth: function() {
-        if (!this.verifyAuthPIN("Mengubah Tanggal Laporan")) return;
-        
-        let picker = document.getElementById('hidden-date-picker');
-        if (picker) {
-            if (typeof picker.showPicker === 'function') {
-                picker.showPicker();
-            } else {
-                picker.click();
-            }
-        } else {
-            this.showToast("Elemen date picker tidak ditemukan di HTML!", "error");
-        }
-    },
-
+    
     // =========================================================
     // 🚀 1. ENGINE KALENDER (SAAT BULATAN TANGGAL DIKLIK)
     // =========================================================
@@ -2192,26 +2175,61 @@ const superApp = {
     // =========================================================
     // 🚀 2. ENGINE BACKDATE PICKER (SAAT IKON KALENDER DI FORM DIKLIK)
     // =========================================================
+    // =========================================================
+    // 🚀 FITUR BACKDATE PICKER (ANTI-ERROR USER GESTURE)
+    // =========================================================
+    changeReportDateWithAuth: function() {
+        // 1. Langsung buka kalender saat tombol diklik agar diizinkan browser
+        let picker = document.getElementById('hidden-date-picker');
+        if (picker) {
+            try {
+                if (typeof picker.showPicker === 'function') {
+                    picker.showPicker();
+                } else {
+                    picker.click();
+                }
+            } catch (err) {
+                // Fallback jika browser lawas memblokir showPicker
+                picker.click();
+            }
+        } else {
+            this.showToast("Elemen date picker tidak ditemukan di HTML!", "error");
+        }
+    },
+
     applyBackdate: function(dateVal) {
         if (!dateVal) return;
+        
         let d = new Date(dateVal);
         let days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
         let pad = n => String(n).padStart(2, '0');
         let targetTglStr = `${days[d.getDay()]}, ${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
-        
-        // Cek apakah tanggal yang dipilih dari date picker sudah punya data
+
+        // 1. Cek apakah tanggal yang dipilih sudah punya laporan
         let existingReport = (this.db.laporanHarian || []).find(x => 
             (x.Outlet === this.outlet || this.outlet === 'Pusat') && 
             x.Tanggal.includes(`${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`)
         );
 
         if (existingReport) {
-            this.showToast("Data tanggal tersebut sudah ada, memuat mode edit...");
-            this.editLaporanHarian(existingReport.ID_Laporan);
+            // 🚀 JIKA DATA SUDAH ADA: Minta PIN untuk mengedit data lama
+            if (confirm(`📅 Laporan tanggal ${targetTglStr} SUDAH TERISI.\nIngin meminta otorisasi PIN untuk mengeditnya?`)) {
+                this.editLaporanHarian(existingReport.ID_Laporan);
+            }
         } else {
+            // 🚀 JIKA DATA BELUM ADA: Minta PIN untuk menginput tanggal mundur
+            if (!this.verifyAuthPIN(`Input Mundur Tanggal (${targetTglStr})`)) {
+                // Jika PIN salah/batal, kosongkan kembali picker
+                document.getElementById('hidden-date-picker').value = '';
+                return;
+            }
+            
+            // Jika PIN sukses, alihkan form ke tanggal masa lalu
+            this.resetDailyForm(true);
             const dateEl = document.getElementById('daily-form-date');
             if (dateEl) dateEl.innerText = targetTglStr;
-            this.showToast(`Tanggal form dialihkan ke: ${targetTglStr}`);
+            this.showToast(`Otorisasi sukses! Form dialihkan ke tanggal: ${targetTglStr}`, "success");
+            this.switchLapHarianSubTab('input');
         }
     },
 

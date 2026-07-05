@@ -1834,9 +1834,11 @@ const superApp = {
             }
         } catch (e) {}
 
-        let idRep = 'REP-' + Date.now();
+        let isEdit = (this.editReportId !== null);
+        let idRep = isEdit ? this.editReportId : ('REP-' + Date.now());
+        
         const payload = {
-            action: 'save_laporan_harian',
+            action: isEdit ? 'update_laporan_harian' : 'save_laporan_harian', // 🚀 Dinamis Action
             id_laporan: idRep,
             outlet: this.outlet,
             tanggal: tglTeks,
@@ -1853,18 +1855,32 @@ const superApp = {
         };
 
         if (!this.db.laporanHarian) this.db.laporanHarian = [];
-        this.db.laporanHarian.push({
-            ID_Laporan: idRep, Outlet: this.outlet, Tanggal: tglTeks, Cuaca: cuaca,
-            Cash: cash, QRIS: qris, Net_Sales: netSales, Bill: bill, Pcs: pcs,
-            Pengeluaran_JSON: JSON.stringify(expValid), Akumulasi_Bulan: this.currentAccumMonth || netSales
-        });
+        
+        if (isEdit) {
+            // Update data di memori lokal kasir
+            let idx = this.db.laporanHarian.findIndex(x => x.ID_Laporan === idRep);
+            if (idx > -1) {
+                this.db.laporanHarian[idx] = {
+                    ID_Laporan: idRep, Outlet: this.outlet, Tanggal: tglTeks, Cuaca: cuaca,
+                    Cash: cash, QRIS: qris, Net_Sales: netSales, Bill: bill, Pcs: pcs,
+                    Pengeluaran_JSON: JSON.stringify(expValid), Akumulasi_Bulan: this.currentAccumMonth || netSales
+                };
+            }
+        } else {
+            // Push data baru
+            this.db.laporanHarian.push({
+                ID_Laporan: idRep, Outlet: this.outlet, Tanggal: tglTeks, Cuaca: cuaca,
+                Cash: cash, QRIS: qris, Net_Sales: netSales, Bill: bill, Pcs: pcs,
+                Pengeluaran_JSON: JSON.stringify(expValid), Akumulasi_Bulan: this.currentAccumMonth || netSales
+            });
+        }
         localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
 
         // 🚀 2. EKSEKUSI API SERVER
         let res = await this.apiPost(payload);
-        
         this.setLoading(false);
-        this.showToast("Laporan Harian Tersimpan di Sistem!");
+        this.showToast(isEdit ? "Laporan Berhasil Diperbarui!" : "Laporan Harian Tersimpan!");
+        this.resetDailyForm(); // Keluar dari mode edit setelah sukses
         this.renderLaporanHarianHistory();
         if (typeof this.renderCalendar === 'function') this.renderCalendar();
         
@@ -1873,7 +1889,21 @@ const superApp = {
     },
 
     resetDailyForm: function() {
-        if (!confirm("Reset isian form hari ini?")) return;
+        // Reset memori edit
+        this.editReportId = null;
+        let titleEl = document.getElementById('form-title-mode');
+        let btnCancel = document.getElementById('btn-cancel-edit');
+        if (titleEl) titleEl.innerText = "Input Data Hari Ini";
+        if (btnCancel) btnCancel.classList.add('hidden');
+
+        // Kembali ke tanggal hari ini
+        let d = new Date();
+        let days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+        let pad = n => String(n).padStart(2, '0');
+        let dateEl = document.getElementById('daily-form-date');
+        if (dateEl) dateEl.innerText = `${days[d.getDay()]}, ${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
+
+        // Kosongkan input
         ['daily-cash', 'daily-qris', 'daily-bill', 'daily-pcs'].forEach(id => {
             let el = document.getElementById(id); if (el) el.value = '';
         });

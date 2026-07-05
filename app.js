@@ -2065,7 +2065,7 @@ const superApp = {
             let dateVal = card.getAttribute('data-date') || '';
             card.style.display = (dateVal.includes(targetPattern) || dateVal.includes(targetPatternSlash)) ? "" : "none";
         });
-    }
+    },
 
 
     // =========================================================

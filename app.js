@@ -3903,34 +3903,136 @@ openDetailStokOpname: function(sku) {
         this.checkBulkAudit();
     },
     
+    // =========================================================
+    // 🚀 1. CEK SELEKSI CHECKBOX AUDIT
+    // =========================================================
     checkBulkAudit: function() {
         let opChecked = document.querySelectorAll('.cb-audit-opname:checked').length;
         let trChecked = document.querySelectorAll('.cb-audit-terima:checked').length;
         let bar = document.getElementById('bulk-action-bar');
-        if (bar) { if (opChecked > 0 || trChecked > 0) bar.classList.remove('hidden'); else bar.classList.add('hidden'); }
+        
+        // Perbarui badge angka pada Floating Action Bar jika ada
+        const countBadge = document.getElementById('bulk-action-count');
+        if (countBadge) countBadge.innerText = `${opChecked + trChecked} Dipilih`;
+
+        if (bar) { 
+            if (opChecked > 0 || trChecked > 0) bar.classList.remove('hidden'); 
+            else bar.classList.add('hidden'); 
+        }
     },
 
-    processBulkApproval: async function(status) {
+    // =========================================================
+    // 🚀 2. PEMICU MODAL KONFIRMASI CANTIK (BULK APPROVAL)
+    // =========================================================
+    processBulkApproval: function(status) {
         if (this.isProcessing) return;
-        let opCbs = document.querySelectorAll('.cb-audit-opname:checked'); let trCbs = document.querySelectorAll('.cb-audit-terima:checked');
-        if (opCbs.length === 0 && trCbs.length === 0) return this.showToast("Tidak ada data dipilih", "warning");
+        
+        let opCbs = document.querySelectorAll('.cb-audit-opname:checked'); 
+        let trCbs = document.querySelectorAll('.cb-audit-terima:checked');
+        let totalSelected = opCbs.length + trCbs.length;
 
-        if (!confirm(`Yakin ingin memproses (${status}) ${opCbs.length + trCbs.length} laporan sekaligus?`)) return;
-        this.setLoading(true, `Memproses Masal (${status})...`);
+        if (totalSelected === 0) return this.showToast("Tidak ada data dipilih", "warning");
 
-        try {
-            if (opCbs.length > 0) {
-                let items = Array.from(opCbs).map(cb => { let p = cb.value.split('|'); return { waktu: p[0], sku: p[1], outlet: p[2], fisik: parseInt(p[3]) }; });
-                await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'bulk_approve_opname', items: items, status_app: status }) });
+        let isApprove = status === 'Disetujui';
+
+        // --- PENGATURAN VISUAL DINAMIS MODAL ---
+        const iconBox = document.getElementById('bulk-confirm-icon-box');
+        const icon = document.getElementById('bulk-confirm-icon');
+        const titleEl = document.getElementById('bulk-confirm-title');
+        const subtitleEl = document.getElementById('bulk-confirm-subtitle');
+        const actionBadge = document.getElementById('bulk-confirm-action-badge');
+        const warningBox = document.getElementById('bulk-confirm-warning-box');
+        const warningIcon = document.getElementById('bulk-confirm-warning-icon');
+        const warningText = document.getElementById('bulk-confirm-warning-text');
+        const btnExecute = document.getElementById('btn-confirm-bulk-execute');
+
+        // Isi angka ringkasan
+        if (document.getElementById('bulk-confirm-opname-count')) document.getElementById('bulk-confirm-opname-count').innerText = `${opCbs.length} Item`;
+        if (document.getElementById('bulk-confirm-terima-count')) document.getElementById('bulk-confirm-terima-count').innerText = `${trCbs.length} Item`;
+        if (document.getElementById('bulk-confirm-total-count')) document.getElementById('bulk-confirm-total-count').innerText = `${totalSelected} Laporan`;
+
+        if (isApprove) {
+            // TEMA HIJAU (SETUJUI)
+            if (iconBox) iconBox.className = "w-20 h-20 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 border-[6px] border-emerald-100/60 shadow-inner";
+            if (icon) icon.className = "fas fa-check-double animate-bounce";
+            if (titleEl) titleEl.innerText = "Setujui Laporan Terpilih?";
+            if (subtitleEl) subtitleEl.innerText = "Stok sistem akan langsung diperbarui secara permanen.";
+            if (actionBadge) {
+                actionBadge.innerText = "Disetujui (Approve)";
+                actionBadge.className = "text-xs font-black px-2.5 py-0.5 rounded-md border shadow-2xs uppercase tracking-wider bg-emerald-50 text-emerald-700 border-emerald-200";
             }
-            if (trCbs.length > 0) {
-                let items = Array.from(trCbs).map(cb => cb.value);
-                await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'bulk_approve_mutasi', items: items, status_app: status }) });
+            if (warningBox) {
+                warningBox.className = "bg-amber-50 border border-amber-200/80 rounded-xl p-3 text-left flex items-start gap-2.5 mb-6";
+                if (warningIcon) warningIcon.className = "fas fa-circle-info text-amber-500 text-base mt-0.5 shrink-0";
+                if (warningText) warningText.innerHTML = "Dengan menyetujui, angka opname fisik akan <b>menimpa stok komputer</b>, dan barang masuk dari supplier akan <b>mencair ke stok toko</b>.";
             }
-            this.showToast(`Proses Masal Selesai!`);
-            const res = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); this.db = await res.json(); this.refreshData();
-        } catch (e) { this.showToast("Gagal memproses", "error"); }
-        this.setLoading(false);
+            if (btnExecute) {
+                btnExecute.className = "w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black text-xs md:text-sm rounded-xl shadow-lg shadow-emerald-500/25 transition active:scale-95 flex items-center justify-center gap-2";
+                btnExecute.innerHTML = `<i class="fas fa-check text-xs"></i> Ya, Setujui Semua`;
+            }
+        } else {
+            // TEMA MERAH (TOLAK)
+            if (iconBox) iconBox.className = "w-20 h-20 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 border-[6px] border-rose-100/60 shadow-inner";
+            if (icon) icon.className = "fas fa-xmark animate-bounce";
+            if (titleEl) titleEl.innerText = "Tolak Laporan Terpilih?";
+            if (subtitleEl) subtitleEl.innerText = "Laporan akan diabaikan dan stok tidak akan berubah.";
+            if (actionBadge) {
+                actionBadge.innerText = "Ditolak (Reject)";
+                actionBadge.className = "text-xs font-black px-2.5 py-0.5 rounded-md border shadow-2xs uppercase tracking-wider bg-rose-50 text-rose-700 border-rose-200";
+            }
+            if (warningBox) {
+                warningBox.className = "bg-rose-50 border border-rose-200/80 rounded-xl p-3 text-left flex items-start gap-2.5 mb-6";
+                if (warningIcon) warningIcon.className = "fas fa-triangle-exclamation text-rose-500 text-base mt-0.5 shrink-0";
+                if (warningText) warningText.innerHTML = "Tindakan penolakan akan membuat laporan ditandai sebagai <b>Ditolak</b> dan stok komputer di cabang tetap berada pada angka semula.";
+            }
+            if (btnExecute) {
+                btnExecute.className = "w-full py-3.5 bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-white font-black text-xs md:text-sm rounded-xl shadow-lg shadow-rose-500/25 transition active:scale-95 flex items-center justify-center gap-2";
+                btnExecute.innerHTML = `<i class="fas fa-ban text-xs"></i> Ya, Tolak Semua`;
+            }
+        }
+
+        // Hubungkan eksekusi ke tombol
+        if (btnExecute) {
+            btnExecute.onclick = () => this.executeBulkApproval(status, opCbs, trCbs);
+        }
+
+        this.openModal('modal-confirm-bulk');
+    },
+
+    // =========================================================
+    // 🚀 3. PELAKSANA EKSEKUSI API SECARA MASAL
+    // =========================================================
+    executeBulkApproval: async function(status, opCbs, trCbs) {
+        if (this.isProcessing) return;
+        this.closeModal('modal-confirm-bulk');
+
+        setTimeout(async () => {
+            this.setLoading(true, `Memproses Masal (${status})...`);
+
+            try {
+                if (opCbs.length > 0) {
+                    let items = Array.from(opCbs).map(cb => { 
+                        let p = cb.value.split('|'); 
+                        return { waktu: p[0], sku: p[1], outlet: p[2], fisik: parseInt(p[3]) }; 
+                    });
+                    await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'bulk_approve_opname', items: items, status_app: status }) });
+                }
+                if (trCbs.length > 0) {
+                    let items = Array.from(trCbs).map(cb => cb.value);
+                    await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'bulk_approve_mutasi', items: items, status_app: status }) });
+                }
+                
+                this.showToast(`Proses Masal (${status}) Berhasil!`, "success");
+                const res = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); 
+                this.db = await res.json(); 
+                this.refreshData();
+            } catch (e) { 
+                console.error(e);
+                this.showToast("Gagal memproses persetujuan masal", "error"); 
+            }
+            
+            this.setLoading(false);
+        }, 200);
     },
 
     // TRANSFER OWNER

@@ -2078,6 +2078,105 @@ const superApp = {
         });
     },
 
+    editReportId: null, // Memori menyimpan ID laporan jika sedang mode Edit
+
+    // =========================================================
+    // 🚀 ENGINE OTORISASI SUPERVISOR / OWNER
+    // =========================================================
+    verifyAuthPIN: function(actionName) {
+        // Jika yang login sudah Owner/Supervisor, lolos otomatis
+        if (this.currentUser && (this.currentUser.Role === 'owner' || this.currentUser.Role === 'supervisor')) {
+            return true;
+        }
+
+        // Jika Kasir, minta PIN Owner/Supervisor
+        let inputPin = prompt(`🔒 OTORISASI DIBUTUHKAN\nMasukkan PIN Owner / Supervisor untuk ${actionName}:`);
+        if (!inputPin) return false;
+
+        // Cek PIN di database karyawan
+        let authUser = (this.db.users || []).find(u => 
+            String(u.PIN) === String(inputPin).trim() && 
+            (u.Role === 'owner' || u.Role === 'supervisor')
+        );
+
+        if (authUser) {
+            this.showToast(`Otorisasi diterima dari: ${authUser.Username}`);
+            return true;
+        } else {
+            alert("❌ PIN Salah atau Anda tidak memiliki otoritas!");
+            return false;
+        }
+    },
+
+    // =========================================================
+    // 🚀 FITUR BACKDATE (INPUT TANGGAL MASA LALU)
+    // =========================================================
+    changeReportDateWithAuth: function() {
+        if (!this.verifyAuthPIN("Mengubah Tanggal Laporan")) return;
+        
+        let picker = document.getElementById('hidden-date-picker');
+        if (picker) {
+            if (typeof picker.showPicker === 'function') picker.showPicker();
+            else picker.click();
+        }
+    },
+
+    applyBackdate: function(dateVal) {
+        if (!dateVal) return;
+        let d = new Date(dateVal);
+        let days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+        let pad = n => String(n).padStart(2, '0');
+        let tglStr = `${days[d.getDay()]}, ${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
+        
+        const dateEl = document.getElementById('daily-form-date');
+        if (dateEl) dateEl.innerText = tglStr;
+        this.showToast(`Tanggal form diubah ke: ${tglStr}`);
+    },
+
+    // =========================================================
+    // 🚀 FITUR EDIT DATA MASA LALU
+    // =========================================================
+    editLaporanHarian: function(idRep) {
+        // 1. Minta Otorisasi PIN
+        if (!this.verifyAuthPIN("Mengedit Laporan Masa Lalu")) return;
+
+        // 2. Cari Data Laporan
+        let rep = (this.db.laporanHarian || []).find(x => x.ID_Laporan === idRep);
+        if (!rep) return this.showToast("Data laporan tidak ditemukan!", "error");
+
+        // 3. Masukkan ke Mode Edit
+        this.editReportId = rep.ID_Laporan;
+        
+        let titleEl = document.getElementById('form-title-mode');
+        let btnCancel = document.getElementById('btn-cancel-edit');
+        let dateEl = document.getElementById('daily-form-date');
+
+        if (titleEl) titleEl.innerText = "✏️ Edit Laporan";
+        if (btnCancel) btnCancel.classList.remove('hidden');
+        if (dateEl) dateEl.innerText = rep.Tanggal;
+
+        // 4. Isi Form dengan Angka Lama
+        if (document.getElementById('daily-cash')) document.getElementById('daily-cash').value = Number(rep.Cash || 0).toLocaleString('id-ID');
+        if (document.getElementById('daily-qris')) document.getElementById('daily-qris').value = Number(rep.QRIS || 0).toLocaleString('id-ID');
+        if (document.getElementById('daily-bill')) document.getElementById('daily-bill').value = rep.Bill || 0;
+        if (document.getElementById('daily-pcs')) document.getElementById('daily-pcs').value = rep.Pcs || 0;
+
+        // Load Rincian Pengeluaran
+        this.dailyExpensesList = [];
+        try {
+            let expArr = JSON.parse(rep.Pengeluaran_JSON || '[]');
+            expArr.forEach(x => {
+                this.addDailyExpenseRow(x.nama, x.nominal);
+            });
+        } catch(e) {}
+        if (this.dailyExpensesList.length === 0) this.addDailyExpenseRow();
+
+        // 5. Kalkulasi Ulang & Alihkan ke Tab Input
+        this.calcDailyReportLive();
+        this.switchLapHarianSubTab('input');
+        this.showToast("Data dimuat. Silakan perbaiki angka dan klik Simpan.");
+    },
+
 
     // =========================================================
     // 🚀 1. RENDER MANAJEMEN USER (PC & MOBILE DUAL RENDER)

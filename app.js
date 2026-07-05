@@ -3521,82 +3521,125 @@ openDetailStokOpname: function(sku) {
         this.openModal('modal-stok-detail');
     },
     
-submitOpname: async function() {
-    if (this.isProcessing) return;
-    if (!confirm("Kirim Opname ke Owner? Stok fisik akan diverifikasi (Audit) terlebih dahulu sebelum dirubah pada sistem.")) return;
-    this.setLoading(true, "Menyimpan & Mengirim Audit...");
-    
-    let itemsToSubmit = [];
-    let itemsForWa = [];
+// =========================================================
+    // 🚀 1. PEMERIKSAAN & PEMANGGIL POPUP CANTIK OPNAME
+    // =========================================================
+    submitOpname: function() {
+        if (this.isProcessing) return;
 
-    (this.db.masterProduk || []).forEach(m => {
-        if (String(m.Kategori || '').toLowerCase() === 'bahan' || String(m.Kategori || '').toLowerCase() === 'pendukung') {
-            
-            // 1. 🚀 AMBIL DATA SISTEM DARI DATABASE (100% Akurat, bebas dari error pembacaan HTML)
-            let sData = (this.db.hargaStokOutlet || []).find(x => x.SKU === m.SKU && x.ID_Outlet === this.outlet);
-            let sys = sData ? Number(sData.Stok_Toko) : 0;
+        let itemsToSubmit = [];
+        let itemsForWa = [];
+        let countSelisih = 0;
 
-            // 2. Ambil elemen input dari kedua versi tampilan
-            let inputDesk = document.getElementById(`opn-fisik-${m.SKU}`); 
-            let inputMob = document.getElementById(`opn-fisik-mob-${m.SKU}`);
-            let noteDesk = document.getElementById(`opn-note-${m.SKU}`); 
-            let noteMob = document.getElementById(`opn-note-mob-${m.SKU}`);
+        (this.db.masterProduk || []).forEach(m => {
+            let kat = String(m.Kategori || '').toLowerCase();
+            if (kat === 'bahan' || kat === 'pendukung') {
+                
+                // 1. Ambil Data Sistem
+                let sData = (this.db.hargaStokOutlet || []).find(x => x.SKU === m.SKU && x.ID_Outlet === this.outlet);
+                let sys = sData ? Number(sData.Stok_Toko) : 0;
 
-            // 3. Baca isian angka kasir (Jika kosong, anggap sama dengan nilai sistem)
-            let valDesk = inputDesk && inputDesk.value !== '' ? this.getNumericValue(inputDesk.value) : sys;
-            let valMob = inputMob && inputMob.value !== '' ? this.getNumericValue(inputMob.value) : sys;
+                // 2. Ambil Elemen Input (Desktop & Mobile)
+                let inputDesk = document.getElementById(`opn-fisik-${m.SKU}`); 
+                let inputMob = document.getElementById(`opn-fisik-mob-${m.SKU}`);
+                let noteDesk = document.getElementById(`opn-note-${m.SKU}`); 
+                let noteMob = document.getElementById(`opn-note-mob-${m.SKU}`);
 
-            // 4. 🚀 DETEKSI OTOMATIS: Kasir ngetik di HP atau di Laptop?
-            let fisik = sys;
-            let note = '';
+                // 3. Baca Isian Kasir
+                let valDesk = inputDesk && inputDesk.value !== '' ? this.getNumericValue(inputDesk.value) : sys;
+                let valMob = inputMob && inputMob.value !== '' ? this.getNumericValue(inputMob.value) : sys;
 
-            if (valMob !== sys) {
-                // Berarti angka di HP berubah!
-                fisik = valMob;
-                note = noteMob ? noteMob.value : '';
-            } else if (valDesk !== sys) {
-                // Berarti angka di Laptop berubah!
-                fisik = valDesk;
-                note = noteDesk ? noteDesk.value : '';
-            } else {
-                // Angka tidak berubah, tapi siapa tahu kasir kasih catatan tambahan
-                note = (noteMob && noteMob.value !== '') ? noteMob.value : (noteDesk && noteDesk.value !== '' ? noteDesk.value : '');
+                // 4. Deteksi Otomatis Sumber Input
+                let fisik = sys;
+                let note = '';
+
+                if (valMob !== sys) {
+                    fisik = valMob;
+                    note = noteMob ? noteMob.value : '';
+                } else if (valDesk !== sys) {
+                    fisik = valDesk;
+                    note = noteDesk ? noteDesk.value : '';
+                } else {
+                    note = (noteMob && noteMob.value !== '') ? noteMob.value : (noteDesk && noteDesk.value !== '' ? noteDesk.value : '');
+                }
+
+                let selisih = fisik - sys;
+                if (selisih !== 0) countSelisih++;
+
+                // 5. Masukkan ke list WA
+                itemsForWa.push({ sku: m.SKU, nama: m.Nama_Produk, kategori: m.Kategori, sys: sys, fisik: fisik, selisih: selisih, note: note });
+                
+                // 6. Masukkan ke list Submit jika ada perubahan
+                if (fisik !== sys || note !== '') {
+                    itemsToSubmit.push({ sku: m.SKU, sistem: sys, fisik: fisik, selisih: selisih, catatan: note });
+                }
             }
+        });
+        
+        // Pencegahan jika kasir belum mengubah apapun
+        if (itemsToSubmit.length === 0) { 
+            return this.showToast("Tidak ada perubahan stok atau catatan untuk dilaporkan!", "warning"); 
+        }
 
-            // 5. Masukkan ke list untuk dilaporkan ke Owner via WA (semua barang dikirim)
-            itemsForWa.push({ sku: m.SKU, nama: m.Nama_Produk, kategori: m.Kategori, sys: sys, fisik: fisik, selisih: fisik - sys, note: note });
+        // 🚀 SUSUN KARTU RINGKASAN DI DALAM MODAL
+        const summaryContainer = document.getElementById('opname-confirm-summary');
+        if (summaryContainer) {
+            summaryContainer.innerHTML = `
+                <div class="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                    <span class="text-xs font-bold text-slate-500">Cabang Audit</span>
+                    <span class="text-xs font-black text-slate-800 bg-white px-2.5 py-0.5 rounded-md border border-slate-200 shadow-2xs">${this.outlet}</span>
+                </div>
+                <div class="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                    <span class="text-xs font-bold text-slate-500">Total Item Diperiksa</span>
+                    <span class="text-xs font-black text-indigo-600">${itemsToSubmit.length} Barang</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-bold text-slate-500">Ditemukan Selisih</span>
+                    <span class="text-xs font-black ${countSelisih > 0 ? 'text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md animate-pulse' : 'text-emerald-600'}">${countSelisih} Barang Berselisih</span>
+                </div>
+            `;
+        }
+
+        // Hubungkan data ke tombol "Ya, Kirim Audit"
+        const btnExecute = document.getElementById('btn-confirm-opname-execute');
+        if (btnExecute) {
+            btnExecute.onclick = () => this.executeSubmitOpname(itemsToSubmit, itemsForWa);
+        }
+
+        // Buka Popup Modal
+        this.openModal('modal-confirm-opname');
+    },
+
+    // =========================================================
+    // 🚀 2. EKSEKUSI PENGIRIMAN API & WHATSAPP
+    // =========================================================
+    executeSubmitOpname: async function(itemsToSubmit, itemsForWa) {
+        if (this.isProcessing) return;
+        this.closeModal('modal-confirm-opname');
+        
+        setTimeout(async () => {
+            this.setLoading(true, "Menyimpan & Mengirim Audit...");
             
-            // 6. Masukkan ke list Database JIKA ADA PERUBAHAN (baik fisik maupun catatan)
-            if (fisik !== sys || note !== '') {
-                itemsToSubmit.push({ sku: m.SKU, sistem: sys, fisik: fisik, selisih: fisik - sys, catatan: note });
+            let waText = this.buildOpnameWaText(this.outlet, this.currentUser.Username, new Date().toLocaleString('id-ID'), itemsForWa);
+            const payload = { action: 'submit_opname', outlet: this.outlet, kasir: this.currentUser.Username, items: itemsToSubmit };
+            
+            let res = await this.apiPost(payload);
+            
+            if (res.status === 'sukses') {
+                this.showToast("Opname berhasil Disimpan!");
+                this.showWaModal(waText);
+                if (!res.is_offline) { 
+                    const r = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); 
+                    this.db = await r.json(); 
+                    this.refreshData(); 
+                    this.switchMenu('pos'); 
+                } else { 
+                    this.switchMenu('pos'); 
+                }
             }
-        }
-    });
-    
-    if (itemsToSubmit.length === 0) { 
-        this.setLoading(false); 
-        return this.showToast("Tidak ada perubahan stok atau catatan untuk dilaporkan!", "warning"); 
-    }
-
-    let waText = this.buildOpnameWaText(this.outlet, this.currentUser.Username, new Date().toLocaleString('id-ID'), itemsForWa);
-
-    const payload = { action: 'submit_opname', outlet: this.outlet, kasir: this.currentUser.Username, items: itemsToSubmit };
-    let res = await this.apiPost(payload);
-    
-    if (res.status === 'sukses') {
-        this.showToast("Opname berhasil Disimpan!");
-        this.showWaModal(waText);
-        if (!res.is_offline) { 
-            const r = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); 
-            this.db = await r.json(); 
-            this.refreshData(); 
-            this.switchMenu('pos'); 
-        } else { 
-            this.switchMenu('pos'); 
-        }
-    }
-    this.setLoading(false);
-},
+            this.setLoading(false);
+        }, 200);
+    },
     
     // AUDIT & BULK APPROVAL
     toggleAuditTab: function(tab) {

@@ -3244,69 +3244,130 @@ changeOutlet: function(val) {
         }, 50); 
     },
     
-   submitTerimaBarang: async function() {
-    if (this.isProcessing) return;
-    
-    // 1. Kumpulkan data dan hitung total item
-    let items = [];
-    let waText = `*LAPORAN BARANG DATANG PUSAT*\n📍 Cabang: ${this.outlet}\n👤 Kasir: ${this.currentUser.Username}\n📅 Waktu: ${new Date().toLocaleString('id-ID')}\n\n*_Mohon cek aplikasi menu Audit untuk memverifikasi agar stok masuk ke sistem_*\n\n`;
+   // =========================================================
+    // 🚀 1. TAHAP VALIDASI & PEMICU MODAL TERIMA BARANG CANTIK
+    // =========================================================
+    submitTerimaBarang: async function() {
+        if (this.isProcessing) return;
+        
+        let items = [];
+        let totalPcs = 0;
+        let waText = `*LAPORAN BARANG DATANG PUSAT*\n📍 Cabang: ${this.outlet}\n👤 Kasir: ${this.currentUser.Username}\n📅 Waktu: ${new Date().toLocaleString('id-ID')}\n\n*_Mohon cek aplikasi menu Audit untuk memverifikasi agar stok masuk ke sistem_*\n\n`;
 
-    (this.db.masterProduk || []).forEach(m => {
-        if (String(m.Kategori || '').toLowerCase() === 'bahan' || String(m.Kategori || '').toLowerCase() === 'pendukung') {
-            let inputDesk = document.getElementById(`trm-qty-${m.SKU}`); 
-            let inputMob = document.getElementById(`trm-qty-mob-${m.SKU}`);
-            let qtyStr = inputDesk && inputDesk.value !== '' ? inputDesk.value : (inputMob && inputMob.value !== '' ? inputMob.value : '');
+        (this.db.masterProduk || []).forEach(m => {
+            if (String(m.Kategori || '').toLowerCase() === 'bahan' || String(m.Kategori || '').toLowerCase() === 'pendukung') {
+                let inputDesk = document.getElementById(`trm-qty-${m.SKU}`); 
+                let inputMob = document.getElementById(`trm-qty-mob-${m.SKU}`);
+                let qtyStr = inputDesk && inputDesk.value !== '' ? inputDesk.value : (inputMob && inputMob.value !== '' ? inputMob.value : '');
 
-            if (qtyStr !== '' && parseInt(this.getNumericValue(qtyStr)) > 0) {
-                let noteDesk = document.getElementById(`trm-note-${m.SKU}`); 
-                let noteMob = document.getElementById(`trm-note-mob-${m.SKU}`);
-                let note = noteDesk && noteDesk.value !== '' ? noteDesk.value : (noteMob && noteMob.value !== '' ? noteMob.value : '');
-                
-                items.push({ sku: m.SKU, nama: m.Nama_Produk, qty: parseInt(this.getNumericValue(qtyStr)), catatan: note });
-                waText += `📦 *${m.Nama_Produk}*\nQty Diterima: *${qtyStr} Pcs*\nCatatan: ${note || '-'}\n\n`;
+                if (qtyStr !== '' && parseInt(this.getNumericValue(qtyStr)) > 0) {
+                    let qtyNum = parseInt(this.getNumericValue(qtyStr));
+                    let noteDesk = document.getElementById(`trm-note-${m.SKU}`); 
+                    let noteMob = document.getElementById(`trm-note-mob-${m.SKU}`);
+                    let note = noteDesk && noteDesk.value !== '' ? noteDesk.value : (noteMob && noteMob.value !== '' ? noteMob.value : '');
+                    
+                    items.push({ sku: m.SKU, nama: m.Nama_Produk, qty: qtyNum, catatan: note });
+                    totalPcs += qtyNum;
+                    waText += `📦 *${m.Nama_Produk}*\nQty Diterima: *${qtyStr} Pcs*\nCatatan: ${note || '-'}\n\n`;
+                }
+            }
+        });
+
+        if (items.length === 0) return this.showToast("Tidak ada barang masuk yang diinput!", "error");
+
+        // --- CEK DUPLIKAT INPUTAN HARI INI ---
+        let d = new Date(); let pad = (n) => n < 10 ? '0' + n : n;
+        let todayStrLocal = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+        
+        let sudahInputHariIni = this.db.mutasi.some(m => 
+            m.Outlet_Tujuan === this.outlet && 
+            this.cleanDateOnly(m.Waktu) === todayStrLocal &&
+            m.Status_Approval === 'Pending'
+        );
+
+        // Pengkondisian Visual Isi Modal jika terdeteksi Double Input
+        const iconBox = document.getElementById('terima-confirm-icon-box');
+        const titleEl = document.getElementById('terima-confirm-title');
+        const subtitleEl = document.getElementById('terima-confirm-subtitle');
+        const warningBox = document.getElementById('terima-confirm-warning-box');
+
+        if (sudahInputHariIni) {
+            // Ubah tema modal menjadi Kuning Peringatan (Warning)
+            if (iconBox) iconBox.className = "w-20 h-20 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 border-[6px] border-amber-100/60 shadow-inner";
+            if (titleEl) titleEl.innerText = "Laporan Ganda Terdeteksi";
+            if (subtitleEl) subtitleEl.innerText = "Cabang ini sudah mengirim data pending hari ini.";
+            if (warningBox) {
+                warningBox.className = "bg-red-50 border border-red-200/80 rounded-xl p-3 text-left flex items-start gap-2.5 mb-6";
+                warningBox.innerHTML = `<i class="fas fa-triangle-exclamation text-red-500 text-base mt-0.5 shrink-0"></i><p class="text-[11px] font-bold text-red-800 leading-relaxed"><b>PERINGATAN GRAV:</b> Sudah ada input barang datang yang pending hari ini. Yakin ingin mengirim antrean laporan baru?</p>`;
+            }
+        } else {
+            // Kembalikan ke tema Hijau Normal (Success/Info)
+            if (iconBox) iconBox.className = "w-20 h-20 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 border-[6px] border-emerald-100/60 shadow-inner";
+            if (titleEl) titleEl.innerText = "Konfirmasi Barang Datang";
+            if (subtitleEl) subtitleEl.innerText = "Verifikasi jumlah barang yang dikirim kurir pusat.";
+            if (warningBox) {
+                warningBox.className = "bg-amber-50 border border-amber-200/80 rounded-xl p-3 text-left flex items-start gap-2.5 mb-6";
+                warningBox.innerHTML = `<i class="fas fa-circle-info text-amber-500 text-base mt-0.5 shrink-0"></i><p class="text-[11px] font-bold text-amber-800 leading-relaxed">Stok toko <b>tidak langsung bertambah</b>. Laporan ini memerlukan otorisasi dan persetujuan dari Owner di menu Audit.</p>`;
             }
         }
-    });
 
-    if (items.length === 0) return this.showToast("Tidak ada barang masuk yang diinput!", "error");
-
-    // 2. 🚀 CEK DUPLIKAT (PENCEGAHAN INPUT GANDA)
-    let d = new Date(); let pad = (n) => n < 10 ? '0' + n : n;
-    let todayStrLocal = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
-    
-    let sudahInputHariIni = this.db.mutasi.some(m => 
-        m.Outlet_Tujuan === this.outlet && 
-        this.cleanDateOnly(m.Waktu) === todayStrLocal &&
-        m.Status_Approval === 'Pending' // Hanya cek yang masih pending/belum diproses
-    );
-
-    if (sudahInputHariIni) {
-        let konfirmasi = confirm("⚠️ PERINGATAN: Cabang ini sudah memiliki laporan 'Barang Datang' yang sedang menunggu otorisasi hari ini. Yakin ingin menambah input baru?");
-        if (!konfirmasi) return; 
-    }
-
-    if (!confirm("Kirim Laporan Barang Datang ke Owner? Stok tidak akan bertambah hingga di-Setujui.")) return;
-    
-    this.setLoading(true, "Menyimpan...");
-
-    const payload = { action: 'terima_barang_kasir', outlet: this.outlet, kasir: this.currentUser.Username, items: items };
-    let res = await this.apiPost(payload);
-    
-    if (res.status === 'sukses') {
-        this.showToast("Berhasil Disimpan di Sistem!");
-        this.showWaModal(waText);
-        
-        // Refresh data agar database lokal update
-        if (!res.is_offline) { 
-            const r = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); 
-            this.db = await r.json(); 
-            this.refreshData(); 
+        // Inject Ringkasan Angka
+        const summaryContainer = document.getElementById('terima-confirm-summary');
+        if (summaryContainer) {
+            summaryContainer.innerHTML = `
+                <div class="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                    <span class="text-xs font-bold text-slate-500">Toko Penerima</span>
+                    <span class="text-xs font-black text-slate-800 bg-white px-2.5 py-0.5 rounded-md border border-slate-200 shadow-2xs">${this.outlet}</span>
+                </div>
+                <div class="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                    <span class="text-xs font-bold text-slate-500">Variasi Produk</span>
+                    <span class="text-xs font-black text-emerald-600">${items.length} Macam</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-bold text-slate-500">Total Muatan Fisik</span>
+                    <span class="text-xs font-black text-slate-800">${totalPcs} Pcs Barang</span>
+                </div>
+            `;
         }
-        this.switchMenu('pos');
-    }
-    this.setLoading(false);
-},
 
+        // Tautkan fungsi eksekusi ke tombol
+        const btnExecute = document.getElementById('btn-confirm-terima-execute');
+        if (btnExecute) {
+            btnExecute.onclick = () => this.executeSubmitTerimaBarang(items, waText);
+        }
+
+        // Buka Modal Box
+        this.openModal('modal-confirm-terima');
+    },
+
+    // =========================================================
+    // 🚀 2. TAHAP EKSEKUSI DATA KELUAR KE SERVER & WA MODAL
+    // =========================================================
+    executeSubmitTerimaBarang: async function(items, waText) {
+        if (this.isProcessing) return;
+        this.closeModal('modal-confirm-terima');
+        
+        // Beri sedikit jeda waktu agar transisi modal tutup selesai
+        setTimeout(async () => {
+            this.setLoading(true, "Menyimpan Laporan Masuk...");
+            const payload = { action: 'terima_barang_kasir', outlet: this.outlet, kasir: this.currentUser.Username, items: items };
+            
+            let res = await this.apiPost(payload);
+            
+            if (res.status === 'sukses') {
+                this.showToast("Berhasil Disimpan di Sistem!");
+                this.showWaModal(waText);
+                
+                if (!res.is_offline) { 
+                    const r = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); 
+                    this.db = await r.json(); 
+                    this.refreshData(); 
+                }
+                this.switchMenu('pos');
+            }
+            this.setLoading(false);
+        }, 200);
+    },
     
     calcOpname: function(sku) {
         const sysEl = document.getElementById(`opn-sys-${sku}`); let sys = parseInt(sysEl ? sysEl.innerText : 0) || 0;

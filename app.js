@@ -6195,18 +6195,18 @@ selectOutlet: function(id) {
         
         // 1. BUAT HEADER TABEL DESKTOP SECARA DINAMIS
         let thHtml = `<tr>
-            <th class="py-3.5 px-4 sticky left-0 bg-slate-50/95 backdrop-blur-md z-20 border-b border-r border-slate-200/80 font-black uppercase tracking-widest text-[10px] text-slate-500 min-w-[180px]">Nama Bahan Baku</th>
-            <th class="py-3.5 px-4 text-center font-black uppercase tracking-widest text-[10px] bg-blue-50/80 text-blue-600 border-b border-l border-r border-blue-100 min-w-[120px]">Gudang Pusat</th>`;
+            <th class="py-3.5 px-4 sticky left-0 bg-slate-50/95 backdrop-blur-md z-20 border-b border-r border-slate-200/80 font-black uppercase tracking-widest text-[10px] text-slate-500 min-w-[200px]">Nama Bahan Baku</th>
+            <th class="py-3.5 px-4 text-center font-black uppercase tracking-widest text-[10px] bg-blue-50/90 text-blue-600 border-b border-l border-r border-blue-100 min-w-[130px]">Gudang Pusat</th>`;
         
         outlets.forEach(o => {
-            thHtml += `<th class="py-3.5 px-4 text-center font-black uppercase tracking-widest text-[10px] border-b border-slate-100 min-w-[110px] text-slate-600">${o.Nama_Outlet}</th>`;
+            thHtml += `<th class="py-3.5 px-4 text-center font-black uppercase tracking-widest text-[10px] border-b border-slate-100 min-w-[120px] text-slate-600">${o.Nama_Outlet}</th>`;
         });
         thHtml += `</tr>`;
         
         const thead = document.getElementById('heatmap-thead');
         if (thead) thead.innerHTML = thHtml;
 
-        // 2. LOGIKA FILTER BAHAN (Fleksibel menangkap bahan baku & pendukung)
+        // 2. LOGIKA FILTER BAHAN (Menangkap semua bahan baku & barang pendukung)
         let sortedBahan = [...(this.db.masterProduk || [])]
             .filter(m => {
                 let kat = String(m.Kategori || '').toLowerCase();
@@ -6220,23 +6220,23 @@ selectOutlet: function(id) {
         sortedBahan.forEach(m => {
             let katName = String(m.Kategori || 'Bahan').toUpperCase();
             
-            // --- A. DATA GUDANG PUSAT ---
+            // --- A. STOK GUDANG PUSAT ---
             let stokPusat = (this.db.stokGudang || []).find(x => x.SKU === m.SKU)?.Stok_Pusat || 0;
             let isPusatKritis = Number(stokPusat) <= 5;
-            let badgePusat = isPusatKritis ? 'bg-rose-50 text-rose-600 border-rose-200 font-black animate-pulse' : 'bg-blue-50 text-blue-600 border-blue-200 font-extrabold';
+            let badgePusatDesk = isPusatKritis ? 'bg-rose-50 text-rose-600 border-rose-200 animate-pulse font-black' : 'bg-blue-50 text-blue-600 border-blue-200 font-extrabold';
 
-            // --- B. RENDER BARIS TABEL DESKTOP ---
+            // --- B. BARIS TABEL DESKTOP ---
             let rowHtml = `
                 <td class="py-3 px-4 sticky left-0 bg-white/95 backdrop-blur-md z-10 border-r border-slate-100 group-hover:bg-slate-50 transition-colors">
-                    <div class="font-extrabold text-slate-800 text-xs md:text-sm leading-snug">${m.Nama_Produk}</div>
-                    <span class="inline-block mt-0.5 text-[8px] font-black uppercase px-1.5 py-0.2 rounded bg-slate-100 text-slate-500 tracking-widest">${katName}</span>
+                    <div class="font-extrabold text-slate-800 text-sm leading-snug">${m.Nama_Produk}</div>
+                    <span class="inline-block mt-0.5 text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 tracking-widest">SKU: ${m.SKU}</span>
                 </td>
                 <td class="py-3 px-4 text-center bg-blue-50/20 border-r border-blue-50">
-                    <span class="inline-flex w-14 h-8 items-center justify-center rounded-xl border text-sm shadow-2xs ${badgePusat}">${stokPusat}</span>
+                    <span class="inline-flex w-16 h-8 items-center justify-center rounded-xl border text-sm shadow-2xs ${badgePusatDesk}">${stokPusat}</span>
                 </td>`;
 
-            // --- C. RENDER CABANG UNTUK MOBILE & DESKTOP ---
-            let mobOutletsGrid = '';
+            // --- C. LOOPING STOK CABANG ---
+            let mobOutletsList = '';
 
             outlets.forEach(o => {
                 let stokToko = (this.db.hargaStokOutlet || []).find(x => x.SKU === m.SKU && x.ID_Outlet === o.ID_Outlet)?.Stok_Toko || 0;
@@ -6245,22 +6245,25 @@ selectOutlet: function(id) {
                 let badgeClass = '';
                 if (isKritis) badgeClass = 'bg-rose-50 text-rose-600 border-rose-200 font-black shadow-[0_0_10px_rgba(225,29,72,0.15)] animate-pulse';
                 else if (stokToko <= 15) badgeClass = 'bg-amber-50 text-amber-700 border-amber-200 font-extrabold';
-                else badgeClass = 'bg-slate-50 text-slate-700 border-slate-200 font-bold';
+                else badgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200 font-bold';
 
-                // Tambahkan sel ke tabel desktop
+                // Tambah sel ke Tabel PC
                 rowHtml += `
                 <td class="py-3 px-4 text-center">
-                    <span class="inline-flex w-12 h-8 items-center justify-center rounded-xl border text-xs ${badgeClass} transition-transform hover:scale-110 cursor-default shadow-2xs">
-                        ${stokToko}
+                    <span class="inline-flex min-w-[3.5rem] h-8 px-2 items-center justify-center rounded-xl border text-xs ${badgeClass} transition-transform hover:scale-110 cursor-default shadow-2xs">
+                        ${stokToko} Pcs
                     </span>
                 </td>`;
 
-                // Tambahkan lencana cabang ke kartu mobile
-                mobOutletsGrid += `
-                <div class="flex items-center justify-between p-2 rounded-xl border ${isKritis ? 'bg-rose-50/80 border-rose-200' : 'bg-slate-50 border-slate-100'}">
-                    <span class="text-[11px] font-extrabold text-slate-600 truncate mr-1">${o.Nama_Outlet}</span>
-                    <span class="inline-flex min-w-[2.25rem] h-6 px-1.5 items-center justify-center rounded-lg border text-xs ${badgeClass}">
-                        ${stokToko}
+                // 🚀 DESAIN BARIS CABANG UNTUK HP (Penuh 1 baris agar sangat lega)
+                mobOutletsList += `
+                <div class="flex items-center justify-between p-2.5 rounded-xl border ${isKritis ? 'bg-rose-50/70 border-rose-200' : 'bg-slate-50 border-slate-100'}">
+                    <div class="flex items-center gap-2 min-w-0 pr-2">
+                        <i class="fas fa-store text-xs ${isKritis ? 'text-rose-500' : 'text-slate-400'} shrink-0"></i>
+                        <span class="text-xs font-extrabold text-slate-700 truncate">${o.Nama_Outlet}</span>
+                    </div>
+                    <span class="inline-flex min-w-[3rem] h-7 px-2 items-center justify-center rounded-lg border text-xs shrink-0 ${badgeClass}">
+                        ${stokToko} Pcs
                     </span>
                 </div>`;
             });
@@ -6270,39 +6273,38 @@ selectOutlet: function(id) {
             // --- D. RENDER KARTU MOBILE KHUSUS HP ---
             mobCardsHtml += `
             <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-2xs flex flex-col gap-3">
-                <div class="flex justify-between items-start gap-2 pb-2.5 border-b border-slate-100">
-                    <div>
-                        <h4 class="font-extrabold text-sm text-slate-800 leading-snug">${m.Nama_Produk}</h4>
-                        <span class="text-[9px] font-black uppercase text-slate-400 tracking-widest mt-0.5 inline-block">${katName}</span>
+                
+                <!-- Bagian Atas Kartu: Nama Produk & Stok Pusat -->
+                <div class="flex justify-between items-start gap-3 pb-3 border-b border-slate-100">
+                    <div class="min-w-0 flex-1">
+                        <h4 class="font-extrabold text-sm md:text-base text-slate-800 leading-snug">${m.Nama_Produk}</h4>
+                        <div class="flex items-center gap-1.5 mt-1">
+                            <span class="text-[9px] font-black uppercase text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 tracking-wider">SKU: ${m.SKU}</span>
+                        </div>
                     </div>
-                    <div class="text-right shrink-0">
-                        <span class="text-[8px] font-black text-blue-500 uppercase tracking-widest block">Gudang Pusat</span>
-                        <span class="inline-flex mt-0.5 px-2.5 py-1 rounded-lg border text-xs ${badgePusat}">${stokPusat}</span>
+                    <div class="text-right shrink-0 bg-blue-50/50 p-2 rounded-xl border border-blue-100/80">
+                        <span class="text-[8px] font-black text-blue-600 uppercase tracking-widest block">Gudang Pusat</span>
+                        <span class="font-black text-base text-blue-700 mt-0.5 block">${stokPusat} <span class="text-[10px] font-normal text-blue-500">Pcs</span></span>
                     </div>
                 </div>
                 
+                <!-- Bagian Bawah Kartu: Daftar Cabang (Lega & Rapi) -->
                 <div>
-                    <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Stok di Masing-Masing Cabang:</span>
-                    <div class="grid grid-cols-2 gap-2">
-                        ${mobOutletsGrid}
+                    <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2">Sebaran Stok Cabang:</span>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        ${mobOutletsList}
                     </div>
                 </div>
+                
             </div>`;
         });
 
         // 3. SUNTIKKAN KE TABEL DESKTOP
         const tbody = document.getElementById('heatmap-tbody');
-        if (tbody) tbody.innerHTML = trHtml || `<tr><td colspan="${outlets.length + 2}" class="text-center py-10 text-slate-400 font-bold text-xs">Belum ada data bahan baku</td></tr>`;
+        if (tbody) tbody.innerHTML = trHtml || `<tr><td colspan="${outlets.length + 2}" class="text-center py-12 text-slate-400 font-bold text-xs">Belum ada data bahan baku</td></tr>`;
 
-        // 4. SUNTIKKAN KE KARTU MOBILE (Otomatis membuat wadah jika belum ada)
-        let mobContainer = document.getElementById('heatmap-mobile-container');
-        if (!mobContainer && tbody) {
-            // Jika wadah mobile belum ada di HTML, kita sisipkan langsung di bawah tabel
-            mobContainer = document.createElement('div');
-            mobContainer.id = 'heatmap-mobile-container';
-            mobContainer.className = 'md:hidden space-y-3 pt-2 pb-20';
-            tbody.closest('table').parentNode.appendChild(mobContainer);
-        }
+        // 4. SUNTIKKAN KE KARTU MOBILE
+        const mobContainer = document.getElementById('heatmap-mobile-container');
         if (mobContainer) {
             mobContainer.innerHTML = mobCardsHtml || '<div class="p-6 text-center text-slate-400 text-xs font-bold border-2 border-dashed border-slate-200 rounded-2xl bg-white/50">Belum ada data bahan baku</div>';
         }

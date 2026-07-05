@@ -1556,14 +1556,14 @@ const superApp = {
     // =========================================================
     // 🚀 MODUL LAPORAN HARIAN USAHA AI-CHA (NEW ENGINE)
     // =========================================================
-    dailyExpensesList: [], // Memori daftar pengeluaran hari ini
+   dailyExpensesList: [], // Memori daftar pengeluaran hari ini
     targetBulanan: 180000000, // Default target Rp 180 Juta
 
-   // 1. Inisialisasi & Ambil Perkiraan Cuaca Otomatis
+    // 1. Inisialisasi & Ambil Perkiraan Cuaca Otomatis
     initLaporanHarian: function() {
         if (!this.db) return;
 
-        // 🚀 A. Pastikan Saat Dibuka di HP Selalu Masuk ke Tab "Input Jualan"
+        // A. Pastikan Saat Dibuka di HP Selalu Masuk ke Tab "Input Jualan"
         if (typeof this.switchLapHarianSubTab === 'function') {
             this.switchLapHarianSubTab('input');
         }
@@ -1595,7 +1595,7 @@ const superApp = {
         this.currentDailyWeather = cuacaSimulasi;
         this.updateWeatherBadgeUI(cuacaSimulasi, false);
 
-        // 🚀 E. TARIK CUACA REAL-TIME DARI API (Tanpa Memblokir Layar Kasir)
+        // E. TARIK CUACA REAL-TIME DARI API (Tanpa Memblokir Layar Kasir)
         this.fetchRealTimeWeather();
 
         // F. Siapkan 1 Baris Pengeluaran Kosong Jika Belum Ada
@@ -1607,9 +1607,11 @@ const superApp = {
         this.fetchMasterPengeluaran();
         this.calcDailyReportLive();
         this.renderLaporanHarianHistory();
+        
+        // G. Eksekusi Kalender Interaktif
         if (typeof this.renderCalendar === 'function') {
-        this.renderCalendar();
-    }
+            this.renderCalendar();
+        }
     },
 
     // Helper 1: Memperbarui UI Lencana Cuaca
@@ -1629,17 +1631,14 @@ const superApp = {
             icon = 'fa-sun'; color = 'text-amber-500'; 
         }
 
-        // Titik hijau berkedip jika cuaca berhasil ditarik secara live dari satelit
         let liveDot = isLive ? `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping mr-1.5" title="Suhu Real-Time Satelit"></span>` : '';
-        
         wBadge.innerHTML = `${liveDot}<i class="fas ${icon} ${color}"></i> Cuaca: ${cuacaText}`;
     },
 
     // Helper 2: Menarik Cuaca Asli Gratis via Open-Meteo API
     fetchRealTimeWeather: async function() {
-        if (!navigator.onLine) return; // Abaikan jika sedang offline
+        if (!navigator.onLine) return;
         try {
-            // Koordinat default (contoh: wilayah Kalimantan Timur / Penajam Paser Utara ~ Lat: -1.25, Lon: 116.74)
             const lat = -1.2553;
             const lon = 116.7466;
             const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
@@ -1650,7 +1649,6 @@ const superApp = {
                 let temp = Math.round(data.current_weather.temperature);
                 let code = data.current_weather.weathercode;
                 
-                // Terjemahkan Kode WMO ke Bahasa Indonesia
                 let desc = "Cerah Berawan";
                 if (code === 0) desc = "Cerah Terik";
                 else if (code >= 1 && code <= 3) desc = "Berawan";
@@ -1662,16 +1660,15 @@ const superApp = {
                 this.updateWeatherBadgeUI(liveWeatherStr, true);
             }
         } catch (e) {
-            // Jika API gagal, aplikasi tetap aman menggunakan cuaca simulasi pintar
             console.log("Menggunakan cuaca simulasi.");
         }
     },
 
     // 2. Baris Pengeluaran Dinamis
-   addDailyExpenseRow: function(nama = '', nominal = '') {
-    let id = Date.now() + Math.random().toString(36).substr(2, 4);
-    this.dailyExpensesList.push({ id, nama: nama.toUpperCase(), nominal }); // 🚀 Paksa Uppercase
-    this.renderDailyExpenseRows();
+    addDailyExpenseRow: function(nama = '', nominal = '') {
+        let id = Date.now() + Math.random().toString(36).substr(2, 4);
+        this.dailyExpensesList.push({ id, nama: nama.toUpperCase(), nominal });
+        this.renderDailyExpenseRows();
     },
     
     removeDailyExpenseRow: function(id) {
@@ -1679,43 +1676,41 @@ const superApp = {
         this.renderDailyExpenseRows();
         this.calcDailyReportLive();
     },
+
     renderDailyExpenseRows: function() {
-    const cont = document.getElementById('daily-expenses-list');
-    if (!cont) return;
+        const cont = document.getElementById('daily-expenses-list');
+        if (!cont) return;
 
-    // Ambil daftar unik dari database (untuk autocomplete)
-    let daftarPengeluaran = [...new Set((this.db.masterPengeluaran || []).map(x => x.Nama))];
+        let daftarPengeluaran = [...new Set((this.db.masterPengeluaran || []).map(x => (x.Nama || x.NAMA_PENGELUARAN || '').toUpperCase()).filter(Boolean))];
 
-    cont.innerHTML = this.dailyExpensesList.map(item => `
-        <div class="flex items-center gap-2">
-            <input type="text" list="exp-datalist" value="${item.nama}" 
-                   oninput="superApp.updateDailyExpName('${item.id}', this.value)" 
-                   placeholder="Nama pengeluaran..." 
-                   class="flex-1 h-9 bg-slate-50 border border-slate-200 focus:border-rose-500 rounded-xl px-3 text-xs font-black text-slate-700 outline-none uppercase shadow-inner">
-            
-            <input type="text" inputmode="numeric" value="${item.nominal ? Number(item.nominal).toLocaleString('id-ID') : ''}" 
-                   oninput="superApp.formatRupiahInput(this); superApp.updateDailyExpNominal('${item.id}', this.value);" 
-                   placeholder="Rp 0" 
-                   class="w-28 h-9 bg-slate-50 border border-slate-200 focus:border-rose-500 rounded-xl px-2.5 text-xs font-black text-rose-600 text-right outline-none shadow-inner">
-            
-            <button type="button" onclick="superApp.removeDailyExpenseRow('${item.id}')" class="w-8 h-8 bg-rose-50 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl transition flex items-center justify-center shrink-0">
-                <i class="fas fa-trash text-xs"></i>
-            </button>
-        </div>
-    `).join('') + `
-    <datalist id="exp-datalist">
-        ${daftarPengeluaran.map(n => `<option value="${n}">`).join('')}
-    </datalist>`;
-},
-    
-    updateDailyExpName: function(id, val) {
-    let item = this.dailyExpensesList.find(x => x.id === id);
-    if (item) {
-        item.nama = val.toUpperCase(); // 🚀 Paksa Uppercase secara real-time
-        // Jika ingin ada fitur Autocomplete, tambahkan pemanggilan fungsi di sini
-        }
+        cont.innerHTML = this.dailyExpensesList.map(item => `
+            <div class="flex items-center gap-2">
+                <input type="text" list="exp-datalist" value="${item.nama}" 
+                       oninput="superApp.updateDailyExpName('${item.id}', this.value)" 
+                       placeholder="Nama pengeluaran..." 
+                       class="flex-1 h-9 bg-slate-50 border border-slate-200 focus:border-rose-500 rounded-xl px-3 text-xs font-black text-slate-700 outline-none uppercase shadow-inner">
+                
+                <input type="text" inputmode="numeric" value="${item.nominal ? Number(item.nominal).toLocaleString('id-ID') : ''}" 
+                       oninput="superApp.formatRupiahInput(this); superApp.updateDailyExpNominal('${item.id}', this.value);" 
+                       placeholder="Rp 0" 
+                       class="w-28 h-9 bg-slate-50 border border-slate-200 focus:border-rose-500 rounded-xl px-2.5 text-xs font-black text-rose-600 text-right outline-none shadow-inner">
+                
+                <button type="button" onclick="superApp.removeDailyExpenseRow('${item.id}')" class="w-8 h-8 bg-rose-50 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl transition flex items-center justify-center shrink-0">
+                    <i class="fas fa-trash text-xs"></i>
+                </button>
+            </div>
+        `).join('') + `
+        <datalist id="exp-datalist">
+            ${daftarPengeluaran.map(n => `<option value="${n}">`).join('')}
+        </datalist>`;
     },
     
+    updateDailyExpName: function(id, val) {
+        let item = this.dailyExpensesList.find(x => x.id === id);
+        if (item) {
+            item.nama = val.toUpperCase();
+        }
+    },
     
     updateDailyExpNominal: function(id, val) {
         let item = this.dailyExpensesList.find(x => x.id === id);
@@ -1736,19 +1731,15 @@ const superApp = {
         this.dailyExpensesList.forEach(x => { totExp += Number(x.nominal || 0); });
 
         let netSales = cash + qris;
-        // Amount Paid = Net Sales / Bill (Sesuai rumus di prompt Anda)
         let amountPaid = bill > 0 ? Math.round(netSales / bill) : 0;
-        // Amount Pcs = Net Sales / Pcs (Sesuai rumus di prompt Anda)
         let amountPcs = pcs > 0 ? Math.round(netSales / pcs) : 0;
         let netCashBersih = cash - totExp;
 
-        // Update Live UI Preview
         if (document.getElementById('live-net-sales')) document.getElementById('live-net-sales').innerText = `Rp ${netSales.toLocaleString('id-ID')}`;
         if (document.getElementById('live-amount-paid')) document.getElementById('live-amount-paid').innerText = amountPaid.toLocaleString('id-ID');
         if (document.getElementById('live-amount-pcs')) document.getElementById('live-amount-pcs').innerText = amountPcs.toLocaleString('id-ID');
         if (document.getElementById('live-net-cash')) document.getElementById('live-net-cash').innerText = `Rp ${netCashBersih.toLocaleString('id-ID')}`;
 
-        // Kalkulasi Akumulasi Bulan Berjalan
         this.calcMonthlyAccumulation(netSales);
     },
 
@@ -1759,10 +1750,16 @@ const superApp = {
 
         let accumPreviousDays = 0;
         (this.db.laporanHarian || []).forEach(rep => {
-            if (rep.Outlet === this.outlet) {
-                let repDate = this.parseDateId((rep.Tanggal || '').split(' ')[1] || rep.Tanggal);
-                if (repDate.getMonth() + 1 === currMonth && repDate.getFullYear() === currYear) {
-                    accumPreviousDays += Number(rep.Net_Sales || 0);
+            if (rep.Outlet === this.outlet || this.outlet === 'Pusat') {
+                // Bersihkan format string tanggal (baik DD-MM-YYYY maupun format berkoma)
+                let cleanStr = (rep.Tanggal || '').split(',').pop().trim();
+                let match = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+                if (match) {
+                    let m = parseInt(match[2], 10);
+                    let y = parseInt(match[3], 10);
+                    if (m === currMonth && y === currYear) {
+                        accumPreviousDays += Number(rep.Net_Sales || 0);
+                    }
                 }
             }
         });
@@ -1784,7 +1781,7 @@ const superApp = {
         let val = prompt(`Masukkan Target Penjualan Bulanan untuk Cabang ${this.outlet} (Angka saja):`, this.targetBulanan);
         if (val !== null && !isNaN(val) && Number(val) > 0) {
             this.targetBulanan = Number(val);
-            localStorage.setItem('aicha_target_bulanan_' + this.outlet, this.targetBulanan);
+            localStorage.setItem('aicha_target_bulanan_' + (this.outlet || 'Penajam'), this.targetBulanan);
             this.calcDailyReportLive();
             this.showToast("Target bulanan berhasil diperbarui!");
         }
@@ -1805,7 +1802,6 @@ const superApp = {
         let amountPaid = bill > 0 ? Math.round(netSales / bill) : 0;
         let amountPcs = pcs > 0 ? Math.round(netSales / pcs) : 0;
 
-        // Rincian Pengeluaran untuk teks WA
         let expValid = this.dailyExpensesList.filter(x => x.nama.trim() !== '' && Number(x.nominal) > 0);
         let expText = expValid.length > 0 ? expValid.map(x => `▪️ ${x.nama}: Rp ${Number(x.nominal).toLocaleString('id-ID')}`).join('\n') : '-';
         let totExp = 0; expValid.forEach(x => totExp += Number(x.nominal));
@@ -1813,7 +1809,6 @@ const superApp = {
         let tglTeks = document.getElementById('daily-form-date')?.innerText || "Hari Ini";
         let cuaca = this.currentDailyWeather || "31°C";
 
-        // 🚀 FORMAT WHATSAPP PERSIS SESUAI INSTRUKSI ANDA
         let waText = `Outlet \n*Ai-CHA ${this.outlet}*\n${tglTeks}\ncuaca : ${cuaca}\n\n`;
         waText += `Net Sales: Rp.${netSales.toLocaleString('id-ID')}\n`;
         waText += `Amount Paid: ${amountPaid.toLocaleString('id-ID')}\n`;
@@ -1847,7 +1842,7 @@ const superApp = {
             pengeluaran_json: JSON.stringify(expValid),
             total_pengeluaran: totExp,
             akumulasi_bulan: this.currentAccumMonth || netSales,
-            kasir: this.currentUser.Username
+            kasir: (this.currentUser && this.currentUser.Username) ? this.currentUser.Username : 'Kasir'
         };
 
         if (!this.db.laporanHarian) this.db.laporanHarian = [];
@@ -1862,6 +1857,7 @@ const superApp = {
         this.setLoading(false);
         this.showToast("Laporan Harian Tersimpan di Sistem!");
         this.renderLaporanHarianHistory();
+        if (typeof this.renderCalendar === 'function') this.renderCalendar();
         this.showWaModal(waText);
     },
 
@@ -1889,16 +1885,16 @@ const superApp = {
             let qris = Number(item.QRIS || 0);
 
             deskHtml += `
-            <tr class="border-b border-slate-50 hover:bg-slate-50 transition">
+            <tr class="border-b border-slate-50 hover:bg-slate-50 transition report-row" data-date="${item.Tanggal}">
                 <td class="py-3 px-4"><span class="font-extrabold text-slate-800">${item.Tanggal}</span><br><span class="text-[10px] text-amber-600 font-bold">${item.Cuaca || '-'}</span></td>
                 <td class="py-3 px-4 text-right font-black text-rose-600 text-base">Rp ${net.toLocaleString('id-ID')}</td>
                 <td class="py-3 px-4 text-right text-xs"><span class="text-slate-700">C: Rp ${cash.toLocaleString('id-ID')}</span><br><span class="text-blue-600">Q: Rp ${qris.toLocaleString('id-ID')}</span></td>
                 <td class="py-3 px-4 text-center text-xs font-bold">${item.Bill} Bill / ${item.Pcs} Pcs</td>
-                <td class="py-3 px-4 text-center"><button onclick="superApp.resendLaporanHarianWa('${item.ID_Laporan}')" class="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-black shadow-sm transition active:scale-95"><i class="fab fa-whatsapp mr-1"></i> WA</button></td>
+                <td class="py-3 px-4 text-center"><button type="button" onclick="superApp.resendLaporanHarianWa('${item.ID_Laporan}')" class="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-black shadow-sm transition active:scale-95"><i class="fab fa-whatsapp mr-1"></i> WA</button></td>
             </tr>`;
 
             mobHtml += `
-            <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-2xs flex flex-col gap-2.5">
+            <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-2xs flex flex-col gap-2.5 report-mob-card" data-date="${item.Tanggal}">
                 <div class="flex justify-between items-start pb-2 border-b border-slate-100">
                     <div><h4 class="font-extrabold text-sm text-slate-800">${item.Tanggal}</h4><span class="text-[10px] font-bold text-amber-600">${item.Cuaca || '-'}</span></div>
                     <div class="text-right"><span class="text-[9px] font-black text-slate-400 block uppercase">Net Sales</span><span class="font-black text-rose-600 text-base">Rp ${net.toLocaleString('id-ID')}</span></div>
@@ -1908,7 +1904,7 @@ const superApp = {
                     <div>QRIS: <span class="text-blue-600 font-black">Rp ${qris.toLocaleString('id-ID')}</span></div>
                     <div class="col-span-2 text-center text-slate-500 pt-1 border-t border-slate-200/60 font-black">${item.Bill} Bill | ${item.Pcs} Pcs Terjual</div>
                 </div>
-                <button onclick="superApp.resendLaporanHarianWa('${item.ID_Laporan}')" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-2.5 rounded-xl text-xs font-black shadow-sm flex items-center justify-center gap-1.5 active:scale-95"><i class="fab fa-whatsapp text-sm"></i> Kirim Ulang ke WA Owner</button>
+                <button type="button" onclick="superApp.resendLaporanHarianWa('${item.ID_Laporan}')" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-2.5 rounded-xl text-xs font-black shadow-sm flex items-center justify-center gap-1.5 active:scale-95"><i class="fab fa-whatsapp text-sm"></i> Kirim Ulang ke WA Owner</button>
             </div>`;
         });
 
@@ -1967,28 +1963,26 @@ const superApp = {
         const inactiveClass = 'flex-1 py-2.5 px-3 bg-slate-50 border border-slate-200/80 text-slate-500 hover:text-slate-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95';
 
         if (tab === 'input') {
-            // Tampilkan Form Input di HP
             if (secInput) secInput.className = "w-full lg:w-[480px] xl:w-[540px] bg-white p-4 md:p-7 rounded-[1.5rem] md:rounded-[2rem] shadow-sm border border-slate-100 flex flex-col shrink-0";
             if (secRiwayat) secRiwayat.className = "hidden lg:flex flex-1 flex-col gap-4 md:gap-6 min-w-0 w-full lg:h-full";
             if (btnInput) btnInput.className = activeClass;
             if (btnRiwayat) btnRiwayat.className = inactiveClass;
         } else {
-            // Tampilkan Riwayat & Target di HP (Paksa Tinggi Penuh)
             if (secInput) secInput.className = "hidden lg:flex lg:w-[480px] xl:w-[540px] bg-white p-4 md:p-7 rounded-[1.5rem] md:rounded-[2rem] shadow-sm border border-slate-100 flex-col shrink-0";
             if (secRiwayat) secRiwayat.className = "flex flex-1 flex-col gap-4 md:gap-6 min-w-0 w-full min-h-[75vh]";
             if (btnInput) btnInput.className = inactiveClass;
             if (btnRiwayat) btnRiwayat.className = activeClass;
+            if (typeof this.renderCalendar === 'function') this.renderCalendar();
         }
     },
 
     fetchMasterPengeluaran: function() {
-        // Pastikan URL API sudah benar (tambahkan parameter action agar di-handle di GAS)
-        fetch(API_URL + "?action=get_master_data")
+        if (!typeof API_URL !== 'undefined' && !this.webAppUrl) return;
+        let targetUrl = (typeof API_URL !== 'undefined') ? API_URL : this.webAppUrl;
+        fetch(targetUrl + "?action=get_master_data")
         .then(r => r.json())
         .then(data => {
-            // Simpan ke db.masterPengeluaran agar datalist bisa membaca datanya
             this.db.masterPengeluaran = data; 
-            // Re-render baris pengeluaran agar <datalist> terupdate
             if (typeof this.renderDailyExpenseRows === 'function') {
                 this.renderDailyExpenseRows();
             }
@@ -1996,78 +1990,82 @@ const superApp = {
         .catch(e => console.error("Gagal ambil master pengeluaran:", e));
     },
 
+    // =========================================================
+    // 🚀 KALENDER INTERAKTIF & ENGINE FILTER
+    // =========================================================
     renderCalendar: function() {
-    const grid = document.getElementById('calendar-grid');
-    if (!grid) return;
-    
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
-    
-    // 1. Tampilkan Nama Bulan
-    document.getElementById('calendar-month-name').innerText = now.toLocaleString('id-ID', { month: 'long', year: 'numeric' });
-
-    // 2. Ambil semua tanggal yang sudah terisi di laporanHarian
-    // Format tanggal di DB harus konsisten: DD/MM/YYYY
-    const terisiDates = (this.db.laporanHarian || []).map(l => {
-        let parts = l.Tanggal.split('/'); // Asumsi format DD/MM/YYYY
-        return `${parseInt(parts[0])}-${parseInt(parts[1])-1}-${parts[2]}`;
-    });
-
-    const firstDay = new Date(year, month, 1).getDay(); 
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    
-    // 3. Reset Grid (Sisakan Header Sen-Min)
-    const headerHtml = `<div class="text-slate-400">Sen</div><div class="text-slate-400">Sel</div><div class="text-slate-400">Rab</div><div class="text-slate-400">Kam</div><div class="text-slate-400">Jum</div><div class="text-slate-400">Sab</div><div class="text-slate-400">Min</div>`;
-    grid.innerHTML = headerHtml;
-    
-    let offset = (firstDay === 0) ? 6 : firstDay - 1;
-    for(let i=0; i<offset; i++) grid.appendChild(document.createElement('div'));
-    
-    for(let d=1; d<=daysInMonth; d++) {
-        let dateKey = `${d}-${month}-${year}`;
-        let isDone = terisiDates.includes(dateKey);
+        const grid = document.getElementById('calendar-grid');
+        if (!grid) return;
         
-        let div = document.createElement('div');
-        div.className = `calendar-day rounded-full text-xs font-black cursor-pointer transition-all ${isDone ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`;
-        div.innerText = d;
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth();
         
-        // Klik tanggal untuk memfilter riwayat
-        div.onclick = () => {
-            this.filterRiwayatByDate(d, month + 1, year);
-        };
-        grid.appendChild(div);
-    }
-},
+        // 1. Tampilkan Nama Bulan
+        const monthEl = document.getElementById('calendar-month-name');
+        if (monthEl) monthEl.innerText = now.toLocaleString('id-ID', { month: 'long', year: 'numeric' });
 
-filterRiwayatByDate: function(d, m, y) {
-    let dateStr = `${String(d).padStart(2,'0')}/${String(m).padStart(2,'0')}/${y}`;
-    this.showToast("Menampilkan laporan: " + dateStr);
-    
-    // Filter tabel riwayat berdasarkan tanggal yang diklik
-    const rows = document.querySelectorAll('#laporan-harian-tbody tr');
-    rows.forEach(row => {
-        // Asumsi kolom pertama adalah Tanggal & Cuaca
-        let rowDate = row.cells[0].innerText;
-        row.style.display = rowDate.includes(dateStr) ? "" : "none";
-    });
-},
+        // 2. Kumpulkan Daftar Tanggal Terisi (Format Kunci: D-M-YYYY)
+        const terisiDates = (this.db.laporanHarian || []).filter(x => x.Outlet === this.outlet || this.outlet === 'Pusat').map(l => {
+            let cleanStr = (l.Tanggal || '').split(',').pop().trim();
+            let match = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+            if (match) {
+                return `${parseInt(match[1], 10)}-${parseInt(match[2], 10) - 1}-${parseInt(match[3], 10)}`;
+            }
+            return '';
+        });
 
-openReportByDate: function(dateStr) {
-    // 1. Cari data
-    let report = (this.db.laporanHarian || []).find(x => this.cleanDateOnly(x.Tanggal) === this.cleanDateOnly(dateStr));
-    
-    if (report) {
-        // Jika sudah ada, load ke form untuk edit
-        this.showToast("Memuat laporan tanggal " + dateStr);
-        // Tambahkan logika pengisian form Anda di sini
-    } else {
-        // Jika belum ada, reset form
-        this.resetDailyForm();
-        this.showToast("Belum ada laporan untuk tanggal " + dateStr);
+        const firstDay = new Date(year, month, 1).getDay(); 
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        
+        // 3. Reset Grid Kalender (Pertahankan Header Hari)
+        grid.innerHTML = `
+            <div class="text-slate-400 py-1">Sen</div><div class="text-slate-400 py-1">Sel</div><div class="text-slate-400 py-1">Rab</div>
+            <div class="text-slate-400 py-1">Kam</div><div class="text-slate-400 py-1">Jum</div><div class="text-slate-400 py-1">Sab</div><div class="text-slate-400 py-1">Min</div>
+        `;
+        
+        let offset = (firstDay === 0) ? 6 : firstDay - 1;
+        for(let i = 0; i < offset; i++) {
+            grid.appendChild(document.createElement('div'));
+        }
+        
+        for(let d = 1; d <= daysInMonth; d++) {
+            let dateKey = `${d}-${month}-${year}`;
+            let isDone = terisiDates.includes(dateKey);
+            
+            let div = document.createElement('div');
+            div.className = `aspect-square h-8 md:h-9 mx-auto flex items-center justify-center rounded-xl text-xs font-black cursor-pointer transition-all active:scale-90 ${
+                isDone 
+                ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30' 
+                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+            }`;
+            div.innerText = d;
+            div.onclick = () => {
+                this.filterRiwayatByDate(d, month + 1, year);
+            };
+            grid.appendChild(div);
+        }
+    },
+
+    filterRiwayatByDate: function(d, m, y) {
+        let pad = n => String(n).padStart(2, '0');
+        let targetPattern = `${pad(d)}-${pad(m)}-${y}`;
+        let targetPatternSlash = `${pad(d)}/${pad(m)}/${y}`;
+        
+        this.showToast(`Memperlihatkan riwayat tanggal ${pad(d)}-${pad(m)}-${y}`);
+        
+        // Filter Tabel PC
+        document.querySelectorAll('.report-row').forEach(row => {
+            let dateVal = row.getAttribute('data-date') || '';
+            row.style.display = (dateVal.includes(targetPattern) || dateVal.includes(targetPatternSlash)) ? "" : "none";
+        });
+
+        // Filter Kartu Mobile HP
+        document.querySelectorAll('.report-mob-card').forEach(card => {
+            let dateVal = card.getAttribute('data-date') || '';
+            card.style.display = (dateVal.includes(targetPattern) || dateVal.includes(targetPatternSlash)) ? "" : "none";
+        });
     }
-    this.switchLapHarianSubTab('input');
-},
 
 
     // =========================================================

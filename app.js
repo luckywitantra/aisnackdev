@@ -1555,6 +1555,316 @@ const superApp = {
 
 
     // =========================================================
+    // 🚀 MODUL LAPORAN HARIAN USAHA AI-CHA (NEW ENGINE)
+    // =========================================================
+    dailyExpensesList: [], // Memori daftar pengeluaran hari ini
+    targetBulanan: 180000000, // Default target Rp 180 Juta
+
+    // 1. Inisialisasi & Ambil Perkiraan Cuaca Otomatis
+    initLaporanHarian: function() {
+        if (!this.db) return;
+
+        // Muat Target Bulanan dari localStorage jika pernah diubah Owner
+        let savedTarget = localStorage.getItem('aicha_target_bulanan_' + this.outlet);
+        if (savedTarget) this.targetBulanan = Number(savedTarget);
+
+        // Set tanggal form hari ini
+        let d = new Date();
+        let days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+        let pad = n => n < 10 ? '0' + n : n;
+        let tglStr = `${days[d.getDay()]}, ${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
+        const dateEl = document.getElementById('daily-form-date');
+        if (dateEl) dateEl.innerText = tglStr;
+
+        // Ambil Cuaca (Simulasi pintar berdasarkan jam & musim atau standar lokal 31°C)
+        let cuacaStr = "31°C Cerah Berawan";
+        let jam = d.getHours();
+        if (jam < 10) cuacaStr = "28°C Cerah Pagi";
+        else if (jam >= 11 && jam <= 15) cuacaStr = "31°C Cerah Terik";
+        else if (jam > 15 && jam <= 18) cuacaStr = "29°C Sore Berawan";
+        else cuacaStr = "27°C Malam Cerah";
+        
+        const wBadge = document.getElementById('daily-weather-badge');
+        if (wBadge) wBadge.innerHTML = `<i class="fas fa-cloud-sun text-amber-500"></i> Cuaca: ${cuacaStr}`;
+        this.currentDailyWeather = cuacaStr;
+
+        if (this.dailyExpensesList.length === 0) {
+            this.addDailyExpenseRow(); // Siapkan 1 baris pengeluaran kosong
+        }
+
+        this.calcDailyReportLive();
+        this.renderLaporanHarianHistory();
+    },
+
+    // 2. Baris Pengeluaran Dinamis
+    addDailyExpenseRow: function(nama = '', nominal = '') {
+        let id = Date.now() + Math.random().toString(36).substr(2, 4);
+        this.dailyExpensesList.push({ id, nama, nominal });
+        this.renderDailyExpenseRows();
+    },
+    removeDailyExpenseRow: function(id) {
+        this.dailyExpensesList = this.dailyExpensesList.filter(x => x.id !== id);
+        this.renderDailyExpenseRows();
+        this.calcDailyReportLive();
+    },
+    renderDailyExpenseRows: function() {
+        const cont = document.getElementById('daily-expenses-list');
+        if (!cont) return;
+        if (this.dailyExpensesList.length === 0) {
+            cont.innerHTML = `<p class="text-[10px] text-slate-400 italic text-center py-2">Tidak ada pengeluaran hari ini.</p>`;
+            return;
+        }
+        cont.innerHTML = this.dailyExpensesList.map(item => `
+            <div class="flex items-center gap-2">
+                <input type="text" value="${item.nama}" oninput="superApp.updateDailyExpName('${item.id}', this.value)" placeholder="Nama pengeluaran (cth: Es Batu)" class="flex-1 h-9 bg-slate-50 border border-slate-200 focus:border-rose-500 rounded-xl px-3 text-xs font-bold text-slate-700 outline-none">
+                <input type="text" inputmode="numeric" value="${item.nominal ? Number(item.nominal).toLocaleString('id-ID') : ''}" oninput="superApp.formatRupiahInput(this); superApp.updateDailyExpNominal('${item.id}', this.value);" placeholder="Rp 0" class="w-28 h-9 bg-slate-50 border border-slate-200 focus:border-rose-500 rounded-xl px-2.5 text-xs font-black text-rose-600 text-right outline-none">
+                <button type="button" onclick="superApp.removeDailyExpenseRow('${item.id}')" class="w-8 h-8 bg-rose-50 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl transition flex items-center justify-center shrink-0"><i class="fas fa-trash text-xs"></i></button>
+            </div>
+        `).join('');
+    },
+    updateDailyExpName: function(id, val) {
+        let item = this.dailyExpensesList.find(x => x.id === id);
+        if (item) item.nama = val;
+    },
+    updateDailyExpNominal: function(id, val) {
+        let item = this.dailyExpensesList.find(x => x.id === id);
+        if (item) {
+            item.nominal = this.getNumericValue(val);
+            this.calcDailyReportLive();
+        }
+    },
+
+    // 3. Mesin Kalkulasi Live (Net Sales, Amount Paid, Amount Pcs, Net Cash)
+    calcDailyReportLive: function() {
+        let cash = this.getNumericValue(document.getElementById('daily-cash')?.value || 0);
+        let qris = this.getNumericValue(document.getElementById('daily-qris')?.value || 0);
+        let bill = Number(document.getElementById('daily-bill')?.value || 0);
+        let pcs = Number(document.getElementById('daily-pcs')?.value || 0);
+
+        let totExp = 0;
+        this.dailyExpensesList.forEach(x => { totExp += Number(x.nominal || 0); });
+
+        let netSales = cash + qris;
+        // Amount Paid = Net Sales / Bill (Sesuai rumus di prompt Anda)
+        let amountPaid = bill > 0 ? Math.round(netSales / bill) : 0;
+        // Amount Pcs = Net Sales / Pcs (Sesuai rumus di prompt Anda)
+        let amountPcs = pcs > 0 ? Math.round(netSales / pcs) : 0;
+        let netCashBersih = cash - totExp;
+
+        // Update Live UI Preview
+        if (document.getElementById('live-net-sales')) document.getElementById('live-net-sales').innerText = `Rp ${netSales.toLocaleString('id-ID')}`;
+        if (document.getElementById('live-amount-paid')) document.getElementById('live-amount-paid').innerText = amountPaid.toLocaleString('id-ID');
+        if (document.getElementById('live-amount-pcs')) document.getElementById('live-amount-pcs').innerText = amountPcs.toLocaleString('id-ID');
+        if (document.getElementById('live-net-cash')) document.getElementById('live-net-cash').innerText = `Rp ${netCashBersih.toLocaleString('id-ID')}`;
+
+        // Kalkulasi Akumulasi Bulan Berjalan
+        this.calcMonthlyAccumulation(netSales);
+    },
+
+    calcMonthlyAccumulation: function(todayNetSales) {
+        let d = new Date();
+        let currMonth = d.getMonth() + 1;
+        let currYear = d.getFullYear();
+
+        let accumPreviousDays = 0;
+        (this.db.laporanHarian || []).forEach(rep => {
+            if (rep.Outlet === this.outlet) {
+                let repDate = this.parseDateId((rep.Tanggal || '').split(' ')[1] || rep.Tanggal);
+                if (repDate.getMonth() + 1 === currMonth && repDate.getFullYear() === currYear) {
+                    accumPreviousDays += Number(rep.Net_Sales || 0);
+                }
+            }
+        });
+
+        let totalAccumMonth = accumPreviousDays + todayNetSales;
+        let pct = Math.min(Math.round((totalAccumMonth / this.targetBulanan) * 100), 100);
+        let kurang = Math.max(this.targetBulanan - totalAccumMonth, 0);
+
+        if (document.getElementById('accum-net-sales')) document.getElementById('accum-net-sales').innerText = `Rp ${totalAccumMonth.toLocaleString('id-ID')}`;
+        if (document.getElementById('accum-target')) document.getElementById('accum-target').innerText = `Rp ${this.targetBulanan.toLocaleString('id-ID')}`;
+        if (document.getElementById('accum-progress-bar')) document.getElementById('accum-progress-bar').style.width = `${pct}%`;
+        if (document.getElementById('accum-percent')) document.getElementById('accum-percent').innerText = `Progress: ${pct}%`;
+        if (document.getElementById('accum-remaining')) document.getElementById('accum-remaining').innerText = `Kurang: Rp ${kurang.toLocaleString('id-ID')}`;
+
+        this.currentAccumMonth = totalAccumMonth;
+    },
+
+    setTargetBulanan: function() {
+        let val = prompt(`Masukkan Target Penjualan Bulanan untuk Cabang ${this.outlet} (Angka saja):`, this.targetBulanan);
+        if (val !== null && !isNaN(val) && Number(val) > 0) {
+            this.targetBulanan = Number(val);
+            localStorage.setItem('aicha_target_bulanan_' + this.outlet, this.targetBulanan);
+            this.calcDailyReportLive();
+            this.showToast("Target bulanan berhasil diperbarui!");
+        }
+    },
+
+    // 4. Simpan & Buat Teks Laporan WhatsApp Presisi
+    submitLaporanHarian: async function() {
+        if (this.isProcessing) return;
+        let cash = this.getNumericValue(document.getElementById('daily-cash')?.value || 0);
+        let qris = this.getNumericValue(document.getElementById('daily-qris')?.value || 0);
+        let bill = Number(document.getElementById('daily-bill')?.value || 0);
+        let pcs = Number(document.getElementById('daily-pcs')?.value || 0);
+
+        if (cash === 0 && qris === 0) return this.showToast("Isi nominal Cash atau QRIS terlebih dahulu!", "error");
+        if (bill === 0 || pcs === 0) return this.showToast("Jumlah Bill dan Pcs terjual wajib diisi!", "error");
+
+        let netSales = cash + qris;
+        let amountPaid = bill > 0 ? Math.round(netSales / bill) : 0;
+        let amountPcs = pcs > 0 ? Math.round(netSales / pcs) : 0;
+
+        // Rincian Pengeluaran untuk teks WA
+        let expValid = this.dailyExpensesList.filter(x => x.nama.trim() !== '' && Number(x.nominal) > 0);
+        let expText = expValid.length > 0 ? expValid.map(x => `▪️ ${x.nama}: Rp ${Number(x.nominal).toLocaleString('id-ID')}`).join('\n') : '-';
+        let totExp = 0; expValid.forEach(x => totExp += Number(x.nominal));
+
+        let tglTeks = document.getElementById('daily-form-date')?.innerText || "Hari Ini";
+        let cuaca = this.currentDailyWeather || "31°C";
+
+        // 🚀 FORMAT WHATSAPP PERSIS SESUAI INSTRUKSI ANDA
+        let waText = `Outlet \n*Ai-CHA ${this.outlet}*\n${tglTeks}\ncuaca : ${cuaca}\n\n`;
+        waText += `Net Sales: Rp.${netSales.toLocaleString('id-ID')}\n`;
+        waText += `Amount Paid: ${amountPaid.toLocaleString('id-ID')}\n`;
+        waText += `Amount pcs : ${amountPcs.toLocaleString('id-ID')}\n`;
+        waText += `Bill : ${bill.toLocaleString('id-ID')}\n`;
+        waText += `Discount: -.\n`;
+        waText += `Cash: Rp.${cash.toLocaleString('id-ID')}\n`;
+        waText += `QRIS: Rp.${qris.toLocaleString('id-ID')}\n`;
+        if (expValid.length > 0) {
+            waText += `Pengeluaran:\n${expText}\nTotal Pengeluaran: Rp.${totExp.toLocaleString('id-ID')}\n`;
+            waText += `Net Cash Laci: Rp.${(cash - totExp).toLocaleString('id-ID')}\n`;
+        }
+        waText += `Total penjualan : Rp.${netSales.toLocaleString('id-ID')}\n`;
+        waText += `Akumulasi bulanan: Rp.${(this.currentAccumMonth || netSales).toLocaleString('id-ID')}\n`;
+        waText += `Target penjualan: Rp.${this.targetBulanan.toLocaleString('id-ID')}`;
+
+        this.setLoading(true, "Menyimpan Laporan Harian...");
+
+        let idRep = 'REP-' + Date.now();
+        const payload = {
+            action: 'save_laporan_harian',
+            id_laporan: idRep,
+            outlet: this.outlet,
+            tanggal: tglTeks,
+            cuaca: cuaca,
+            cash: cash,
+            qris: qris,
+            net_sales: netSales,
+            bill: bill,
+            pcs: pcs,
+            pengeluaran_json: JSON.stringify(expValid),
+            total_pengeluaran: totExp,
+            akumulasi_bulan: this.currentAccumMonth || netSales,
+            kasir: this.currentUser.Username
+        };
+
+        if (!this.db.laporanHarian) this.db.laporanHarian = [];
+        this.db.laporanHarian.push({
+            ID_Laporan: idRep, Outlet: this.outlet, Tanggal: tglTeks, Cuaca: cuaca,
+            Cash: cash, QRIS: qris, Net_Sales: netSales, Bill: bill, Pcs: pcs,
+            Pengeluaran_JSON: JSON.stringify(expValid), Akumulasi_Bulan: this.currentAccumMonth || netSales
+        });
+        localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
+
+        let res = await this.apiPost(payload);
+        this.setLoading(false);
+        this.showToast("Laporan Harian Tersimpan di Sistem!");
+        this.renderLaporanHarianHistory();
+        this.showWaModal(waText);
+    },
+
+    resetDailyForm: function() {
+        if (!confirm("Reset isian form hari ini?")) return;
+        ['daily-cash', 'daily-qris', 'daily-bill', 'daily-pcs'].forEach(id => {
+            let el = document.getElementById(id); if (el) el.value = '';
+        });
+        this.dailyExpensesList = [];
+        this.addDailyExpenseRow();
+        this.calcDailyReportLive();
+    },
+
+    renderLaporanHarianHistory: function() {
+        const tbody = document.getElementById('laporan-harian-tbody');
+        const mobCont = document.getElementById('laporan-harian-mobile');
+        let deskHtml = ''; let mobHtml = ''; let count = 0;
+
+        let list = [...(this.db.laporanHarian || [])].filter(x => x.Outlet === this.outlet || this.outlet === 'Pusat').reverse();
+
+        list.forEach(item => {
+            count++;
+            let net = Number(item.Net_Sales || 0);
+            let cash = Number(item.Cash || 0);
+            let qris = Number(item.QRIS || 0);
+
+            deskHtml += `
+            <tr class="border-b border-slate-50 hover:bg-slate-50 transition">
+                <td class="py-3 px-4"><span class="font-extrabold text-slate-800">${item.Tanggal}</span><br><span class="text-[10px] text-amber-600 font-bold">${item.Cuaca || '-'}</span></td>
+                <td class="py-3 px-4 text-right font-black text-rose-600 text-base">Rp ${net.toLocaleString('id-ID')}</td>
+                <td class="py-3 px-4 text-right text-xs"><span class="text-slate-700">C: Rp ${cash.toLocaleString('id-ID')}</span><br><span class="text-blue-600">Q: Rp ${qris.toLocaleString('id-ID')}</span></td>
+                <td class="py-3 px-4 text-center text-xs font-bold">${item.Bill} Bill / ${item.Pcs} Pcs</td>
+                <td class="py-3 px-4 text-center"><button onclick="superApp.resendLaporanHarianWa('${item.ID_Laporan}')" class="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-black shadow-sm transition active:scale-95"><i class="fab fa-whatsapp mr-1"></i> WA</button></td>
+            </tr>`;
+
+            mobHtml += `
+            <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-2xs flex flex-col gap-2.5">
+                <div class="flex justify-between items-start pb-2 border-b border-slate-100">
+                    <div><h4 class="font-extrabold text-sm text-slate-800">${item.Tanggal}</h4><span class="text-[10px] font-bold text-amber-600">${item.Cuaca || '-'}</span></div>
+                    <div class="text-right"><span class="text-[9px] font-black text-slate-400 block uppercase">Net Sales</span><span class="font-black text-rose-600 text-base">Rp ${net.toLocaleString('id-ID')}</span></div>
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100 font-bold">
+                    <div>Cash: <span class="text-slate-800 font-black">Rp ${cash.toLocaleString('id-ID')}</span></div>
+                    <div>QRIS: <span class="text-blue-600 font-black">Rp ${qris.toLocaleString('id-ID')}</span></div>
+                    <div class="col-span-2 text-center text-slate-500 pt-1 border-t border-slate-200/60 font-black">${item.Bill} Bill | ${item.Pcs} Pcs Terjual</div>
+                </div>
+                <button onclick="superApp.resendLaporanHarianWa('${item.ID_Laporan}')" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-2.5 rounded-xl text-xs font-black shadow-sm flex items-center justify-center gap-1.5 active:scale-95"><i class="fab fa-whatsapp text-sm"></i> Kirim Ulang ke WA Owner</button>
+            </div>`;
+        });
+
+        if (tbody) tbody.innerHTML = deskHtml || `<tr><td colspan="5" class="py-10 text-center text-slate-400 font-bold text-xs">Belum ada riwayat laporan harian</td></tr>`;
+        if (mobCont) mobCont.innerHTML = mobHtml || `<div class="p-6 text-center text-slate-400 text-xs font-bold border-2 border-dashed border-slate-200 rounded-2xl bg-white/50">Belum ada riwayat laporan harian</div>`;
+        if (document.getElementById('laporan-harian-count')) document.getElementById('laporan-harian-count').innerText = `${count} Laporan`;
+    },
+
+    resendLaporanHarianWa: function(id) {
+        let rep = (this.db.laporanHarian || []).find(x => x.ID_Laporan === id);
+        if (!rep) return;
+        let net = Number(rep.Net_Sales || 0);
+        let bill = Number(rep.Bill || 0);
+        let pcs = Number(rep.Pcs || 0);
+        let amountPaid = bill > 0 ? Math.round(net / bill) : 0;
+        let amountPcs = pcs > 0 ? Math.round(net / pcs) : 0;
+
+        let expText = '-'; let totExp = 0;
+        try {
+            let expArr = JSON.parse(rep.Pengeluaran_JSON || '[]');
+            if (expArr.length > 0) {
+                expText = expArr.map(x => `▪️ ${x.nama}: Rp ${Number(x.nominal).toLocaleString('id-ID')}`).join('\n');
+                expArr.forEach(x => totExp += Number(x.nominal));
+            }
+        } catch(e){}
+
+        let waText = `Outlet \n*Ai-CHA ${rep.Outlet}*\n${rep.Tanggal}\ncuaca : ${rep.Cuaca || '31°C'}\n\n`;
+        waText += `Net Sales: Rp.${net.toLocaleString('id-ID')}\n`;
+        waText += `Amount Paid: ${amountPaid.toLocaleString('id-ID')}\n`;
+        waText += `Amount pcs : ${amountPcs.toLocaleString('id-ID')}\n`;
+        waText += `Bill : ${bill.toLocaleString('id-ID')}\n`;
+        waText += `Discount: -.\n`;
+        waText += `Cash: Rp.${Number(rep.Cash||0).toLocaleString('id-ID')}\n`;
+        waText += `QRIS: Rp.${Number(rep.QRIS||0).toLocaleString('id-ID')}\n`;
+        if (totExp > 0) {
+            waText += `Pengeluaran:\n${expText}\nTotal Pengeluaran: Rp.${totExp.toLocaleString('id-ID')}\n`;
+            waText += `Net Cash Laci: Rp.${(Number(rep.Cash||0) - totExp).toLocaleString('id-ID')}\n`;
+        }
+        waText += `Total penjualan : Rp.${net.toLocaleString('id-ID')}\n`;
+        waText += `Akumulasi bulanan: Rp.${Number(rep.Akumulasi_Bulan || net).toLocaleString('id-ID')}\n`;
+        waText += `Target penjualan: Rp.${this.targetBulanan.toLocaleString('id-ID')}`;
+
+        this.showWaModal(waText);
+    },
+
+
+    // =========================================================
     // 🚀 1. RENDER MANAJEMEN USER (PC & MOBILE DUAL RENDER)
     // =========================================================
     renderUserManagement: function() {

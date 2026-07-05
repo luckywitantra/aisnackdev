@@ -2146,8 +2146,13 @@ const superApp = {
         
         let picker = document.getElementById('hidden-date-picker');
         if (picker) {
-            if (typeof picker.showPicker === 'function') picker.showPicker();
-            else picker.click();
+            if (typeof picker.showPicker === 'function') {
+                picker.showPicker();
+            } else {
+                picker.click();
+            }
+        } else {
+            this.showToast("Elemen date picker tidak ditemukan di HTML!", "error");
         }
     },
 

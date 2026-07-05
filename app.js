@@ -1607,6 +1607,7 @@ const superApp = {
         this.fetchMasterPengeluaran();
         this.calcDailyReportLive();
         this.renderLaporanHarianHistory();
+        this.renderCalendar();
     },
 
     // Helper 1: Memperbarui UI Lencana Cuaca

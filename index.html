@@ -15,9 +15,12 @@
 
     
 #calendar-grid {
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: 0.5rem;
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    min-height: 200px; /* Tambahkan ini agar tidak gepeng */
+    gap: 8px;
 }
+    
 .calendar-day {
     aspect-ratio: 1 / 1;
     display: flex;

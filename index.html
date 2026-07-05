@@ -736,11 +736,12 @@
 
 
 <!-- ========================================================= -->
-<!-- VIEW: LAPORAN HARIAN USAHA AI-CHA (MOBILE LEGA REDESIGN)  -->
+<!-- VIEW: LAPORAN HARIAN USAHA AI-CHA (ENTERPRISE SECURED UI) -->
 <!-- ========================================================= -->
 <div id="view-laporan-harian" class="app-view hidden flex-col h-full pb-28 md:pb-6 transition-all duration-300">
     <div class="bg-[#f4f7f9] rounded-[2rem] md:rounded-[2.5rem] shadow-sm border border-slate-200/60 flex flex-col h-full min-h-0 overflow-hidden relative">
         
+        <!-- HEADER TERPADU -->
         <div class="bg-white pt-4 md:pt-7 pb-4 rounded-b-[1.75rem] md:rounded-b-[2rem] shadow-[0_8px_30px_-10px_rgba(0,0,0,0.06)] relative z-20 shrink-0 px-4 md:px-8">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 md:gap-4">
                 <div class="flex items-center gap-3 md:gap-4">
@@ -753,6 +754,7 @@
                     </div>
                 </div>
 
+                <!-- Lencana Cuaca Live -->
                 <div class="flex items-center justify-between w-full sm:w-auto">
                     <span id="daily-weather-badge" class="bg-amber-50 border border-amber-200 text-amber-700 font-black text-xs px-3 py-1.5 rounded-xl shadow-2xs flex items-center gap-1.5">
                         <i class="fas fa-cloud-sun text-amber-500"></i> Cuaca: 31°C
@@ -760,6 +762,7 @@
                 </div>
             </div>
 
+            <!-- 🚀 SUB-TAB SWITCHER KHUSUS HP -->
             <div class="flex lg:hidden mt-3.5 pt-3 border-t border-slate-100 gap-2">
                 <button type="button" id="subtab-lapharian-input" onclick="superApp.switchLapHarianSubTab('input')" class="flex-1 py-2.5 px-3 bg-rose-50 border border-rose-200 text-rose-600 rounded-xl text-xs font-black shadow-2xs flex items-center justify-center gap-1.5 transition active:scale-95">
                     <i class="fas fa-pen-to-square"></i> Input Jualan
@@ -770,26 +773,40 @@
             </div>
         </div>
 
+        <!-- CONTAINER GRID KONTEN UTAMA -->
         <div class="flex-1 overflow-y-auto custom-scroll p-3 md:p-8 pt-3 md:pt-5 relative z-10 w-full flex flex-col lg:flex-row gap-4 md:gap-6 min-h-0">
             
+            <!-- 🚀 SECTION 1: FORM INPUT PENJUALAN & MODE EDIT -->
             <div id="lapharian-sec-input" class="w-full lg:w-[480px] xl:w-[540px] bg-white p-4 md:p-7 rounded-[1.5rem] md:rounded-[2rem] shadow-sm border border-slate-100 flex flex-col shrink-0">
-               <div class="flex justify-between items-center pb-3 mb-3.5 border-b border-slate-100 shrink-0">
-    <div>
-        <h3 class="font-black text-sm md:text-lg text-slate-800 flex items-center gap-2">
-            <span id="form-title-mode">Input Data Hari Ini</span>
-            <!-- Tombol Batal Edit (Muncul saat Mode Edit) -->
-            <button type="button" id="btn-cancel-edit" onclick="superApp.resetDailyForm()" class="hidden text-[10px] bg-rose-100 text-rose-600 px-2 py-0.5 rounded-md font-extrabold">Batal Edit</button>
-        </h3>
-        <!-- 🚀 Tanggal Interaktif (Bisa diklik untuk pilih tanggal masa lalu) -->
-        <div class="flex items-center gap-1.5 mt-0.5">
-            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest" id="daily-form-date">Sabtu, 04-07-2026</p>
-            <button type="button" onclick="superApp.changeReportDateWithAuth()" class="text-rose-500 hover:text-rose-600 text-xs p-1" title="Ganti Tanggal Masa Lalu"><i class="fas fa-calendar-days"></i></button>
-            <input type="date" id="hidden-date-picker" class="hidden" onchange="superApp.applyBackdate(this.value)">
-        </div>
-    </div>
-    <button type="button" onclick="superApp.resetDailyForm()" class="text-xs font-bold text-slate-400 hover:text-rose-500 transition active:scale-95 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100"><i class="fas fa-rotate-left mr-1"></i> Reset</button>
-</div>
+                
+                <!-- HEADER FORM & BACKDATE PICKER -->
+                <div class="flex justify-between items-start pb-3 mb-3.5 border-b border-slate-100 shrink-0">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h3 id="form-title-mode" class="font-black text-sm md:text-lg text-slate-800 tracking-tight">Input Data Hari Ini</h3>
+                            <!-- Lencana Mode Edit (Tampil jika mengedit masa lalu) -->
+                            <button type="button" id="btn-cancel-edit" onclick="superApp.resetDailyForm()" class="hidden text-[9px] bg-rose-100 hover:bg-rose-200 text-rose-600 px-2 py-0.5 rounded-md font-black uppercase tracking-wider transition active:scale-95">
+                                <i class="fas fa-xmark mr-1"></i>Batal Edit
+                            </button>
+                        </div>
+
+                        <!-- 🚀 Tanggal Interaktif + Otorisasi PIN -->
+                        <div class="flex items-center gap-1.5 mt-0.5">
+                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest" id="daily-form-date">Senin, 06-07-2026</p>
+                            <button type="button" onclick="superApp.changeReportDateWithAuth()" class="text-rose-500 hover:text-rose-600 bg-rose-50 hover:bg-rose-100 px-1.5 py-0.5 rounded text-xs transition active:scale-95 flex items-center gap-1" title="Otorisasi untuk ganti tanggal mundur">
+                                <i class="fas fa-calendar-days text-[10px]"></i>
+                            </button>
+                            <input type="date" id="hidden-date-picker" class="hidden" onchange="superApp.applyBackdate(this.value)">
+                        </div>
+                    </div>
+
+                    <button type="button" onclick="superApp.resetDailyForm()" class="text-xs font-bold text-slate-400 hover:text-rose-500 transition active:scale-95 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 shrink-0">
+                        <i class="fas fa-rotate-left mr-1"></i> Reset
+                    </button>
+                </div>
+
                 <div class="space-y-3.5 flex-1">
+                    <!-- Uang Cash & QRIS -->
                     <div class="grid grid-cols-2 gap-2.5 md:gap-3.5">
                         <div>
                             <label class="text-[9px] md:text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">1. Cash Diterima (Rp)</label>
@@ -801,6 +818,7 @@
                         </div>
                     </div>
 
+                    <!-- Jumlah Bill & Pcs -->
                     <div class="grid grid-cols-2 gap-2.5 md:gap-3.5">
                         <div>
                             <label class="text-[9px] md:text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">4. Jumlah Bill/Tamu</label>
@@ -812,6 +830,7 @@
                         </div>
                     </div>
 
+                    <!-- 3. Rincian Pengeluaran -->
                     <div class="pt-2 border-t border-slate-100">
                         <div class="flex justify-between items-center mb-2">
                             <label class="text-[9px] md:text-[10px] font-black text-rose-500 uppercase tracking-widest">3. Pengeluaran (Potong Cash)</label>
@@ -821,6 +840,7 @@
                     </div>
                 </div>
 
+                <!-- PREVIEW KALKULASI INSTAN -->
                 <div class="mt-4 bg-slate-900 text-white p-3.5 md:p-4 rounded-2xl space-y-1.5 shadow-md shrink-0 text-xs">
                     <div class="flex justify-between font-bold text-slate-400"><span>Net Sales (Cash + QRIS)</span><span id="live-net-sales" class="text-white font-black text-sm">Rp 0</span></div>
                     <div class="flex justify-between font-bold text-slate-400"><span>Amount Paid (Rata2 / Bill)</span><span id="live-amount-paid" class="text-amber-400 font-black">0</span></div>
@@ -828,15 +848,19 @@
                     <div class="border-t border-slate-800 pt-1.5 flex justify-between font-bold text-rose-400"><span>Net Cash Bersih di Laci</span><span id="live-net-cash" class="font-black text-sm">Rp 0</span></div>
                 </div>
 
+                <!-- TOMBOL SIMPAN & KIRIM -->
                 <button type="button" onclick="superApp.submitLaporanHarian()" class="mt-3.5 w-full py-3.5 md:py-4 bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-white font-black rounded-xl md:rounded-2xl shadow-lg shadow-rose-500/25 transition active:scale-95 text-xs md:text-sm flex items-center justify-center gap-2">
                     <i class="fab fa-whatsapp text-base"></i> SIMPAN & LAPORKAN KE WA
                 </button>
             </div>
 
+            <!-- 🚀 SECTION 2: RADAR AKUMULASI, KALENDER & RIWAYAT -->
             <div id="lapharian-sec-riwayat" class="hidden lg:flex flex-1 flex-col gap-4 md:gap-6 min-w-0 w-full lg:h-full transition-all">
                 
+                <!-- KARTU AKUMULASI & KALENDER MINI -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 shrink-0">
                     
+                    <!-- Akumulasi Bulan Berjalan -->
                     <div class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-5 md:p-7 rounded-[1.75rem] md:rounded-[2rem] text-white shadow-xl relative overflow-hidden">
                         <div class="absolute -right-10 -bottom-10 w-48 h-48 bg-rose-500/15 rounded-full blur-3xl pointer-events-none"></div>
                         <div class="flex justify-between items-start mb-4 relative z-10">
@@ -858,6 +882,7 @@
                         </div>
                     </div>
 
+                    <!-- Kalender Mini Dashboard -->
                     <div class="bg-white rounded-[1.75rem] md:rounded-[2rem] p-5 shadow-sm border border-slate-100 flex flex-col justify-center min-h-[220px]">
                         <div class="flex justify-between items-center mb-4">
                             <h4 class="font-black text-slate-800 text-sm md:text-base" id="calendar-month-name">Juli 2026</h4>
@@ -869,11 +894,12 @@
                         <div id="calendar-grid" class="grid grid-cols-7 gap-1.5 md:gap-2 text-center text-[11px] md:text-xs font-bold text-slate-600 w-full min-h-[160px]">
                             <div class="text-slate-400 py-1">Sen</div><div class="text-slate-400 py-1">Sel</div><div class="text-slate-400 py-1">Rab</div>
                             <div class="text-slate-400 py-1">Kam</div><div class="text-slate-400 py-1">Jum</div><div class="text-slate-400 py-1">Sab</div><div class="text-slate-400 py-1">Min</div>
-                            </div>
+                        </div>
                     </div>
 
                 </div>
 
+                <!-- RIWAYAT LAPORAN HARIAN -->
                 <div class="bg-white p-4 md:p-7 rounded-[1.75rem] md:rounded-[2rem] shadow-sm border border-slate-100 flex-1 flex flex-col min-h-[480px] lg:min-h-0 relative overflow-hidden">
                     <div class="flex justify-between items-center pb-4 mb-3 border-b border-slate-100 shrink-0">
                         <h4 class="font-black text-base md:text-lg text-slate-800 flex items-center gap-2.5">
@@ -883,6 +909,7 @@
                         <span class="bg-rose-50 text-rose-600 border border-rose-200 px-3 py-1 rounded-xl text-xs font-black uppercase tracking-wider" id="laporan-harian-count">0 Laporan</span>
                     </div>
 
+                    <!-- Tabel Desktop -->
                     <div class="hidden md:block flex-1 overflow-y-auto custom-scroll pr-2">
                         <table class="w-full text-left whitespace-nowrap text-sm border-collapse">
                             <thead class="bg-slate-50/95 backdrop-blur-md text-slate-400 border-b border-slate-100 font-black text-[10px] uppercase tracking-wider sticky top-0 z-10">
@@ -891,13 +918,14 @@
                                     <th class="py-3.5 px-4 text-right">Net Sales</th>
                                     <th class="py-3.5 px-4 text-right">Cash / QRIS</th>
                                     <th class="py-3.5 px-4 text-center">Bill / Pcs</th>
-                                    <th class="py-3.5 px-4 text-center w-28">Aksi</th>
+                                    <th class="py-3.5 px-4 text-center w-36">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody id="laporan-harian-tbody" class="divide-y divide-slate-50 font-bold text-slate-700"></tbody>
                         </table>
                     </div>
 
+                    <!-- Kartu Mobile HP -->
                     <div class="md:hidden flex-1 overflow-y-auto custom-scroll space-y-3 pt-1 pb-24 min-h-[50vh]" id="laporan-harian-mobile"></div>
                 </div>
 

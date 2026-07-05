@@ -2757,6 +2757,7 @@ changeOutlet: function(val) {
         'gudang': 'text-emerald-600', 
         'outlet': 'text-teal-600',    
         'staf': 'text-amber-600',
+        'laporan-harian': 'text-rose-600',
         'user': 'text-purple-600' // 🚀 TAMBAHAN: Warna ungu elegan untuk Manajemen User
     };
     const allColors = Object.values(colors);
@@ -2786,7 +2787,7 @@ changeOutlet: function(val) {
     const titles = { 
         'pos': 'POS', 'opname': 'Opname Fisik Stok', 'terima': 'Penerimaan Barang', 
         'audit': 'Audit Laporan', 'report': 'Laporan Terpadu', 'ai': 'CFO Dashboard & Asisten AI', 
-        'gudang': 'Gudang Pusat', 'master': 'Master Varian POS', 'outlet': 'Cabang & Harga Khusus', 'staf': 'Kinerja Karyawan',
+        'gudang': 'Gudang Pusat', 'master': 'Master Varian POS', 'outlet': 'Cabang & Harga Khusus', 'staf': 'Kinerja Karyawan', 'laporan-harian': 'Laporan Harian Ai-CHA',
         'user': 'Manajemen Pengguna' // 🚀 TAMBAHAN: Judul halaman otomatis untuk User
     };
     const pageTitle = document.getElementById('page-title'); 
@@ -2804,6 +2805,9 @@ changeOutlet: function(val) {
     if (menu === 'opname' && typeof this.renderOpname === 'function') {
         this.renderOpname();
         if (typeof this.showMenuGuide === 'function') setTimeout(() => this.showMenuGuide('opname'), 200);
+    }
+    if (menu === 'laporan-harian' && typeof this.initLaporanHarian === 'function') {
+    this.initLaporanHarian();
     }
     if (menu === 'audit' && typeof this.renderAudit === 'function') this.renderAudit();
     if (menu === 'terima' && typeof this.renderTerimaBarang === 'function') {

@@ -1560,15 +1560,24 @@ const superApp = {
     dailyExpensesList: [], // Memori daftar pengeluaran hari ini
     targetBulanan: 180000000, // Default target Rp 180 Juta
 
-    // 1. Inisialisasi & Ambil Perkiraan Cuaca Otomatis
+   // 1. Inisialisasi & Ambil Perkiraan Cuaca Otomatis
     initLaporanHarian: function() {
         if (!this.db) return;
 
-        // Muat Target Bulanan dari localStorage jika pernah diubah Owner
-        let savedTarget = localStorage.getItem('aicha_target_bulanan_' + this.outlet);
-        if (savedTarget) this.targetBulanan = Number(savedTarget);
+        // 🚀 A. Pastikan Saat Dibuka di HP Selalu Masuk ke Tab "Input Jualan"
+        if (typeof this.switchLapHarianSubTab === 'function') {
+            this.switchLapHarianSubTab('input');
+        }
 
-        // Set tanggal form hari ini
+        // B. Muat Target Bulanan Khusus Cabang Ini (Fallback ke Rp 180 Juta)
+        let savedTarget = localStorage.getItem('aicha_target_bulanan_' + (this.outlet || 'Penajam'));
+        if (savedTarget && !isNaN(savedTarget)) {
+            this.targetBulanan = Number(savedTarget);
+        } else {
+            this.targetBulanan = 180000000;
+        }
+
+        // C. Set Tanggal Form Hari Ini (Format Indonesia)
         let d = new Date();
         let days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
         let pad = n => n < 10 ? '0' + n : n;
@@ -1576,24 +1585,83 @@ const superApp = {
         const dateEl = document.getElementById('daily-form-date');
         if (dateEl) dateEl.innerText = tglStr;
 
-        // Ambil Cuaca (Simulasi pintar berdasarkan jam & musim atau standar lokal 31°C)
-        let cuacaStr = "31°C Cerah Berawan";
+        // D. Set Cuaca Instan (Simulasi Pintar Sebagai Nilai Awal)
         let jam = d.getHours();
-        if (jam < 10) cuacaStr = "28°C Cerah Pagi";
-        else if (jam >= 11 && jam <= 15) cuacaStr = "31°C Cerah Terik";
-        else if (jam > 15 && jam <= 18) cuacaStr = "29°C Sore Berawan";
-        else cuacaStr = "27°C Malam Cerah";
+        let cuacaSimulasi = "31°C Cerah Berawan";
+        if (jam < 10) cuacaSimulasi = "28°C Cerah Pagi";
+        else if (jam >= 11 && jam <= 15) cuacaSimulasi = "32°C Cerah Terik";
+        else if (jam > 15 && jam <= 18) cuacaSimulasi = "29°C Sore Berawan";
+        else cuacaSimulasi = "27°C Malam Cerah";
         
-        const wBadge = document.getElementById('daily-weather-badge');
-        if (wBadge) wBadge.innerHTML = `<i class="fas fa-cloud-sun text-amber-500"></i> Cuaca: ${cuacaStr}`;
-        this.currentDailyWeather = cuacaStr;
+        this.currentDailyWeather = cuacaSimulasi;
+        this.updateWeatherBadgeUI(cuacaSimulasi, false);
 
-        if (this.dailyExpensesList.length === 0) {
-            this.addDailyExpenseRow(); // Siapkan 1 baris pengeluaran kosong
+        // 🚀 E. TARIK CUACA REAL-TIME DARI API (Tanpa Memblokir Layar Kasir)
+        this.fetchRealTimeWeather();
+
+        // F. Siapkan 1 Baris Pengeluaran Kosong Jika Belum Ada
+        if (!this.dailyExpensesList || this.dailyExpensesList.length === 0) {
+            this.dailyExpensesList = [];
+            this.addDailyExpenseRow(); 
         }
 
         this.calcDailyReportLive();
         this.renderLaporanHarianHistory();
+    },
+
+    // Helper 1: Memperbarui UI Lencana Cuaca
+    updateWeatherBadgeUI: function(cuacaText, isLive = false) {
+        const wBadge = document.getElementById('daily-weather-badge');
+        if (!wBadge) return;
+
+        let icon = 'fa-cloud-sun';
+        let color = 'text-amber-500';
+        
+        let lower = cuacaText.toLowerCase();
+        if (lower.includes('hujan') || lower.includes('gerimis')) { 
+            icon = 'fa-cloud-showers-heavy'; color = 'text-blue-500'; 
+        } else if (lower.includes('malam')) { 
+            icon = 'fa-moon'; color = 'text-indigo-400'; 
+        } else if (lower.includes('terik') || lower.includes('cerah')) { 
+            icon = 'fa-sun'; color = 'text-amber-500'; 
+        }
+
+        // Titik hijau berkedip jika cuaca berhasil ditarik secara live dari satelit
+        let liveDot = isLive ? `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping mr-1.5" title="Suhu Real-Time Satelit"></span>` : '';
+        
+        wBadge.innerHTML = `${liveDot}<i class="fas ${icon} ${color}"></i> Cuaca: ${cuacaText}`;
+    },
+
+    // Helper 2: Menarik Cuaca Asli Gratis via Open-Meteo API
+    fetchRealTimeWeather: async function() {
+        if (!navigator.onLine) return; // Abaikan jika sedang offline
+        try {
+            // Koordinat default (contoh: wilayah Kalimantan Timur / Penajam Paser Utara ~ Lat: -1.25, Lon: 116.74)
+            const lat = -1.2553;
+            const lon = 116.7466;
+            const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
+            if (!res.ok) return;
+            const data = await res.json();
+            
+            if (data && data.current_weather) {
+                let temp = Math.round(data.current_weather.temperature);
+                let code = data.current_weather.weathercode;
+                
+                // Terjemahkan Kode WMO ke Bahasa Indonesia
+                let desc = "Cerah Berawan";
+                if (code === 0) desc = "Cerah Terik";
+                else if (code >= 1 && code <= 3) desc = "Berawan";
+                else if (code >= 51 && code <= 67) desc = "Gerimis / Hujan Ringan";
+                else if (code >= 80 && code <= 99) desc = "Hujan Lebat";
+                
+                let liveWeatherStr = `${temp}°C ${desc}`;
+                this.currentDailyWeather = liveWeatherStr;
+                this.updateWeatherBadgeUI(liveWeatherStr, true);
+            }
+        } catch (e) {
+            // Jika API gagal, aplikasi tetap aman menggunakan cuaca simulasi pintar
+            console.log("Menggunakan cuaca simulasi.");
+        }
     },
 
     // 2. Baris Pengeluaran Dinamis
@@ -1861,6 +1929,33 @@ const superApp = {
         waText += `Target penjualan: Rp.${this.targetBulanan.toLocaleString('id-ID')}`;
 
         this.showWaModal(waText);
+    },
+
+    // =========================================================
+    // 🚀 SWITCHER SUB-TAB LAPORAN HARIAN (KHUSUS MOBILE HP)
+    // =========================================================
+    switchLapHarianSubTab: function(tab) {
+        const secInput = document.getElementById('lapharian-sec-input');
+        const secRiwayat = document.getElementById('lapharian-sec-riwayat');
+        const btnInput = document.getElementById('subtab-lapharian-input');
+        const btnRiwayat = document.getElementById('subtab-lapharian-riwayat');
+
+        const activeClass = 'flex-1 py-2.5 px-3 bg-rose-50 border border-rose-200 text-rose-600 rounded-xl text-xs font-black shadow-2xs flex items-center justify-center gap-1.5 transition active:scale-95';
+        const inactiveClass = 'flex-1 py-2.5 px-3 bg-slate-50 border border-slate-200/80 text-slate-500 hover:text-slate-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95';
+
+        if (tab === 'input') {
+            // Tampilkan Form Input di HP
+            if (secInput) secInput.className = "w-full lg:w-[480px] xl:w-[540px] bg-white p-4 md:p-7 rounded-[1.5rem] md:rounded-[2rem] shadow-sm border border-slate-100 flex flex-col shrink-0";
+            if (secRiwayat) secRiwayat.className = "hidden lg:flex flex-1 flex-col gap-4 md:gap-6 min-w-0 min-h-0";
+            if (btnInput) btnInput.className = activeClass;
+            if (btnRiwayat) btnRiwayat.className = inactiveClass;
+        } else {
+            // Tampilkan Riwayat & Target di HP
+            if (secInput) secInput.className = "hidden lg:flex lg:w-[480px] xl:w-[540px] bg-white p-4 md:p-7 rounded-[1.5rem] md:rounded-[2rem] shadow-sm border border-slate-100 flex-col shrink-0";
+            if (secRiwayat) secRiwayat.className = "flex flex-1 flex-col gap-4 md:gap-6 min-w-0 min-h-0";
+            if (btnInput) btnInput.className = inactiveClass;
+            if (btnRiwayat) btnRiwayat.className = activeClass;
+        }
     },
 
 

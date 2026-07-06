@@ -3002,18 +3002,6 @@ changeOutlet: function(val) {
         if (modal) modal.classList.add('hidden');
     },
 
-    navInputDatepicker: function() {
-        this.inputDatepickerMonth += dir;
-        if (this.inputDatepickerMonth < 0) {
-            this.inputDatepickerMonth = 11;
-            this.inputDatepickerYear--;
-        } else if (this.inputDatepickerMonth > 11) {
-            this.inputDatepickerMonth = 0;
-            this.inputDatepickerYear++;
-        }
-        this.renderInputDatepickerGrid();
-    },
-
     renderInputDatepickerGrid: function() {
         const grid = document.getElementById('input-datepicker-grid');
         const title = document.getElementById('input-datepicker-month-year');
@@ -3075,7 +3063,25 @@ changeOutlet: function(val) {
         if (modal) modal.classList.add('hidden');
     },
 
-    navCalendarModal: function() {
+    // =========================================================
+    // 🚀 CONTROLLER DATEPICKER INPUT KUSTOM (PERBAIKAN PARAMETER dir)
+    // =========================================================
+    navInputDatepicker: function(dir) {
+        this.inputDatepickerMonth += dir;
+        if (this.inputDatepickerMonth < 0) {
+            this.inputDatepickerMonth = 11;
+            this.inputDatepickerYear--;
+        } else if (this.inputDatepickerMonth > 11) {
+            this.inputDatepickerMonth = 0;
+            this.inputDatepickerYear++;
+        }
+        this.renderInputDatepickerGrid();
+    },
+
+    // =========================================================
+    // 🚀 CONTROLLER POPUP MODAL KALENDER LAPORAN (PERBAIKAN PARAMETER dir)
+    // =========================================================
+    navCalendarModal: function(dir) {
         if (dir === 0) {
             let now = new Date();
             this.calendarModalYear = now.getFullYear();

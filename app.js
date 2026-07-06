@@ -1553,15 +1553,20 @@ const superApp = {
     },
 
 
-    // =========================================================
+// =========================================================
     // 🚀 MODUL LAPORAN HARIAN USAHA AI-CHA (NEW ENGINE)
     // =========================================================
-   dailyExpensesList: [], // Memori daftar pengeluaran hari ini
+    dailyExpensesList: [], // Memori daftar pengeluaran hari ini
     targetBulanan: 180000000, // Default target Rp 180 Juta
 
     // 1. Inisialisasi & Ambil Perkiraan Cuaca Otomatis
     initLaporanHarian: function() {
         if (!this.db) return;
+
+        // 🚀 0. RENDER BAR PEMILIH CABANG KHUSUS OWNER/SPV (SINKRON RIWAYAT)
+        if (typeof this.renderLaporanOutletButtons === 'function') {
+            this.renderLaporanOutletButtons();
+        }
 
         // A. Pastikan Saat Dibuka di HP Selalu Masuk ke Tab "Input Jualan"
         if (typeof this.switchLapHarianSubTab === 'function') {
@@ -1611,6 +1616,83 @@ const superApp = {
         // G. Eksekusi Kalender Interaktif
         if (typeof this.renderCalendar === 'function') {
             this.renderCalendar();
+        }
+
+        // 🚀 H. EKSEKUSI DASHBOARD EKSEKUTIF OWNER (KONSOLIDASI & BREAKDOWN)
+        if (typeof this.renderExecutiveDashboard === 'function') {
+            this.renderExecutiveDashboard();
+        }
+    },
+
+    // =========================================================
+    // 🚀 ENGINE FILTER OUTLET LAPORAN HARIAN (SINKRON RIWAYAT)
+    // =========================================================
+    filterLaporanByOutlet: function(targetOutlet) {
+        // 1. Set outlet aktif (Gunakan 'Semua' atau 'Pusat' untuk konsolidasi)
+        this.outlet = targetOutlet;
+        localStorage.setItem('aicha_active_outlet', targetOutlet);
+
+        // 2. Perbarui tampilan aktif pada tombol-tombol pemilih cabang
+        document.querySelectorAll('.btn-lap-outlet').forEach(btn => {
+            btn.classList.remove('bg-rose-500', 'text-white', 'shadow-2xs');
+            btn.classList.add('bg-slate-800', 'text-slate-400', 'hover:bg-slate-700', 'hover:text-white');
+        });
+
+        let activeBtn = document.getElementById(`btn-lap-outlet-${targetOutlet}`);
+        if (activeBtn) {
+            activeBtn.classList.remove('bg-slate-800', 'text-slate-400', 'hover:bg-slate-700');
+            activeBtn.classList.add('bg-rose-500', 'text-white', 'shadow-2xs');
+        }
+
+        // 3. Perbarui nama di header utama
+        if (typeof this.updateHeaderOutletName === 'function') {
+            this.updateHeaderOutletName();
+        }
+
+        // 4. Render ulang seluruh komponen Laporan Harian secara live tanpa refresh halaman
+        this.showToast(`Menampilkan Laporan: ${targetOutlet === 'Semua' ? 'Konsolidasi Seluruh Cabang' : targetOutlet}`);
+        if (typeof this.renderExecutiveDashboard === 'function') this.renderExecutiveDashboard();
+        this.calcDailyReportLive();
+        this.renderLaporanHarianHistory();
+        if (typeof this.renderCalendar === 'function') this.renderCalendar();
+    },
+
+    renderLaporanOutletButtons: function() {
+        const bar = document.getElementById('lapharian-owner-outlet-bar');
+        const cont = document.getElementById('lapharian-dynamic-outlets');
+        if (!bar || !cont) return;
+
+        // Cek Role: Hanya Owner/Supervisor yang bisa melihat bar pemilih cabang ini
+        let isOwner = this.currentUser && (this.currentUser.Role === 'owner' || this.currentUser.Role === 'supervisor');
+        if (!isOwner) {
+            bar.classList.add('hidden');
+            return;
+        }
+        bar.classList.remove('hidden');
+
+        // Ambil daftar outlet dari database dan buang 'Pusat' / 'Semua' agar tidak duplikat
+        let outlets = (this.db.outlets || []).filter(o => o.Nama_Outlet !== 'Pusat' && o.Nama_Outlet !== 'Semua');
+        
+        let html = outlets.map(o => {
+            let isActive = (this.outlet === o.Nama_Outlet);
+            let activeClass = isActive 
+                ? 'bg-rose-500 text-white shadow-2xs' 
+                : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white';
+            
+            return `
+            <button type="button" onclick="superApp.filterLaporanByOutlet('${o.Nama_Outlet}')" id="btn-lap-outlet-${o.Nama_Outlet}" class="btn-lap-outlet px-3 py-1 rounded-lg text-xs font-black transition active:scale-95 shrink-0 ${activeClass}">
+                ${o.Nama_Outlet}
+            </button>`;
+        }).join('');
+
+        cont.innerHTML = html;
+        
+        // Pastikan status tombol aktif tersinkronisasi saat halaman dimuat
+        let currentActive = this.outlet || 'Semua';
+        let activeBtn = document.getElementById(`btn-lap-outlet-${currentActive}`);
+        if (activeBtn) {
+            document.querySelectorAll('.btn-lap-outlet').forEach(b => b.classList.remove('bg-rose-500', 'text-white'));
+            activeBtn.classList.add('bg-rose-500', 'text-white');
         }
     },
 
@@ -2574,6 +2656,7 @@ changeOutlet: function(val) {
     }
 },
 
+    
     // =========================================================
     // 🚀 1. RENDER MANAJEMEN USER (PC & MOBILE DUAL RENDER)
     // =========================================================

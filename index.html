@@ -736,17 +736,12 @@
 
 
 <!-- ========================================================= -->
-<!-- VIEW: LAPORAN HARIAN USAHA AI-CHA (ENTERPRISE SECURED UI) -->
-<!-- ========================================================= -->
-<!-- ========================================================= -->
-<!-- VIEW: LAPORAN HARIAN USAHA AI-CHA (MODERN ENTERPRISE UI)  -->
-<!-- ========================================================= -->
-<!-- ========================================================= -->
 <!-- VIEW: LAPORAN HARIAN USAHA AI-CHA (MODERN ENTERPRISE UI)  -->
 <!-- ========================================================= -->
 <div id="view-laporan-harian" class="app-view hidden flex-col h-full pb-28 lg:pb-6 transition-all duration-300">
     <div class="bg-[#f4f7f9] rounded-[2rem] lg:rounded-[2.5rem] shadow-sm border border-slate-200/60 flex flex-col h-full min-h-0 overflow-hidden relative">
 
+        <!-- 🚀 BAR PEMILIH OUTLET KHUSUS OWNER/SPV -->
         <div id="lapharian-owner-outlet-bar" class="hidden bg-slate-900 px-4 py-2.5 md:px-8 shrink-0 flex items-center justify-between border-b border-slate-800 z-30">
             <div class="flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -760,7 +755,8 @@
             </div>
         </div>
       
-        <div class="bg-white pt-4 lg:pt-7 pb-4 rounded-b-[1.75rem] lg:rounded-b-[2rem] shadow-[0_8px_30px_-10px_rgba(0,0,0,0.06)] relative z-20 shrink-0 px-4 lg:px-8">
+        <!-- HEADER TERPADU -->
+        <div class="bg-white pt-4 lg:pt-6 pb-4 rounded-b-[1.75rem] lg:rounded-b-[2rem] shadow-[0_8px_30px_-10px_rgba(0,0,0,0.06)] relative z-20 shrink-0 px-4 lg:px-8">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 lg:gap-4">
                 <div class="flex items-center gap-3 lg:gap-4">
                     <div class="w-11 h-11 lg:w-14 lg:h-14 bg-gradient-to-br from-rose-500 via-red-500 to-amber-500 rounded-xl lg:rounded-[1.35rem] flex items-center justify-center text-white text-lg lg:text-2xl shadow-md shadow-rose-500/25 shrink-0">
@@ -772,6 +768,7 @@
                     </div>
                 </div>
 
+                <!-- Lencana Cuaca Live -->
                 <div class="flex items-center justify-between w-full sm:w-auto">
                     <span id="daily-weather-badge" class="bg-amber-50 border border-amber-200/80 text-amber-700 font-black text-xs px-3.5 py-1.5 rounded-xl shadow-2xs flex items-center gap-1.5">
                         <i class="fas fa-cloud-sun text-amber-500"></i> Cuaca: 31°C
@@ -779,6 +776,7 @@
                 </div>
             </div>
 
+            <!-- SUB-TAB SWITCHER KHUSUS HP -->
             <div class="flex lg:hidden mt-3.5 pt-3 border-t border-slate-100 gap-2">
                 <button type="button" id="subtab-lapharian-input" onclick="superApp.switchLapHarianSubTab('input')" class="flex-1 py-2.5 px-3 bg-rose-50 border border-rose-200 text-rose-600 rounded-xl text-xs font-black shadow-2xs flex items-center justify-center gap-1.5 transition active:scale-[0.98]">
                     <i class="fas fa-pen-to-square"></i> Input Jualan
@@ -789,24 +787,41 @@
             </div>
         </div>
 
+        <!-- AREA KONTEN UTAMA SCROLLABLE -->
         <div class="flex-1 overflow-y-auto custom-scroll p-3 lg:p-8 pt-3 lg:pt-5 relative z-10 w-full flex flex-col min-h-0">
             
+            <!-- ========================================================= -->
+            <!-- 🚀 DASHBOARD EKSEKUTIF KONSOLIDASI DENGAN FILTER RANGE -->
+            <!-- ========================================================= -->
             <div id="lapharian-executive-dashboard" class="hidden mb-6 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 p-5 lg:p-7 rounded-[1.75rem] lg:rounded-[2rem] text-white shadow-xl relative overflow-hidden border border-slate-700/60 w-full shrink-0">
                 <div class="absolute -right-16 -top-16 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
                 <div class="absolute right-1/3 -bottom-16 w-48 h-48 bg-rose-500/15 rounded-full blur-3xl pointer-events-none"></div>
 
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-4 mb-5 border-b border-slate-700/80 gap-3 relative z-10">
+                <!-- Header Dashboard Eksekutif & Pemilih Range -->
+                <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center pb-4 mb-5 border-b border-slate-700/80 gap-3 relative z-10">
                     <div>
                         <span class="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-3 py-1 rounded-full text-[9px] lg:text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 w-max">
-                            <span class="w-2 h-2 rounded-full bg-indigo-400 animate-ping"></span> Rangkuman Eksekutif Bulan Ini
+                            <span class="w-2 h-2 rounded-full bg-indigo-400 animate-ping"></span> Rangkuman Eksekutif
                         </span>
                         <h3 class="font-black text-lg lg:text-2xl mt-1.5 text-white tracking-tight" id="exec-dash-title">Konsolidasi Seluruh Outlet</h3>
                     </div>
-                    <div class="text-right flex items-center gap-2">
-                        <span class="text-xs font-bold text-slate-400 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700" id="exec-dash-period">Juli 2026</span>
+                    
+                    <!-- 🚀 KONTROL FILTER RANGE TANGGAL EKSEKUTIF -->
+                    <div class="flex flex-wrap items-center gap-2 bg-slate-800/80 p-2 rounded-2xl border border-slate-700 w-full xl:w-auto">
+                        <div class="flex items-center gap-1.5 text-xs font-bold text-slate-300 px-1">
+                            <i class="fas fa-calendar-day text-rose-400"></i>
+                            <span class="hidden sm:inline">Periode:</span>
+                        </div>
+                        <input type="date" id="exec-filter-start" onchange="superApp.renderExecutiveDashboard()" class="bg-slate-900 border border-slate-700 text-slate-200 rounded-xl px-2.5 py-1 text-xs font-bold outline-none focus:border-rose-500 flex-1 sm:flex-initial cursor-pointer">
+                        <span class="text-slate-400 text-xs font-black">s/d</span>
+                        <input type="date" id="exec-filter-end" onchange="superApp.renderExecutiveDashboard()" class="bg-slate-900 border border-slate-700 text-slate-200 rounded-xl px-2.5 py-1 text-xs font-bold outline-none focus:border-rose-500 flex-1 sm:flex-initial cursor-pointer">
+                        <button type="button" onclick="superApp.resetExecDateRange()" class="bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white px-2.5 py-1 rounded-xl text-xs font-black transition active:scale-95 shrink-0" title="Reset ke Bulan Berjalan">
+                            <i class="fas fa-rotate-left mr-1"></i>Bulan Ini
+                        </button>
                     </div>
                 </div>
 
+                <!-- 4 KPI Rangkuman Utama -->
                 <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 relative z-10 mb-6">
                     <div class="bg-slate-800/60 backdrop-blur-md p-3.5 lg:p-4 rounded-2xl border border-slate-700/60">
                         <span class="text-[9px] lg:text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block">Total Net Sales</span>
@@ -826,6 +841,7 @@
                     </div>
                 </div>
 
+                <!-- Grid Breakdown Multi-Outlet & Akumulasi Item Pengeluaran -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 relative z-10 pt-2 border-t border-slate-700/80">
                     <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-700/50 flex flex-col">
                         <h4 class="font-black text-xs lg:text-sm text-slate-300 mb-3 flex items-center gap-2">
@@ -843,8 +859,12 @@
                 </div>
             </div>
 
+            <!-- ========================================================= -->
+            <!-- 🚀 CONTAINER INPUT FORM & RIWAYAT (BERDAMPINGAN DI PC) -->
+            <!-- ========================================================= -->
             <div class="flex flex-col lg:flex-row gap-4 lg:gap-6 w-full items-stretch">
                 
+                <!-- SECTION 1: FORM INPUT PENJUALAN & MODE EDIT -->
                 <div id="lapharian-sec-input" class="w-full lg:w-[480px] xl:w-[540px] bg-white p-4 lg:p-7 rounded-[1.5rem] lg:rounded-[2rem] shadow-sm border border-slate-100 flex flex-col shrink-0">
                     
                     <div class="flex justify-between items-start pb-3 mb-3.5 border-b border-slate-100 shrink-0">
@@ -914,9 +934,11 @@
                     </button>
                 </div>
 
+                <!-- SECTION 2: RADAR AKUMULASI, KALENDER & RIWAYAT -->
                 <div id="lapharian-sec-riwayat" class="hidden lg:flex flex-1 flex-col gap-4 lg:gap-6 min-w-0 w-full transition-all">
                     
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 shrink-0">
+                        <!-- Akumulasi Bulan Berjalan -->
                         <div class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-5 lg:p-7 rounded-[1.75rem] lg:rounded-[2rem] text-white shadow-xl relative overflow-hidden flex flex-col justify-between">
                             <div class="absolute -right-10 -bottom-10 w-48 h-48 bg-rose-500/15 rounded-full blur-3xl pointer-events-none"></div>
                             
@@ -942,6 +964,7 @@
                             </div>
                         </div>
 
+                        <!-- Kalender Mini Dashboard -->
                         <div class="bg-white rounded-[1.75rem] lg:rounded-[2rem] p-5 shadow-sm border border-slate-100 flex flex-col justify-center min-h-[220px]">
                             <div class="flex justify-between items-center mb-4">
                                 <h4 class="font-black text-slate-800 text-sm lg:text-base" id="calendar-month-name">Juli 2026</h4>
@@ -957,6 +980,7 @@
                         </div>
                     </div>
 
+                    <!-- RIWAYAT LAPORAN HARIAN -->
                     <div class="bg-white p-4 lg:p-7 rounded-[1.75rem] lg:rounded-[2rem] shadow-sm border border-slate-100 flex-1 flex flex-col min-h-[480px] relative overflow-hidden">
                         
                         <div class="flex justify-between items-center pb-3 border-b border-slate-100 shrink-0">
@@ -967,6 +991,7 @@
                             <span class="bg-rose-50 text-rose-600 border border-rose-200 px-3 py-1 rounded-xl text-xs font-black uppercase tracking-wider" id="laporan-harian-count">0 Laporan</span>
                         </div>
 
+                        <!-- 🚀 KOTAK FILTER RENTANG TANGGAL RIWAYAT -->
                         <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200/80 my-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 shrink-0">
                             <div class="flex items-center gap-2 text-xs font-bold text-slate-600">
                                 <i class="fas fa-filter text-rose-500"></i>
@@ -976,12 +1001,13 @@
                                 <input type="date" id="filter-lap-start" onchange="superApp.renderLaporanHarianHistory()" class="bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-700 outline-none focus:border-rose-500 w-full sm:w-auto shadow-2xs">
                                 <span class="text-slate-400 font-black text-xs">s/d</span>
                                 <input type="date" id="filter-lap-end" onchange="superApp.renderLaporanHarianHistory()" class="bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-700 outline-none focus:border-rose-500 w-full sm:w-auto shadow-2xs">
-                                <button type="button" onclick="document.getElementById('filter-lap-start').value=''; document.getElementById('filter-lap-end').value=''; superApp.renderLaporanHarianHistory();" class="bg-slate-200 hover:bg-slate-300 text-slate-600 px-3 py-1.5 rounded-xl text-xs font-black transition active:scale-95 shrink-0" title="Reset Filter Tanggal">
+                                <button type="button" onclick="document.getElementById('filter-lap-start').value=''; document.getElementById('filter-lap-end').value=''; superApp.renderLaporanHarianHistory();" class="bg-slate-200 hover:bg-slate-300 text-slate-600 px-3 py-1.5 rounded-xl text-xs font-black transition active:scale-95 shrink-0" title="Reset Filter">
                                     <i class="fas fa-rotate-left"></i>
                                 </button>
                             </div>
                         </div>
 
+                        <!-- Tabel Desktop -->
                         <div class="hidden md:block flex-1 overflow-y-auto custom-scroll pr-2">
                             <table class="w-full text-left whitespace-nowrap text-sm border-collapse">
                                 <thead class="bg-slate-50/95 backdrop-blur-md text-slate-400 border-b border-slate-100 font-black text-[10px] uppercase tracking-wider sticky top-0 z-10">
@@ -997,6 +1023,7 @@
                             </table>
                         </div>
 
+                        <!-- Kartu Mobile HP -->
                         <div class="md:hidden flex-1 overflow-y-auto custom-scroll space-y-3 pt-1 pb-24 min-h-[50vh]" id="laporan-harian-mobile"></div>
                     </div>
 
@@ -1006,6 +1033,9 @@
 
         </div>
 
+        <!-- ========================================================= -->
+        <!-- 🚀 MODAL POPUP FORWARD WA KHUSUS LAPORAN HARIAN -->
+        <!-- ========================================================= -->
         <div id="modal-wa-laporan-harian" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4 animate-fade-in">
             <div class="bg-white rounded-[2rem] shadow-2xl border border-slate-100 w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
                 

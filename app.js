@@ -2366,79 +2366,7 @@ const superApp = {
         .catch(e => console.error("Gagal ambil master pengeluaran:", e));
     },
 
-    // =========================================================
-    // 🚀 KALENDER INTERAKTIF & ENGINE FILTER
-    // =========================================================
-    renderCalendar: function() {
-        const grid = document.getElementById('calendar-grid');
-        if (!grid) return;
-        
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = now.getMonth();
-        
-        // 1. Tampilkan Nama Bulan
-        const monthEl = document.getElementById('calendar-month-name');
-        if (monthEl) monthEl.innerText = now.toLocaleString('id-ID', { month: 'long', year: 'numeric' });
 
-        // 🚀 2. Deteksi Mode Konsolidasi ('Semua' atau 'Pusat')
-        let isConsolidated = (this.outlet === 'Pusat' || this.outlet === 'Semua' || !this.outlet);
-
-        // 3. Kumpulkan Daftar Tanggal Terisi (Format Kunci: D-M-YYYY)
-        const terisiDates = (this.db.laporanHarian || []).filter(x => {
-            // Abaikan data laporan jika statusnya ditolak oleh Owner
-            if (x.Status_Approval === 'Ditolak') return false;
-            return isConsolidated || x.Outlet === this.outlet;
-        }).map(l => {
-            let cleanStr = (l.Tanggal || '').split(',').pop().trim();
-            let match = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-            if (match) {
-                return `${parseInt(match[1], 10)}-${parseInt(match[2], 10) - 1}-${parseInt(match[3], 10)}`;
-            }
-            return '';
-        });
-
-        const firstDay = new Date(year, month, 1).getDay(); 
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        
-        // 4. Reset Grid Kalender (Pertahankan Header Hari)
-        grid.innerHTML = `
-            <div class="text-slate-400 py-1">Sen</div><div class="text-slate-400 py-1">Sel</div><div class="text-slate-400 py-1">Rab</div>
-            <div class="text-slate-400 py-1">Kam</div><div class="text-slate-400 py-1">Jum</div><div class="text-slate-400 py-1">Sab</div><div class="text-slate-400 py-1">Min</div>
-        `;
-        
-        let offset = (firstDay === 0) ? 6 : firstDay - 1;
-        for(let i = 0; i < offset; i++) {
-            grid.appendChild(document.createElement('div'));
-        }
-        
-        for(let d = 1; d <= daysInMonth; d++) {
-            let dateKey = `${d}-${month}-${year}`;
-            let isDone = terisiDates.includes(dateKey);
-            
-            let div = document.createElement('div');
-            div.className = `aspect-square h-8 md:h-9 mx-auto flex items-center justify-center rounded-xl text-xs font-black cursor-pointer transition-all active:scale-90 ${
-                isDone 
-                ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30' 
-                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-            }`;
-            div.innerText = d;
-            
-            // 🚀 Klik bulatan tanggal untuk memuat riwayat / mengedit tanggal tersebut
-            div.onclick = () => {
-                let pad = n => String(n).padStart(2, '0');
-                let tglPilihan = `${year}-${pad(month + 1)}-${pad(d)}`;
-                
-                // Teruskan ke mesin applyBackdate agar langsung sinkron dengan form & tabel
-                if (typeof this.applyBackdate === 'function') {
-                    this.applyBackdate(tglPilihan);
-                } else if (typeof this.filterRiwayatByDate === 'function') {
-                    this.filterRiwayatByDate(d, month + 1, year);
-                }
-            };
-            grid.appendChild(div);
-        }
-    },
 
     filterRiwayatByDate: function(d, m, y) {
         let pad = n => String(n).padStart(2, '0');
@@ -2805,6 +2733,127 @@ changeOutlet: function(val) {
                     </div>`;
                 }).join('');
             }
+        }
+    },
+
+    // =========================================================
+    // 🚀 CONTROLLER POPUP MODAL KALENDER LAPORAN
+    // =========================================================
+    openCalendarModal: function() {
+        const modal = document.getElementById('modal-kalender-laporan');
+        if (modal) {
+            modal.classList.remove('hidden');
+            this.renderCalendar(); // Render kalender tepat di dalam modal
+        }
+    },
+
+    closeCalendarModal: function() {
+        const modal = document.getElementById('modal-kalender-laporan');
+        if (modal) modal.classList.add('hidden');
+    },
+
+    renderCalendar: function() {
+        // 1. Hitung ringkasan untuk Kartu Pemicu Kalender
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        let currentDayNum = now.getDate(); // Tanggal hari ini
+
+        let isConsolidated = (this.outlet === 'Pusat' || this.outlet === 'Semua' || !this.outlet);
+        let currOutletClean = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+
+        // Kumpulkan tanggal yang sudah diisi bulan ini
+        const terisiDates = (this.db.laporanHarian || []).filter(x => {
+            if (x.Status_Approval === 'Ditolak') return false;
+            let repOutlet = String(x.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+            return isConsolidated || repOutlet === currOutletClean;
+        }).map(l => {
+            let cleanStr = (l.Tanggal || '').split(',').pop().trim();
+            let match = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+            if (match) {
+                // Return YYYY-M-D
+                return `${parseInt(match[3], 10)}-${parseInt(match[2], 10)}-${parseInt(match[1], 10)}`;
+            }
+            return '';
+        });
+
+        // Hitung jumlah hari terisi sampai hari ini
+        let terisiCount = 0;
+        for(let d = 1; d <= currentDayNum; d++) {
+            if (terisiDates.includes(`${year}-${month + 1}-${d}`)) terisiCount++;
+        }
+        let kosongCount = Math.max(0, currentDayNum - terisiCount);
+
+        // Update Kartu Ringkasan Kalender di Layar Utama
+        if (document.getElementById('calendar-summary-month')) {
+            document.getElementById('calendar-summary-month').innerText = now.toLocaleString('id-ID', { month: 'long', year: 'numeric' });
+        }
+        if (document.getElementById('cal-stat-terisi')) document.getElementById('cal-stat-terisi').innerText = `${terisiCount} Hari`;
+        if (document.getElementById('cal-stat-kosong')) document.getElementById('cal-stat-kosong').innerText = `${kosongCount} Hari`;
+
+        // 2. Render Grid Kalender ke dalam Modal Popup
+        const grid = document.getElementById('modal-calendar-grid');
+        const modalTitle = document.getElementById('modal-cal-month-title');
+        if (!grid) return;
+
+        if (modalTitle) modalTitle.innerText = now.toLocaleString('id-ID', { month: 'long', year: 'numeric' });
+
+        const firstDay = new Date(year, month, 1).getDay(); 
+        
+        grid.innerHTML = `
+            <div class="text-slate-400 py-1.5 font-black">Sen</div><div class="text-slate-400 py-1.5 font-black">Sel</div><div class="text-slate-400 py-1.5 font-black">Rab</div>
+            <div class="text-slate-400 py-1.5 font-black">Kam</div><div class="text-slate-400 py-1.5 font-black">Jum</div><div class="text-slate-400 py-1.5 font-black">Sab</div><div class="text-slate-400 py-1.5 font-black">Min</div>
+        `;
+        
+        let offset = (firstDay === 0) ? 6 : firstDay - 1;
+        for(let i = 0; i < offset; i++) {
+            grid.appendChild(document.createElement('div'));
+        }
+        
+        for(let d = 1; d <= daysInMonth; d++) {
+            let dateKey = `${year}-${month + 1}-${d}`;
+            let isDone = terisiDates.includes(dateKey);
+            
+            let div = document.createElement('div');
+            div.className = `aspect-square h-10 mx-auto flex items-center justify-center rounded-2xl text-xs font-black cursor-pointer transition-all active:scale-90 ${
+                isDone 
+                ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30' 
+                : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border border-slate-200/60'
+            }`;
+            div.innerText = d;
+            
+            div.onclick = () => {
+                let pad = n => String(n).padStart(2, '0');
+                let tglPilihan = `${year}-${pad(month + 1)}-${pad(d)}`;
+                
+                if (typeof this.applyBackdate === 'function') {
+                    this.applyBackdate(tglPilihan);
+                }
+                this.closeCalendarModal();
+                this.showToast(`Memilih laporan tanggal: ${d}-${month+1}-${year}`);
+            };
+            grid.appendChild(div);
+        }
+    },
+
+    // =========================================================
+    // 🚀 CONTROLLER ACCORDION EXPENSE BREAKDOWN EKSEKUTIF
+    // =========================================================
+    toggleExecExpenseBreakdown: function() {
+        const box = document.getElementById('exec-expense-dropdown-box');
+        const icon = document.getElementById('icon-toggle-exp');
+        const btnText = document.getElementById('btn-toggle-exp-text');
+        if (!box) return;
+
+        if (box.classList.contains('hidden')) {
+            box.classList.remove('hidden');
+            if (icon) icon.style.transform = 'rotate(180deg)';
+            if (btnText) btnText.firstElementChild.innerText = 'Tutup Rincian';
+        } else {
+            box.classList.add('hidden');
+            if (icon) icon.style.transform = 'rotate(0deg)';
+            if (btnText) btnText.firstElementChild.innerText = 'Lihat Rincian';
         }
     },
 

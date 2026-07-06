@@ -7402,7 +7402,7 @@ updateHeaderOutletName: function() {
             let disableClick = (!isAdmin && !isActive) ? 'opacity-50 grayscale cursor-not-allowed' : 'cursor-pointer';
             let clickEvent = (!isAdmin && !isActive) 
                 ? `onclick="superApp.showToast('Kasir tidak diizinkan pindah ke cabang lain', 'error')"` 
-                : `onclick="superApp.selectOutlet('${o.ID_Outlet}')"`;
+                : `onclick="superApp.changeOutlet('${o.ID_Outlet}')"`;
 
             html += `
             <div ${clickEvent} class="${activeClass} ${disableClick} p-4 rounded-[1.5rem] mb-4 transition-all duration-300 flex items-center justify-between group">

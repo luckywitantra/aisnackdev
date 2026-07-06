@@ -1774,32 +1774,94 @@ const superApp = {
         wBadge.innerHTML = `${liveDot}<i class="fas ${icon} ${color}"></i> Cuaca: ${cuacaText}`;
     },
 
-    // Helper 2: Menarik Cuaca Asli Gratis via Open-Meteo API
-    fetchRealTimeWeather: async function() {
-        if (!navigator.onLine) return;
-        try {
-            const lat = -1.2553;
-            const lon = 116.7466;
-            const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
-            if (!res.ok) return;
-            const data = await res.json();
-            
-            if (data && data.current_weather) {
-                let temp = Math.round(data.current_weather.temperature);
-                let code = data.current_weather.weathercode;
-                
-                let desc = "Cerah Berawan";
-                if (code === 0) desc = "Cerah Terik";
-                else if (code >= 1 && code <= 3) desc = "Berawan";
-                else if (code >= 51 && code <= 67) desc = "Gerimis / Hujan Ringan";
-                else if (code >= 80 && code <= 99) desc = "Hujan Lebat";
-                
-                let liveWeatherStr = `${temp}°C ${desc}`;
-                this.currentDailyWeather = liveWeatherStr;
-                this.updateWeatherBadgeUI(liveWeatherStr, true);
+   // =========================================================
+    // 🚀 ENGINE CUACA REAL-TIME BERBASIS GPS DEVICE (MODERN)
+    // =========================================================
+    fetchRealtimeWeather: async function() {
+        const weatherBadge = document.getElementById('daily-weather-badge');
+        
+        // 1. Tampilkan Efek Animasi "Mendeteksi Lokasi" yang Elegan
+        if (weatherBadge) {
+            weatherBadge.className = "bg-slate-100 border border-slate-200 text-slate-500 font-black text-[11px] px-3.5 py-1.5 rounded-xl shadow-inner flex items-center gap-2 shrink-0 transition-all duration-300";
+            weatherBadge.innerHTML = `<i class="fas fa-location-crosshairs fa-spin text-rose-400"></i> Memindai Lokasi...`;
+        }
+
+        // Fallback (Cadangan) jika kasir menolak akses GPS / tablet tidak ada GPS
+        const fallbackCoords = {
+            'Penajam': { lat: -1.242, lon: 116.738 },
+            'Babulu': { lat: -1.488, lon: 116.485 },
+            'Batu Kajang': { lat: -1.831, lon: 115.894 },
+            'Sepaku': { lat: -0.923, lon: 116.757 }
+        };
+
+        // Fungsi Eksekutor Penarik Cuaca API
+        const getWeatherData = async (lat, lon, isLiveGPS = false) => {
+            try {
+                let url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`;
+                let res = await fetch(url);
+                let data = await res.json();
+
+                if (data && data.current_weather) {
+                    let temp = Math.round(data.current_weather.temperature);
+                    let wmoCode = data.current_weather.weathercode;
+
+                    // Desain UI Cuaca ala Apple/Glassmorphism
+                    let kondisi = "Cerah";
+                    let icon = "fa-sun text-amber-500";
+                    let bgClass = "bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200 text-amber-700 shadow-amber-500/10";
+
+                    if (wmoCode >= 1 && wmoCode <= 3) {
+                        kondisi = "Berawan"; icon = "fa-cloud-sun text-slate-500"; bgClass = "bg-gradient-to-r from-slate-50 to-gray-100 border-slate-200 text-slate-700 shadow-slate-500/10";
+                    } else if (wmoCode >= 45 && wmoCode <= 67) {
+                        kondisi = "Hujan Ringan"; icon = "fa-cloud-rain text-blue-500"; bgClass = "bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200 text-blue-700 shadow-blue-500/10";
+                    } else if (wmoCode >= 80 && wmoCode <= 82) {
+                        kondisi = "Hujan Deras"; icon = "fa-cloud-showers-heavy text-indigo-500"; bgClass = "bg-gradient-to-r from-indigo-50 to-blue-100 border-indigo-200 text-indigo-800 shadow-indigo-500/10";
+                    } else if (wmoCode >= 95) {
+                        kondisi = "Badai Petir"; icon = "fa-bolt text-purple-600"; bgClass = "bg-gradient-to-r from-purple-50 to-fuchsia-50 border-purple-200 text-purple-800 shadow-purple-500/10";
+                    }
+
+                    // Tanda titik (dot) elegan jika menggunakan Live GPS asli
+                    let locIcon = isLiveGPS ? `<span class="relative flex h-2 w-2 ml-1" title="Akurat via GPS"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span>` : '';
+
+                    this.currentDailyWeather = `${temp}°C ${kondisi}`;
+
+                    if (weatherBadge) {
+                        weatherBadge.className = `font-black text-[11px] px-3.5 py-1.5 rounded-xl shadow-md border flex items-center gap-1.5 shrink-0 transition-all duration-500 ${bgClass}`;
+                        weatherBadge.innerHTML = `<i class="fas ${icon}"></i> ${this.currentDailyWeather} ${locIcon}`;
+                    }
+                }
+            } catch (err) {
+                console.log("API Cuaca Gagal:", err);
+                if (weatherBadge) {
+                    weatherBadge.innerHTML = `<i class="fas fa-cloud text-slate-400"></i> Cuaca Lokal`;
+                    weatherBadge.className = "bg-slate-50 border border-slate-200 text-slate-500 font-black text-[11px] px-3 py-1.5 rounded-xl";
+                }
+                this.currentDailyWeather = "31°C Berawan (Manual)";
             }
-        } catch (e) {
-            console.log("Menggunakan cuaca simulasi.");
+        };
+
+        // 2. Minta Izin GPS Browser secara Modern
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                // 📍 Jika Diizinkan (Sukses)
+                (position) => {
+                    getWeatherData(position.coords.latitude, position.coords.longitude, true);
+                },
+                // 🚫 Jika Ditolak Kasir atau Error
+                (error) => {
+                    console.log("GPS ditolak/gagal, menggunakan titik cabang default.");
+                    let cleanName = String(this.outlet || 'Penajam').replace(/^Ai\-Snack\s+/i, '').trim();
+                    let coords = fallbackCoords[cleanName] || fallbackCoords['Penajam'];
+                    getWeatherData(coords.lat, coords.lon, false);
+                },
+                // Opsi Presisi & Kecepatan
+                { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+            );
+        } else {
+            // Browser usang tidak dukung GPS
+            let cleanName = String(this.outlet || 'Penajam').replace(/^Ai\-Snack\s+/i, '').trim();
+            let coords = fallbackCoords[cleanName] || fallbackCoords['Penajam'];
+            getWeatherData(coords.lat, coords.lon, false);
         }
     },
 

@@ -743,7 +743,23 @@
 <!-- ========================================================= -->
 <div id="view-laporan-harian" class="app-view hidden flex-col h-full pb-28 lg:pb-6 transition-all duration-300">
     <div class="bg-[#f4f7f9] rounded-[2rem] lg:rounded-[2.5rem] shadow-sm border border-slate-200/60 flex flex-col h-full min-h-0 overflow-hidden relative">
-        
+
+      <!-- 🚀 BAR PEMILIH OUTLET KHUSUS OWNER/SPV (SAMA SEPERTI RIWAYAT & REKAP) -->
+        <div id="lapharian-owner-outlet-bar" class="hidden bg-slate-900 px-4 py-2.5 md:px-8 shrink-0 flex items-center justify-between border-b border-slate-800 z-30">
+            <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span class="text-[10px] md:text-xs font-black text-slate-300 uppercase tracking-widest">Filter Laporan Cabang:</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <!-- Tombol Semua Cabang (Konsolidasi Eksekutif) -->
+                <button type="button" onclick="superApp.filterLaporanByOutlet('Semua')" id="btn-lap-outlet-Semua" class="btn-lap-outlet px-3 py-1 rounded-lg text-xs font-black bg-rose-500 text-white shadow-2xs transition active:scale-95 flex items-center gap-1">
+                    <i class="fas fa-layer-group text-[10px]"></i> Semua Cabang
+                </button>
+                <!-- Wadah Tombol Cabang Dinamis (Diinject JavaScript) -->
+                <div id="lapharian-dynamic-outlets" class="flex items-center gap-1.5 overflow-x-auto custom-scroll no-scrollbar"></div>
+            </div>
+        </div>
+      
         <!-- HEADER TERPADU -->
         <div class="bg-white pt-4 lg:pt-7 pb-4 rounded-b-[1.75rem] lg:rounded-b-[2rem] shadow-[0_8px_30px_-10px_rgba(0,0,0,0.06)] relative z-20 shrink-0 px-4 lg:px-8">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 lg:gap-4">

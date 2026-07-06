@@ -3073,18 +3073,22 @@ changeOutlet: function(val) {
     calendarModalMonth: new Date().getMonth(),
 
     openInputDatepickerModal: function() {
-        // Cek izin (Hanya Owner/Supervisor atau otorisasi)
-        let isOwner = this.currentUser && (this.currentUser.Role === 'owner' || this.currentUser.Role === 'supervisor');
-        if (!isOwner) {
-            let pin = prompt("🔒 Masukkan PIN Owner / Supervisor untuk mengganti tanggal laporan:");
-            let spv = (this.db.users || []).find(u => (u.Role === 'owner' || u.Role === 'supervisor') && String(u.PIN) === String(pin));
-            if (!spv) return this.showToast("PIN Otorisasi Salah!", "error");
+        // Cukup periksa apakah user sudah login (sesi valid)
+        if (!this.currentUser) {
+            return this.showToast("Sesi login tidak ditemukan. Silakan login kembali.", "error");
         }
 
+        // Langsung buka modal tanpa harus memasukkan PIN
         const modal = document.getElementById('modal-datepicker-input');
         if (modal) {
             modal.classList.remove('hidden');
+            
+            // Reset ke tampilan bulan saat ini
+            this.inputDatepickerYear = new Date().getFullYear();
+            this.inputDatepickerMonth = new Date().getMonth();
             this.renderInputDatepickerGrid();
+        } else {
+            this.showToast("Sistem Datepicker tidak tersedia.", "error");
         }
     },
 

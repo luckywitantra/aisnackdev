@@ -2074,7 +2074,14 @@ const superApp = {
 
         let labelJudul = (statusApp === 'Pending Edit') ? `*[ PENGAJUAN REVISI LAPORAN ]*` : `*Laporan Harian Ai-CHA*`;
         
-        let waText = `${labelJudul}\nUpdate Sales Outlet: *Ai-CHA ${this.outlet}*\nTanggal: ${tglTeks}\nCuaca: ${cuaca}\nKasir: ${payload.kasir}\n\n`;
+        // ✨ NORMALISASI NAMA OUTLET (Mencegah duplikasi kata Ai-Snack)
+        let cleanOutletName = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+        
+        // ✨ FORMAT TEKS BARU SESEORANG REQUEST (Tanpa baris Kasir)
+        let waText = `${labelJudul}\n`;
+        waText += `Update Sales Report Outlet: *Ai-CHA ${cleanOutletName}*\n`;
+        waText += `Tanggal: ${tglTeks}\n`;
+        waText += `Cuaca: ${cuaca}\n\n`;
         waText += `Net Sales: *Rp ${netSales.toLocaleString('id-ID')}*\n`;
         waText += `Amount Paid: Rp ${amountPaid.toLocaleString('id-ID')}\n`;
         waText += `Amount Pcs: Rp ${amountPcs.toLocaleString('id-ID')}\n`;

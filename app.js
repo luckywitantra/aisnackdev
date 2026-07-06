@@ -1151,6 +1151,20 @@ const superApp = {
         } else { 
             this.showToast('PIN Tidak Dikenali', 'error'); this.clearPin(); 
         }
+
+        // 🚀 RADAR OTOMATIS TUTUP SHIFT JAM 12 MALAM (00:00)
+            if (!this.midnightTimer) {
+                this.midnightTimer = setInterval(() => {
+                    let now = new Date();
+                    // Jika tepat jam 00:00 malam (antara 00:00 s/d 00:01)
+                    if (now.getHours() === 0 && now.getMinutes() === 0) {
+                        if (this.activeShiftId) {
+                            console.log("⏰ Jam 12 Malam tiba! Memicu Auto-Close Shift...");
+                            this.checkShiftStatus();
+                        }
+                    }
+                }, 45000); // Cek setiap 45 detik
+            }
         this.isProcessing = false;
     },
 
@@ -3635,30 +3649,45 @@ changeOutlet: function(val) {
     
     
     // =========================================================
-    // 🚀 SHIFT & KAS KELUAR (NORMALISASI ANTI-BOCOR CABANG)
+    // 🚀 SHIFT SYSTEM (ANTI-RESET & AUTO TUTUP JAM 12 MALAM)
     // =========================================================
     checkShiftStatus: function() {
-        // 🚀 Normalisasi nama cabang aktif agar bersih dari awalan
         let cleanActiveOutlet = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
 
         const shiftOutName = document.getElementById('shift-outlet-name'); 
         if (shiftOutName) shiftOutName.innerText = `Ai-CHA ${cleanActiveOutlet}`;
 
-        // Cari shift terbuka dengan membandingkan nama cabang yang sudah dibersihkan
+        let d = new Date(); let pad = (n) => n < 10 ? '0' + n : n;
+        let todayStrLocal = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+
+        // 1. Cari shift yang masih terbuka di cabang ini
         let openShift = (this.db.shifts || []).find(s => {
             let sOutClean = String(s.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
             return sOutClean === cleanActiveOutlet && (s.Waktu_Tutup === '' || !s.Waktu_Tutup);
         });
 
+        // 🚀 2. DETEKSI SHIFT KADALUWSA (AUTO TUTUP JIKA MELEWATI JAM 12 MALAM / GANTI HARI)
+        if (openShift && openShift.Tanggal !== todayStrLocal) {
+            console.warn(`Shift lama (${openShift.ID_Shift}) terdeteksi melewati jam 12 malam. Melakukan Auto-Close...`);
+            this.autoCloseExpiredShift(openShift);
+            return; // Hentikan pengecekan, biarkan sistem menutup shift kemarin
+        }
+
         const posView = document.getElementById('view-pos');
 
         if (openShift) {
+            // 🔒 SHIFT TERBUKA: Kunci sesi di memori agar tidak reset saat keluar masuk
             this.activeShiftId = openShift.ID_Shift;
+            localStorage.setItem('aicha_active_shift_id_' + cleanActiveOutlet, openShift.ID_Shift);
+            
             try { this.activeStaffTeam = JSON.parse(openShift.Tim_Operasional); } catch (e) { this.activeStaffTeam = []; }
             if (posView) posView.classList.remove('blur-lock');
         } else {
+            // 🔓 SHIFT KOSONG: Minta kasir buka shift
             this.activeShiftId = null; 
             this.activeStaffTeam = [];
+            localStorage.removeItem('aicha_active_shift_id_' + cleanActiveOutlet);
+            
             if (posView) posView.classList.add('blur-lock');
 
             const shiftUserName = document.getElementById('shift-user-name'); 
@@ -3709,23 +3738,92 @@ changeOutlet: function(val) {
         this.setLoading(true, "Membuka Laci Kasir...");
         let shiftID = 'SHF' + new Date().getTime();
         
-        // 🚀 Pastikan outlet yang dikirim ke server adalah cabang bersih
         const payload = { action: 'buka_shift', outlet: cleanActiveOutlet, tim: tim, modal_awal: m_awal, id_shift: shiftID };
         let res = await this.apiPost(payload);
 
         if (res.status === 'sukses') {
             this.activeShiftId = shiftID; 
             this.activeStaffTeam = tim;
-            if (res.is_offline) {
-                let d = new Date(); let pad = (n) => n < 10 ? '0' + n : n;
-                this.db.shifts.push({ ID_Shift: shiftID, Tanggal: `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`, Outlet: cleanActiveOutlet, Waktu_Tutup: '', Tim_Operasional: JSON.stringify(tim), Modal_Awal: m_awal });
-            }
+            
+            let d = new Date(); let pad = (n) => n < 10 ? '0' + n : n;
+            let newShiftObj = { 
+                ID_Shift: shiftID, 
+                Tanggal: `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`, 
+                Outlet: cleanActiveOutlet, 
+                Waktu_Tutup: '', 
+                Tim_Operasional: JSON.stringify(tim), 
+                Modal_Awal: m_awal 
+            };
+
+            // 🚀 PERBAIKAN KRITIS: SIMPAN LANGSUNG KE MEMORI & CACHE BROWSER (BAIK ONLINE MAUPUN OFFLINE)
+            if (!this.db.shifts) this.db.shifts = [];
+            this.db.shifts.push(newShiftObj);
+            localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
+            localStorage.setItem('aicha_active_shift_id_' + cleanActiveOutlet, shiftID);
+
             this.closeModal('modal-shift'); 
             const posView = document.getElementById('view-pos'); 
             if (posView) posView.classList.remove('blur-lock');
-            this.showToast(res.is_offline ? "Shift Dibuka (Mode Offline)" : "Shift Dibuka! Laci siap digunakan.");
+            this.showToast("Shift Dibuka! Laci siap digunakan.");
         }
         this.setLoading(false);
+    },
+
+    // =========================================================
+    // 🚀 ENGINE OTOMATIS TUTUP SHIFT JAM 12 MALAM
+    // =========================================================
+    autoCloseExpiredShift: async function(expiredShift) {
+        let cleanActiveOutlet = String(expiredShift.Outlet || this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+        let shiftDate = expiredShift.Tanggal;
+        
+        let modal = Number(expiredShift.Modal_Awal || 0);
+        let salesTunai = 0; let totalKasKeluar = 0;
+
+        // Hitung transaksi tunai & kas keluar pada tanggal shift tersebut
+        (this.db.transactions || []).forEach(t => {
+            let tOutClean = String(t.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+            let tDate = typeof this.cleanDateOnly === 'function' ? this.cleanDateOnly(t.Tanggal) : t.Tanggal;
+            if (tOutClean === cleanActiveOutlet && tDate === shiftDate && t.Status === 'Sukses' && String(t.Metode_Bayar || '').toUpperCase() === 'TUNAI') {
+                salesTunai += Number(t.Total_Bayar);
+            }
+        });
+
+        (this.db.kasKeluar || []).forEach(k => {
+            let kOutClean = String(k.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+            let kDate = typeof this.cleanDateOnly === 'function' ? this.cleanDateOnly(k.Tanggal) : k.Tanggal;
+            if (kOutClean === cleanActiveOutlet && kDate === shiftDate) {
+                totalKasKeluar += Number(k.Nominal);
+            }
+        });
+
+        let expectedCash = modal + salesTunai - totalKasKeluar;
+
+        this.setLoading(true, "Auto-Closing Shift Kemarin (00:00)...");
+        
+        // Kirim penutupan otomatis ke server (Selisih 0 karena dianggap sesuai hitungan sistem)
+        const payload = { 
+            action: 'tutup_shift', 
+            id_shift: expiredShift.ID_Shift, 
+            setoran_akhir: expectedCash, 
+            selisih: 0,
+            keterangan: 'Auto-Closed by System (Midnight 00:00)' 
+        };
+        await this.apiPost(payload);
+
+        // Update status di memori lokal
+        let idx = (this.db.shifts || []).findIndex(s => s.ID_Shift === expiredShift.ID_Shift);
+        if (idx > -1) {
+            this.db.shifts[idx].Waktu_Tutup = '00:00 (Auto)';
+            this.db.shifts[idx].Setoran_Akhir = expectedCash;
+        }
+        localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
+        localStorage.removeItem('aicha_active_shift_id_' + cleanActiveOutlet);
+
+        this.setLoading(false);
+        this.showToast(`Shift tanggal ${shiftDate} telah otomatis ditutup sistem (Jam 12 Malam).`, "info");
+        
+        // Panggil kembali pengecekan shift untuk hari baru
+        this.checkShiftStatus();
     },
 
     openKasKeluar: function() {

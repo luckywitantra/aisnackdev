@@ -2172,42 +2172,50 @@ const superApp = {
         this.calcDailyReportLive();
     },
 
+    // =========================================================
+    // 🚀 2. RIWAYAT LAPORAN HARIAN (DEFAULT RANGE BULAN BERJALAN)
+    // =========================================================
     renderLaporanHarianHistory: function() {
         const tbody = document.getElementById('laporan-harian-tbody');
         const mobCont = document.getElementById('laporan-harian-mobile');
-        let deskHtml = ''; let mobHtml = ''; let count = 0;
+        if (!tbody && !mobCont) return;
 
-        // 🚀 BACA INPUT FILTER TANGGAL AWAL & AKHIR
-        let startDateVal = document.getElementById('filter-lap-start')?.value; // YYYY-MM-DD
-        let endDateVal = document.getElementById('filter-lap-end')?.value;     // YYYY-MM-DD
-        
-        let startObj = startDateVal ? new Date(startDateVal) : null;
+        let deskHtml = ''; let mobHtml = ''; let count = 0;
+        let now = new Date();
+
+        // Ambil input elemen filter tanggal awal & akhir
+        const startInput = document.getElementById('filter-lap-start');
+        const endInput = document.getElementById('filter-lap-end');
+
+        // ✨ ATUR DEFAULT RANGE BULAN BERJALAN JIKA KOSONG
+        if (startInput && !startInput.value) {
+            let pad = n => String(n).padStart(2, '0');
+            startInput.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`; // Tanggal 1 bulan ini
+        }
+        if (endInput && !endInput.value) {
+            let pad = n => String(n).padStart(2, '0');
+            endInput.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`; // Hari ini
+        }
+
+        let startObj = startInput?.value ? new Date(startInput.value) : null;
         if (startObj) startObj.setHours(0, 0, 0, 0);
 
-        let endObj = endDateVal ? new Date(endDateVal) : null;
+        let endObj = endInput?.value ? new Date(endInput.value) : null;
         if (endObj) endObj.setHours(23, 59, 59, 999);
 
         let isConsolidated = (this.outlet === 'Pusat' || this.outlet === 'Semua' || !this.outlet);
+        let currOutletClean = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
 
-        // Filter daftar laporan dari database
         let list = [...(this.db.laporanHarian || [])].filter(x => {
-            // Normalisasi nama outlet agar cocok
             let repOutlet = String(x.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
-            let currOutlet = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
-            
-            let cocokOutlet = isConsolidated || (repOutlet === currOutlet);
+            let cocokOutlet = isConsolidated || (repOutlet === currOutletClean);
             if (!cocokOutlet) return false;
 
-            // 🚀 COCOKKAN DENGAN RENTANG TANGGAL (JIKA DIISI)
             if (startObj || endObj) {
                 let cleanStr = (x.Tanggal || '').split(',').pop().trim();
                 let match = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
                 if (match) {
-                    let rDay = parseInt(match[1], 10);
-                    let rMonth = parseInt(match[2], 10) - 1; // Bulan JS dimulai dari 0
-                    let rYear = parseInt(match[3], 10);
-                    let repDateObj = new Date(rYear, rMonth, rDay);
-
+                    let repDateObj = new Date(parseInt(match[3], 10), parseInt(match[2], 10) - 1, parseInt(match[1], 10));
                     if (startObj && repDateObj < startObj) return false;
                     if (endObj && repDateObj > endObj) return false;
                 } else {
@@ -2222,15 +2230,14 @@ const superApp = {
             let net = Number(item.Net_Sales || 0);
             let cash = Number(item.Cash || 0);
             let qris = Number(item.QRIS || 0);
-            
             let status = item.Status_Approval || 'Disetujui';
             let isOwner = this.currentUser && (this.currentUser.Role === 'owner' || this.currentUser.Role === 'supervisor');
 
             let badgeStatus = '';
             if (status === 'Pending Edit') {
-                badgeStatus = `<span class="mt-1 inline-block bg-amber-100 text-amber-700 border border-amber-300 px-2 py-0.5 rounded-md text-[9px] font-black animate-pulse"><i class="fas fa-clock mr-1"></i>Menunggu Persetujuan Edit</span>`;
+                badgeStatus = `<span class="mt-1 inline-block bg-amber-100 text-amber-700 border border-amber-300 px-2 py-0.5 rounded-md text-[9px] font-black animate-pulse"><i class="fas fa-clock mr-1"></i>Revisi Pending</span>`;
             } else if (status === 'Ditolak') {
-                badgeStatus = `<span class="mt-1 inline-block bg-rose-100 text-rose-600 border border-rose-200 px-2 py-0.5 rounded-md text-[9px] font-black"><i class="fas fa-xmark mr-1"></i>Revisi Ditolak Owner</span>`;
+                badgeStatus = `<span class="mt-1 inline-block bg-rose-100 text-rose-600 border border-rose-200 px-2 py-0.5 rounded-md text-[9px] font-black"><i class="fas fa-xmark mr-1"></i>Revisi Ditolak</span>`;
             }
 
             let infoRevisi = '';
@@ -2240,10 +2247,9 @@ const superApp = {
                     if (rev.net_sales !== undefined) {
                         infoRevisi = `
                         <div class="mt-1.5 p-2 bg-amber-100/90 border border-amber-300 rounded-lg text-[10px] text-amber-900 leading-tight">
-                            <b>📌 Pengajuan Revisi oleh ${rev.editor || 'Staf'}:</b><br>
-                            Net Sales Baru: <b class="text-rose-600">Rp ${Number(rev.net_sales).toLocaleString('id-ID')}</b> (Lama: Rp ${net.toLocaleString('id-ID')})<br>
-                            Cash: Rp ${Number(rev.cash||0).toLocaleString('id-ID')} | QRIS: Rp ${Number(rev.qris||0).toLocaleString('id-ID')}<br>
-                            Bill: <b>${rev.bill}</b> | Pcs: <b>${rev.pcs}</b>
+                            <b>📌 Ajuan Revisi (${rev.editor || 'Staf'}):</b><br>
+                            Sales Baru: <b class="text-rose-600">Rp ${Number(rev.net_sales).toLocaleString('id-ID')}</b><br>
+                            C: Rp ${Number(rev.cash||0).toLocaleString('id-ID')} | Q: Rp ${Number(rev.qris||0).toLocaleString('id-ID')}
                         </div>`;
                     }
                 } catch(e){}
@@ -2251,57 +2257,57 @@ const superApp = {
 
             let tombolOwnerDesk = (status === 'Pending Edit' && isOwner) ? `
                 <div class="flex gap-1 mt-1.5 pt-1.5 border-t border-slate-200">
-                    <button type="button" onclick="superApp.eksekusiApprovalEdit('${item.ID_Laporan}', 'Disetujui')" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-1 px-1.5 rounded text-[10px] font-black shadow-2xs transition active:scale-95" title="Setujui Revisi">✔ Setujui</button>
-                    <button type="button" onclick="superApp.eksekusiApprovalEdit('${item.ID_Laporan}', 'Ditolak')" class="flex-1 bg-rose-500 hover:bg-rose-600 text-white py-1 px-1.5 rounded text-[10px] font-black shadow-2xs transition active:scale-95" title="Tolak Revisi">✖ Tolak</button>
+                    <button type="button" onclick="superApp.eksekusiApprovalEdit('${item.ID_Laporan}', 'Disetujui')" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-1 rounded text-[10px] font-black shadow-2xs">✔ Setuju</button>
+                    <button type="button" onclick="superApp.eksekusiApprovalEdit('${item.ID_Laporan}', 'Ditolak')" class="flex-1 bg-rose-500 hover:bg-rose-600 text-white py-1 rounded text-[10px] font-black shadow-2xs">✖ Tolak</button>
                 </div>
             ` : '';
 
             let tombolOwnerMob = (status === 'Pending Edit' && isOwner) ? `
                 <div class="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
-                    <button type="button" onclick="superApp.eksekusiApprovalEdit('${item.ID_Laporan}', 'Disetujui')" class="bg-emerald-500 hover:bg-emerald-600 text-white py-2 rounded-xl text-xs font-black shadow-2xs active:scale-95 flex items-center justify-center gap-1"><i class="fas fa-check"></i> Setujui Revisi</button>
-                    <button type="button" onclick="superApp.eksekusiApprovalEdit('${item.ID_Laporan}', 'Ditolak')" class="bg-rose-500 hover:bg-rose-600 text-white py-2 rounded-xl text-xs font-black shadow-2xs active:scale-95 flex items-center justify-center gap-1"><i class="fas fa-xmark"></i> Tolak</button>
+                    <button type="button" onclick="superApp.eksekusiApprovalEdit('${item.ID_Laporan}', 'Disetujui')" class="bg-emerald-500 text-white py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1"><i class="fas fa-check"></i> Setujui</button>
+                    <button type="button" onclick="superApp.eksekusiApprovalEdit('${item.ID_Laporan}', 'Ditolak')" class="bg-rose-500 text-white py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1"><i class="fas fa-xmark"></i> Tolak</button>
                 </div>
             ` : '';
 
             deskHtml += `
-            <tr class="border-b border-slate-50 hover:bg-slate-50 transition report-row ${status === 'Pending Edit' ? 'bg-amber-50/40' : ''}" data-date="${item.Tanggal}">
-                <td class="py-3 px-4">
-                    <span class="font-extrabold text-slate-800">${item.Tanggal}</span><br>
+            <tr class="border-b border-slate-50 hover:bg-slate-50/80 transition text-xs font-bold text-slate-700">
+                <td class="py-3 px-3">
+                    <span class="font-extrabold text-slate-900">${item.Tanggal}</span><br>
                     <span class="text-[10px] text-amber-600 font-bold">${item.Cuaca || '-'}</span>
                     <div>${badgeStatus}</div>
                     ${infoRevisi}
                 </td>
-                <td class="py-3 px-4 text-right font-black text-rose-600 text-base align-top">Rp ${net.toLocaleString('id-ID')}</td>
-                <td class="py-3 px-4 text-right text-xs align-top"><span class="text-slate-700">C: Rp ${cash.toLocaleString('id-ID')}</span><br><span class="text-blue-600">Q: Rp ${qris.toLocaleString('id-ID')}</span></td>
-                <td class="py-3 px-4 text-center text-xs font-bold align-top">${item.Bill} Bill / ${item.Pcs} Pcs</td>
-                <td class="py-3 px-4 text-center align-top">
-                    <div class="flex items-center justify-center gap-1.5">
-                        <button type="button" onclick="superApp.editLaporanHarian('${item.ID_Laporan}')" class="bg-amber-100 hover:bg-amber-500 text-amber-600 hover:text-white p-1.5 w-8 h-8 rounded-lg text-xs font-black transition active:scale-95" title="Ajukan Revisi / Edit"><i class="fas fa-pen"></i></button>
-                        <button type="button" onclick="superApp.resendLaporanHarianWa('${item.ID_Laporan}')" class="bg-emerald-500 hover:bg-emerald-600 text-white px-2.5 py-1.5 h-8 rounded-lg text-xs font-black shadow-sm transition active:scale-95 flex items-center gap-1"><i class="fab fa-whatsapp"></i> WA</button>
+                <td class="py-3 px-3 text-right font-black text-rose-600 text-sm align-top">Rp ${net.toLocaleString('id-ID')}</td>
+                <td class="py-3 px-3 text-right text-[11px] align-top"><span class="text-slate-600">C: Rp ${cash.toLocaleString('id-ID')}</span><br><span class="text-blue-600">Q: Rp ${qris.toLocaleString('id-ID')}</span></td>
+                <td class="py-3 px-3 text-center text-[11px] align-top text-slate-500">${item.Bill} / ${item.Pcs}</td>
+                <td class="py-3 px-3 text-center align-top">
+                    <div class="flex items-center justify-center gap-1">
+                        <button type="button" onclick="superApp.editLaporanHarian('${item.ID_Laporan}')" class="bg-amber-50 hover:bg-amber-500 text-amber-600 hover:text-white p-1.5 rounded-lg text-xs transition" title="Edit"><i class="fas fa-pen"></i></button>
+                        <button type="button" onclick="superApp.resendLaporanHarianWa('${item.ID_Laporan}')" class="bg-emerald-500 hover:bg-emerald-600 text-white px-2.5 py-1.5 rounded-lg text-[11px] font-black shadow-2xs flex items-center gap-1 transition"><i class="fab fa-whatsapp"></i> WA</button>
                     </div>
                     ${tombolOwnerDesk}
                 </td>
             </tr>`;
 
             mobHtml += `
-            <div class="bg-white p-4 rounded-2xl border ${status === 'Pending Edit' ? 'border-amber-300 bg-amber-50/20' : 'border-slate-100'} shadow-2xs flex flex-col gap-2.5 report-mob-card" data-date="${item.Tanggal}">
-                <div class="flex justify-between items-start pb-2 border-b border-slate-100">
+            <div class="bg-white p-3.5 rounded-2xl border ${status === 'Pending Edit' ? 'border-amber-300 bg-amber-50/10' : 'border-slate-100'} shadow-2xs flex flex-col gap-2 relative">
+                <div class="flex justify-between items-start pb-1.5 border-b border-slate-100">
                     <div>
-                        <h4 class="font-extrabold text-sm text-slate-800">${item.Tanggal}</h4>
+                        <h4 class="font-extrabold text-xs text-slate-800">${item.Tanggal}</h4>
                         <span class="text-[10px] font-bold text-amber-600">${item.Cuaca || '-'}</span>
                         <div>${badgeStatus}</div>
                     </div>
-                    <div class="text-right"><span class="text-[9px] font-black text-slate-400 block uppercase">Net Sales</span><span class="font-black text-rose-600 text-base">Rp ${net.toLocaleString('id-ID')}</span></div>
+                    <div class="text-right"><span class="font-black text-rose-600 text-sm">Rp ${net.toLocaleString('id-ID')}</span></div>
                 </div>
                 ${infoRevisi}
-                <div class="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100 font-bold">
+                <div class="grid grid-cols-2 gap-1.5 text-[11px] font-bold text-slate-500 bg-slate-50 p-2 rounded-xl border border-slate-200/40">
                     <div>Cash: <span class="text-slate-800 font-black">Rp ${cash.toLocaleString('id-ID')}</span></div>
                     <div>QRIS: <span class="text-blue-600 font-black">Rp ${qris.toLocaleString('id-ID')}</span></div>
-                    <div class="col-span-2 text-center text-slate-500 pt-1 border-t border-slate-200/60 font-black">${item.Bill} Bill | ${item.Pcs} Pcs Terjual</div>
+                    <div class="col-span-2 text-center pt-1 border-t border-slate-200/60 font-black text-slate-400 text-[10px] uppercase">${item.Bill} Bill | ${item.Pcs} Pcs Terjual</div>
                 </div>
-                <div class="flex gap-2 pt-0.5">
-                    <button type="button" onclick="superApp.editLaporanHarian('${item.ID_Laporan}')" class="w-11 bg-amber-100 hover:bg-amber-200 text-amber-600 rounded-xl text-xs font-black flex items-center justify-center active:scale-95" title="Edit / Ajukan Revisi"><i class="fas fa-pen"></i></button>
-                    <button type="button" onclick="superApp.resendLaporanHarianWa('${item.ID_Laporan}')" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-2.5 rounded-xl text-xs font-black shadow-sm flex items-center justify-center gap-1.5 active:scale-95"><i class="fab fa-whatsapp text-sm"></i> Kirim Ulang ke WA Owner</button>
+                <div class="flex gap-1.5 pt-0.5">
+                    <button type="button" onclick="superApp.editLaporanHarian('${item.ID_Laporan}')" class="w-10 bg-amber-50 text-amber-600 rounded-xl text-xs font-black flex items-center justify-center active:scale-95"><i class="fas fa-pen"></i></button>
+                    <button type="button" onclick="superApp.resendLaporanHarianWa('${item.ID_Laporan}')" class="flex-1 bg-emerald-500 text-white py-2 rounded-xl text-xs font-black shadow-2xs flex items-center justify-center gap-1 active:scale-95"><i class="fab fa-whatsapp"></i> Forward ke WA Grup</button>
                 </div>
                 ${tombolOwnerMob}
             </div>`;
@@ -3002,6 +3008,9 @@ changeOutlet: function(val) {
         if (modal) modal.classList.add('hidden');
     },
 
+    // =========================================================
+    // 🚀 1. DATEPICKER INPUT KUSTOM (SELARAS DENGAN INDIKATOR TERISI)
+    // =========================================================
     renderInputDatepickerGrid: function() {
         const grid = document.getElementById('input-datepicker-grid');
         const title = document.getElementById('input-datepicker-month-year');
@@ -3016,6 +3025,24 @@ changeOutlet: function(val) {
         const firstDay = dDate.getDay();
         const daysInMonth = new Date(y, m + 1, 0).getDate();
 
+        // Deteksi mode konsolidasi atau outlet spesifik untuk penanda terisi
+        let isConsolidated = (this.outlet === 'Pusat' || this.outlet === 'Semua' || !this.outlet);
+        let currOutletClean = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+
+        // Ambil daftar tanggal terisi dari database (untuk bulan yang sedang dibuka di datepicker)
+        const terisiDates = (this.db.laporanHarian || []).filter(x => {
+            if (x.Status_Approval === 'Ditolak') return false;
+            let repOutlet = String(x.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+            return isConsolidated || repOutlet === currOutletClean;
+        }).map(l => {
+            let cleanStr = (l.Tanggal || '').split(',').pop().trim();
+            let match = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+            if (match) {
+                return `${parseInt(match[3], 10)}-${parseInt(match[2], 10)}-${parseInt(match[1], 10)}`; // YYYY-M-D
+            }
+            return '';
+        });
+
         grid.innerHTML = `
             <div class="text-slate-400 py-1 font-black">Sen</div><div class="text-slate-400 py-1 font-black">Sel</div><div class="text-slate-400 py-1 font-black">Rab</div>
             <div class="text-slate-400 py-1 font-black">Kam</div><div class="text-slate-400 py-1 font-black">Jum</div><div class="text-slate-400 py-1 font-black">Sab</div><div class="text-slate-400 py-1 font-black">Min</div>
@@ -3028,12 +3055,30 @@ changeOutlet: function(val) {
 
         let today = new Date();
         for(let d = 1; d <= daysInMonth; d++) {
+            let dateKey = `${y}-${m + 1}-${d}`;
+            let isDone = terisiDates.includes(dateKey);
             let isToday = (d === today.getDate() && m === today.getMonth() && y === today.getFullYear());
+            
             let div = document.createElement('div');
-            div.className = `aspect-square h-9 mx-auto flex items-center justify-center rounded-xl text-xs font-black cursor-pointer transition-all active:scale-90 ${
-                isToday ? 'bg-rose-500 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200/60'
-            }`;
-            div.innerText = d;
+            
+            // ✨ INDIKATOR DINAMIS: Selaras dengan master kalender laporan
+            let bgClass = 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200/60';
+            if (isDone) {
+                bgClass = 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/20';
+            }
+            if (isToday) {
+                bgClass = 'bg-rose-500 text-white shadow-md shadow-rose-500/20 ring-2 ring-white';
+            }
+
+            div.className = `aspect-square h-9 mx-auto flex flex-col items-center justify-center rounded-xl text-xs font-black cursor-pointer transition-all active:scale-90 relative ${bgClass}`;
+            
+            // Tambahkan dot indikator terisi jika tanggal hari ini juga sudah terisi data
+            if (isToday && isDone) {
+                div.innerHTML = `${d}<span class="w-1.5 h-1.5 bg-emerald-300 rounded-full absolute bottom-1"></span>`;
+            } else {
+                div.innerText = d;
+            }
+
             div.onclick = () => {
                 let pad = n => String(n).padStart(2, '0');
                 let tglPilihan = `${y}-${pad(m + 1)}-${pad(d)}`;
@@ -3099,14 +3144,21 @@ changeOutlet: function(val) {
         this.renderCalendar();
     },
 
+    // =========================================================
+    // 🚀 3. MASTER KALENDER LAPORAN MODAL (MATRIKS KEDISIPLINAN KASIR LIVE OUTLET)
+    // =========================================================
     renderCalendar: function() {
         const year = this.calendarModalYear || new Date().getFullYear();
         const month = this.calendarModalMonth !== undefined ? this.calendarModalMonth : new Date().getMonth();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        
+        let now = new Date();
+        let isCurrentMonth = (month === now.getMonth() && year === now.getFullYear());
+        let currentDayLimit = isCurrentMonth ? now.getDate() : new Date(year, month + 1, 0).getDate();
 
         let isConsolidated = (this.outlet === 'Pusat' || this.outlet === 'Semua' || !this.outlet);
         let currOutletClean = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
 
+        // 🚀 KUNCI PERBAIKAN: Ambtil data laporan dinamis mengikuti outlet terpilih
         const terisiDates = (this.db.laporanHarian || []).filter(x => {
             if (x.Status_Approval === 'Ditolak') return false;
             let repOutlet = String(x.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
@@ -3115,19 +3167,37 @@ changeOutlet: function(val) {
             let cleanStr = (l.Tanggal || '').split(',').pop().trim();
             let match = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
             if (match) {
-                return `${parseInt(match[3], 10)}-${parseInt(match[2], 10)}-${parseInt(match[1], 10)}`;
+                return `${parseInt(match[3], 10)}-${parseInt(match[2], 10)}-${parseInt(match[1], 10)}`; // YYYY-M-D
             }
             return '';
         });
 
+        // 🚀 MATRIKS KEDISIPLINAN REAL-TIME BERDASARKAN OUTLET TERPILIH
+        let terisiCount = 0;
+        for (let d = 1; d <= currentDayLimit; d++) {
+            if (terisiDates.includes(`${year}-${month + 1}-${d}`)) {
+                terisiCount++;
+            }
+        }
+        let kosongCount = Math.max(0, currentDayLimit - terisiCount);
+
+        // Update teks keterangan judul bulan berjalan & ringkasan di dashboard utama
+        let dDate = new Date(year, month, 1);
+        if (document.getElementById('calendar-summary-month')) {
+            document.getElementById('calendar-summary-month').innerText = dDate.toLocaleString('id-ID', { month: 'long', year: 'numeric' });
+        }
+        if (document.getElementById('cal-stat-terisi')) document.getElementById('cal-stat-terisi').innerText = `${terisiCount} Hari`;
+        if (document.getElementById('cal-stat-kosong')) document.getElementById('cal-stat-kosong').innerText = `${kosongCount} Hari`;
+
+        // Render struktur grid ke dalam modal popup kalender
         const grid = document.getElementById('modal-calendar-grid');
         const modalTitle = document.getElementById('modal-cal-month-title');
         if (!grid) return;
 
-        let dDate = new Date(year, month, 1);
         if (modalTitle) modalTitle.innerText = dDate.toLocaleString('id-ID', { month: 'long', year: 'numeric' });
 
         const firstDay = dDate.getDay(); 
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
         
         grid.innerHTML = `
             <div class="text-slate-400 py-1.5 font-black">Sen</div><div class="text-slate-400 py-1.5 font-black">Sel</div><div class="text-slate-400 py-1.5 font-black">Rab</div>

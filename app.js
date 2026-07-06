@@ -2074,7 +2074,7 @@ const superApp = {
 
         let labelJudul = (statusApp === 'Pending Edit') ? `*[ PENGAJUAN REVISI LAPORAN ]*` : `*Laporan Harian Ai-CHA*`;
         
-        let waText = `${labelJudul}\nOutlet: *Ai-CHA ${this.outlet}*\nTanggal: ${tglTeks}\nCuaca: ${cuaca}\nKasir: ${payload.kasir}\n\n`;
+        let waText = `${labelJudul}\nUpdate Sales Outlet: *Ai-CHA ${this.outlet}*\nTanggal: ${tglTeks}\nCuaca: ${cuaca}\nKasir: ${payload.kasir}\n\n`;
         waText += `Net Sales: *Rp ${netSales.toLocaleString('id-ID')}*\n`;
         waText += `Amount Paid: Rp ${amountPaid.toLocaleString('id-ID')}\n`;
         waText += `Amount Pcs: Rp ${amountPcs.toLocaleString('id-ID')}\n`;
@@ -3232,6 +3232,74 @@ changeOutlet: function(val) {
             };
             grid.appendChild(div);
         }
+    },
+
+    // =========================================================
+    // 🚀 CONTROLLER MODAL POPUP WA LAPORAN HARIAN
+    // =========================================================
+    openWaLaporanModal: function(text) {
+        const modal = document.getElementById('modal-wa-laporan-harian');
+        const textarea = document.getElementById('wa-laporan-preview-text');
+        
+        if (textarea) {
+            textarea.value = text;
+        }
+        
+        if (modal) {
+            modal.classList.remove('hidden');
+            // Reset focus textarea ke atas agar rapi saat dibaca kasir
+            textarea.scrollTop = 0; 
+        } else {
+            // Fallback jika elemen modal utama tidak ditemukan di index.html
+            this.showToast("Gagal memuat popup WA, meredireksi langsung...", "error");
+            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+        }
+    },
+
+    closeWaLaporanModal: function() {
+        const modal = document.getElementById('modal-wa-laporan-harian');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+    },
+
+    copyWaLaporanText: function() {
+        const textarea = document.getElementById('wa-laporan-preview-text');
+        if (!textarea || !textarea.value) return;
+        
+        // Block text untuk visualisasi salin
+        textarea.select();
+        textarea.setSelectionRange(0, 99999);
+        
+        navigator.clipboard.writeText(textarea.value).then(() => {
+            const btn = document.getElementById('btn-copy-wa-lap');
+            if (btn) {
+                let originalContent = btn.innerHTML;
+                // Transisi tombol interaktif menjadi sukses tersalin
+                btn.innerHTML = `<i class="fas fa-check text-emerald-500"></i> Tersalin!`;
+                btn.classList.add('border-emerald-500', 'text-emerald-600', 'bg-emerald-50');
+                
+                setTimeout(() => {
+                    btn.innerHTML = originalContent;
+                    btn.classList.remove('border-emerald-500', 'text-emerald-600', 'bg-emerald-50');
+                }, 2000);
+            }
+            this.showToast("Teks laporan berhasil disalin!", "success");
+        }).catch(err => {
+            this.showToast("Gagal menyalin teks, silakan salin manual.", "error");
+        });
+    },
+
+    sendWaLaporanNow: function() {
+        const textarea = document.getElementById('wa-laporan-preview-text');
+        if (!textarea || !textarea.value) return;
+        
+        let textEncoded = encodeURIComponent(textarea.value);
+        // Membuka tautan resmi kirim teks API WhatsApp (Mendukung Web & Aplikasi HP)
+        window.open(`https://api.whatsapp.com/send?text=${textEncoded}`, '_blank');
+        
+        // Tutup modal secara otomatis setelah mengalihkan user ke WA
+        this.closeWaLaporanModal();
     },
 
     

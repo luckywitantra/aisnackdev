@@ -7352,20 +7352,20 @@ changeOutlet: function(val) {
     this.renderCart(); 
     this.checkShiftStatus(); 
     
-    // Perbarui nama outlet di header secara otomatis
+    // Perbarui header dan tutup modal terlebih dahulu
     this.updateHeaderOutletName();
-    
-    // Tutup modal selektor jika terbuka
     this.closeModal('modal-outlet-selector');
 
-    // Refresh Data
-    this.refreshData().then(() => {
-        // Cek jika sedang di halaman laporan, lakukan refresh UI
-        const activeView = document.querySelector('.app-view:not(.hidden)');
-        if (activeView && activeView.id === 'view-laporan-harian') {
-            this.initLaporanHarian(); 
-        }
-    });
+    // 🚀 PERBAIKAN: Refresh data terlebih dahulu
+    this.refreshData(); 
+
+    // 🚀 Lakukan pengecekan view aktif TANPA .then()
+    // Karena refreshData sudah selesai dieksekusi secara sinkron
+    const activeView = document.querySelector('.app-view:not(.hidden)');
+    
+    if (activeView && activeView.id === 'view-laporan-harian') {
+        this.initLaporanHarian(); 
+    }
 },
 
 // 2. Fungsi Header (Pastikan fungsi ini ada)

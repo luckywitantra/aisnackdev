@@ -2331,15 +2331,18 @@ const superApp = {
     // =========================================================
     resendLaporanHarianWa: function(id) {
         let rep = (this.db.laporanHarian || []).find(x => x.ID_Laporan === id);
-        if (!rep) return;
+        if (!rep) return this.showToast("Data laporan tidak ditemukan!", "error");
 
         let net = Number(rep.Net_Sales || 0);
         let bill = Number(rep.Bill || 0);
         let pcs = Number(rep.Pcs || 0);
+        let cash = Number(rep.Cash || 0);
+        let qris = Number(rep.QRIS || 0);
+        
         let amountPaid = bill > 0 ? Math.round(net / bill) : 0;
         let amountPcs = pcs > 0 ? Math.round(net / pcs) : 0;
 
-        // 🚀 Hitung Akumulasi Dinamis Khusus dari Tgl 1 s/d Tanggal Laporan Ini
+        // 🚀 Hitung Akumulasi Dinamis
         let exactAccumulation = net;
         let match = (rep.Tanggal || '').match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
         if (match) {
@@ -2349,13 +2352,12 @@ const superApp = {
             let sumPast = 0;
 
             (this.db.laporanHarian || []).forEach(item => {
-                if ((item.Outlet === rep.Outlet || rep.Outlet === 'Pusat') && item.ID_Laporan !== rep.ID_Laporan) {
+                if ((item.Outlet === rep.Outlet) && item.ID_Laporan !== rep.ID_Laporan) {
                     let rMatch = (item.Tanggal || '').match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
                     if (rMatch) {
                         let rDay = parseInt(rMatch[1], 10);
                         let rMonth = parseInt(rMatch[2], 10);
                         let rYear = parseInt(rMatch[3], 10);
-                        // Hitung hanya tanggal sebelum laporan ini (Tgl 1 s/d H-1)
                         if (rYear === targetYear && rMonth === targetMonth && rDay < targetDay && item.Status_Approval !== 'Ditolak') {
                             sumPast += Number(item.Net_Sales || 0);
                         }
@@ -2374,23 +2376,37 @@ const superApp = {
             }
         } catch(e){}
 
-        let waText = `Outlet \n*Ai-CHA ${rep.Outlet}*\n${rep.Tanggal}\ncuaca : ${rep.Cuaca || '31°C'}\n\n`;
-        waText += `Net Sales: Rp.${net.toLocaleString('id-ID')}\n`;
-        waText += `Amount Paid: ${amountPaid.toLocaleString('id-ID')}\n`;
-        waText += `Amount pcs : ${amountPcs.toLocaleString('id-ID')}\n`;
-        waText += `Bill : ${bill.toLocaleString('id-ID')}\n`;
-        waText += `Discount: -.\n`;
-        waText += `Cash: Rp.${Number(rep.Cash||0).toLocaleString('id-ID')}\n`;
-        waText += `QRIS: Rp.${Number(rep.QRIS||0).toLocaleString('id-ID')}\n`;
-        if (totExp > 0) {
-            waText += `Pengeluaran:\n${expText}\nTotal Pengeluaran: Rp.${totExp.toLocaleString('id-ID')}\n`;
-            waText += `Net Cash Laci: Rp.${(Number(rep.Cash||0) - totExp).toLocaleString('id-ID')}\n`;
-        }
-        waText += `Total penjualan : Rp.${net.toLocaleString('id-ID')}\n`;
-        waText += `Akumulasi bulanan: Rp.${exactAccumulation.toLocaleString('id-ID')}\n`; // 🚀 Akumulasi Presisi
-        waText += `Target penjualan: Rp.${this.targetBulanan.toLocaleString('id-ID')}`;
+        // ✨ Normalisasi Nama Outlet (Hapus awalan Ai-Snack)
+        let cleanOutlet = String(rep.Outlet || this.outlet).replace(/^Ai\-Snack\s+/i, '').trim();
 
-        this.showWaModal(waText);
+        // ✨ FORMAT TEKS BARU (Sesuai permintaan Anda)
+        let waText = `*Laporan Harian Ai-CHA*\n`;
+        waText += `Update Sales Report Outlet: *Ai-CHA ${cleanOutlet}*\n`;
+        waText += `Tanggal: ${rep.Tanggal || '-'}\n`;
+        waText += `Cuaca: ${rep.Cuaca || '31°C'}\n\n`;
+        waText += `Net Sales: *Rp ${net.toLocaleString('id-ID')}*\n`;
+        waText += `Amount Paid: Rp ${amountPaid.toLocaleString('id-ID')}\n`;
+        waText += `Amount Pcs: Rp ${amountPcs.toLocaleString('id-ID')}\n`;
+        waText += `Bill: ${bill.toLocaleString('id-ID')} Bill\n`;
+        waText += `Produk Terjual: ${pcs.toLocaleString('id-ID')} Pcs\n\n`;
+        waText += `Rincian Pembayaran:\n`;
+        waText += `💵 Cash: Rp ${cash.toLocaleString('id-ID')}\n`;
+        waText += `💳 QRIS: Rp ${qris.toLocaleString('id-ID')}\n`;
+        
+        if (totExp > 0) {
+            waText += `\nPengeluaran:\n${expText}\nTotal Pengeluaran: Rp ${totExp.toLocaleString('id-ID')}\n`;
+            waText += `*Net Cash Laci: Rp ${(cash - totExp).toLocaleString('id-ID')}*\n`;
+        }
+        
+        waText += `\nAkumulasi Bulanan: Rp ${exactAccumulation.toLocaleString('id-ID')}\n`;
+        waText += `Target Bulanan: Rp ${this.targetBulanan.toLocaleString('id-ID')}`;
+
+        // 🚀 Panggil Modal Popup Modern (Ganti openWaLaporanModal jika Anda sudah mengimplementasikannya)
+        if (typeof this.openWaLaporanModal === 'function') {
+            this.openWaLaporanModal(waText);
+        } else {
+            this.showWaModal(waText);
+        }
     },
 
     // =========================================================

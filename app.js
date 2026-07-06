@@ -1922,11 +1922,8 @@ const superApp = {
     },
 
     // 4. Simpan & Buat Teks Laporan WhatsApp Presisi
-   // =========================================================
-    // 🚀 SUBMIT LAPORAN (STAF EDIT MASUK KE KOTAK REVISI)
     // =========================================================
-    // =========================================================
-    // 🚀 SUBMIT LAPORAN (DILENGKAPI POPUP FORWARD WA)
+    // 🚀 SUBMIT LAPORAN (DILENGKAPI POPUP FORWARD WA KONSISTEN)
     // =========================================================
     submitLaporanHarian: async function() {
         if (this.isProcessing) return;
@@ -2012,7 +2009,7 @@ const superApp = {
             this.showToast("Laporan Berhasil Tersimpan!");
         }
         
-        // 🚀 RAKIT TEKS WA & MUNLCULKAN POPUP FORWARD KE GRUP
+        // 🚀 RAKIT TEKS WA & MUNCULKAN POPUP FORWARD KE GRUP
         let amountPaid = bill > 0 ? Math.round(netSales / bill) : 0;
         let amountPcs = pcs > 0 ? Math.round(netSales / pcs) : 0;
         
@@ -2045,8 +2042,10 @@ const superApp = {
         this.resetDailyForm();
         this.renderLaporanHarianHistory();
 
-        // 🚀 MUNLCULKAN MODAL POPUP WA SECARA OTOMATIS
-        if (typeof this.showWaModal === 'function') {
+        // 🚀 MUNCULKAN MODAL POPUP WA KHUSUS DI VIEW LAPORAN HARIAN
+        if (typeof this.openWaLaporanModal === 'function') {
+            this.openWaLaporanModal(waText);
+        } else if (typeof this.showWaModal === 'function') {
             this.showWaModal(waText);
         } else if (typeof this.resendLaporanHarianWa === 'function') {
             this.resendLaporanHarianWa(idRep);
@@ -2575,11 +2574,11 @@ const superApp = {
     // =========================================================
     // 🚀 ENGINE DASHBOARD EKSEKUTIF (KONSOLIDASI & BREAKDOWN)
     // =========================================================
-    renderExecutiveDashboard: function() {
+   renderExecutiveDashboard: function() {
         const dashCont = document.getElementById('lapharian-executive-dashboard');
         if (!dashCont) return;
 
-        // 1. Cek Otorisasi: Hanya tampil jika Role adalah Owner atau Supervisor
+        // 1. Cek Otorisasi Role (Hanya Owner & Supervisor)
         let isOwner = this.currentUser && (this.currentUser.Role === 'owner' || this.currentUser.Role === 'supervisor');
         if (!isOwner) {
             dashCont.classList.add('hidden');
@@ -2587,40 +2586,54 @@ const superApp = {
         }
         dashCont.classList.remove('hidden');
 
-        // 2. Filter Laporan Bulan Ini (Atau Semua Outlet jika posisi di 'Pusat' / 'Semua')
+        // 2. Baca Pilihan Filter Bulan & Tahun dari Dropdown UI
         let now = new Date();
-        let currMonth = now.getMonth() + 1;
-        let currYear = now.getFullYear();
+        let monthSelect = document.getElementById('exec-filter-month');
+        let yearSelect = document.getElementById('exec-filter-year');
+        
+        // Set default ke bulan berjalan saat pertama kali dibuka
+        if (monthSelect && !monthSelect.dataset.init) {
+            monthSelect.value = now.getMonth() + 1;
+            monthSelect.dataset.init = "true";
+        }
+        if (yearSelect && !yearSelect.dataset.init) {
+            yearSelect.value = now.getFullYear();
+            yearSelect.dataset.init = "true";
+        }
+
+        let selMonth = monthSelect ? parseInt(monthSelect.value, 10) : (now.getMonth() + 1);
+        let selYear = yearSelect ? parseInt(yearSelect.value, 10) : now.getFullYear();
 
         let isConsolidated = (this.outlet === 'Pusat' || this.outlet === 'Semua' || !this.outlet);
-        
         let titleEl = document.getElementById('exec-dash-title');
-        let periodEl = document.getElementById('exec-dash-period');
-        
-        if (titleEl) titleEl.innerText = isConsolidated ? "Konsolidasi Seluruh Outlet" : `Analisis Eksekutif: Ai-CHA ${this.outlet}`;
-        if (periodEl) periodEl.innerText = now.toLocaleString('id-ID', { month: 'long', year: 'numeric' });
+        if (titleEl) {
+            titleEl.innerText = isConsolidated ? "Konsolidasi Seluruh Outlet" : `Analisis Eksekutif: ${this.outlet}`;
+        }
 
         let totSales = 0, totCash = 0, totQris = 0, totExp = 0;
-        let outletMap = {}; // Penyimpan rangkuman per outlet
-        let expenseItemMap = {}; // Penyimpan akumulasi per jenis pengeluaran
+        let outletMap = {};
+        let expenseItemMap = {};
 
         (this.db.laporanHarian || []).forEach(rep => {
-            // Abaikan laporan yang ditolak Owner
             if (rep.Status_Approval === 'Ditolak') return;
 
-            // Pengecekan Filter Bulan
-            let match = (rep.Tanggal || '').match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+            // 🚀 Filter Berdasarkan Periode Pilihan Dropdown
+            let cleanStr = (rep.Tanggal || '').split(',').pop().trim();
+            let match = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
             if (match) {
                 let rMonth = parseInt(match[2], 10);
                 let rYear = parseInt(match[3], 10);
-                if (rMonth !== currMonth || rYear !== currYear) return;
+                if (rMonth !== selMonth || rYear !== selYear) return; // Lewati jika tidak cocok
+            } else {
+                return; // Lewati jika tanggal tidak valid
             }
 
-            // Pengecekan Filter Outlet
-            let repOutlet = rep.Outlet || 'Tidak Diketahui';
-            if (!isConsolidated && repOutlet !== this.outlet) return;
+            // 🚀 NORMALISASI NAMA OUTLET (Solusi untuk masalah Babulu & Batu Kajang)
+            let repOutlet = String(rep.Outlet || 'Lainnya').replace(/^Ai\-Snack\s+/i, '').trim();
 
-            // Akumulasi Angka Utama
+            // Filter Outlet Aktif
+            if (!isConsolidated && repOutlet !== String(this.outlet).replace(/^Ai\-Snack\s+/i, '').trim()) return;
+
             let net = Number(rep.Net_Sales || 0);
             let cash = Number(rep.Cash || 0);
             let qris = Number(rep.QRIS || 0);
@@ -2631,16 +2644,14 @@ const superApp = {
             totQris += qris;
             totExp += exp;
 
-            // 🚀 Akumulasi Per Outlet
-            if (!outletMap[repOutlet]) {
-                outletMap[repOutlet] = { sales: 0, cash: 0, qris: 0, exp: 0 };
-            }
+            // Akumulasi Per Outlet
+            if (!outletMap[repOutlet]) outletMap[repOutlet] = { sales: 0, cash: 0, qris: 0, exp: 0 };
             outletMap[repOutlet].sales += net;
             outletMap[repOutlet].cash += cash;
             outletMap[repOutlet].qris += qris;
             outletMap[repOutlet].exp += exp;
 
-            // 🚀 Akumulasi Per Jenis Item Pengeluaran (Parsing JSON)
+            // Akumulasi Item Pengeluaran
             try {
                 let expArr = JSON.parse(rep.Pengeluaran_JSON || '[]');
                 expArr.forEach(itemExp => {
@@ -2665,7 +2676,7 @@ const superApp = {
         if (outletCont) {
             let outletKeys = Object.keys(outletMap).sort((a,b) => outletMap[b].sales - outletMap[a].sales);
             if (outletKeys.length === 0) {
-                outletCont.innerHTML = `<div class="text-xs text-slate-500 text-center py-4">Belum ada data jualan bulan ini</div>`;
+                outletCont.innerHTML = `<div class="text-xs text-slate-500 text-center py-6">Belum ada catatan transaksi pada periode ini</div>`;
             } else {
                 outletCont.innerHTML = outletKeys.map(outName => {
                     let oData = outletMap[outName];
@@ -2685,12 +2696,12 @@ const superApp = {
             }
         }
 
-        // 5. Render Breakdown Pengeluaran Per Item (Diurutkan dari pengeluaran terbesar)
+        // 5. Render Breakdown Pengeluaran Per Item
         const expCont = document.getElementById('exec-expense-list');
         if (expCont) {
             let expKeys = Object.keys(expenseItemMap).sort((a,b) => expenseItemMap[b] - expenseItemMap[a]);
             if (expKeys.length === 0) {
-                expCont.innerHTML = `<div class="text-xs text-slate-500 text-center py-4">Belum ada catatan pengeluaran</div>`;
+                expCont.innerHTML = `<div class="text-xs text-slate-500 text-center py-6">Belum ada catatan pengeluaran pada periode ini</div>`;
             } else {
                 expCont.innerHTML = expKeys.map(itemName => {
                     let nom = expenseItemMap[itemName];
@@ -2703,7 +2714,7 @@ const superApp = {
                         </div>
                         <div class="text-right">
                             <span class="font-black text-amber-400 block">Rp ${nom.toLocaleString('id-ID')}</span>
-                            <span class="text-[9px] text-slate-400">${pctExp}% dari total biaya</span>
+                            <span class="text-[9px] text-slate-400">${pctExp}% dari biaya</span>
                         </div>
                     </div>`;
                 }).join('');

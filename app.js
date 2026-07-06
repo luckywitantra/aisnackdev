@@ -3418,24 +3418,7 @@ refreshData: function() {
         }
     },
 
-    // Pastikan blok kode ini ADA di dalam object superApp
-changeOutlet: function(val) { 
-    this.outlet = val; 
-    this.cart = []; 
-    this.renderCart(); 
-    this.checkShiftStatus(); 
-    
-    // 🚀 Refresh data global (seperti transaksi/laporan dari server)
-    this.refreshData().then(() => {
-        // 🚀 DETEKSI LAYAR AKTIF: Jika sedang di menu Laporan, refresh view tersebut
-        const activeView = document.querySelector('.app-view:not(.hidden)');
-        
-        if (activeView && activeView.id === 'view-laporan-harian') {
-            // Panggil ulang init untuk merender ulang dashboard, kalender, dan riwayat
-            this.initLaporanHarian(); 
-        }
-    });
-},
+
     
    switchMenu: function(menu) {
     // 1. Bersihkan akses (Tidak perlu lagi memblokir hpp/profit karena sudah dilebur)
@@ -7362,11 +7345,38 @@ executeVoidTrx: async function(trxId) {
         }
     },
 
-    updateHeaderOutletName: function() {
-        const hName = document.getElementById('header-outlet-name');
-        if (hName) hName.innerText = this.outlet || 'Pusat';
-    },
+   // 1. Fungsi Utama (Master Switcher)
+changeOutlet: function(val) { 
+    this.outlet = val; 
+    this.cart = []; 
+    this.renderCart(); 
+    this.checkShiftStatus(); 
+    
+    // Perbarui nama outlet di header secara otomatis
+    this.updateHeaderOutletName();
+    
+    // Tutup modal selektor jika terbuka
+    this.closeModal('modal-outlet-selector');
 
+    // Refresh Data
+    this.refreshData().then(() => {
+        // Cek jika sedang di halaman laporan, lakukan refresh UI
+        const activeView = document.querySelector('.app-view:not(.hidden)');
+        if (activeView && activeView.id === 'view-laporan-harian') {
+            this.initLaporanHarian(); 
+        }
+    });
+},
+
+// 2. Fungsi Header (Pastikan fungsi ini ada)
+updateHeaderOutletName: function() {
+    const outletNameEl = document.getElementById('header-outlet-name');
+    if (outletNameEl) {
+        // Cari nama outlet berdasarkan ID
+        let outletData = (this.db.outlets || []).find(o => o.ID_Outlet === this.outlet);
+        outletNameEl.innerText = outletData ? outletData.Nama_Outlet : this.outlet;
+    }
+},
     openOutletSelector: function() {
         const listEl = document.getElementById('outlet-selector-list');
         if (!listEl) return;
@@ -7414,11 +7424,6 @@ executeVoidTrx: async function(trxId) {
     },
     
   
-selectOutlet: function(id) {
-    superApp.changeOutlet(id);
-    superApp.updateHeaderOutletName(); 
-    superApp.closeModal('modal-outlet-selector');
-},
 
    renderGlobalStockMatrix: function() {
         if (!this.db || !this.db.masterProduk || !this.db.outlets) return;

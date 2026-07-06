@@ -2583,158 +2583,7 @@ changeOutlet: function(val) {
         this.showToast("Menampilkan konsolidasi bulan berjalan");
     },
 
-    // =========================================================
-    // 🚀 RENDER DASHBOARD EKSEKUTIF DENGAN FILTER RANGE
-    // =========================================================
-    renderExecutiveDashboard: function() {
-        const dashCont = document.getElementById('lapharian-executive-dashboard');
-        if (!dashCont) return;
-
-        let isOwner = this.currentUser && (this.currentUser.Role === 'owner' || this.currentUser.Role === 'supervisor');
-        if (!isOwner) {
-            dashCont.classList.add('hidden');
-            return;
-        }
-        dashCont.classList.remove('hidden');
-
-        // 1. Ambil & Inisialisasi Tanggal Filter (Default: Bulan Berjalan)
-        const startInput = document.getElementById('exec-filter-start');
-        const endInput = document.getElementById('exec-filter-end');
-        let now = new Date();
-
-        if (startInput && !startInput.value) {
-            let pad = n => String(n).padStart(2, '0');
-            startInput.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`;
-        }
-        if (endInput && !endInput.value) {
-            let pad = n => String(n).padStart(2, '0');
-            endInput.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-        }
-
-        let startObj = (startInput && startInput.value) ? new Date(startInput.value) : null;
-        if (startObj) startObj.setHours(0, 0, 0, 0);
-
-        let endObj = (endInput && endInput.value) ? new Date(endInput.value) : null;
-        if (endObj) endObj.setHours(23, 59, 59, 999);
-
-        let isConsolidated = (this.outlet === 'Pusat' || this.outlet === 'Semua' || !this.outlet);
-        let titleEl = document.getElementById('exec-dash-title');
-        if (titleEl) {
-            titleEl.innerText = isConsolidated ? "Konsolidasi Seluruh Outlet" : `Analisis Eksekutif: ${this.outlet}`;
-        }
-
-        let totSales = 0, totCash = 0, totQris = 0, totExp = 0;
-        let outletMap = {};
-        let expenseItemMap = {};
-
-        (this.db.laporanHarian || []).forEach(rep => {
-            if (rep.Status_Approval === 'Ditolak') return;
-
-            // 🚀 COCOKKAN DENGAN RENTANG TANGGAL DASHBOARD
-            if (startObj || endObj) {
-                let cleanStr = (rep.Tanggal || '').split(',').pop().trim();
-                let match = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-                if (match) {
-                    let rDay = parseInt(match[1], 10);
-                    let rMonth = parseInt(match[2], 10) - 1;
-                    let rYear = parseInt(match[3], 10);
-                    let repDateObj = new Date(rYear, rMonth, rDay);
-
-                    if (startObj && repDateObj < startObj) return;
-                    if (endObj && repDateObj > endObj) return;
-                } else {
-                    return;
-                }
-            }
-
-            // Normalisasi awalan 'Ai-Snack' agar Babulu & Batu Kajang terakumulasi dengan benar
-            let repOutlet = String(rep.Outlet || 'Lainnya').replace(/^Ai\-Snack\s+/i, '').trim();
-            let currOutlet = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
-
-            if (!isConsolidated && repOutlet !== currOutlet) return;
-
-            let net = Number(rep.Net_Sales || 0);
-            let cash = Number(rep.Cash || 0);
-            let qris = Number(rep.QRIS || 0);
-            let exp = Number(rep.Total_Pengeluaran || 0);
-
-            totSales += net;
-            totCash += cash;
-            totQris += qris;
-            totExp += exp;
-
-            if (!outletMap[repOutlet]) outletMap[repOutlet] = { sales: 0, cash: 0, qris: 0, exp: 0 };
-            outletMap[repOutlet].sales += net;
-            outletMap[repOutlet].cash += cash;
-            outletMap[repOutlet].qris += qris;
-            outletMap[repOutlet].exp += exp;
-
-            try {
-                let expArr = JSON.parse(rep.Pengeluaran_JSON || '[]');
-                expArr.forEach(itemExp => {
-                    let itemName = String(itemExp.nama || 'LAINNYA').toUpperCase().trim();
-                    let itemNom = Number(itemExp.nominal || 0);
-                    if (itemName !== '' && itemNom > 0) {
-                        if (!expenseItemMap[itemName]) expenseItemMap[itemName] = 0;
-                        expenseItemMap[itemName] += itemNom;
-                    }
-                });
-            } catch(e){}
-        });
-
-        if (document.getElementById('exec-total-sales')) document.getElementById('exec-total-sales').innerText = `Rp ${totSales.toLocaleString('id-ID')}`;
-        if (document.getElementById('exec-total-cash')) document.getElementById('exec-total-cash').innerText = `Rp ${totCash.toLocaleString('id-ID')}`;
-        if (document.getElementById('exec-total-qris')) document.getElementById('exec-total-qris').innerText = `Rp ${totQris.toLocaleString('id-ID')}`;
-        if (document.getElementById('exec-total-expense')) document.getElementById('exec-total-expense').innerText = `Rp ${totExp.toLocaleString('id-ID')}`;
-
-        const outletCont = document.getElementById('exec-outlet-list');
-        if (outletCont) {
-            let outletKeys = Object.keys(outletMap).sort((a,b) => outletMap[b].sales - outletMap[a].sales);
-            if (outletKeys.length === 0) {
-                outletCont.innerHTML = `<div class="text-xs text-slate-500 text-center py-6">Belum ada transaksi pada periode ini</div>`;
-            } else {
-                outletCont.innerHTML = outletKeys.map(outName => {
-                    let oData = outletMap[outName];
-                    let pct = totSales > 0 ? Math.round((oData.sales / totSales) * 100) : 0;
-                    return `
-                    <div class="p-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 flex justify-between items-center text-xs">
-                        <div>
-                            <span class="font-extrabold text-white block">Ai-CHA ${outName}</span>
-                            <span class="text-[10px] text-slate-400">Cash: Rp ${oData.cash.toLocaleString('id-ID')} | QRIS: Rp ${oData.qris.toLocaleString('id-ID')}</span>
-                        </div>
-                        <div class="text-right">
-                            <span class="font-black text-rose-400 block text-sm">Rp ${oData.sales.toLocaleString('id-ID')}</span>
-                            <span class="text-[9px] font-bold text-indigo-300 bg-indigo-500/20 px-1.5 py-0.5 rounded">${pct}% Kontribusi</span>
-                        </div>
-                    </div>`;
-                }).join('');
-            }
-        }
-
-        const expCont = document.getElementById('exec-expense-list');
-        if (expCont) {
-            let expKeys = Object.keys(expenseItemMap).sort((a,b) => expenseItemMap[b] - expenseItemMap[a]);
-            if (expKeys.length === 0) {
-                expCont.innerHTML = `<div class="text-xs text-slate-500 text-center py-6">Belum ada pengeluaran pada periode ini</div>`;
-            } else {
-                expCont.innerHTML = expKeys.map(itemName => {
-                    let nom = expenseItemMap[itemName];
-                    let pctExp = totExp > 0 ? Math.round((nom / totExp) * 100) : 0;
-                    return `
-                    <div class="p-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 flex justify-between items-center text-xs">
-                        <div class="flex items-center gap-2">
-                            <div class="w-2 h-2 rounded-full bg-amber-400"></div>
-                            <span class="font-extrabold text-slate-200 block uppercase">${itemName}</span>
-                        </div>
-                        <div class="text-right">
-                            <span class="font-black text-amber-400 block">Rp ${nom.toLocaleString('id-ID')}</span>
-                            <span class="text-[9px] text-slate-400">${pctExp}% dari biaya</span>
-                        </div>
-                    </div>`;
-                }).join('');
-            }
-        }
-    },
+    
 
     // =========================================================
     // 🚀 CONTROLLER POPUP MODAL KALENDER LAPORAN
@@ -2854,6 +2703,321 @@ changeOutlet: function(val) {
             box.classList.add('hidden');
             if (icon) icon.style.transform = 'rotate(0deg)';
             if (btnText) btnText.firstElementChild.innerText = 'Lihat Rincian';
+        }
+    },
+
+    // =========================================================
+    // 🚀 CONTROLLER POPUP ANALISIS SUPER DETAIL PER OUTLET
+    // =========================================================
+    openDetailOutletModal: function(outName) {
+        const modal = document.getElementById('modal-detail-outlet-eksekutif');
+        const titleEl = document.getElementById('modal-detail-outlet-name');
+        const contEl = document.getElementById('modal-detail-outlet-content');
+        if (!modal || !contEl) return;
+
+        if (titleEl) titleEl.innerText = `Ai-CHA ${outName}`;
+        modal.classList.remove('hidden');
+
+        // 1. Baca filter tanggal eksekutif aktif
+        const startInput = document.getElementById('exec-filter-start');
+        const endInput = document.getElementById('exec-filter-end');
+        let startObj = (startInput && startInput.value) ? new Date(startInput.value) : null;
+        if (startObj) startObj.setHours(0, 0, 0, 0);
+        let endObj = (endInput && endInput.value) ? new Date(endInput.value) : null;
+        if (endObj) endObj.setHours(23, 59, 59, 999);
+
+        // 2. Kumpulkan metrik khusus cabang ini
+        let totSales = 0, totCash = 0, totQris = 0, totExp = 0, totBill = 0, totPcs = 0;
+        let expItemMap = {};
+        let repCount = 0;
+
+        (this.db.laporanHarian || []).forEach(rep => {
+            if (rep.Status_Approval === 'Ditolak') return;
+            let repOutlet = String(rep.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+            if (repOutlet !== outName) return;
+
+            if (startObj || endObj) {
+                let cleanStr = (rep.Tanggal || '').split(',').pop().trim();
+                let match = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+                if (match) {
+                    let repDate = new Date(parseInt(match[3],10), parseInt(match[2],10)-1, parseInt(match[1],10));
+                    if (startObj && repDate < startObj) return;
+                    if (endObj && repDate > endObj) return;
+                } else return;
+            }
+
+            repCount++;
+            totSales += Number(rep.Net_Sales || 0);
+            totCash += Number(rep.Cash || 0);
+            totQris += Number(rep.QRIS || 0);
+            totExp += Number(rep.Total_Pengeluaran || 0);
+            totBill += Number(rep.Bill || 0);
+            totPcs += Number(rep.Pcs || 0);
+
+            try {
+                let expArr = JSON.parse(rep.Pengeluaran_JSON || '[]');
+                expArr.forEach(x => {
+                    let nm = String(x.nama || 'LAINNYA').toUpperCase().trim();
+                    let nmNom = Number(x.nominal || 0);
+                    if (nm !== '' && nmNom > 0) {
+                        if (!expItemMap[nm]) expItemMap[nm] = 0;
+                        expItemMap[nm] += nmNom;
+                    }
+                });
+            } catch(e){}
+        });
+
+        // 3. Kalkulasi Target Cabang & Rata-rata
+        let avgBill = totBill > 0 ? Math.round(totSales / totBill) : 0;
+        let avgPcs = totPcs > 0 ? Math.round(totSales / totPcs) : 0;
+        let netLaci = totCash - totExp;
+
+        let targetCabang = 180000000;
+        let savedT = localStorage.getItem('aicha_target_bulanan_' + outName);
+        if (savedT && !isNaN(savedT)) targetCabang = Number(savedT);
+        let pctTarget = Math.min(Math.round((totSales / targetCabang) * 100), 100);
+
+        // Render Rincian Item Biaya Cabang
+        let expKeys = Object.keys(expItemMap).sort((a,b) => expItemMap[b] - expItemMap[a]);
+        let expHtml = expKeys.length === 0 
+            ? `<div class="text-xs text-slate-400 italic py-2">Tidak ada pengeluaran dicatat</div>` 
+            : expKeys.map(k => `
+                <div class="flex justify-between items-center bg-slate-800/80 p-2 rounded-xl text-xs border border-slate-700/50">
+                    <span class="font-extrabold text-slate-300">▪️ ${k}</span>
+                    <span class="font-black text-amber-400">Rp ${expItemMap[k].toLocaleString('id-ID')}</span>
+                </div>`).join('');
+
+        // 4. Rakit HTML Popup Super Lengkap
+        contEl.innerHTML = `
+            <!-- Kartu Progres Target Cabang -->
+            <div class="bg-slate-800/90 p-4 rounded-2xl border border-slate-700">
+                <div class="flex justify-between text-xs font-bold mb-2">
+                    <span class="text-slate-300">Target Pencapaian Cabang</span>
+                    <span class="font-black text-rose-400">${pctTarget}% (Rp ${totSales.toLocaleString('id-ID')} / Rp ${targetCabang.toLocaleString('id-ID')})</span>
+                </div>
+                <div class="w-full bg-slate-900 rounded-full h-3 overflow-hidden p-0.5 border border-slate-700">
+                    <div class="bg-gradient-to-r from-amber-500 via-rose-500 to-emerald-400 h-full rounded-full transition-all duration-700" style="width: ${pctTarget}%"></div>
+                </div>
+            </div>
+
+            <!-- Matriks Rangkuman KPI -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                <div class="bg-slate-800/60 p-3 rounded-2xl border border-slate-700/60">
+                    <span class="text-[10px] text-slate-400 font-bold uppercase block">Net Sales Bersih</span>
+                    <span class="text-base font-black text-rose-400">Rp ${totSales.toLocaleString('id-ID')}</span>
+                </div>
+                <div class="bg-slate-800/60 p-3 rounded-2xl border border-slate-700/60">
+                    <span class="text-[10px] text-slate-400 font-bold uppercase block">Total Cash Laci</span>
+                    <span class="text-base font-black text-emerald-400">Rp ${totCash.toLocaleString('id-ID')}</span>
+                </div>
+                <div class="bg-slate-800/60 p-3 rounded-2xl border border-slate-700/60">
+                    <span class="text-[10px] text-slate-400 font-bold uppercase block">Total QRIS</span>
+                    <span class="text-base font-black text-blue-400">Rp ${totQris.toLocaleString('id-ID')}</span>
+                </div>
+                <div class="bg-slate-800/60 p-3 rounded-2xl border border-slate-700/60">
+                    <span class="text-[10px] text-slate-400 font-bold uppercase block">Total Pengeluaran</span>
+                    <span class="text-base font-black text-amber-400">Rp ${totExp.toLocaleString('id-ID')}</span>
+                </div>
+                <div class="bg-slate-800/60 p-3 rounded-2xl border border-slate-700/60">
+                    <span class="text-[10px] text-slate-400 font-bold uppercase block">Rata-rata / Bill (${totBill} Bill)</span>
+                    <span class="text-base font-black text-purple-400">Rp ${avgBill.toLocaleString('id-ID')}</span>
+                </div>
+                <div class="bg-slate-800/60 p-3 rounded-2xl border border-slate-700/60">
+                    <span class="text-[10px] text-slate-400 font-bold uppercase block">Rata-rata / Pcs (${totPcs} Pcs)</span>
+                    <span class="text-base font-black text-teal-400">Rp ${avgPcs.toLocaleString('id-ID')}</span>
+                </div>
+            </div>
+
+            <!-- Net Cash Bersih -->
+            <div class="bg-gradient-to-r from-emerald-900/40 to-teal-900/40 p-3.5 rounded-2xl border border-emerald-500/30 flex justify-between items-center">
+                <span class="text-xs font-bold text-emerald-200">💵 Net Cash Bersih Tersedia di Toko (Cash - Biaya):</span>
+                <span class="text-base font-black text-emerald-400">Rp ${netLaci.toLocaleString('id-ID')}</span>
+            </div>
+
+            <!-- Rincian Biaya Khusus Cabang Ini -->
+            <div class="bg-slate-800/50 p-4 rounded-2xl border border-slate-700/60 space-y-2">
+                <h5 class="text-xs font-black text-amber-400 flex items-center gap-2">
+                    <i class="fas fa-list"></i> Breakdown Pengeluaran Cabang ${outName}
+                </h5>
+                <div class="space-y-1.5 max-h-36 overflow-y-auto custom-scroll pr-1 mt-2">
+                    ${expHtml}
+                </div>
+            </div>
+        </div>`;
+    },
+
+    closeDetailOutletModal: function() {
+        const modal = document.getElementById('modal-detail-outlet-eksekutif');
+        if (modal) modal.classList.add('hidden');
+    },
+
+    // =========================================================
+    // 🚀 RENDER DASHBOARD EKSEKUTIF DENGAN KARTU MINI INTERAKTIF
+    // =========================================================
+    renderExecutiveDashboard: function() {
+        const dashCont = document.getElementById('lapharian-executive-dashboard');
+        if (!dashCont) return;
+
+        let isOwner = this.currentUser && (this.currentUser.Role === 'owner' || this.currentUser.Role === 'supervisor');
+        if (!isOwner) {
+            dashCont.classList.add('hidden');
+            return;
+        }
+        dashCont.classList.remove('hidden');
+
+        // 1. Ambil & Inisialisasi Tanggal Filter
+        const startInput = document.getElementById('exec-filter-start');
+        const endInput = document.getElementById('exec-filter-end');
+        let now = new Date();
+
+        if (startInput && !startInput.value) {
+            let pad = n => String(n).padStart(2, '0');
+            startInput.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`;
+        }
+        if (endInput && !endInput.value) {
+            let pad = n => String(n).padStart(2, '0');
+            endInput.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+        }
+
+        let startObj = (startInput && startInput.value) ? new Date(startInput.value) : null;
+        if (startObj) startObj.setHours(0, 0, 0, 0);
+        let endObj = (endInput && endInput.value) ? new Date(endInput.value) : null;
+        if (endObj) endObj.setHours(23, 59, 59, 999);
+
+        let isConsolidated = (this.outlet === 'Pusat' || this.outlet === 'Semua' || !this.outlet);
+        let titleEl = document.getElementById('exec-dash-title');
+        if (titleEl) {
+            titleEl.innerText = isConsolidated ? "Konsolidasi Seluruh Outlet" : `Analisis Eksekutif: ${this.outlet}`;
+        }
+
+        let totSales = 0, totCash = 0, totQris = 0, totExp = 0;
+        let outletMap = {};
+        let expenseItemMap = {};
+
+        (this.db.laporanHarian || []).forEach(rep => {
+            if (rep.Status_Approval === 'Ditolak') return;
+
+            if (startObj || endObj) {
+                let cleanStr = (rep.Tanggal || '').split(',').pop().trim();
+                let match = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+                if (match) {
+                    let repDateObj = new Date(parseInt(match[3],10), parseInt(match[2],10)-1, parseInt(match[1],10));
+                    if (startObj && repDateObj < startObj) return;
+                    if (endObj && repDateObj > endObj) return;
+                } else return;
+            }
+
+            let repOutlet = String(rep.Outlet || 'Lainnya').replace(/^Ai\-Snack\s+/i, '').trim();
+            let currOutlet = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+
+            if (!isConsolidated && repOutlet !== currOutlet) return;
+
+            let net = Number(rep.Net_Sales || 0);
+            let cash = Number(rep.Cash || 0);
+            let qris = Number(rep.QRIS || 0);
+            let exp = Number(rep.Total_Pengeluaran || 0);
+
+            totSales += net;
+            totCash += cash;
+            totQris += qris;
+            totExp += exp;
+
+            if (!outletMap[repOutlet]) outletMap[repOutlet] = { sales: 0, cash: 0, qris: 0, exp: 0 };
+            outletMap[repOutlet].sales += net;
+            outletMap[repOutlet].cash += cash;
+            outletMap[repOutlet].qris += qris;
+            outletMap[repOutlet].exp += exp;
+
+            try {
+                let expArr = JSON.parse(rep.Pengeluaran_JSON || '[]');
+                expArr.forEach(itemExp => {
+                    let itemName = String(itemExp.nama || 'LAINNYA').toUpperCase().trim();
+                    let itemNom = Number(itemExp.nominal || 0);
+                    if (itemName !== '' && itemNom > 0) {
+                        if (!expenseItemMap[itemName]) expenseItemMap[itemName] = 0;
+                        expenseItemMap[itemName] += itemNom;
+                    }
+                });
+            } catch(e){}
+        });
+
+        // 2. Render 4 KPI Utama
+        if (document.getElementById('exec-total-sales')) document.getElementById('exec-total-sales').innerText = `Rp ${totSales.toLocaleString('id-ID')}`;
+        if (document.getElementById('exec-total-cash')) document.getElementById('exec-total-cash').innerText = `Rp ${totCash.toLocaleString('id-ID')}`;
+        if (document.getElementById('exec-total-qris')) document.getElementById('exec-total-qris').innerText = `Rp ${totQris.toLocaleString('id-ID')}`;
+        if (document.getElementById('exec-total-expense')) document.getElementById('exec-total-expense').innerText = `Rp ${totExp.toLocaleString('id-ID')}`;
+
+        // 3. Update Akumulasi & Target Bulanan yang Terintegrasi
+        let targetTotal = this.targetBulanan || 180000000;
+        if (isConsolidated && this.db && this.db.outlets) {
+            let tCons = 0;
+            this.db.outlets.forEach(o => {
+                if (o.Nama_Outlet !== 'Pusat' && o.Nama_Outlet !== 'Semua') {
+                    let st = localStorage.getItem('aicha_target_bulanan_' + o.Nama_Outlet);
+                    tCons += (st && !isNaN(st)) ? Number(st) : 180000000;
+                }
+            });
+            if (tCons > 0) targetTotal = tCons;
+        }
+
+        let pctExec = Math.min(Math.round((totSales / targetTotal) * 100), 100);
+        let sisaTarget = Math.max(targetTotal - totSales, 0);
+
+        if (document.getElementById('accum-net-sales')) document.getElementById('accum-net-sales').innerText = `Rp ${totSales.toLocaleString('id-ID')}`;
+        if (document.getElementById('accum-target')) document.getElementById('accum-target').innerText = `Rp ${targetTotal.toLocaleString('id-ID')}`;
+        if (document.getElementById('accum-progress-bar')) document.getElementById('accum-progress-bar').style.width = `${pctExec}%`;
+        if (document.getElementById('accum-percent')) document.getElementById('accum-percent').innerText = `Progress: ${pctExec}%`;
+        if (document.getElementById('accum-remaining')) document.getElementById('accum-remaining').innerText = `Kurang: Rp ${sisaTarget.toLocaleString('id-ID')}`;
+
+        // 4. Render Kartu Mini Outlet Interaktif
+        const cardsGrid = document.getElementById('exec-outlet-cards-grid');
+        if (cardsGrid) {
+            let outletKeys = Object.keys(outletMap).sort((a,b) => outletMap[b].sales - outletMap[a].sales);
+            if (outletKeys.length === 0) {
+                cardsGrid.innerHTML = `<div class="col-span-full text-xs text-slate-400 italic text-center py-6 border border-dashed border-slate-700 rounded-2xl">Belum ada transaksi di periode ini</div>`;
+            } else {
+                cardsGrid.innerHTML = outletKeys.map(outName => {
+                    let oData = outletMap[outName];
+                    let pct = totSales > 0 ? Math.round((oData.sales / totSales) * 100) : 0;
+                    return `
+                    <div onclick="superApp.openDetailOutletModal('${outName}')" class="bg-slate-800/80 hover:bg-slate-700/90 p-3.5 rounded-2xl border border-slate-700 hover:border-rose-500/50 cursor-pointer transition-all active:scale-95 shadow-md flex flex-col justify-between group">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="font-black text-white text-sm group-hover:text-rose-400 transition">Ai-CHA ${outName}</span>
+                            <span class="text-[9px] font-bold bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded-full border border-rose-500/30">${pct}% Kontribusi</span>
+                        </div>
+                        <div>
+                            <span class="text-[10px] text-slate-400 block uppercase font-bold">Total Sales Cabang</span>
+                            <span class="font-black text-rose-400 text-base block tracking-tight">Rp ${oData.sales.toLocaleString('id-ID')}</span>
+                        </div>
+                        <div class="mt-2 pt-2 border-t border-slate-700/70 flex justify-between items-center text-[10px] text-slate-400 font-bold">
+                            <span>💵 C: Rp ${oData.cash.toLocaleString('id-ID')}</span>
+                            <span class="text-indigo-300 group-hover:translate-x-1 transition-transform">Detail <i class="fas fa-arrow-right text-[9px] ml-0.5"></i></span>
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+        }
+
+        // 5. Render Breakdown Pengeluaran Per Item
+        const expCont = document.getElementById('exec-expense-list');
+        if (expCont) {
+            let expKeys = Object.keys(expenseItemMap).sort((a,b) => expenseItemMap[b] - expenseItemMap[a]);
+            if (expKeys.length === 0) {
+                expCont.innerHTML = `<div class="col-span-full text-xs text-slate-400 italic text-center py-4">Belum ada pengeluaran pada periode ini</div>`;
+            } else {
+                expCont.innerHTML = expKeys.map(itemName => {
+                    let nom = expenseItemMap[itemName];
+                    let pctExp = totExp > 0 ? Math.round((nom / totExp) * 100) : 0;
+                    return `
+                    <div class="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/60 flex justify-between items-center text-xs">
+                        <span class="font-extrabold text-slate-200 block uppercase">▪️ ${itemName}</span>
+                        <div class="text-right">
+                            <span class="font-black text-amber-400 block">Rp ${nom.toLocaleString('id-ID')}</span>
+                            <span class="text-[9px] text-slate-400">${pctExp}% dari biaya</span>
+                        </div>
+                    </div>`;
+                }).join('');
+            }
         }
     },
 

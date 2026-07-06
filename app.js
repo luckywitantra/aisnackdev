@@ -1060,7 +1060,8 @@ const superApp = {
 
         let user = this.db.users.find(u => String(u.PIN) === String(this.pinBuffer));
         if (user) {
-            this.currentUser = user; this.outlet = user.Outlet === 'Pusat' ? ((this.db.outlets || [])[0]?.ID_Outlet || 'Penajam') : user.Outlet;
+            this.currentUser = user; 
+            
             const sbRole = document.getElementById('sb-role'); if (sbRole) sbRole.innerText = user.Role;
             const hInit = document.getElementById('header-initial'); if (hInit) hInit.innerText = user.Username.charAt(0).toUpperCase();
 
@@ -1069,11 +1070,40 @@ const superApp = {
             let isAdmin = roleStr.includes('admin') || roleStr.includes('owner');
             
             // =====================================================================
-            // 🚀 PERBAIKAN: SIMPAN IDENTITAS OWNER KE DALAM MEMORI SISTEM
-            // Jika kata 'owner' ada di database, jadikan dia owner. Jika tidak, jadikan kasir/admin.
+            // 🚀 SIMPAN IDENTITAS ROLE KE DALAM MEMORI SISTEM
             // =====================================================================
             this.userRole = roleStr.includes('owner') ? 'owner' : (roleStr.includes('admin') ? 'admin' : 'kasir');
             
+            // =====================================================================
+            // 🚀 PERBAIKAN KRITIS: KUNCI & NORMALISASI CABANG AKTIF (CEGAH TUKAR CABANG)
+            // =====================================================================
+            let cleanUserOutlet = String(user.Outlet || 'Penajam').replace(/^Ai\-Snack\s+/i, '').trim();
+
+            if (!isAdmin) {
+                // 🔒 JIKA KASIR BIASA: Paksa sistem KUNCI MUTLAK ke cabang penugasannya
+                this.outlet = cleanUserOutlet;
+            } else {
+                // 👑 JIKA OWNER / ADMIN: Gunakan cabang terakhir dari LocalStorage atau default ke 'Semua' / Cabang pertamanya
+                if (cleanUserOutlet === 'Pusat' || cleanUserOutlet === 'Semua') {
+                    let savedOutlet = localStorage.getItem('aisnack_active_outlet');
+                    this.outlet = savedOutlet || ((this.db.outlets || [])[0]?.Nama_Outlet || 'Semua');
+                } else {
+                    this.outlet = cleanUserOutlet;
+                }
+            }
+
+            // Simpan sinkronisasi outlet ke memori browser
+            localStorage.setItem('aisnack_active_outlet', this.outlet);
+            localStorage.setItem('aicha_active_outlet', this.outlet);
+
+            // Perbarui teks nama outlet di Header Utama seketika
+            if (typeof this.updateHeaderOutletName === 'function') {
+                this.updateHeaderOutletName();
+            } else {
+                const headerOutletEl = document.getElementById('header-outlet-name');
+                if (headerOutletEl) headerOutletEl.innerText = `Ai-CHA ${this.outlet}`;
+            }
+
             const adminMenus = document.getElementById('admin-menus'); 
             const selOut = document.getElementById('select-outlet'); 
             const repOut = document.getElementById('report-outlet-filter');
@@ -1094,8 +1124,9 @@ const superApp = {
                 
                 let outOptions = ''; let outFilters = '<option value="Semua">Semua Outlet</option>';
                 (this.db.outlets || []).forEach(o => { 
-                    outOptions += `<option value="${o.ID_Outlet}">📍 ${o.Nama_Outlet}</option>`; 
-                    outFilters += `<option value="${o.ID_Outlet}">Hanya: ${o.Nama_Outlet}</option>`; 
+                    let nmBersih = String(o.Nama_Outlet || o.ID_Outlet).replace(/^Ai\-Snack\s+/i, '').trim();
+                    outOptions += `<option value="${nmBersih}">📍 Ai-CHA ${nmBersih}</option>`; 
+                    outFilters += `<option value="${nmBersih}">Hanya: Ai-CHA ${nmBersih}</option>`; 
                 });
                 if (selOut) { selOut.innerHTML = outOptions; selOut.value = this.outlet; selOut.disabled = false; }
                 if (repOut) repOut.innerHTML = outFilters;
@@ -1107,9 +1138,14 @@ const superApp = {
                 });
 
             } else {
-                // AKSES KASIR BIASA
+                // AKSES KASIR BIASA (TERKUNCI KE CABANGNYA)
                 if (adminMenus) adminMenus.classList.add('hidden');
-                if (selOut) { selOut.classList.add('hidden'); selOut.innerHTML = `<option value="${this.outlet}">📍 ${this.outlet}</option>`; selOut.disabled = true; }
+                if (selOut) { 
+                    selOut.classList.add('hidden'); 
+                    selOut.innerHTML = `<option value="${this.outlet}">📍 Ai-CHA ${this.outlet}</option>`; 
+                    selOut.value = this.outlet;
+                    selOut.disabled = true; 
+                }
                 if (repOut) repOut.classList.add('hidden');
                 
                 // KUNCI SEMUA MENU PREMIUM
@@ -1123,9 +1159,12 @@ const superApp = {
             const sbar = document.getElementById('sidebar'); if (sbar) sbar.classList.remove('hidden');
             const mainApp = document.getElementById('main-app'); if (mainApp) mainApp.classList.remove('hidden');
 
-            this.updateNetworkUI(); this.syncOfflineQueue(); this.refreshData(); this.checkShiftStatus(); this.showToast(`Selamat datang, ${user.Username}!`);
+            this.updateNetworkUI(); 
+            this.syncOfflineQueue(); 
+            this.refreshData(); 
+            this.checkShiftStatus(); 
+            this.showToast(`Selamat datang, ${user.Username}! (Cabang: ${this.outlet})`);
             
-            localStorage.setItem('aisnack_active_outlet', this.outlet);
             this.updateCFDGreeting(); 
             if (!this.cfdTimer) {
                 this.cfdTimer = setInterval(() => { this.updateCFDGreeting(); }, 60000); 
@@ -1139,41 +1178,27 @@ const superApp = {
         this.isProcessing = false;
     },
     
+   // =========================================================
+    // 🚀 LOGOUT YANG BERSIH DAN AMAN
+    // =========================================================
     logout: function() {
-        // Minta konfirmasi agar tidak tidak sengaja terpencet
-        if (!confirm("Yakin ingin keluar dari akun ini? Anda harus memasukkan PIN lagi untuk masuk.")) return;
-        
-        this.setLoading(true, "Keluar dari sistem...");
+        // 1. Kosongkan memori variabel global
+        this.currentUser = null;
+        this.outlet = null; // 🚀 KUNCI: Reset outlet aktif
+        this.cart = [];
+        this.dailyExpensesList = [];
 
-        setTimeout(() => {
-            // 1. Bersihkan Data Sesi Kasir Saat Ini
-            this.currentUser = null;
-            this.activeShiftId = null; 
-            this.activeStaffTeam = [];
-            this.clearPin(); // Kosongkan bulatan PIN di layar awal
+        // 2. Hapus jejak sesi dari Local Storage browser
+        localStorage.removeItem('aicha_current_user');
+        localStorage.removeItem('aicha_active_outlet'); // 🚀 KUNCI: Hapus memori cabang lama
+        localStorage.removeItem('aisnack_cart');
 
-            // 2. Transisi UI Balik ke Layar Login
-            const ls = document.getElementById('login-screen');
-            const sbar = document.getElementById('sidebar');
-            const mainApp = document.getElementById('main-app');
+        // 3. Alihkan layar kembali ke tampilan Login PIN
+        document.querySelectorAll('.app-view').forEach(v => v.classList.add('hidden'));
+        let loginView = document.getElementById('view-login');
+        if (loginView) loginView.classList.remove('hidden');
 
-            if (ls) ls.classList.remove('hidden');
-            if (sbar) sbar.classList.add('hidden');
-            if (mainApp) mainApp.classList.add('hidden');
-
-            // 3. Pastikan Menu Sidebar Mobile tertutup rapat
-            const mobileOverlay = document.getElementById('mobile-overlay');
-            if (mobileOverlay) mobileOverlay.classList.add('hidden');
-            if (sbar && !sbar.classList.contains('-translate-x-full')) {
-                sbar.classList.add('-translate-x-full');
-            }
-
-            // 4. Kembali ke halaman utama (POS) agar saat login lagi layarnya rapi
-            this.switchMenu('pos');
-
-            this.setLoading(false);
-            this.showToast("Berhasil keluar dengan aman.", "success");
-        }, 500); // Beri sedikit delay agar terlihat proses loading
+        this.showToast("Berhasil keluar dari sistem", "info");
     },
 
    // ==========================================

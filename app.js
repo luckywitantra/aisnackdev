@@ -1055,126 +1055,119 @@ const superApp = {
     },
     processLogin: function() {
         if (this.isProcessing) return; this.isProcessing = true;
-        if (!this.db || !this.db.users) { this.showToast('Koneksi ke Database belum siap.', 'error'); this.clearPin(); this.isProcessing = false; return; }
+        if (!this.db || !this.db.users) { 
+            this.showToast('Koneksi ke Database belum siap.', 'error'); 
+            this.clearPin(); this.isProcessing = false; return; 
+        }
 
+        // 🚀 Cek PIN Kasir
         let user = this.db.users.find(u => String(u.PIN) === String(this.pinBuffer));
+        
         if (user) {
             this.currentUser = user; 
             
             const sbRole = document.getElementById('sb-role'); if (sbRole) sbRole.innerText = user.Role;
             const hInit = document.getElementById('header-initial'); if (hInit) hInit.innerText = user.Username.charAt(0).toUpperCase();
 
-            // Deteksi Role Admin / Owner
             let roleStr = String(user.Role).toLowerCase();
             let isAdmin = roleStr.includes('admin') || roleStr.includes('owner');
-            
-            // =====================================================================
-            // 🚀 SIMPAN IDENTITAS ROLE KE DALAM MEMORI SISTEM
-            // =====================================================================
             this.userRole = roleStr.includes('owner') ? 'owner' : (roleStr.includes('admin') ? 'admin' : 'kasir');
             
             // =====================================================================
-            // 🚀 PERBAIKAN KRITIS: KUNCI & NORMALISASI CABANG AKTIF (CEGAH TUKAR CABANG)
+            // 🚀 NORMALISASI MUTLAK: BERSIHKAN TEKS CABANG DARI AWALAN "AI-SNACK"
             // =====================================================================
             let cleanUserOutlet = String(user.Outlet || 'Penajam').replace(/^Ai\-Snack\s+/i, '').trim();
 
             if (!isAdmin) {
-                // 🔒 JIKA KASIR BIASA: Paksa sistem KUNCI MUTLAK ke cabang penugasannya
+                // 🔒 KUNCI MUTLAK KASIR: Paksa sistem hanya menggunakan cabang penugasan kasir
                 this.outlet = cleanUserOutlet;
             } else {
-                // 👑 JIKA OWNER / ADMIN: Gunakan cabang terakhir dari LocalStorage atau default ke 'Semua' / Cabang pertamanya
+                // 👑 OWNER / ADMIN: Gunakan cabang terakhir atau default
                 if (cleanUserOutlet === 'Pusat' || cleanUserOutlet === 'Semua') {
                     let savedOutlet = localStorage.getItem('aisnack_active_outlet');
-                    this.outlet = savedOutlet || ((this.db.outlets || [])[0]?.Nama_Outlet || 'Semua');
+                    this.outlet = savedOutlet || ((this.db.outlets || [])[0]?.ID_Outlet || 'Penajam');
                 } else {
                     this.outlet = cleanUserOutlet;
                 }
             }
 
-            // Simpan sinkronisasi outlet ke memori browser
+            // Normalisasi sekali lagi agar tidak ada spasi sisa
+            this.outlet = String(this.outlet).replace(/^Ai\-Snack\s+/i, '').trim();
+
+            // Kunci ke memori browser
             localStorage.setItem('aisnack_active_outlet', this.outlet);
             localStorage.setItem('aicha_active_outlet', this.outlet);
 
-            // Perbarui teks nama outlet di Header Utama seketika
-            if (typeof this.updateHeaderOutletName === 'function') {
-                this.updateHeaderOutletName();
-            } else {
-                const headerOutletEl = document.getElementById('header-outlet-name');
-                if (headerOutletEl) headerOutletEl.innerText = `Ai-CHA ${this.outlet}`;
-            }
-
+            // Kontrol Tampilan Menu UI
             const adminMenus = document.getElementById('admin-menus'); 
             const selOut = document.getElementById('select-outlet'); 
             const repOut = document.getElementById('report-outlet-filter');
-
-            // List ID kartu pengaturan premium
-            const premiumCards = [
-                'setting-card-standby', 
-                'setting-card-transaksi', 
-                'setting-card-logo', 
-                'setting-card-struk'
-            ];
+            const premiumCards = ['setting-card-standby', 'setting-card-transaksi', 'setting-card-logo', 'setting-card-struk'];
 
             if (isAdmin) {
-                // AKSES ADMIN/OWNER
                 if (adminMenus) adminMenus.classList.remove('hidden'); 
                 if (selOut) selOut.classList.remove('hidden'); 
                 if (repOut) repOut.classList.remove('hidden');
                 
                 let outOptions = ''; let outFilters = '<option value="Semua">Semua Outlet</option>';
                 (this.db.outlets || []).forEach(o => { 
-                    let nmBersih = String(o.Nama_Outlet || o.ID_Outlet).replace(/^Ai\-Snack\s+/i, '').trim();
-                    outOptions += `<option value="${nmBersih}">📍 Ai-CHA ${nmBersih}</option>`; 
-                    outFilters += `<option value="${nmBersih}">Hanya: Ai-CHA ${nmBersih}</option>`; 
+                    let idClean = String(o.ID_Outlet || o.Nama_Outlet).replace(/^Ai\-Snack\s+/i, '').trim();
+                    outOptions += `<option value="${idClean}">📍 Ai-CHA ${idClean}</option>`; 
+                    outFilters += `<option value="${idClean}">Hanya: Ai-CHA ${idClean}</option>`; 
                 });
                 if (selOut) { selOut.innerHTML = outOptions; selOut.value = this.outlet; selOut.disabled = false; }
                 if (repOut) repOut.innerHTML = outFilters;
                 
-                // BUKA KUNCI SEMUA MENU PREMIUM
-                premiumCards.forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) el.classList.remove('hidden');
-                });
-
+                premiumCards.forEach(id => { const el = document.getElementById(id); if (el) el.classList.remove('hidden'); });
             } else {
-                // AKSES KASIR BIASA (TERKUNCI KE CABANGNYA)
                 if (adminMenus) adminMenus.classList.add('hidden');
                 if (selOut) { 
                     selOut.classList.add('hidden'); 
                     selOut.innerHTML = `<option value="${this.outlet}">📍 Ai-CHA ${this.outlet}</option>`; 
-                    selOut.value = this.outlet;
-                    selOut.disabled = true; 
+                    selOut.value = this.outlet; selOut.disabled = true; 
                 }
                 if (repOut) repOut.classList.add('hidden');
-                
-                // KUNCI SEMUA MENU PREMIUM
-                premiumCards.forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) el.classList.add('hidden');
-                });
+                premiumCards.forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('hidden'); });
             }
 
             const ls = document.getElementById('login-screen'); if (ls) ls.classList.add('hidden');
             const sbar = document.getElementById('sidebar'); if (sbar) sbar.classList.remove('hidden');
             const mainApp = document.getElementById('main-app'); if (mainApp) mainApp.classList.remove('hidden');
 
+            // 🚀 PERBAIKAN KRITIS: Panggil refreshData() langsung agar Produk & Header 100% tersinkronisasi!
+            this.refreshData(); 
             this.updateNetworkUI(); 
             this.syncOfflineQueue(); 
-            this.refreshData(); 
             this.checkShiftStatus(); 
+            
             this.showToast(`Selamat datang, ${user.Username}! (Cabang: ${this.outlet})`);
             
             this.updateCFDGreeting(); 
             if (!this.cfdTimer) {
                 this.cfdTimer = setInterval(() => { this.updateCFDGreeting(); }, 60000); 
             }
-
             this.autoConnectPrinter();
 
         } else { 
             this.showToast('PIN Tidak Dikenali', 'error'); this.clearPin(); 
         }
         this.isProcessing = false;
+    },
+
+    updateHeaderOutletName: function() {
+        const outletNameEl = document.getElementById('header-outlet-name');
+        if (outletNameEl) {
+            // Bersihkan variabel outlet aktif dari awalan
+            let cleanCurrent = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+            let outletData = (this.db.outlets || []).find(o => {
+                let idClean = String(o.ID_Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+                let nmClean = String(o.Nama_Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+                return idClean === cleanCurrent || nmClean === cleanCurrent;
+            });
+            
+            // Selalu cetak dengan format standar yang rapi
+            outletNameEl.innerText = outletData ? `Ai-CHA ${cleanCurrent}` : `Ai-CHA ${cleanCurrent}`;
+        }
     },
     
   
@@ -7870,15 +7863,7 @@ executeVoidTrx: async function(trxId) {
 
 
 
-// 2. Fungsi Header (Pastikan fungsi ini ada)
-updateHeaderOutletName: function() {
-    const outletNameEl = document.getElementById('header-outlet-name');
-    if (outletNameEl) {
-        // Cari nama outlet berdasarkan ID
-        let outletData = (this.db.outlets || []).find(o => o.ID_Outlet === this.outlet);
-        outletNameEl.innerText = outletData ? outletData.Nama_Outlet : this.outlet;
-    }
-},
+
     openOutletSelector: function() {
         const listEl = document.getElementById('outlet-selector-list');
         if (!listEl) return;

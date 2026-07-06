@@ -2123,8 +2123,45 @@ const superApp = {
         const mobCont = document.getElementById('laporan-harian-mobile');
         let deskHtml = ''; let mobHtml = ''; let count = 0;
 
+        // 🚀 BACA INPUT FILTER TANGGAL AWAL & AKHIR
+        let startDateVal = document.getElementById('filter-lap-start')?.value; // YYYY-MM-DD
+        let endDateVal = document.getElementById('filter-lap-end')?.value;     // YYYY-MM-DD
+        
+        let startObj = startDateVal ? new Date(startDateVal) : null;
+        if (startObj) startObj.setHours(0, 0, 0, 0);
+
+        let endObj = endDateVal ? new Date(endDateVal) : null;
+        if (endObj) endObj.setHours(23, 59, 59, 999);
+
         let isConsolidated = (this.outlet === 'Pusat' || this.outlet === 'Semua' || !this.outlet);
-        let list = [...(this.db.laporanHarian || [])].filter(x => isConsolidated || x.Outlet === this.outlet).reverse();
+
+        // Filter daftar laporan dari database
+        let list = [...(this.db.laporanHarian || [])].filter(x => {
+            // Normalisasi nama outlet agar cocok
+            let repOutlet = String(x.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+            let currOutlet = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+            
+            let cocokOutlet = isConsolidated || (repOutlet === currOutlet);
+            if (!cocokOutlet) return false;
+
+            // 🚀 COCOKKAN DENGAN RENTANG TANGGAL (JIKA DIISI)
+            if (startObj || endObj) {
+                let cleanStr = (x.Tanggal || '').split(',').pop().trim();
+                let match = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+                if (match) {
+                    let rDay = parseInt(match[1], 10);
+                    let rMonth = parseInt(match[2], 10) - 1; // Bulan JS dimulai dari 0
+                    let rYear = parseInt(match[3], 10);
+                    let repDateObj = new Date(rYear, rMonth, rDay);
+
+                    if (startObj && repDateObj < startObj) return false;
+                    if (endObj && repDateObj > endObj) return false;
+                } else {
+                    return false;
+                }
+            }
+            return true;
+        }).reverse();
 
         list.forEach(item => {
             count++;
@@ -2132,11 +2169,9 @@ const superApp = {
             let cash = Number(item.Cash || 0);
             let qris = Number(item.QRIS || 0);
             
-            // 🚀 1. Deteksi Status & Role Pengguna
             let status = item.Status_Approval || 'Disetujui';
             let isOwner = this.currentUser && (this.currentUser.Role === 'owner' || this.currentUser.Role === 'supervisor');
 
-            // 🚀 2. Buat Badge Peringatan Status
             let badgeStatus = '';
             if (status === 'Pending Edit') {
                 badgeStatus = `<span class="mt-1 inline-block bg-amber-100 text-amber-700 border border-amber-300 px-2 py-0.5 rounded-md text-[9px] font-black animate-pulse"><i class="fas fa-clock mr-1"></i>Menunggu Persetujuan Edit</span>`;
@@ -2144,7 +2179,6 @@ const superApp = {
                 badgeStatus = `<span class="mt-1 inline-block bg-rose-100 text-rose-600 border border-rose-200 px-2 py-0.5 rounded-md text-[9px] font-black"><i class="fas fa-xmark mr-1"></i>Revisi Ditolak Owner</span>`;
             }
 
-            // 🚀 3. Baca Kotak Revisi & Tampilkan Rincian Perubahan Angka
             let infoRevisi = '';
             if (status === 'Pending Edit') {
                 try {
@@ -2161,7 +2195,6 @@ const superApp = {
                 } catch(e){}
             }
 
-            // 🚀 4. Buat Tombol Eksekusi Khusus Owner (Hanya muncul saat status 'Pending Edit')
             let tombolOwnerDesk = (status === 'Pending Edit' && isOwner) ? `
                 <div class="flex gap-1 mt-1.5 pt-1.5 border-t border-slate-200">
                     <button type="button" onclick="superApp.eksekusiApprovalEdit('${item.ID_Laporan}', 'Disetujui')" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-1 px-1.5 rounded text-[10px] font-black shadow-2xs transition active:scale-95" title="Setujui Revisi">✔ Setujui</button>
@@ -2176,7 +2209,6 @@ const superApp = {
                 </div>
             ` : '';
 
-            // 🚀 5. Render HTML Baris Tabel Desktop
             deskHtml += `
             <tr class="border-b border-slate-50 hover:bg-slate-50 transition report-row ${status === 'Pending Edit' ? 'bg-amber-50/40' : ''}" data-date="${item.Tanggal}">
                 <td class="py-3 px-4">
@@ -2197,7 +2229,6 @@ const superApp = {
                 </td>
             </tr>`;
 
-            // 🚀 6. Render HTML Kartu Mobile HP
             mobHtml += `
             <div class="bg-white p-4 rounded-2xl border ${status === 'Pending Edit' ? 'border-amber-300 bg-amber-50/20' : 'border-slate-100'} shadow-2xs flex flex-col gap-2.5 report-mob-card" data-date="${item.Tanggal}">
                 <div class="flex justify-between items-start pb-2 border-b border-slate-100">
@@ -2222,8 +2253,8 @@ const superApp = {
             </div>`;
         });
 
-        if (tbody) tbody.innerHTML = deskHtml || `<tr><td colspan="5" class="py-10 text-center text-slate-400 font-bold text-xs">Belum ada riwayat laporan harian</td></tr>`;
-        if (mobCont) mobCont.innerHTML = mobHtml || `<div class="p-6 text-center text-slate-400 text-xs font-bold border-2 border-dashed border-slate-200 rounded-2xl bg-white/50">Belum ada riwayat laporan harian</div>`;
+        if (tbody) tbody.innerHTML = deskHtml || `<tr><td colspan="5" class="py-10 text-center text-slate-400 font-bold text-xs">Belum ada riwayat laporan pada rentang tanggal ini</td></tr>`;
+        if (mobCont) mobCont.innerHTML = mobHtml || `<div class="p-6 text-center text-slate-400 text-xs font-bold border-2 border-dashed border-slate-200 rounded-2xl bg-white/50">Belum ada riwayat laporan pada rentang tanggal ini</div>`;
         if (document.getElementById('laporan-harian-count')) document.getElementById('laporan-harian-count').innerText = `${count} Laporan`;
     },
 

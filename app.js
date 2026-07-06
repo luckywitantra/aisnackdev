@@ -1925,6 +1925,9 @@ const superApp = {
    // =========================================================
     // 🚀 SUBMIT LAPORAN (STAF EDIT MASUK KE KOTAK REVISI)
     // =========================================================
+    // =========================================================
+    // 🚀 SUBMIT LAPORAN (DILENGKAPI POPUP FORWARD WA)
+    // =========================================================
     submitLaporanHarian: async function() {
         if (this.isProcessing) return;
         let cash = this.getNumericValue(document.getElementById('daily-cash')?.value || 0);
@@ -1973,7 +1976,7 @@ const superApp = {
 
         if (isEdit) {
             if (statusApp === 'Pending Edit' && idx > -1) {
-                // 🚀 STAF EDIT: Jangan sentuh angka asli di memori! Taruh di Revisi_JSON
+                // 🚀 STAF EDIT: Taruh di Kotak Revisi (Revisi_JSON)
                 this.db.laporanHarian[idx].Status_Approval = 'Pending Edit';
                 this.db.laporanHarian[idx].Revisi_JSON = JSON.stringify({
                     cash, qris, net_sales: netSales, bill, pcs, 
@@ -1998,17 +2001,56 @@ const superApp = {
         }
         localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
 
+        // Kirim ke server di background
         await this.apiPost(payload);
         this.setLoading(false);
         
+        // 🚀 PREVIEW NOTIFIKASI
         if (statusApp === 'Pending Edit') {
-            alert("⏳ REVISI TERKIRIM KE OWNER\n\nAngka laporan resmi TIDAK AKAN BERUBAH sebelum disetujui oleh Owner.");
+            alert("⏳ REVISI TERKIRIM KE OWNER\n\nAngka laporan resmi di database belum berubah sebelum disetujui Owner. Namun Anda tetap bisa meneruskan format revisi ini ke WA Grup.");
         } else {
             this.showToast("Laporan Berhasil Tersimpan!");
         }
         
+        // 🚀 RAKIT TEKS WA & MUNLCULKAN POPUP FORWARD KE GRUP
+        let amountPaid = bill > 0 ? Math.round(netSales / bill) : 0;
+        let amountPcs = pcs > 0 ? Math.round(netSales / pcs) : 0;
+        
+        let expText = '-';
+        if (expValid.length > 0) {
+            expText = expValid.map(x => `▪️ ${x.nama}: Rp ${Number(x.nominal).toLocaleString('id-ID')}`).join('\n');
+        }
+
+        let labelJudul = (statusApp === 'Pending Edit') ? `*[ PENGAJUAN REVISI LAPORAN ]*` : `*Laporan Harian Ai-CHA*`;
+        
+        let waText = `${labelJudul}\nOutlet: *Ai-CHA ${this.outlet}*\nTanggal: ${tglTeks}\nCuaca: ${cuaca}\nKasir: ${payload.kasir}\n\n`;
+        waText += `Net Sales: *Rp ${netSales.toLocaleString('id-ID')}*\n`;
+        waText += `Amount Paid: Rp ${amountPaid.toLocaleString('id-ID')}\n`;
+        waText += `Amount Pcs: Rp ${amountPcs.toLocaleString('id-ID')}\n`;
+        waText += `Bill: ${bill.toLocaleString('id-ID')} Bill\n`;
+        waText += `Produk Terjual: ${pcs.toLocaleString('id-ID')} Pcs\n\n`;
+        waText += `Rincian Pembayaran:\n`;
+        waText += `💵 Cash: Rp ${cash.toLocaleString('id-ID')}\n`;
+        waText += `💳 QRIS: Rp ${qris.toLocaleString('id-ID')}\n`;
+        
+        if (totExp > 0) {
+            waText += `\nPengeluaran:\n${expText}\nTotal Pengeluaran: Rp ${totExp.toLocaleString('id-ID')}\n`;
+            waText += `*Net Cash Laci: Rp ${(cash - totExp).toLocaleString('id-ID')}*\n`;
+        }
+        
+        waText += `\nAkumulasi Bulanan: Rp ${(this.currentAccumMonth || netSales).toLocaleString('id-ID')}\n`;
+        waText += `Target Bulanan: Rp ${this.targetBulanan.toLocaleString('id-ID')}`;
+
+        // Reset form & perbarui tabel riwayat di latar belakang
         this.resetDailyForm();
         this.renderLaporanHarianHistory();
+
+        // 🚀 MUNLCULKAN MODAL POPUP WA SECARA OTOMATIS
+        if (typeof this.showWaModal === 'function') {
+            this.showWaModal(waText);
+        } else if (typeof this.resendLaporanHarianWa === 'function') {
+            this.resendLaporanHarianWa(idRep);
+        }
     },
 
     // =========================================================

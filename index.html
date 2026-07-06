@@ -741,21 +741,25 @@
 <!-- ========================================================= -->
 <!-- VIEW: LAPORAN HARIAN USAHA AI-CHA (MODERN ENTERPRISE UI)  -->
 <!-- ========================================================= -->
+<!-- ========================================================= -->
+<!-- VIEW: LAPORAN HARIAN USAHA AI-CHA (MODERN ENTERPRISE UI)  -->
+<!-- ========================================================= -->
 <div id="view-laporan-harian" class="app-view hidden flex-col h-full pb-28 lg:pb-6 transition-all duration-300">
     <div class="bg-[#f4f7f9] rounded-[2rem] lg:rounded-[2.5rem] shadow-sm border border-slate-200/60 flex flex-col h-full min-h-0 overflow-hidden relative">
 
-      <!-- 🚀 BAR PEMILIH OUTLET KHUSUS OWNER/SPV (SAMA SEPERTI RIWAYAT & REKAP) -->
+        <!-- 🚀 BAR PEMILIH OUTLET KHUSUS OWNER/SPV (SAMA SEPERTI RIWAYAT & REKAP) -->
         <div id="lapharian-owner-outlet-bar" class="hidden bg-slate-900 px-4 py-2.5 md:px-8 shrink-0 flex items-center justify-between border-b border-slate-800 z-30">
             <div class="flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                 <span class="text-[10px] md:text-xs font-black text-slate-300 uppercase tracking-widest">Filter Laporan Cabang:</span>
             </div>
-            <div class="flex items-center gap-1.5">
+            <div class="flex items-center gap-1.5 overflow-x-auto custom-scroll no-scrollbar py-0.5">
                 <!-- Tombol Semua Cabang (Konsolidasi Eksekutif) -->
-                <button type="button" onclick="superApp.filterLaporanByOutlet('Semua')" id="btn-lap-outlet-Semua" class="btn-lap-outlet px-3 py-1 rounded-lg text-xs font-black bg-rose-500 text-white shadow-2xs transition active:scale-95 flex items-center gap-1">
+                <button type="button" onclick="superApp.filterLaporanByOutlet('Semua')" id="btn-lap-outlet-Semua" class="btn-lap-outlet px-3 py-1 rounded-lg text-xs font-black bg-rose-500 text-white shadow-2xs transition active:scale-95 flex items-center gap-1 shrink-0">
                     <i class="fas fa-layer-group text-[10px]"></i> Semua Cabang
                 </button>
-               
+                <!-- Wadah Tombol Cabang Dinamis (Di-inject JavaScript) -->
+                <div id="lapharian-dynamic-outlets" class="flex items-center gap-1.5 shrink-0"></div>
             </div>
         </div>
       
@@ -1008,6 +1012,50 @@
             </div>
 
         </div>
+
+        <!-- ========================================================= -->
+        <!-- 🚀 MODAL POPUP FORWARD WA KHUSUS LAPORAN HARIAN -->
+        <!-- ========================================================= -->
+        <div id="modal-wa-laporan-harian" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4 animate-fade-in">
+            <div class="bg-white rounded-[2rem] shadow-2xl border border-slate-100 w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
+                
+                <!-- Header Modal -->
+                <div class="bg-gradient-to-r from-emerald-500 to-teal-600 p-5 text-white flex items-center justify-between shrink-0">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-xl shadow-inner">
+                            <i class="fab fa-whatsapp"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-black text-base md:text-lg leading-tight">Forward ke WhatsApp</h3>
+                            <p class="text-[10px] text-emerald-100 font-bold uppercase tracking-wider">Kirim ke Owner & Grup Cabang</p>
+                        </div>
+                    </div>
+                    <button type="button" onclick="superApp.closeWaLaporanModal()" class="w-8 h-8 rounded-full bg-black/10 hover:bg-black/20 text-white flex items-center justify-center transition active:scale-90">
+                        <i class="fas fa-xmark text-sm"></i>
+                    </button>
+                </div>
+
+                <!-- Isi Preview Teks WA -->
+                <div class="p-5 overflow-y-auto custom-scroll flex-1 space-y-3">
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Preview Teks Laporan:</label>
+                    <div class="relative">
+                        <textarea id="wa-laporan-preview-text" readonly class="w-full h-60 bg-slate-50 border-2 border-slate-200 rounded-2xl p-3.5 text-xs font-mono text-slate-700 outline-none resize-none custom-scroll leading-relaxed select-all"></textarea>
+                    </div>
+                </div>
+
+                <!-- Footer Tombol Aksi -->
+                <div class="p-4 bg-slate-50 border-t border-slate-100 flex gap-2.5 shrink-0">
+                    <button type="button" onclick="superApp.copyWaLaporanText()" id="btn-copy-wa-lap" class="flex-1 py-3 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-black rounded-xl text-xs transition active:scale-95 flex items-center justify-center gap-1.5 shadow-2xs">
+                        <i class="fas fa-copy text-slate-400"></i> Salin Teks
+                    </button>
+                    <button type="button" onclick="superApp.sendWaLaporanNow()" class="flex-[1.5] py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl text-xs shadow-lg shadow-emerald-500/25 transition active:scale-95 flex items-center justify-center gap-1.5">
+                        <i class="fab fa-whatsapp text-base"></i> Kirim Sekarang
+                    </button>
+                </div>
+
+            </div>
+        </div>
+
     </div>
 </div>
       

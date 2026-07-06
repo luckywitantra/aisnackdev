@@ -1681,9 +1681,6 @@ const superApp = {
         }
     },
 
-    // =========================================================
-    // 🚀 ENGINE FILTER OUTLET LAPORAN HARIAN (SINKRON RIWAYAT)
-    // =========================================================
    // =========================================================
     // 🚀 ENGINE FILTER OUTLET LAPORAN HARIAN (SINKRON UTAMA)
     // =========================================================
@@ -2640,108 +2637,6 @@ changeOutlet: function(val) {
         this.showToast("Menampilkan konsolidasi bulan berjalan");
     },
 
-    
-
-    // =========================================================
-    // 🚀 CONTROLLER POPUP MODAL KALENDER LAPORAN
-    // =========================================================
-    openCalendarModal: function() {
-        const modal = document.getElementById('modal-kalender-laporan');
-        if (modal) {
-            modal.classList.remove('hidden');
-            this.renderCalendar(); // Render kalender tepat di dalam modal
-        }
-    },
-
-    closeCalendarModal: function() {
-        const modal = document.getElementById('modal-kalender-laporan');
-        if (modal) modal.classList.add('hidden');
-    },
-
-    renderCalendar: function() {
-        // 1. Hitung ringkasan untuk Kartu Pemicu Kalender
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = now.getMonth();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        let currentDayNum = now.getDate(); // Tanggal hari ini
-
-        let isConsolidated = (this.outlet === 'Pusat' || this.outlet === 'Semua' || !this.outlet);
-        let currOutletClean = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
-
-        // Kumpulkan tanggal yang sudah diisi bulan ini
-        const terisiDates = (this.db.laporanHarian || []).filter(x => {
-            if (x.Status_Approval === 'Ditolak') return false;
-            let repOutlet = String(x.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
-            return isConsolidated || repOutlet === currOutletClean;
-        }).map(l => {
-            let cleanStr = (l.Tanggal || '').split(',').pop().trim();
-            let match = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-            if (match) {
-                // Return YYYY-M-D
-                return `${parseInt(match[3], 10)}-${parseInt(match[2], 10)}-${parseInt(match[1], 10)}`;
-            }
-            return '';
-        });
-
-        // Hitung jumlah hari terisi sampai hari ini
-        let terisiCount = 0;
-        for(let d = 1; d <= currentDayNum; d++) {
-            if (terisiDates.includes(`${year}-${month + 1}-${d}`)) terisiCount++;
-        }
-        let kosongCount = Math.max(0, currentDayNum - terisiCount);
-
-        // Update Kartu Ringkasan Kalender di Layar Utama
-        if (document.getElementById('calendar-summary-month')) {
-            document.getElementById('calendar-summary-month').innerText = now.toLocaleString('id-ID', { month: 'long', year: 'numeric' });
-        }
-        if (document.getElementById('cal-stat-terisi')) document.getElementById('cal-stat-terisi').innerText = `${terisiCount} Hari`;
-        if (document.getElementById('cal-stat-kosong')) document.getElementById('cal-stat-kosong').innerText = `${kosongCount} Hari`;
-
-        // 2. Render Grid Kalender ke dalam Modal Popup
-        const grid = document.getElementById('modal-calendar-grid');
-        const modalTitle = document.getElementById('modal-cal-month-title');
-        if (!grid) return;
-
-        if (modalTitle) modalTitle.innerText = now.toLocaleString('id-ID', { month: 'long', year: 'numeric' });
-
-        const firstDay = new Date(year, month, 1).getDay(); 
-        
-        grid.innerHTML = `
-            <div class="text-slate-400 py-1.5 font-black">Sen</div><div class="text-slate-400 py-1.5 font-black">Sel</div><div class="text-slate-400 py-1.5 font-black">Rab</div>
-            <div class="text-slate-400 py-1.5 font-black">Kam</div><div class="text-slate-400 py-1.5 font-black">Jum</div><div class="text-slate-400 py-1.5 font-black">Sab</div><div class="text-slate-400 py-1.5 font-black">Min</div>
-        `;
-        
-        let offset = (firstDay === 0) ? 6 : firstDay - 1;
-        for(let i = 0; i < offset; i++) {
-            grid.appendChild(document.createElement('div'));
-        }
-        
-        for(let d = 1; d <= daysInMonth; d++) {
-            let dateKey = `${year}-${month + 1}-${d}`;
-            let isDone = terisiDates.includes(dateKey);
-            
-            let div = document.createElement('div');
-            div.className = `aspect-square h-10 mx-auto flex items-center justify-center rounded-2xl text-xs font-black cursor-pointer transition-all active:scale-90 ${
-                isDone 
-                ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30' 
-                : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border border-slate-200/60'
-            }`;
-            div.innerText = d;
-            
-            div.onclick = () => {
-                let pad = n => String(n).padStart(2, '0');
-                let tglPilihan = `${year}-${pad(month + 1)}-${pad(d)}`;
-                
-                if (typeof this.applyBackdate === 'function') {
-                    this.applyBackdate(tglPilihan);
-                }
-                this.closeCalendarModal();
-                this.showToast(`Memilih laporan tanggal: ${d}-${month+1}-${year}`);
-            };
-            grid.appendChild(div);
-        }
-    },
 
     // =========================================================
     // 🚀 CONTROLLER ACCORDION EXPENSE BREAKDOWN EKSEKUTIF
@@ -3075,6 +2970,191 @@ changeOutlet: function(val) {
                     </div>`;
                 }).join('');
             }
+        }
+    },
+
+    // =========================================================
+    // 🚀 CONTROLLER DATEPICKER INPUT KUSTOM YANG CANTIK
+    // =========================================================
+    inputDatepickerYear: new Date().getFullYear(),
+    inputDatepickerMonth: new Date().getMonth(),
+    calendarModalYear: new Date().getFullYear(),
+    calendarModalMonth: new Date().getMonth(),
+
+    openInputDatepickerModal: function() {
+        // Cek izin (Hanya Owner/Supervisor atau otorisasi)
+        let isOwner = this.currentUser && (this.currentUser.Role === 'owner' || this.currentUser.Role === 'supervisor');
+        if (!isOwner) {
+            let pin = prompt("🔒 Masukkan PIN Owner / Supervisor untuk mengganti tanggal laporan:");
+            let spv = (this.db.users || []).find(u => (u.Role === 'owner' || u.Role === 'supervisor') && String(u.PIN) === String(pin));
+            if (!spv) return this.showToast("PIN Otorisasi Salah!", "error");
+        }
+
+        const modal = document.getElementById('modal-datepicker-input');
+        if (modal) {
+            modal.classList.remove('hidden');
+            this.renderInputDatepickerGrid();
+        }
+    },
+
+    closeInputDatepickerModal: function() {
+        const modal = document.getElementById('modal-datepicker-input');
+        if (modal) modal.classList.add('hidden');
+    },
+
+    navInputDatepicker: function() {
+        this.inputDatepickerMonth += dir;
+        if (this.inputDatepickerMonth < 0) {
+            this.inputDatepickerMonth = 11;
+            this.inputDatepickerYear--;
+        } else if (this.inputDatepickerMonth > 11) {
+            this.inputDatepickerMonth = 0;
+            this.inputDatepickerYear++;
+        }
+        this.renderInputDatepickerGrid();
+    },
+
+    renderInputDatepickerGrid: function() {
+        const grid = document.getElementById('input-datepicker-grid');
+        const title = document.getElementById('input-datepicker-month-year');
+        if (!grid) return;
+
+        let y = this.inputDatepickerYear;
+        let m = this.inputDatepickerMonth;
+        let dDate = new Date(y, m, 1);
+        
+        if (title) title.innerText = dDate.toLocaleString('id-ID', { month: 'long', year: 'numeric' });
+
+        const firstDay = dDate.getDay();
+        const daysInMonth = new Date(y, m + 1, 0).getDate();
+
+        grid.innerHTML = `
+            <div class="text-slate-400 py-1 font-black">Sen</div><div class="text-slate-400 py-1 font-black">Sel</div><div class="text-slate-400 py-1 font-black">Rab</div>
+            <div class="text-slate-400 py-1 font-black">Kam</div><div class="text-slate-400 py-1 font-black">Jum</div><div class="text-slate-400 py-1 font-black">Sab</div><div class="text-slate-400 py-1 font-black">Min</div>
+        `;
+
+        let offset = (firstDay === 0) ? 6 : firstDay - 1;
+        for(let i = 0; i < offset; i++) {
+            grid.appendChild(document.createElement('div'));
+        }
+
+        let today = new Date();
+        for(let d = 1; d <= daysInMonth; d++) {
+            let isToday = (d === today.getDate() && m === today.getMonth() && y === today.getFullYear());
+            let div = document.createElement('div');
+            div.className = `aspect-square h-9 mx-auto flex items-center justify-center rounded-xl text-xs font-black cursor-pointer transition-all active:scale-90 ${
+                isToday ? 'bg-rose-500 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200/60'
+            }`;
+            div.innerText = d;
+            div.onclick = () => {
+                let pad = n => String(n).padStart(2, '0');
+                let tglPilihan = `${y}-${pad(m + 1)}-${pad(d)}`;
+                this.applyBackdate(tglPilihan);
+                this.closeInputDatepickerModal();
+            };
+            grid.appendChild(div);
+        }
+    },
+
+    // =========================================================
+    // 🚀 CONTROLLER POPUP MODAL KALENDER LAPORAN (MULTI-BULAN)
+    // =========================================================
+    openCalendarModal: function() {
+        const modal = document.getElementById('modal-kalender-laporan');
+        if (modal) {
+            modal.classList.remove('hidden');
+            let now = new Date();
+            this.calendarModalYear = now.getFullYear();
+            this.calendarModalMonth = now.getMonth();
+            this.renderCalendar();
+        }
+    },
+
+    closeCalendarModal: function() {
+        const modal = document.getElementById('modal-kalender-laporan');
+        if (modal) modal.classList.add('hidden');
+    },
+
+    navCalendarModal: function() {
+        if (dir === 0) {
+            let now = new Date();
+            this.calendarModalYear = now.getFullYear();
+            this.calendarModalMonth = now.getMonth();
+        } else {
+            this.calendarModalMonth += dir;
+            if (this.calendarModalMonth < 0) {
+                this.calendarModalMonth = 11;
+                this.calendarModalYear--;
+            } else if (this.calendarModalMonth > 11) {
+                this.calendarModalMonth = 0;
+                this.calendarModalYear++;
+            }
+        }
+        this.renderCalendar();
+    },
+
+    renderCalendar: function() {
+        const year = this.calendarModalYear || new Date().getFullYear();
+        const month = this.calendarModalMonth !== undefined ? this.calendarModalMonth : new Date().getMonth();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        let isConsolidated = (this.outlet === 'Pusat' || this.outlet === 'Semua' || !this.outlet);
+        let currOutletClean = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+
+        const terisiDates = (this.db.laporanHarian || []).filter(x => {
+            if (x.Status_Approval === 'Ditolak') return false;
+            let repOutlet = String(x.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+            return isConsolidated || repOutlet === currOutletClean;
+        }).map(l => {
+            let cleanStr = (l.Tanggal || '').split(',').pop().trim();
+            let match = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+            if (match) {
+                return `${parseInt(match[3], 10)}-${parseInt(match[2], 10)}-${parseInt(match[1], 10)}`;
+            }
+            return '';
+        });
+
+        const grid = document.getElementById('modal-calendar-grid');
+        const modalTitle = document.getElementById('modal-cal-month-title');
+        if (!grid) return;
+
+        let dDate = new Date(year, month, 1);
+        if (modalTitle) modalTitle.innerText = dDate.toLocaleString('id-ID', { month: 'long', year: 'numeric' });
+
+        const firstDay = dDate.getDay(); 
+        
+        grid.innerHTML = `
+            <div class="text-slate-400 py-1.5 font-black">Sen</div><div class="text-slate-400 py-1.5 font-black">Sel</div><div class="text-slate-400 py-1.5 font-black">Rab</div>
+            <div class="text-slate-400 py-1.5 font-black">Kam</div><div class="text-slate-400 py-1.5 font-black">Jum</div><div class="text-slate-400 py-1.5 font-black">Sab</div><div class="text-slate-400 py-1.5 font-black">Min</div>
+        `;
+        
+        let offset = (firstDay === 0) ? 6 : firstDay - 1;
+        for(let i = 0; i < offset; i++) {
+            grid.appendChild(document.createElement('div'));
+        }
+        
+        for(let d = 1; d <= daysInMonth; d++) {
+            let dateKey = `${year}-${month + 1}-${d}`;
+            let isDone = terisiDates.includes(dateKey);
+            
+            let div = document.createElement('div');
+            div.className = `aspect-square h-10 mx-auto flex items-center justify-center rounded-2xl text-xs font-black cursor-pointer transition-all active:scale-90 ${
+                isDone 
+                ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30' 
+                : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border border-slate-200/60'
+            }`;
+            div.innerText = d;
+            
+            div.onclick = () => {
+                let pad = n => String(n).padStart(2, '0');
+                let tglPilihan = `${year}-${pad(month + 1)}-${pad(d)}`;
+                if (typeof this.applyBackdate === 'function') {
+                    this.applyBackdate(tglPilihan);
+                }
+                this.closeCalendarModal();
+                this.showToast(`Memilih laporan tanggal: ${d}-${month+1}-${year}`);
+            };
+            grid.appendChild(div);
         }
     },
 

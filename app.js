@@ -1627,12 +1627,15 @@ const superApp = {
     // =========================================================
     // 🚀 ENGINE FILTER OUTLET LAPORAN HARIAN (SINKRON RIWAYAT)
     // =========================================================
+   // =========================================================
+    // 🚀 ENGINE FILTER OUTLET LAPORAN HARIAN (SINKRON UTAMA)
+    // =========================================================
     filterLaporanByOutlet: function(targetOutlet) {
-        // 1. Set outlet aktif (Gunakan 'Semua' atau 'Pusat' untuk konsolidasi)
+        // 1. Ubah outlet aktif di memori global aplikasi
         this.outlet = targetOutlet;
         localStorage.setItem('aicha_active_outlet', targetOutlet);
 
-        // 2. Perbarui tampilan aktif pada tombol-tombol pemilih cabang
+        // 2. Perbarui tampilan aktif pada tombol bar pemilih
         document.querySelectorAll('.btn-lap-outlet').forEach(btn => {
             btn.classList.remove('bg-rose-500', 'text-white', 'shadow-2xs');
             btn.classList.add('bg-slate-800', 'text-slate-400', 'hover:bg-slate-700', 'hover:text-white');
@@ -1644,19 +1647,19 @@ const superApp = {
             activeBtn.classList.add('bg-rose-500', 'text-white', 'shadow-2xs');
         }
 
-        // 3. Perbarui nama di header utama
+        // 3. Perbarui teks nama outlet di Header Utama aplikasi
         if (typeof this.updateHeaderOutletName === 'function') {
             this.updateHeaderOutletName();
         }
 
-        // 4. Render ulang seluruh komponen Laporan Harian secara live tanpa refresh halaman
-        this.showToast(`Menampilkan Laporan: ${targetOutlet === 'Semua' ? 'Konsolidasi Seluruh Cabang' : targetOutlet}`);
-        if (typeof this.renderExecutiveDashboard === 'function') this.renderExecutiveDashboard();
-        this.calcDailyReportLive();
-        this.renderLaporanHarianHistory();
-        if (typeof this.renderCalendar === 'function') this.renderCalendar();
+        this.showToast(`Memuat Laporan Cabang: ${targetOutlet === 'Semua' ? 'Konsolidasi Seluruh Cabang' : targetOutlet}`);
+
+        // 🚀 4. KUNCI PERBAIKAN: Panggil initLaporanHarian() secara utuh!
+        // Ini akan merefresh otomatis Target Bulanan, Dashboard Eksekutif, Kalender, dan Tabel Riwayat.
+        this.initLaporanHarian();
     },
 
+    
     renderLaporanOutletButtons: function() {
         const bar = document.getElementById('lapharian-owner-outlet-bar');
         const cont = document.getElementById('lapharian-dynamic-outlets');
@@ -2060,7 +2063,8 @@ const superApp = {
         const mobCont = document.getElementById('laporan-harian-mobile');
         let deskHtml = ''; let mobHtml = ''; let count = 0;
 
-        let list = [...(this.db.laporanHarian || [])].filter(x => x.Outlet === this.outlet || this.outlet === 'Pusat').reverse();
+        let isConsolidated = (this.outlet === 'Pusat' || this.outlet === 'Semua' || !this.outlet);
+        let list = [...(this.db.laporanHarian || [])].filter(x => isConsolidated || x.Outlet === this.outlet).reverse();
 
         list.forEach(item => {
             count++;

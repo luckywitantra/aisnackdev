@@ -2547,7 +2547,32 @@ const superApp = {
         }
     },
 
+     // Tambahkan fungsi ini agar error hilang meskipun tombol belum diubah
+selectOutlet: function(id) {
+    console.warn("Mengalihkan selectOutlet ke changeOutlet...");
+    this.changeOutlet(id);
+},
 
+// Pastikan fungsi changeOutlet Anda bersih seperti ini
+changeOutlet: function(val) { 
+    this.outlet = val; 
+    this.cart = []; 
+    
+    // Panggil fungsi internal lainnya
+    if(typeof this.renderCart === 'function') this.renderCart();
+    if(typeof this.checkShiftStatus === 'function') this.checkShiftStatus();
+    if(typeof this.updateHeaderOutletName === 'function') this.updateHeaderOutletName();
+    if(typeof this.closeModal === 'function') this.closeModal('modal-outlet-selector');
+
+    // Refresh Data
+    this.refreshData(); 
+
+    // Cek apakah sedang di halaman laporan untuk melakukan re-render
+    const activeView = document.querySelector('.app-view:not(.hidden)');
+    if (activeView && activeView.id === 'view-laporan-harian') {
+        this.initLaporanHarian(); 
+    }
+},
 
     // =========================================================
     // 🚀 1. RENDER MANAJEMEN USER (PC & MOBILE DUAL RENDER)
@@ -7345,28 +7370,7 @@ executeVoidTrx: async function(trxId) {
         }
     },
 
-   // 1. Fungsi Utama (Master Switcher)
-changeOutlet: function(val) { 
-    this.outlet = val; 
-    this.cart = []; 
-    this.renderCart(); 
-    this.checkShiftStatus(); 
-    
-    // Perbarui header dan tutup modal terlebih dahulu
-    this.updateHeaderOutletName();
-    this.closeModal('modal-outlet-selector');
 
-    // 🚀 PERBAIKAN: Refresh data terlebih dahulu
-    this.refreshData(); 
-
-    // 🚀 Lakukan pengecekan view aktif TANPA .then()
-    // Karena refreshData sudah selesai dieksekusi secara sinkron
-    const activeView = document.querySelector('.app-view:not(.hidden)');
-    
-    if (activeView && activeView.id === 'view-laporan-harian') {
-        this.initLaporanHarian(); 
-    }
-},
 
 // 2. Fungsi Header (Pastikan fungsi ini ada)
 updateHeaderOutletName: function() {

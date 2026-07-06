@@ -1177,27 +1177,53 @@ const superApp = {
         this.isProcessing = false;
     },
     
-   // =========================================================
-    // 🚀 LOGOUT YANG BERSIH DAN AMAN
+  
+    // =========================================================
+    // 🚀 LOGOUT AMAN & KEMBALI KE LAYAR PIN
     // =========================================================
     logout: function() {
-        // 1. Kosongkan memori variabel global
+        // 1. Bersihkan seluruh memori sesi aktif di objek aplikasi
         this.currentUser = null;
-        this.outlet = null; // 🚀 KUNCI: Reset outlet aktif
+        this.userRole = null;
+        this.outlet = null;
         this.cart = [];
         this.dailyExpensesList = [];
 
-        // 2. Hapus jejak sesi dari Local Storage browser
+        // 2. Hapus jejak sesi dari LocalStorage browser
         localStorage.removeItem('aicha_current_user');
-        localStorage.removeItem('aicha_active_outlet'); // 🚀 KUNCI: Hapus memori cabang lama
-        localStorage.removeItem('aisnack_cart');
+        localStorage.removeItem('aisnack_current_user');
+        localStorage.removeItem('aicha_active_outlet');
+        localStorage.removeItem('aisnack_active_outlet');
 
-        // 3. Alihkan layar kembali ke tampilan Login PIN
+        // 🚀 3. BALIKKAN TAMPILAN LAYAR PERSIS SEPERTI SEBELUM LOGIN
+        const sbar = document.getElementById('sidebar'); 
+        if (sbar) sbar.classList.add('hidden');
+        
+        const mainApp = document.getElementById('main-app'); 
+        if (mainApp) mainApp.classList.add('hidden');
+
+        // Sembunyikan juga semua sub-view yang mungkin sedang terbuka
         document.querySelectorAll('.app-view').forEach(v => v.classList.add('hidden'));
-        let loginView = document.getElementById('view-login');
-        if (loginView) loginView.classList.remove('hidden');
 
-        this.showToast("Berhasil keluar dari sistem", "info");
+        // Munculkan kembali layar PIN utama
+        const loginScreen = document.getElementById('login-screen'); 
+        if (loginScreen) {
+            loginScreen.classList.remove('hidden');
+        } else {
+            // Fallback keamanan jika ID di HTML Anda bernama view-login
+            const viewLogin = document.getElementById('view-login');
+            if (viewLogin) viewLogin.classList.remove('hidden');
+        }
+
+        // 4. Bersihkan sisa ketikan bulatan PIN sebelumnya
+        if (typeof this.clearPin === 'function') {
+            this.clearPin();
+        } else {
+            this.pinBuffer = '';
+            document.querySelectorAll('.pin-dot').forEach(dot => dot.classList.remove('active'));
+        }
+
+        this.showToast("Berhasil keluar. Silakan masukkan PIN kembali.", "info");
     },
 
    // ==========================================

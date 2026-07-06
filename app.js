@@ -2691,7 +2691,7 @@ changeOutlet: function(val) {
 
         (this.db.laporanHarian || []).forEach(rep => {
             if (rep.Status_Approval === 'Ditolak') return;
-            let repOutlet = String(rep.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+            let repOutlet = String(rep.Outlet || '').replace(/^Ai\-CHA\s+/i, '').trim();
             if (repOutlet !== outName) return;
 
             if (startObj || endObj) {
@@ -2865,7 +2865,7 @@ changeOutlet: function(val) {
                 } else return;
             }
 
-            let repOutlet = String(rep.Outlet || 'Lainnya').replace(/^Ai\-Snack\s+/i, '').trim();
+            let repOutlet = String(rep.Outlet || 'Lainnya').replace(/^Ai\-CHA\s+/i, '').trim();
             let currOutlet = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
 
             if (!isConsolidated && repOutlet !== currOutlet) return;

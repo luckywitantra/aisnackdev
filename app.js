@@ -2055,6 +2055,31 @@ const superApp = {
         let expValid = this.dailyExpensesList.filter(x => x.nama.trim() !== '' && Number(x.nominal) > 0);
         let totExp = 0; expValid.forEach(x => totExp += Number(x.nominal));
 
+        // =========================================================
+    // 🚀 ENGINE AUTO-LEARNING: UPDATE MASTER PENGELUARAN
+    // =========================================================
+    if (!this.db.masterPengeluaran) this.db.masterPengeluaran = [];
+    
+    expValid.forEach(exp => {
+        let namaItem = String(exp.nama).toUpperCase().trim();
+        // Cek apakah item sudah ada di master (Case Insensitive)
+        let isExist = this.db.masterPengeluaran.find(m => 
+            String(m.Nama_Item || m.NAMA_PENGELUARAN || '').toUpperCase() === namaItem
+        );
+        
+        // Jika belum ada, masukkan ke master
+        if (!isExist && namaItem !== "") {
+            this.db.masterPengeluaran.push({ 
+                ID_Item: 'EXP-' + Date.now() + Math.floor(Math.random() * 1000),
+                Nama_Item: namaItem,
+                Kategori: 'Umum'
+            });
+        }
+    });
+    // Simpan master ke local storage agar tersedia untuk "Auto-Text" besoknya
+    localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
+    // =========================================================
+
         let tglTeks = document.getElementById('daily-form-date')?.innerText || "Hari Ini";
         let cuaca = this.currentDailyWeather || "31°C";
 

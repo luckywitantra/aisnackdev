@@ -1851,9 +1851,28 @@ const superApp = {
         let accumPreviousDays = 0;
         let activeReportId = this.editReportId; // ID laporan jika sedang mode Edit
 
-        // 2. Jumlahkan HANYA laporan masa lalu sebelum tanggal target (Tanggal 1 s/d H-1)
+        // 🚀 2. DETEKSI MODE KONSOLIDASI ('Semua' atau 'Pusat')
+        let isConsolidated = (this.outlet === 'Pusat' || this.outlet === 'Semua' || !this.outlet);
+
+        // 🚀 3. TENTUKAN TARGET BULANAN SECARA AKURAT
+        // Jika sedang lihat 'Semua Cabang', gabungkan seluruh target cabang yang tersimpan
+        let targetPerhitungan = this.targetBulanan || 180000000;
+        if (isConsolidated && this.db && this.db.outlets) {
+            let totalTargetSemua = 0;
+            this.db.outlets.forEach(o => {
+                if (o.Nama_Outlet !== 'Pusat' && o.Nama_Outlet !== 'Semua') {
+                    let t = localStorage.getItem('aicha_target_bulanan_' + o.Nama_Outlet);
+                    totalTargetSemua += (t && !isNaN(t)) ? Number(t) : 180000000;
+                }
+            });
+            if (totalTargetSemua > 0) targetPerhitungan = totalTargetSemua;
+        }
+
+        // 4. Jumlahkan HANYA laporan masa lalu sebelum tanggal target (Tanggal 1 s/d H-1)
         (this.db.laporanHarian || []).forEach(rep => {
-            if (rep.Outlet === this.outlet || this.outlet === 'Pusat') {
+            // 🚀 Kunci Sinkronisasi: Izinkan masuk jika mode konsolidasi ATAU outletnya cocok
+            if (isConsolidated || rep.Outlet === this.outlet) {
+                
                 // Abaikan laporan yang sedang diedit agar tidak hitung ganda (double-count)
                 if (activeReportId && rep.ID_Laporan === activeReportId) return;
 
@@ -1864,7 +1883,7 @@ const superApp = {
                     let rMonth = parseInt(repMatch[2], 10);
                     let rYear = parseInt(repMatch[3], 10);
 
-                    // 🚀 KUNCI PRESISI: Bulan & Tahun sama, DAN Hari lebih kecil dari tanggal laporan
+                    // KUNCI PRESISI: Bulan & Tahun sama, DAN Hari lebih kecil dari tanggal laporan
                     // Abaikan juga laporan jika statusnya 'Ditolak'
                     if (rYear === targetYear && rMonth === targetMonth && rDay < targetDay) {
                         if (rep.Status_Approval !== 'Ditolak') {
@@ -1875,15 +1894,15 @@ const superApp = {
             }
         });
 
-        // 3. Total Akumulasi = (Jumlah Tanggal 1 s/d H-1) + Omset Hari H di Form
+        // 5. Total Akumulasi = (Jumlah Tanggal 1 s/d H-1) + Omset Hari H di Form
         let totalAccumUpToDate = accumPreviousDays + Number(liveNetSales || 0);
         
-        let pct = Math.min(Math.round((totalAccumUpToDate / this.targetBulanan) * 100), 100);
-        let kurang = Math.max(this.targetBulanan - totalAccumUpToDate, 0);
+        let pct = Math.min(Math.round((totalAccumUpToDate / targetPerhitungan) * 100), 100);
+        let kurang = Math.max(targetPerhitungan - totalAccumUpToDate, 0);
 
         // Update Radar UI di layar
         if (document.getElementById('accum-net-sales')) document.getElementById('accum-net-sales').innerText = `Rp ${totalAccumUpToDate.toLocaleString('id-ID')}`;
-        if (document.getElementById('accum-target')) document.getElementById('accum-target').innerText = `Rp ${this.targetBulanan.toLocaleString('id-ID')}`;
+        if (document.getElementById('accum-target')) document.getElementById('accum-target').innerText = `Rp ${targetPerhitungan.toLocaleString('id-ID')}`;
         if (document.getElementById('accum-progress-bar')) document.getElementById('accum-progress-bar').style.width = `${pct}%`;
         if (document.getElementById('accum-percent')) document.getElementById('accum-percent').innerText = `Progress: ${pct}%`;
         if (document.getElementById('accum-remaining')) document.getElementById('accum-remaining').innerText = `Kurang: Rp ${kurang.toLocaleString('id-ID')}`;
@@ -2290,8 +2309,15 @@ const superApp = {
         const monthEl = document.getElementById('calendar-month-name');
         if (monthEl) monthEl.innerText = now.toLocaleString('id-ID', { month: 'long', year: 'numeric' });
 
-        // 2. Kumpulkan Daftar Tanggal Terisi (Format Kunci: D-M-YYYY)
-        const terisiDates = (this.db.laporanHarian || []).filter(x => x.Outlet === this.outlet || this.outlet === 'Pusat').map(l => {
+        // 🚀 2. Deteksi Mode Konsolidasi ('Semua' atau 'Pusat')
+        let isConsolidated = (this.outlet === 'Pusat' || this.outlet === 'Semua' || !this.outlet);
+
+        // 3. Kumpulkan Daftar Tanggal Terisi (Format Kunci: D-M-YYYY)
+        const terisiDates = (this.db.laporanHarian || []).filter(x => {
+            // Abaikan data laporan jika statusnya ditolak oleh Owner
+            if (x.Status_Approval === 'Ditolak') return false;
+            return isConsolidated || x.Outlet === this.outlet;
+        }).map(l => {
             let cleanStr = (l.Tanggal || '').split(',').pop().trim();
             let match = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
             if (match) {
@@ -2303,7 +2329,7 @@ const superApp = {
         const firstDay = new Date(year, month, 1).getDay(); 
         const daysInMonth = new Date(year, month + 1, 0).getDate();
         
-        // 3. Reset Grid Kalender (Pertahankan Header Hari)
+        // 4. Reset Grid Kalender (Pertahankan Header Hari)
         grid.innerHTML = `
             <div class="text-slate-400 py-1">Sen</div><div class="text-slate-400 py-1">Sel</div><div class="text-slate-400 py-1">Rab</div>
             <div class="text-slate-400 py-1">Kam</div><div class="text-slate-400 py-1">Jum</div><div class="text-slate-400 py-1">Sab</div><div class="text-slate-400 py-1">Min</div>
@@ -2325,8 +2351,18 @@ const superApp = {
                 : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
             }`;
             div.innerText = d;
+            
+            // 🚀 Klik bulatan tanggal untuk memuat riwayat / mengedit tanggal tersebut
             div.onclick = () => {
-                this.filterRiwayatByDate(d, month + 1, year);
+                let pad = n => String(n).padStart(2, '0');
+                let tglPilihan = `${year}-${pad(month + 1)}-${pad(d)}`;
+                
+                // Teruskan ke mesin applyBackdate agar langsung sinkron dengan form & tabel
+                if (typeof this.applyBackdate === 'function') {
+                    this.applyBackdate(tglPilihan);
+                } else if (typeof this.filterRiwayatByDate === 'function') {
+                    this.filterRiwayatByDate(d, month + 1, year);
+                }
             };
             grid.appendChild(div);
         }

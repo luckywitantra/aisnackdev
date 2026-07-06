@@ -3634,10 +3634,22 @@ changeOutlet: function(val) {
     },
     
     
-    // SHIFT & KAS KELUAR
+    // =========================================================
+    // 🚀 SHIFT & KAS KELUAR (NORMALISASI ANTI-BOCOR CABANG)
+    // =========================================================
     checkShiftStatus: function() {
-        const shiftOutName = document.getElementById('shift-outlet-name'); if (shiftOutName) shiftOutName.innerText = this.outlet;
-        let openShift = (this.db.shifts || []).find(s => s.Outlet === this.outlet && s.Waktu_Tutup === '');
+        // 🚀 Normalisasi nama cabang aktif agar bersih dari awalan
+        let cleanActiveOutlet = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+
+        const shiftOutName = document.getElementById('shift-outlet-name'); 
+        if (shiftOutName) shiftOutName.innerText = `Ai-CHA ${cleanActiveOutlet}`;
+
+        // Cari shift terbuka dengan membandingkan nama cabang yang sudah dibersihkan
+        let openShift = (this.db.shifts || []).find(s => {
+            let sOutClean = String(s.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+            return sOutClean === cleanActiveOutlet && (s.Waktu_Tutup === '' || !s.Waktu_Tutup);
+        });
+
         const posView = document.getElementById('view-pos');
 
         if (openShift) {
@@ -3645,28 +3657,46 @@ changeOutlet: function(val) {
             try { this.activeStaffTeam = JSON.parse(openShift.Tim_Operasional); } catch (e) { this.activeStaffTeam = []; }
             if (posView) posView.classList.remove('blur-lock');
         } else {
-            this.activeShiftId = null; this.activeStaffTeam = [];
+            this.activeShiftId = null; 
+            this.activeStaffTeam = [];
             if (posView) posView.classList.add('blur-lock');
 
-            const shiftUserName = document.getElementById('shift-user-name'); if (shiftUserName && this.currentUser) shiftUserName.innerText = this.currentUser.Username;
+            const shiftUserName = document.getElementById('shift-user-name'); 
+            if (shiftUserName && this.currentUser) shiftUserName.innerText = this.currentUser.Username;
 
             let staffHtml = '';
-            (this.db.users || []).filter(u => u.Outlet === this.outlet || u.Outlet === 'Pusat').forEach(u => {
+            (this.db.users || []).filter(u => {
+                let uOutClean = String(u.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+                return uOutClean === cleanActiveOutlet || uOutClean === 'Pusat' || uOutClean === 'Semua';
+            }).forEach(u => {
                 let badge = String(u.Role).toLowerCase().includes('senior') || String(u.Role).toLowerCase().includes('admin') ? 'bg-orange-100 text-orange-600 border-orange-200' : 'bg-slate-100 text-slate-500';
                 staffHtml += `<label class="flex items-center gap-3 p-3 bg-slate-50 border border-slate-100 rounded-xl cursor-pointer hover:bg-slate-100 transition"><input type="checkbox" value="${u.Username}" data-role="${u.Role}" class="shift-cb w-5 h-5 text-brand-500 rounded"><div class="flex-1 font-bold text-sm text-slate-800">${u.Username}</div><span class="px-2 py-0.5 border rounded text-[10px] font-black uppercase ${badge}"></span></label>`;
             });
 
-            const staffListEl = document.getElementById('shift-staff-list'); if (staffListEl) staffListEl.innerHTML = staffHtml || '<p class="text-sm text-red-500">Tidak ada staf terdaftar di cabang ini.</p>';
-            const mAwal = document.getElementById('shift-modal-awal'); if (mAwal) mAwal.value = '';
+            const staffListEl = document.getElementById('shift-staff-list'); 
+            if (staffListEl) staffListEl.innerHTML = staffHtml || '<p class="text-sm text-red-500 font-bold">Tidak ada staf terdaftar di cabang ini.</p>';
+            
+            const mAwal = document.getElementById('shift-modal-awal'); 
+            if (mAwal) mAwal.value = '';
 
-            const modalShift = document.getElementById('modal-shift'); const modalShiftContent = document.getElementById('modal-shift-content');
-            if (modalShift && modalShiftContent) { modalShift.classList.remove('hidden'); setTimeout(() => modalShiftContent.classList.add('modal-enter-active'), 10); }
+            const modalShift = document.getElementById('modal-shift'); 
+            const modalShiftContent = document.getElementById('modal-shift-content');
+            if (modalShift && modalShiftContent) { 
+                modalShift.classList.remove('hidden'); 
+                setTimeout(() => modalShiftContent.classList.add('modal-enter-active'), 10); 
+            }
         }
     },
+
     executeBukaShift: async function() {
         if (this.isProcessing) return;
-        let cbs = document.querySelectorAll('.shift-cb:checked'); if (cbs.length === 0) return this.showToast("Pilih minimal 1 anggota tim!", "error");
-        let mAwalEl = document.getElementById('shift-modal-awal'); let m_awal = mAwalEl ? this.getNumericValue(mAwalEl.value) : 0;
+        let cleanActiveOutlet = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+
+        let cbs = document.querySelectorAll('.shift-cb:checked'); 
+        if (cbs.length === 0) return this.showToast("Pilih minimal 1 anggota tim!", "error");
+        
+        let mAwalEl = document.getElementById('shift-modal-awal'); 
+        let m_awal = mAwalEl ? this.getNumericValue(mAwalEl.value) : 0;
         if (m_awal === 0 && (!mAwalEl || mAwalEl.value === '')) return this.showToast("Uang Laci Awal wajib diisi!", "error");
 
         let tim = []; let hasSenior = false;
@@ -3678,81 +3708,99 @@ changeOutlet: function(val) {
 
         this.setLoading(true, "Membuka Laci Kasir...");
         let shiftID = 'SHF' + new Date().getTime();
-        const payload = { action: 'buka_shift', outlet: this.outlet, tim: tim, modal_awal: m_awal, id_shift: shiftID };
+        
+        // 🚀 Pastikan outlet yang dikirim ke server adalah cabang bersih
+        const payload = { action: 'buka_shift', outlet: cleanActiveOutlet, tim: tim, modal_awal: m_awal, id_shift: shiftID };
         let res = await this.apiPost(payload);
 
         if (res.status === 'sukses') {
-            this.activeShiftId = shiftID; this.activeStaffTeam = tim;
+            this.activeShiftId = shiftID; 
+            this.activeStaffTeam = tim;
             if (res.is_offline) {
                 let d = new Date(); let pad = (n) => n < 10 ? '0' + n : n;
-                this.db.shifts.push({ ID_Shift: shiftID, Tanggal: `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`, Outlet: this.outlet, Waktu_Tutup: '', Tim_Operasional: JSON.stringify(tim), Modal_Awal: m_awal });
+                this.db.shifts.push({ ID_Shift: shiftID, Tanggal: `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`, Outlet: cleanActiveOutlet, Waktu_Tutup: '', Tim_Operasional: JSON.stringify(tim), Modal_Awal: m_awal });
             }
-            this.closeModal('modal-shift'); const posView = document.getElementById('view-pos'); if (posView) posView.classList.remove('blur-lock');
+            this.closeModal('modal-shift'); 
+            const posView = document.getElementById('view-pos'); 
+            if (posView) posView.classList.remove('blur-lock');
             this.showToast(res.is_offline ? "Shift Dibuka (Mode Offline)" : "Shift Dibuka! Laci siap digunakan.");
         }
         this.setLoading(false);
     },
+
     openKasKeluar: function() {
         const nom = document.getElementById('kas-out-nominal'); if (nom) nom.value = '';
         const ket = document.getElementById('kas-out-ket'); if (ket) ket.value = '';
         const mod = document.getElementById('modal-kas-keluar'); const modc = document.getElementById('modal-kas-keluar-content');
         if (mod && modc) { mod.classList.remove('hidden'); setTimeout(() => modc.classList.add('modal-enter-active'), 10); }
     },
+
     executeKasKeluar: async function() {
         if (this.isProcessing) return;
+        let cleanActiveOutlet = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+
         let nomEl = document.getElementById('kas-out-nominal'); let ketEl = document.getElementById('kas-out-ket');
-        if (!nomEl || !ketEl) return; let nom = this.getNumericValue(nomEl.value); let ket = ketEl.value;
+        if (!nomEl || !ketEl) return; 
+        let nom = this.getNumericValue(nomEl.value); let ket = ketEl.value;
         if (nom === 0 || !ket) return this.showToast("Nominal dan Keterangan wajib diisi!", "error");
 
         this.setLoading(true, "Mencatat Pengeluaran...");
         let kasId = 'KAS' + new Date().getTime();
-        const payload = { action: 'kas_keluar', id_kas: kasId, outlet: this.outlet, kasir: this.currentUser.Username, nominal: nom, keterangan: ket, id_shift: this.activeShiftId };
+        
+        // 🚀 Kunci pengeluaran ke cabang aktif saat ini
+        const payload = { action: 'kas_keluar', id_kas: kasId, outlet: cleanActiveOutlet, kasir: this.currentUser ? this.currentUser.Username : 'Kasir', nominal: nom, keterangan: ket, id_shift: this.activeShiftId };
 
         let res = await this.apiPost(payload);
         if (res.status === 'sukses') {
             if (res.is_offline) {
                 let d = new Date(); let pad = (n) => n < 10 ? '0' + n : n;
                 if (!this.db.kasKeluar) this.db.kasKeluar = [];
-                this.db.kasKeluar.push({ ID_Kas: kasId, Tanggal: `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`, Waktu: `${pad(d.getHours())}.${pad(d.getMinutes())}.${pad(d.getSeconds())}`, Outlet: this.outlet, Kasir: this.currentUser.Username, Nominal: nom, Keterangan: ket, ID_Shift: this.activeShiftId });
+                this.db.kasKeluar.push({ ID_Kas: kasId, Tanggal: `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`, Waktu: `${pad(d.getHours())}.${pad(d.getMinutes())}.${pad(d.getSeconds())}`, Outlet: cleanActiveOutlet, Kasir: this.currentUser ? this.currentUser.Username : 'Kasir', Nominal: nom, Keterangan: ket, ID_Shift: this.activeShiftId });
             }
-            this.closeModal('modal-kas-keluar'); this.showToast("Kas Keluar Tersimpan.");
-            if (!res.is_offline) { const r = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); this.db = await r.json(); this.refreshData(); }
+            this.closeModal('modal-kas-keluar'); 
+            this.showToast("Kas Keluar Tersimpan.");
+            if (!res.is_offline) { 
+                const r = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); 
+                this.db = await r.json(); 
+                this.refreshData(); 
+            }
         }
         this.setLoading(false);
     },
-   promptTutupShift: function() {
+
+    promptTutupShift: function() {
         const setAkhir = document.getElementById('shift-setoran-akhir'); if (setAkhir) setAkhir.value = '';
         
-        // 1. Dapatkan Tanggal Hari Ini Sesuai Format Server
+        let cleanActiveOutlet = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
         let d = new Date(); let pad = (n) => n < 10 ? '0' + n : n;
         let todayStrLocal = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 
         let modal = 0; let salesTunai = 0; let totalKasKeluar = 0;
 
-        // 2. Jumlahkan semua Modal Awal dalam 1 HARI PENUH (Bisa jadi kasir input modal > 1 kali)
+        // 🚀 Normalisasi perbandingan saat menghitung rekap harian
         (this.db.shifts || []).forEach(s => {
-            if (s.Outlet === this.outlet && s.Tanggal === todayStrLocal) {
+            let sOutClean = String(s.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+            if (sOutClean === cleanActiveOutlet && s.Tanggal === todayStrLocal) {
                 modal += Number(s.Modal_Awal || 0);
             }
         });
 
-        // 3. Jumlahkan semua Penjualan TUNAI dalam 1 HARI PENUH (Abaikan ID Shift)
         (this.db.transactions || []).forEach(t => {
-            let t_date = this.cleanDateOnly(t.Tanggal);
-            if (t.Outlet === this.outlet && t_date === todayStrLocal && t.Status === 'Sukses' && String(t.Metode_Bayar || '').toUpperCase() === 'TUNAI') {
+            let t_date = typeof this.cleanDateOnly === 'function' ? this.cleanDateOnly(t.Tanggal) : t.Tanggal;
+            let tOutClean = String(t.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+            if (tOutClean === cleanActiveOutlet && t_date === todayStrLocal && t.Status === 'Sukses' && String(t.Metode_Bayar || '').toUpperCase() === 'TUNAI') {
                 salesTunai += Number(t.Total_Bayar);
             }
         });
 
-        // 4. Jumlahkan semua Kas Keluar dalam 1 HARI PENUH
         (this.db.kasKeluar || []).forEach(k => { 
-            let k_date = this.cleanDateOnly(k.Tanggal);
-            if (k.Outlet === this.outlet && k_date === todayStrLocal) {
+            let k_date = typeof this.cleanDateOnly === 'function' ? this.cleanDateOnly(k.Tanggal) : k.Tanggal;
+            let kOutClean = String(k.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+            if (kOutClean === cleanActiveOutlet && k_date === todayStrLocal) {
                 totalKasKeluar += Number(k.Nominal); 
             }
         });
 
-        // Kalkulasi Uang Fisik yang harusnya ada di Laci hari ini
         let expected = modal + salesTunai - totalKasKeluar;
 
         const tMod = document.getElementById('ts-modal'); if (tMod) tMod.innerText = `Rp ${modal.toLocaleString('id-ID')}`;
@@ -3769,20 +3817,25 @@ changeOutlet: function(val) {
         let setAkhirEl = document.getElementById('shift-setoran-akhir'); let setor = setAkhirEl ? this.getNumericValue(setAkhirEl.value) : 0;
         if (setor === 0 && (!setAkhirEl || setAkhirEl.value === '')) return this.showToast("Hitung uang fisik di laci!", "error");
 
+        let cleanActiveOutlet = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
         let d = new Date(); let pad = (n) => n < 10 ? '0' + n : n;
         let todayStrLocal = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 
         let modal = 0; let salesTunai = 0; let totalKasKeluar = 0;
 
-        // Lakukan kalkulasi ulang saat eksekusi agar data sangat akurat
-        (this.db.shifts || []).forEach(s => { if (s.Outlet === this.outlet && s.Tanggal === todayStrLocal) modal += Number(s.Modal_Awal || 0); });
+        (this.db.shifts || []).forEach(s => { 
+            let sOutClean = String(s.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+            if (sOutClean === cleanActiveOutlet && s.Tanggal === todayStrLocal) modal += Number(s.Modal_Awal || 0); 
+        });
         (this.db.transactions || []).forEach(t => { 
-            let t_date = this.cleanDateOnly(t.Tanggal);
-            if (t.Outlet === this.outlet && t_date === todayStrLocal && t.Status === 'Sukses' && String(t.Metode_Bayar || '').toUpperCase() === 'TUNAI') salesTunai += Number(t.Total_Bayar); 
+            let t_date = typeof this.cleanDateOnly === 'function' ? this.cleanDateOnly(t.Tanggal) : t.Tanggal;
+            let tOutClean = String(t.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+            if (tOutClean === cleanActiveOutlet && t_date === todayStrLocal && t.Status === 'Sukses' && String(t.Metode_Bayar || '').toUpperCase() === 'TUNAI') salesTunai += Number(t.Total_Bayar); 
         });
         (this.db.kasKeluar || []).forEach(k => { 
-            let k_date = this.cleanDateOnly(k.Tanggal);
-            if (k.Outlet === this.outlet && k_date === todayStrLocal) totalKasKeluar += Number(k.Nominal); 
+            let k_date = typeof this.cleanDateOnly === 'function' ? this.cleanDateOnly(k.Tanggal) : k.Tanggal;
+            let kOutClean = String(k.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+            if (kOutClean === cleanActiveOutlet && k_date === todayStrLocal) totalKasKeluar += Number(k.Nominal); 
         });
 
         let expected = modal + salesTunai - totalKasKeluar; 
@@ -3793,12 +3846,12 @@ changeOutlet: function(val) {
         let res = await this.apiPost(payload);
 
         if (res.status === 'sukses') {
-            alert(`REKAP HARIAN DITUTUP!\n\nUang Sistem (1 Hari): Rp ${expected.toLocaleString('id-ID')}\nUang Fisik (Setoran): Rp ${setor.toLocaleString('id-ID')}\nSelisih: Rp ${selisih.toLocaleString('id-ID')}`);
+            alert(`REKAP HARIAN DITUTUP!\n\nCabang: Ai-CHA ${cleanActiveOutlet}\nUang Sistem (1 Hari): Rp ${expected.toLocaleString('id-ID')}\nUang Fisik (Setoran): Rp ${setor.toLocaleString('id-ID')}\nSelisih: Rp ${selisih.toLocaleString('id-ID')}`);
             location.reload();
         }
         this.setLoading(false);
     },
-
+    
 updatePendingNotifications: function() {
         if (!this.db) return;
 

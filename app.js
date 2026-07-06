@@ -1658,7 +1658,7 @@ const superApp = {
         this.updateWeatherBadgeUI(cuacaSimulasi, false);
 
         // E. TARIK CUACA REAL-TIME DARI API (Tanpa Memblokir Layar Kasir)
-        this.fetchRealTimeWeather();
+        this.fetchRealtimeWeather();
 
         // F. Siapkan 1 Baris Pengeluaran Kosong Jika Belum Ada
         if (!this.dailyExpensesList || this.dailyExpensesList.length === 0) {

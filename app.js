@@ -3504,7 +3504,7 @@ changeOutlet: function(val) {
     // =========================================================
     openCfoDeepDiveModal: function(metricType) {
         // Kumpulkan data dasar
-        let rawData = (this.db.Transaksi_Header || []).filter(x => x.Status === 'Sukses');
+        let isConsolidated = (this.outlet === 'Pusat' || this.outlet === 'Semua' || !this.outlet); let currOutletClean = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();  let rawData = (this.db.transactions || []).filter(x => {     if (x.Status !== 'Sukses') return false;     let trxOutlet = String(x.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();     return isConsolidated || (trxOutlet === currOutletClean); });
         
         // Simulasi kalkulasi metrik per outlet (Bisa Anda sesuaikan dengan rentang tanggal aktif)
         let outletData = {};
@@ -3655,7 +3655,7 @@ changeOutlet: function(val) {
     // =========================================================
     openRushHourAnalyticsModal: function() {
         // 1. Kumpulkan Data Transaksi Sukses
-        let rawData = (this.db.Transaksi_Header || []).filter(x => x.Status === 'Sukses');
+        let isConsolidated = (this.outlet === 'Pusat' || this.outlet === 'Semua' || !this.outlet); let currOutletClean = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();  let rawData = (this.db.transactions || []).filter(x => {     if (x.Status !== 'Sukses') return false;     let trxOutlet = String(x.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();     return isConsolidated || (trxOutlet === currOutletClean); });
         
         // Inisialisasi Jam Operasional (Misal: Jam 09:00 pagi s/d 23:00 malam)
         let hourlyData = {};
@@ -3802,7 +3802,7 @@ changeOutlet: function(val) {
     // =========================================================
     openProductRankModal: function() {
         // 1. Ekstrak & Agregasi Data dari Seluruh Transaksi Sukses
-        let rawData = (this.db.Transaksi_Header || []).filter(x => x.Status === 'Sukses');
+        let isConsolidated = (this.outlet === 'Pusat' || this.outlet === 'Semua' || !this.outlet); let currOutletClean = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();  let rawData = (this.db.transactions || []).filter(x => {     if (x.Status !== 'Sukses') return false;     let trxOutlet = String(x.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();     return isConsolidated || (trxOutlet === currOutletClean); });
         let productMap = {};
         let totalSales = 0;
         let totalPcs = 0;
@@ -3995,7 +3995,7 @@ changeOutlet: function(val) {
     // =========================================================
     openBranchComparisonModal: function() {
         // 1. Ekstrak & Agregasi Data Transaksi
-        let rawData = (this.db.Transaksi_Header || []).filter(x => x.Status === 'Sukses');
+        let isConsolidated = (this.outlet === 'Pusat' || this.outlet === 'Semua' || !this.outlet); let currOutletClean = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();  let rawData = (this.db.transactions || []).filter(x => {     if (x.Status !== 'Sukses') return false;     let trxOutlet = String(x.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();     return isConsolidated || (trxOutlet === currOutletClean); });
         let branchMap = {};
         let totalOmsetGrup = 0;
 

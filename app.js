@@ -2718,8 +2718,8 @@ changeOutlet: function(val) {
         let startStr = `${firstDay.getFullYear()}-${pad(firstDay.getMonth() + 1)}-01`;
         let endStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
-        const startInput = document.getElementById('exec-filter-start');
-        const endInput = document.getElementById('exec-filter-end');
+        const startInput = document.getElementById('ai-filter-start');
+        const endInput = document.getElementById('ai-filter-end');
 
         if (startInput) startInput.value = startStr;
         if (endInput) endInput.value = endStr;
@@ -2764,8 +2764,8 @@ changeOutlet: function(val) {
         modal.classList.remove('hidden');
 
         // 1. Baca filter tanggal eksekutif aktif
-        const startInput = document.getElementById('exec-filter-start');
-        const endInput = document.getElementById('exec-filter-end');
+        const startInput = document.getElementById('ai-filter-start');
+        const endInput = document.getElementById('ai-filter-end');
         let startObj = (startInput && startInput.value) ? new Date(startInput.value) : null;
         if (startObj) startObj.setHours(0, 0, 0, 0);
         let endObj = (endInput && endInput.value) ? new Date(endInput.value) : null;
@@ -3017,8 +3017,8 @@ changeOutlet: function(val) {
         dashCont.classList.remove('hidden');
 
         // 1. Ambil & Inisialisasi Tanggal Filter
-        const startInput = document.getElementById('exec-filter-start');
-        const endInput = document.getElementById('exec-filter-end');
+        const startInput = document.getElementById('ai-filter-start');
+        const endInput = document.getElementById('ai-filter-end');
         let now = new Date();
 
         if (startInput && !startInput.value) {
@@ -3808,8 +3808,8 @@ changeOutlet: function(val) {
         let totalPcs = 0;
 
         // Baca filter tanggal eksekutif aktif (jika ada)
-        const startInput = document.getElementById('exec-filter-start');
-        const endInput = document.getElementById('exec-filter-end');
+        const startInput = document.getElementById('ai-filter-start');
+        const endInput = document.getElementById('ai-filter-end');
         let startObj = (startInput && startInput.value) ? new Date(startInput.value) : null;
         if (startObj) startObj.setHours(0, 0, 0, 0);
         let endObj = (endInput && endInput.value) ? new Date(endInput.value) : null;
@@ -4000,8 +4000,8 @@ changeOutlet: function(val) {
         let totalOmsetGrup = 0;
 
         // Baca filter tanggal eksekutif aktif (jika ada)
-        const startInput = document.getElementById('exec-filter-start');
-        const endInput = document.getElementById('exec-filter-end');
+        const startInput = document.getElementById('ai-filter-start');
+        const endInput = document.getElementById('ai-filter-end');
         let startObj = (startInput && startInput.value) ? new Date(startInput.value) : null;
         if (startObj) startObj.setHours(0, 0, 0, 0);
         let endObj = (endInput && endInput.value) ? new Date(endInput.value) : null;

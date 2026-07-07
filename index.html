@@ -1118,60 +1118,84 @@
         </div>
 
         <!-- HEADER SEKSI & TOMBOL FILTER MOBILE -->
-        <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center pb-6 mb-6 shrink-0 relative z-10 gap-6 w-full border-b border-slate-100/60">
-            <div class="flex items-center justify-between w-full xl:w-auto gap-5">
-                <div class="flex items-center gap-5">
-                    <div class="w-16 h-16 bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 rounded-[1.4rem] flex items-center justify-center text-white text-3xl shadow-[0_10px_25px_rgba(99,102,241,0.3)] shrink-0 transform transition-all duration-500 hover:scale-110 hover:rotate-3 hover:shadow-[0_15px_35px_rgba(99,102,241,0.4)] relative group/icon">
-                        <div class="absolute inset-0 bg-white opacity-0 group-hover/icon:opacity-20 rounded-[1.4rem] transition-opacity"></div>
-                        <i class="fas fa-chart-pie relative z-10"></i>
+       <!-- HEADER MINIMALIS & ULTRA-MODERN (FLOATING TOOLBAR) -->
+        <div class="bg-white/70 backdrop-blur-xl border border-white shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-3 md:p-3.5 rounded-[1.5rem] md:rounded-full flex flex-col xl:flex-row items-center justify-between gap-4 mb-5 shrink-0 relative z-20 transition-all">
+            
+            <!-- Kiri: Logo & Title -->
+            <div class="flex items-center justify-between w-full xl:w-auto pl-1">
+                <div class="flex items-center gap-3 group/brand cursor-pointer">
+                    <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl md:rounded-full flex items-center justify-center text-white shadow-md shadow-blue-500/20 shrink-0 group-hover/brand:rotate-12 transition-transform duration-300">
+                        <i class="fas fa-chart-pie text-sm"></i>
                     </div>
                     <div>
-                        <h3 class="font-black text-2xl md:text-3xl text-slate-800 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-500">Laporan Terpadu</h3>
-                        <p class="text-xs md:text-sm font-bold text-indigo-500/80 mt-1 uppercase tracking-widest flex items-center gap-1.5"><i class="fas fa-sparkles text-[10px]"></i> Operasional & Analitik</p>
+                        <h3 class="font-black text-sm md:text-base text-slate-800 leading-tight tracking-tight">Laporan Terpadu</h3>
+                        <p class="text-[9px] md:text-[10px] font-bold text-indigo-500 uppercase tracking-widest flex items-center gap-1"><i class="fas fa-sparkles text-[8px]"></i> Operasional</p>
                     </div>
                 </div>
                 
-                <!-- Tombol Filter Mobile -->
-                <button onclick="document.getElementById('inline-filter-panel').classList.toggle('hidden'); document.getElementById('inline-filter-panel').classList.toggle('flex');" class="xl:hidden bg-indigo-50/80 backdrop-blur-sm text-indigo-600 hover:bg-indigo-500 hover:text-white border border-indigo-100/50 px-5 py-3 rounded-2xl shadow-sm font-black text-xs transition-all duration-300 active:scale-95 flex items-center gap-2 shrink-0">
-                    <i class="fas fa-sliders-h"></i> Filter
+                <!-- Tombol Toggle Mobile -->
+                <button onclick="document.getElementById('compact-filters').classList.toggle('hidden'); document.getElementById('compact-filters').classList.toggle('flex');" class="xl:hidden w-9 h-9 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center hover:bg-indigo-500 hover:text-white transition-colors active:scale-95 shadow-sm border border-indigo-100">
+                    <i class="fas fa-sliders-h text-xs"></i>
                 </button>
+            </div>
+
+            <!-- Kanan: Filters & Actions (Compact Grid) -->
+            <div id="compact-filters" class="hidden xl:flex flex-col xl:flex-row w-full xl:w-auto items-center gap-2.5">
+                
+                <!-- Cari -->
+                <div class="relative w-full xl:w-44 h-10 group/search shrink-0">
+                    <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] group-focus-within/search:text-blue-500 transition-colors"></i>
+                    <input type="text" id="filter-search-trx" placeholder="Cari Resi/Item..." class="w-full h-full bg-white/90 border border-slate-200/80 hover:border-slate-300 rounded-full pl-9 pr-3 font-bold text-xs text-slate-700 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all shadow-sm" onclick="osKeyboard.open('filter-search-trx', 'text')" oninput="superApp.renderReport()">
+                </div>
+
+                <!-- Date Range (Joined Input) -->
+                <div class="flex items-center justify-between w-full xl:w-auto h-10 bg-white/90 border border-slate-200/80 rounded-full px-1.5 focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all shadow-sm shrink-0">
+                    <div class="relative flex-1 flex items-center justify-center overflow-hidden rounded-l-full cursor-pointer hover:bg-slate-50" onclick="document.getElementById('filter-start').showPicker()">
+                        <input type="date" id="filter-start" class="w-24 bg-transparent border-none text-[10px] md:text-xs font-bold text-slate-700 outline-none cursor-pointer text-center" onchange="superApp.renderReport()">
+                    </div>
+                    <div class="text-[9px] font-black text-slate-300 px-1"><i class="fas fa-arrow-right"></i></div>
+                    <div class="relative flex-1 flex items-center justify-center overflow-hidden rounded-r-full cursor-pointer hover:bg-slate-50" onclick="document.getElementById('filter-end').showPicker()">
+                        <input type="date" id="filter-end" class="w-24 bg-transparent border-none text-[10px] md:text-xs font-bold text-slate-700 outline-none cursor-pointer text-center" onchange="superApp.renderReport()">
+                    </div>
+                </div>
+
+                <!-- Outlet Select -->
+                <select id="report-outlet-filter" class="w-full xl:w-32 h-10 bg-white/90 border border-slate-200/80 rounded-full px-4 text-xs font-bold outline-none shadow-sm hidden text-slate-700 cursor-pointer focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 hover:border-slate-300 transition-all shrink-0" onchange="superApp.renderReport()"></select>
+
+                <!-- Pemisah PC -->
+                <div class="w-px h-6 bg-slate-200/80 hidden xl:block mx-1"></div>
+
+                <!-- Tombol Aksi (PDF & WA) -->
+                <div class="flex items-center gap-2 w-full xl:w-auto mt-2 xl:mt-0 pt-3 xl:pt-0 border-t border-slate-100 xl:border-none shrink-0">
+                    <button onclick="superApp.exportPDF()" class="flex-1 xl:flex-none w-full xl:w-10 h-10 bg-rose-50/80 hover:bg-rose-500 text-rose-500 hover:text-white border border-rose-100 hover:border-rose-500 rounded-full shadow-sm hover:shadow-[0_4px_10px_rgba(244,63,94,0.3)] transition-all duration-300 flex items-center justify-center gap-2 active:scale-95 group" title="Unduh PDF">
+                        <i class="fas fa-file-pdf text-sm group-hover:scale-110 transition-transform"></i>
+                        <span class="text-xs font-bold xl:hidden">PDF</span>
+                    </button>
+                    <button onclick="superApp.sendReportToWA()" class="flex-1 xl:flex-none px-5 h-10 bg-gradient-to-r from-[#25D366] to-[#128C7E] hover:from-[#20bd5a] hover:to-[#0f7a6e] text-white rounded-full font-black text-xs shadow-[0_4px_12px_rgba(37,211,102,0.3)] hover:shadow-[0_6px_15px_rgba(37,211,102,0.4)] transition-all duration-300 hover:-translate-y-0.5 flex items-center justify-center gap-2 active:scale-95 group relative overflow-hidden" title="Kirim WA Laporan">
+                        <div class="absolute inset-0 bg-white/10 w-full h-full -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
+                        <i class="fab fa-whatsapp text-base relative z-10 group-hover:rotate-12 transition-transform"></i><span class="relative z-10">Lapor WA</span>
+                    </button>
+                </div>
             </div>
         </div>
 
-        <!-- PANEL FILTER MODERN (INLINE EXPANDABLE - GLASSMORPHISM) -->
-        <div id="inline-filter-panel" class="hidden xl:flex flex-col xl:flex-row w-full gap-3 xl:gap-4 items-center justify-end mb-8 bg-slate-50/50 xl:bg-transparent p-5 xl:p-0 rounded-[2rem] border border-slate-200/50 xl:border-none transition-all origin-top relative z-10 shrink-0">
-            
-            <div class="relative w-full xl:w-72 shrink-0 group/search">
-                <div class="absolute inset-0 bg-blue-500/5 rounded-[1.25rem] blur-md opacity-0 group-focus-within/search:opacity-100 transition-opacity duration-500"></div>
-                <i class="fas fa-search absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/search:text-blue-500 transition-colors"></i>
-                <input type="text" id="filter-search-trx" placeholder="Cari Resi atau Item..." class="relative w-full h-[54px] bg-white/80 backdrop-blur-md border border-slate-200/80 rounded-[1.25rem] pl-12 pr-5 py-2 font-bold text-sm text-slate-700 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all shadow-sm cursor-pointer hover:bg-white" readonly onclick="osKeyboard.open('filter-search-trx', 'text')" oninput="superApp.renderReport()">
-            </div>
-
-            <div class="flex items-center w-full xl:w-auto bg-white/80 backdrop-blur-md rounded-[1.25rem] border border-slate-200/80 shadow-sm shrink-0 overflow-hidden focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all hover:bg-white">
-                <div class="flex-1 flex flex-col justify-center px-4 py-2 hover:bg-slate-50 cursor-pointer transition-colors" onclick="document.getElementById('filter-start').showPicker()">
-                    <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest cursor-pointer mb-0.5">Tgl Awal</label>
-                    <input type="date" id="filter-start" class="w-full bg-transparent border-none p-0 m-0 font-black text-xs md:text-sm text-slate-800 outline-none cursor-pointer" onchange="superApp.renderReport()">
-                </div>
-                <div class="w-px h-8 bg-slate-200"></div>
-                <div class="flex-1 flex flex-col justify-center px-4 py-2 hover:bg-slate-50 cursor-pointer transition-colors" onclick="document.getElementById('filter-end').showPicker()">
-                    <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest cursor-pointer mb-0.5">Tgl Akhir</label>
-                    <input type="date" id="filter-end" class="w-full bg-transparent border-none p-0 m-0 font-black text-xs md:text-sm text-slate-800 outline-none cursor-pointer" onchange="superApp.renderReport()">
-                </div>
-            </div>
-
-            <select id="report-outlet-filter" class="w-full xl:w-auto h-[54px] bg-white/80 backdrop-blur-md border border-slate-200/80 rounded-[1.25rem] px-5 font-bold text-sm outline-none shadow-sm hidden text-slate-700 cursor-pointer focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 hover:bg-white transition-all shrink-0" onchange="superApp.renderReport()"></select>
-
-            <div class="grid grid-cols-4 xl:flex gap-3 w-full xl:w-auto shrink-0 mt-2 xl:mt-0 pt-3 xl:pt-0 border-t xl:border-t-0 border-slate-200/50">
-                <button onclick="superApp.exportPDF()" class="col-span-1 xl:flex-none h-[54px] xl:px-6 bg-rose-50/80 hover:bg-rose-500 text-rose-600 hover:text-white border border-rose-100 hover:border-rose-500 rounded-[1.25rem] font-bold shadow-sm hover:shadow-[0_8px_20px_rgba(244,63,94,0.3)] transition-all duration-300 flex items-center justify-center gap-2.5 active:scale-95 group relative overflow-hidden" title="Unduh PDF">
-                    <div class="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-                    <i class="fas fa-file-pdf text-xl group-hover:scale-110 transition-transform relative z-10"></i> 
-                </button>
-                <button onclick="superApp.sendReportToWA()" class="col-span-3 xl:flex-none h-[54px] px-7 bg-gradient-to-r from-[#25D366] to-[#128C7E] hover:from-[#20bd5a] hover:to-[#0f7a6e] text-white rounded-[1.25rem] font-black shadow-[0_8px_20px_rgba(37,211,102,0.3)] hover:shadow-[0_12px_25px_rgba(37,211,102,0.4)] transition-all duration-300 hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-2.5 active:scale-95 group relative overflow-hidden" title="Kirim WA Laporan">
-                    <div class="absolute inset-0 bg-white/10 w-full h-full -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
-                    <i class="fab fa-whatsapp text-2xl relative z-10 group-hover:rotate-12 transition-transform"></i><span class="relative z-10 tracking-wide">Lapor WA</span>
-                </button>
-            </div>
-            
+        <!-- PILL TABS NAVIGASI (Versi Lebih Mungil & Rapi) -->
+        <div class="flex gap-1.5 bg-slate-100/50 p-1.5 rounded-2xl shadow-inner border border-slate-200/50 overflow-x-auto mb-5 shrink-0 relative z-10 w-full custom-scroll backdrop-blur-sm">
+            <button onclick="superApp.toggleReportTab('trx')" id="tab-trx" class="px-4 py-2.5 bg-white text-blue-600 rounded-xl text-[11px] md:text-xs font-black shadow-sm whitespace-nowrap transition-all duration-300 flex items-center gap-2 shrink-0 hover:scale-[1.02] active:scale-95">
+                <i class="fas fa-home opacity-90 text-sm"></i> Dashboard
+            </button>
+            <button onclick="superApp.toggleReportTab('rekap')" id="tab-rekap" class="px-4 py-2.5 text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-sm rounded-xl text-[11px] md:text-xs font-bold whitespace-nowrap transition-all duration-300 flex items-center gap-2 shrink-0 hover:scale-[1.02] active:scale-95">
+                <i class="fas fa-list opacity-80 text-sm"></i> Rekap Jualan
+            </button>
+            <button onclick="superApp.toggleReportTab('kas')" id="tab-kas" class="px-4 py-2.5 text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-sm rounded-xl text-[11px] md:text-xs font-bold whitespace-nowrap transition-all duration-300 flex items-center gap-2 shrink-0 hover:scale-[1.02] active:scale-95">
+                <i class="fas fa-money-bill-transfer opacity-80 text-sm"></i> Kas Keluar
+            </button>
+            <button onclick="superApp.toggleReportTab('selisih')" id="tab-selisih" class="px-4 py-2.5 text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-sm rounded-xl text-[11px] md:text-xs font-bold whitespace-nowrap transition-all duration-300 flex items-center gap-2 shrink-0 hover:scale-[1.02] active:scale-95">
+                <i class="fas fa-clipboard-check opacity-80 text-sm"></i> Audit Selisih
+            </button>
+            <button onclick="superApp.toggleReportTab('bom')" id="tab-bom" class="px-4 py-2.5 text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-sm rounded-xl text-[11px] md:text-xs font-bold whitespace-nowrap transition-all duration-300 flex items-center gap-2 shrink-0 hover:scale-[1.02] active:scale-95">
+                <i class="fas fa-boxes-stacked opacity-80 text-sm"></i> Analisis BOM
+            </button>
         </div>
 
         <!-- PILL TABS NAVIGASI (SEGMENTED CONTROL STYLE) -->

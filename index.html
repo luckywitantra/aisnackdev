@@ -1577,12 +1577,20 @@
         <div class="absolute inset-0 bg-gradient-to-br from-amber-50/0 to-amber-50/50 opacity-0 group-hover:opacity-100 transition-opacity z-0 pointer-events-none"></div>
     </div>
 
-    <!-- KARTU 2: Komparasi Performa Cabang (Standar) -->
-    <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col relative overflow-hidden">
-        <h4 class="font-black text-slate-800 mb-4 flex items-center gap-2">
-            <i class="fas fa-store-alt text-sky-500"></i> Komparasi Performa Cabang
+   <!-- KARTU 2: Komparasi Performa Cabang (INTERAKTIF & DEEP DIVE) -->
+    <div onclick="superApp.openBranchComparisonModal()" 
+         class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col cursor-pointer hover:scale-[1.02] hover:shadow-xl hover:shadow-sky-500/10 hover:border-sky-200 transition-all active:scale-95 group relative overflow-hidden">
+        
+        <!-- Header Interaktif -->
+        <h4 class="font-black text-slate-800 mb-4 flex items-center gap-2 group-hover:text-sky-600 transition-colors relative z-10">
+            <div class="w-8 h-8 bg-sky-50 rounded-lg flex items-center justify-center group-hover:bg-sky-500 group-hover:text-white transition-colors">
+                <i class="fas fa-store-alt text-sky-500 group-hover:text-white"></i> 
+            </div>
+            Komparasi Performa Cabang
         </h4>
-        <div class="overflow-x-auto custom-scroll max-h-[300px] relative z-10">
+        
+        <!-- Penampung Tabel Preview (Redup sebelum di-hover) -->
+        <div class="overflow-x-auto custom-scroll max-h-[300px] opacity-70 group-hover:opacity-100 transition-opacity relative z-10 pointer-events-none">
             <table class="w-full text-sm">
                 <thead class="sticky top-0 bg-white z-10 text-slate-400 uppercase tracking-widest text-[9px] font-black">
                     <tr>
@@ -1595,9 +1603,15 @@
                 <tbody id="ai-comparison-tbody"></tbody>
             </table>
         </div>
+
+        <!-- Ornamen Panah Interaktif di Pojok -->
+        <div class="absolute bottom-6 right-6 w-8 h-8 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center group-hover:bg-sky-50 group-hover:text-sky-500 group-hover:translate-x-1 transition-all z-10">
+            <i class="fas fa-arrow-right text-xs"></i>
+        </div>
+
+        <!-- Efek Glow Latar Belakang Saat Hover -->
+        <div class="absolute inset-0 bg-gradient-to-br from-sky-50/0 to-sky-50/50 opacity-0 group-hover:opacity-100 transition-opacity z-0 pointer-events-none"></div>
     </div>
-    
-</div>
 
         <!-- PREDIKTIF INVENTORY -->
         <div id="ai-predictive-section" class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm mb-8">
@@ -2692,7 +2706,7 @@
 
   
 <!-- 1. PANGGIL APP.JS TERLEBIH DAHULU -->
-  <script src="app.js?v=519"></script>
+  <script src="app.js?v=520"></script>
   
 
   <!-- 2. BARU JALANKAN SCRIPT INLINE ANDA -->

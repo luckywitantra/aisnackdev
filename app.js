@@ -3797,6 +3797,201 @@ changeOutlet: function(val) {
         }, 350);
     },
 
+    // =========================================================
+    // 🚀 ENGINE CFO: PERINGKAT PRODUK (PODIUM & LEADERBOARD)
+    // =========================================================
+    openProductRankModal: function() {
+        // 1. Ekstrak & Agregasi Data dari Seluruh Transaksi Sukses
+        let rawData = (this.db.Transaksi_Header || []).filter(x => x.Status === 'Sukses');
+        let productMap = {};
+        let totalSales = 0;
+        let totalPcs = 0;
+
+        // Baca filter tanggal eksekutif aktif (jika ada)
+        const startInput = document.getElementById('exec-filter-start');
+        const endInput = document.getElementById('exec-filter-end');
+        let startObj = (startInput && startInput.value) ? new Date(startInput.value) : null;
+        if (startObj) startObj.setHours(0, 0, 0, 0);
+        let endObj = (endInput && endInput.value) ? new Date(endInput.value) : null;
+        if (endObj) endObj.setHours(23, 59, 59, 999);
+
+        rawData.forEach(trx => {
+            // Filter Tanggal
+            if (startObj || endObj) {
+                let cleanStr = (trx.Tanggal || '').split(',').pop().trim();
+                let match = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+                if (match) {
+                    let trxDate = new Date(parseInt(match[3],10), parseInt(match[2],10)-1, parseInt(match[1],10));
+                    if (startObj && trxDate < startObj) return;
+                    if (endObj && trxDate > endObj) return;
+                } else return;
+            }
+
+            try {
+                let items = JSON.parse(trx.Items_JSON || '[]');
+                items.forEach(item => {
+                    let nama = String(item.nama || 'Produk Tidak Diketahui').toUpperCase().trim();
+                    let qty = Number(item.qty || 0);
+                    let price = Number(item.price || 0);
+                    let subtotal = qty * price;
+
+                    if (!productMap[nama]) {
+                        productMap[nama] = { nama: nama, qty: 0, omset: 0 };
+                    }
+                    productMap[nama].qty += qty;
+                    productMap[nama].omset += subtotal;
+                    
+                    totalSales += subtotal;
+                    totalPcs += qty;
+                });
+            } catch(e) {}
+        });
+
+        // 2. Sortir Berdasarkan Omset Terbesar
+        let sortedProducts = Object.values(productMap).sort((a, b) => b.omset - a.omset);
+        let topOmset = sortedProducts.length > 0 ? sortedProducts[0].omset : 0;
+
+        // 3. Rakit AI Insight
+        let insightHtml = 'Belum ada data transaksi yang cukup.';
+        if (sortedProducts.length > 0) {
+            let top1 = sortedProducts[0];
+            let pct = Math.round((top1.omset / totalSales) * 100);
+            insightHtml = `Produk <b class="text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-md">${top1.nama}</b> adalah pahlawan omset Anda, menyumbang <b>${pct}%</b> dari total pendapatan dengan terjual sebanyak <b>${top1.qty.toLocaleString('id-ID')} Pcs</b>.`;
+        }
+
+        // 4. Rakit UI Podium (Top 3) & List (Peringkat 4+)
+        let podiumHtml = '';
+        let listHtml = '';
+
+        sortedProducts.forEach((prod, index) => {
+            let rank = index + 1;
+            let barWidth = topOmset > 0 ? Math.round((prod.omset / topOmset) * 100) : 0;
+
+            if (rank <= 3) {
+                // UI Khusus Top 3 (Podium / Medali)
+                let medalColors = {
+                    1: { bg: 'bg-amber-100', text: 'text-amber-500', border: 'border-amber-300', icon: 'fa-trophy', label: 'EMAS' },
+                    2: { bg: 'bg-slate-100', text: 'text-slate-400', border: 'border-slate-300', icon: 'fa-medal', label: 'PERAK' },
+                    3: { bg: 'bg-orange-100', text: 'text-orange-600', border: 'border-orange-300', icon: 'fa-award', label: 'PERUNGGU' }
+                };
+                let c = medalColors[rank];
+
+                podiumHtml += `
+                <div class="flex items-center gap-3 bg-white p-3 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-amber-200 transition-all group relative overflow-hidden">
+                    <div class="w-12 h-12 shrink-0 rounded-xl ${c.bg} ${c.text} border ${c.border} flex flex-col items-center justify-center relative z-10 group-hover:scale-110 transition-transform">
+                        <i class="fas ${c.icon} text-lg"></i>
+                        <span class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-white border border-slate-200 rounded-full flex items-center justify-center text-[9px] font-black shadow-sm">#${rank}</span>
+                    </div>
+                    <div class="flex-1 relative z-10">
+                        <h4 class="font-black text-slate-800 text-xs truncate pr-4">${prod.nama}</h4>
+                        <div class="flex justify-between items-center mt-1">
+                            <span class="text-[10px] font-bold text-slate-500">${prod.qty.toLocaleString('id-ID')} Terjual</span>
+                            <span class="font-black text-rose-500 text-sm">Rp ${prod.omset.toLocaleString('id-ID')}</span>
+                        </div>
+                    </div>
+                    <div class="absolute inset-0 bg-gradient-to-r from-transparent to-${c.text.split('-')[1]}-50/30 opacity-0 group-hover:opacity-100 transition-opacity z-0 pointer-events-none"></div>
+                </div>`;
+            } else {
+                // UI List Standar (Peringkat 4 ke atas)
+                listHtml += `
+                <div class="group relative px-1 py-1.5">
+                    <div class="flex justify-between items-center mb-1">
+                        <div class="flex items-center gap-2">
+                            <span class="w-5 h-5 rounded-md bg-slate-100 text-slate-500 flex items-center justify-center text-[9px] font-black border border-slate-200">#${rank}</span>
+                            <span class="font-extrabold text-slate-700 text-xs group-hover:text-amber-500 transition-colors">${prod.nama}</span>
+                        </div>
+                        <span class="font-black text-slate-700 text-xs">Rp ${prod.omset.toLocaleString('id-ID')}</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div class="h-full bg-slate-300 group-hover:bg-amber-400 transition-all duration-1000" style="width: 0%" data-target-width="${barWidth}%"></div>
+                        </div>
+                        <span class="text-[9px] font-bold text-slate-400 w-12 text-right">${prod.qty} Pcs</span>
+                    </div>
+                </div>`;
+            }
+        });
+
+        // 5. Ciptakan dan Tampilkan Popup Modal
+        let modalId = 'cfo-product-rank-modal';
+        let modal = document.getElementById(modalId);
+        
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = modalId;
+            modal.className = "fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/70 backdrop-blur-md opacity-0 pointer-events-none transition-opacity duration-300";
+            document.body.appendChild(modal);
+        }
+
+        modal.innerHTML = `
+            <div class="bg-slate-50 w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl overflow-hidden transform translate-y-full sm:translate-y-12 scale-95 transition-all duration-500 flex flex-col max-h-[90vh] border border-white/20 relative">
+                
+                <!-- Header Artistik -->
+                <div class="bg-gradient-to-br from-amber-400 via-orange-400 to-rose-500 p-6 relative shrink-0">
+                    <button onclick="document.getElementById('${modalId}').classList.remove('opacity-100', 'pointer-events-auto'); document.getElementById('${modalId}').firstElementChild.classList.add('translate-y-full', 'sm:translate-y-12', 'scale-95');" class="absolute top-5 right-5 w-8 h-8 bg-white/20 hover:bg-white/40 rounded-full flex items-center justify-center transition active:scale-90 text-white backdrop-blur-md z-10 border border-white/30">
+                        <i class="fas fa-xmark"></i>
+                    </button>
+                    
+                    <div class="w-12 h-1.5 bg-white/30 rounded-full mx-auto mb-4 sm:hidden"></div>
+                    
+                    <div class="flex items-center gap-4 relative z-10 text-white">
+                        <div class="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/30 shadow-lg flex items-center justify-center shrink-0">
+                            <i class="fas fa-crown text-2xl drop-shadow-md"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-[10px] font-bold text-amber-100 uppercase tracking-widest mb-0.5">Leaderboard Penjualan</h4>
+                            <h2 class="text-xl font-black leading-tight drop-shadow-sm">Peringkat Produk</h2>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Kotak Insight AI -->
+                <div class="px-6 pt-5 shrink-0">
+                    <div class="bg-white p-3.5 rounded-2xl border border-amber-100 shadow-sm flex gap-3 items-start relative z-10">
+                        <div class="mt-0.5 text-amber-500 bg-amber-50 w-7 h-7 flex items-center justify-center rounded-lg shadow-inner shrink-0"><i class="fas fa-lightbulb"></i></div>
+                        <p class="text-xs text-slate-600 font-medium leading-relaxed pt-0.5">
+                            ${insightHtml}
+                        </p>
+                    </div>
+                </div>
+                
+                <!-- Breakdown List -->
+                <div class="px-6 pb-6 pt-4 overflow-y-auto custom-scroll flex-1 relative">
+                    <!-- Top 3 Podium -->
+                    ${podiumHtml !== '' ? `
+                    <h5 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 pl-1">🏆 Top 3 Terlaris</h5>
+                    <div class="space-y-2.5 mb-5">
+                        ${podiumHtml}
+                    </div>` : ''}
+
+                    <!-- Peringkat 4 ke atas -->
+                    ${listHtml !== '' ? `
+                    <h5 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 pl-1 border-t border-slate-200 pt-4">📊 Peringkat Lainnya</h5>
+                    <div class="space-y-1">
+                        ${listHtml}
+                    </div>` : ''}
+                </div>
+            </div>
+        `;
+
+        // 6. Trigger Animasi Masuk Modal
+        void modal.offsetWidth;
+        modal.classList.add('opacity-100', 'pointer-events-auto');
+        
+        const modalContent = modal.firstElementChild;
+        modalContent.classList.remove('translate-y-full', 'sm:translate-y-12', 'scale-95');
+        modalContent.classList.add('translate-y-0', 'scale-100');
+
+        // 7. Play Animasi Progress Bar untuk List
+        setTimeout(() => {
+            modal.querySelectorAll('[data-target-width]').forEach(bar => {
+                bar.style.width = bar.getAttribute('data-target-width');
+            });
+        }, 350);
+    },
+
+    
+
     
 
     

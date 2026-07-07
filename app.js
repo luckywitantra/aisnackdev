@@ -3499,6 +3499,159 @@ changeOutlet: function(val) {
         this.closeWaLaporanModal();
     },
 
+    // =========================================================
+    // 🚀 ENGINE CFO DEEP DIVE ANALYTICS (GLASSMORPHISM MODAL)
+    // =========================================================
+    openCfoDeepDiveModal: function(metricType) {
+        // Kumpulkan data dasar
+        let rawData = (this.db.Transaksi_Header || []).filter(x => x.Status === 'Sukses');
+        
+        // Simulasi kalkulasi metrik per outlet (Bisa Anda sesuaikan dengan rentang tanggal aktif)
+        let outletData = {};
+        let totalMetrik = 0;
+        
+        rawData.forEach(trx => {
+            let outName = String(trx.Outlet || 'Pusat').trim();
+            if (!outletData[outName]) outletData[outName] = { omset: 0, modal: 0, laba: 0 };
+            
+            let omset = Number(trx.Total_Bayar || 0);
+            // Asumsi kasar HPP/Modal = 45% dari Omset jika belum ada HPP riil di transaksi
+            let modal = omset * 0.45; 
+            let laba = omset - modal;
+
+            outletData[outName].omset += omset;
+            outletData[outName].modal += modal;
+            outletData[outName].laba += laba;
+        });
+
+        // Tentukan Tema dan Konteks Popup berdasarkan Kartu yang diklik
+        let config = { title: '', icon: '', color: '', bg: '', value: 0, dataKey: '' };
+        
+        if (metricType === 'omset') {
+            config = { title: 'Total Omset Kotor', icon: 'fa-wallet', color: 'text-blue-500', bg: 'bg-blue-50 border-blue-200', dataKey: 'omset' };
+        } else if (metricType === 'modal') {
+            config = { title: 'Total Beban Modal (COGS)', icon: 'fa-boxes-packing', color: 'text-amber-500', bg: 'bg-amber-50 border-amber-200', dataKey: 'modal' };
+        } else if (metricType === 'laba') {
+            config = { title: 'Laba Bersih Operasional', icon: 'fa-hand-holding-dollar', color: 'text-emerald-500', bg: 'bg-emerald-50 border-emerald-200', dataKey: 'laba' };
+        } else if (metricType === 'margin') {
+            config = { title: 'Margin Keuntungan', icon: 'fa-chart-pie', color: 'text-purple-500', bg: 'bg-purple-50 border-purple-200', dataKey: 'margin' };
+        }
+
+        // Hitung total untuk metric yang dipilih
+        Object.keys(outletData).forEach(k => { totalMetrik += outletData[k][config.dataKey === 'margin' ? 'laba' : config.dataKey]; });
+
+        // Urutkan outlet dari yang terbesar
+        let sortedOutlets = Object.keys(outletData).sort((a, b) => outletData[b][config.dataKey === 'margin' ? 'laba' : config.dataKey] - outletData[a][config.dataKey === 'margin' ? 'laba' : config.dataKey]);
+
+        // 🚀 Rakit Grafik Batang Interaktif (CSS-based)
+        let breakdownHtml = sortedOutlets.map((out, index) => {
+            let val = outletData[out][config.dataKey === 'margin' ? 'laba' : config.dataKey];
+            let rawOmset = outletData[out].omset;
+            let valDisplay = '';
+            let pctVal = totalMetrik > 0 ? Math.round((val / totalMetrik) * 100) : 0;
+            
+            // Logika khusus Margin (Laba / Omset)
+            if (config.dataKey === 'margin') {
+                let marginPct = rawOmset > 0 ? Math.round((val / rawOmset) * 100) : 0;
+                valDisplay = `${marginPct}%`;
+                pctVal = marginPct; // Gunakan margin sbg lebar bar
+            } else {
+                valDisplay = `Rp ${val.toLocaleString('id-ID')}`;
+            }
+
+            return `
+            <div class="group relative bg-white hover:bg-slate-50 p-3.5 rounded-2xl border border-slate-100 shadow-2xs hover:shadow-md transition-all cursor-crosshair overflow-hidden">
+                <div class="flex justify-between items-end mb-2 relative z-10">
+                    <div>
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="w-4 h-4 rounded-full bg-slate-800 text-white flex items-center justify-center text-[8px] font-black">${index + 1}</span>
+                            <span class="font-extrabold text-slate-800 text-xs">Ai-CHA ${out}</span>
+                        </div>
+                        <span class="text-[10px] font-bold text-slate-400">Kontribusi: ${config.dataKey === 'margin' ? 'Profitabilitas Cabang' : pctVal + '% dari Total'}</span>
+                    </div>
+                    <span class="font-black ${config.color} text-sm">${valDisplay}</span>
+                </div>
+                <!-- Interactive Progress Bar -->
+                <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden relative z-10">
+                    <div class="${config.bg.split(' ')[0]} ${config.color.replace('text-', 'bg-')} h-full rounded-full transition-all duration-1000 group-hover:brightness-110" style="width: 0%" data-target-width="${pctVal}%"></div>
+                </div>
+                <!-- Efek Hover Latar -->
+                <div class="absolute inset-0 bg-gradient-to-r from-transparent to-${config.color.split('-')[1]}-50/30 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+            </div>`;
+        }).join('');
+
+        let finalValueDisplay = config.dataKey === 'margin' 
+            ? `${(totalMetrik > 0 ? Math.round((totalMetrik / (Object.values(outletData).reduce((a,b)=>a+b.omset,0))) * 100) : 0)}%`
+            : `Rp ${totalMetrik.toLocaleString('id-ID')}`;
+
+        // 🚀 Ciptakan Elemen Modal Dinamis
+        let modalId = 'cfo-deep-dive-modal';
+        let modal = document.getElementById(modalId);
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = modalId;
+            modal.className = "fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/70 backdrop-blur-md opacity-0 pointer-events-none transition-opacity duration-300";
+            document.body.appendChild(modal);
+        }
+
+        modal.innerHTML = `
+            <div class="bg-slate-50 w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl overflow-hidden transform translate-y-full sm:translate-y-12 scale-95 transition-all duration-500 flex flex-col max-h-[90vh] border border-white/20 relative">
+                
+                <!-- Header Artistik -->
+                <div class="${config.bg} p-6 relative shrink-0 border-b">
+                    <button onclick="document.getElementById('${modalId}').classList.remove('opacity-100', 'pointer-events-auto'); document.getElementById('${modalId}').firstElementChild.classList.add('translate-y-full', 'sm:translate-y-12', 'scale-95');" class="absolute top-5 right-5 w-8 h-8 bg-white/50 hover:bg-white rounded-full flex items-center justify-center transition active:scale-90 ring-1 ring-slate-900/5 text-slate-500 hover:text-rose-500 backdrop-blur-md z-10">
+                        <i class="fas fa-xmark"></i>
+                    </button>
+                    
+                    <div class="w-12 h-1.5 bg-slate-300/50 rounded-full mx-auto mb-4 sm:hidden"></div>
+                    
+                    <div class="flex items-center gap-4 relative z-10">
+                        <div class="w-14 h-14 rounded-2xl bg-white shadow-sm flex items-center justify-center shrink-0">
+                            <i class="fas ${config.icon} ${config.color} text-2xl"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Analitik Deep Dive</h4>
+                            <h2 class="text-xl font-black text-slate-800 leading-tight">${config.title}</h2>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Highlight Nilai Total -->
+                <div class="px-6 pt-5 pb-3 shrink-0">
+                    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex justify-between items-center bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9InJnYmEoMCwwLDAsMC4wNSkiLz48L3N2Zz4=')]">
+                        <span class="text-xs font-bold text-slate-500 uppercase">Akumulasi Terpusat</span>
+                        <span class="text-2xl font-black ${config.color} drop-shadow-sm">${finalValueDisplay}</span>
+                    </div>
+                </div>
+                
+                <!-- Breakdown List -->
+                <div class="px-6 pb-6 overflow-y-auto custom-scroll flex-1 space-y-3 relative">
+                    <h5 class="text-xs font-black text-slate-700 flex items-center gap-2 mt-2">
+                        <i class="fas fa-network-wired text-slate-400"></i> Distribusi Per Cabang
+                    </h5>
+                    ${breakdownHtml}
+                </div>
+            </div>
+        `;
+
+        // Trigger Animasi Masuk & Jalankan Animasi Progress Bar
+        void modal.offsetWidth;
+        modal.classList.add('opacity-100', 'pointer-events-auto');
+        
+        const modalContent = modal.firstElementChild;
+        modalContent.classList.remove('translate-y-full', 'sm:translate-y-12', 'scale-95');
+        modalContent.classList.add('translate-y-0', 'scale-100');
+
+        // Delay sedikit agar transisi lebar bar terlihat berjalan dari 0% ke target
+        setTimeout(() => {
+            modal.querySelectorAll('[data-target-width]').forEach(bar => {
+                bar.style.width = bar.getAttribute('data-target-width');
+            });
+        }, 300);
+    },
+
+    
+
     
     // =========================================================
     // 🚀 1. RENDER MANAJEMEN USER (PC & MOBILE DUAL RENDER)

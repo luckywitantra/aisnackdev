@@ -3650,6 +3650,153 @@ changeOutlet: function(val) {
         }, 300);
     },
 
+    // =========================================================
+    // 🚀 ENGINE ANALITIK JAM SIBUK & GRAFIK GELOMBANG (CFO)
+    // =========================================================
+    openRushHourAnalyticsModal: function() {
+        // 1. Kumpulkan Data Transaksi Sukses
+        let rawData = (this.db.Transaksi_Header || []).filter(x => x.Status === 'Sukses');
+        
+        // Inisialisasi Jam Operasional (Misal: Jam 09:00 pagi s/d 23:00 malam)
+        let hourlyData = {};
+        for(let i = 9; i <= 23; i++) hourlyData[i] = { trx: 0, omset: 0 }; 
+        
+        let totalTrx = 0;
+        rawData.forEach(trx => {
+            let wkt = String(trx.Waktu || '').trim();
+            // Ekstrak jam dari format HH:mm:ss atau HH.mm.ss
+            let match = wkt.match(/^(\d{1,2})[:\.]/); 
+            if(match) {
+                let h = parseInt(match[1], 10);
+                if(hourlyData[h]) {
+                    hourlyData[h].trx += 1;
+                    hourlyData[h].omset += Number(trx.Total_Bayar || 0);
+                    totalTrx++;
+                }
+            }
+        });
+
+        // 2. Deteksi Puncak Keramaian (Peak Hour)
+        let peakHour = 9;
+        let maxTrx = 0;
+        let chartHtml = '';
+        
+        Object.keys(hourlyData).forEach(h => {
+            if(hourlyData[h].trx > maxTrx) {
+                maxTrx = hourlyData[h].trx;
+                peakHour = h;
+            }
+        });
+
+        // 3. Rakit Grafik Batang Interaktif bergaya Gelombang
+        Object.keys(hourlyData).forEach(h => {
+            let data = hourlyData[h];
+            let heightPct = maxTrx > 0 ? Math.round((data.trx / maxTrx) * 100) : 0;
+            let isPeak = (h == peakHour);
+            
+            chartHtml += `
+            <div class="flex-1 flex flex-col items-center justify-end group relative px-0.5 sm:px-1 cursor-crosshair">
+                
+                <!-- Tooltip Melayang (Muncul Saat Hover) -->
+                <div class="absolute bottom-full mb-2 bg-slate-800 text-white text-[10px] py-1.5 px-2.5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap pointer-events-none z-20 shadow-xl border border-slate-600 transform group-hover:-translate-y-1">
+                    <span class="font-black text-amber-400 block mb-0.5"><i class="far fa-clock"></i> ${h}:00 - ${parseInt(h)+1}:00</span>
+                    <span class="text-slate-300">${data.trx} Struk Terbit</span><br>
+                    <span class="font-bold text-emerald-400">Rp ${data.omset.toLocaleString('id-ID')}</span>
+                    <!-- Segitiga Panah Tooltip -->
+                    <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                </div>
+                
+                <!-- Tiang Grafik -->
+                <div class="w-full relative flex items-end justify-center h-40 rounded-t-xl overflow-hidden group-hover:bg-slate-50 transition-colors">
+                    <div class="w-full ${isPeak ? 'bg-gradient-to-t from-rose-500 to-orange-400 shadow-[0_0_15px_rgba(244,63,94,0.4)]' : 'bg-gradient-to-t from-slate-200 to-slate-300 group-hover:from-indigo-400 group-hover:to-cyan-400'} rounded-t-xl transition-all duration-1000 ease-out" 
+                         style="height: 0%" data-target-height="${heightPct}%">
+                    </div>
+                </div>
+                
+                <!-- Label Jam Bawah -->
+                <span class="text-[9px] font-bold text-slate-400 mt-2 transition-all ${isPeak ? 'text-rose-600 scale-125 font-black' : 'group-hover:text-indigo-500 group-hover:scale-110'}">${h}:00</span>
+            </div>
+            `;
+        });
+
+        // 4. Asisten AI Teks Insight
+        let insightHtml = maxTrx > 0 
+            ? `Puncak keramaian terjadi pada pukul <b class="text-rose-600 bg-rose-100 px-1.5 py-0.5 rounded-md">${peakHour}:00 - ${parseInt(peakHour)+1}:00</b> dengan <b class="text-slate-800">${maxTrx} transaksi</b>. Saran Sistem: Pastikan stok bahan baku sudah disiapkan *(pre-prep)* 1 jam sebelum waktu ini untuk menghindari antrean panjang.`
+            : `Data transaksi belum cukup untuk dianalisis oleh sistem AI hari ini.`;
+
+        // 5. Ciptakan dan Tampilkan Popup Modal
+        let modalId = 'cfo-rush-hour-modal';
+        let modal = document.getElementById(modalId);
+        
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = modalId;
+            modal.className = "fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/70 backdrop-blur-md opacity-0 pointer-events-none transition-opacity duration-300";
+            document.body.appendChild(modal);
+        }
+
+        modal.innerHTML = `
+            <div class="bg-white w-full max-w-3xl rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl overflow-hidden transform translate-y-full sm:translate-y-12 scale-95 transition-all duration-500 flex flex-col relative">
+                
+                <div class="p-6 sm:p-8">
+                    <!-- Tombol Tutup -->
+                    <button onclick="document.getElementById('${modalId}').classList.remove('opacity-100', 'pointer-events-auto'); document.getElementById('${modalId}').firstElementChild.classList.add('translate-y-full', 'sm:translate-y-12', 'scale-95');" class="absolute top-6 right-6 w-8 h-8 bg-slate-50 hover:bg-rose-50 hover:text-rose-600 rounded-full flex items-center justify-center transition active:scale-90 text-slate-400 z-20 border border-slate-100">
+                        <i class="fas fa-xmark"></i>
+                    </button>
+                    
+                    <!-- Header Artistik -->
+                    <div class="flex items-center gap-4 mb-6 relative z-10">
+                        <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/30 flex items-center justify-center shrink-0">
+                            <i class="fas fa-wave-square text-2xl animate-pulse"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-0.5">Pemantauan Lalu Lintas Toko</h4>
+                            <h2 class="text-xl font-black text-slate-800 leading-tight">Analitik Jam Sibuk</h2>
+                        </div>
+                    </div>
+
+                    <!-- Kotak Insight AI (Saran Operasional) -->
+                    <div class="bg-gradient-to-r from-indigo-50 to-purple-50 p-4 rounded-2xl border border-indigo-100/50 mb-8 flex gap-3.5 items-start relative z-10 shadow-inner">
+                        <div class="mt-0.5 text-indigo-500 bg-white p-2 rounded-xl shadow-sm"><i class="fas fa-robot text-lg"></i></div>
+                        <p class="text-xs text-indigo-900/80 font-medium leading-relaxed pt-1">
+                            ${insightHtml}
+                        </p>
+                    </div>
+
+                    <!-- Area Visualisasi Grafik -->
+                    <div class="relative pt-6 border-t border-dashed border-slate-200">
+                        <!-- Ornamen Gelombang Latar (SVG) -->
+                        <div class="absolute bottom-6 left-0 w-full h-32 opacity-10 pointer-events-none overflow-hidden">
+                            <svg viewBox="0 0 1000 100" preserveAspectRatio="none" class="w-full h-full text-indigo-500 fill-current">
+                                <path d="M0,50 C150,100 350,0 500,50 C650,100 850,0 1000,50 L1000,100 L0,100 Z"></path>
+                            </svg>
+                        </div>
+                        
+                        <!-- Batang Interaktif (Grafik Utama) -->
+                        <div class="flex items-end justify-between gap-1 relative z-10">
+                            ${chartHtml}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // 6. Trigger Animasi Masuk Modal
+        void modal.offsetWidth;
+        modal.classList.add('opacity-100', 'pointer-events-auto');
+        
+        const modalContent = modal.firstElementChild;
+        modalContent.classList.remove('translate-y-full', 'sm:translate-y-12', 'scale-95');
+        modalContent.classList.add('translate-y-0', 'scale-100');
+
+        // 7. Play Animasi Batang Naik Perlahan
+        setTimeout(() => {
+            modal.querySelectorAll('[data-target-height]').forEach(bar => {
+                bar.style.height = bar.getAttribute('data-target-height');
+            });
+        }, 350);
+    },
+
     
 
     

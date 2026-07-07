@@ -3990,6 +3990,197 @@ changeOutlet: function(val) {
         }, 350);
     },
 
+    // =========================================================
+    // 🚀 ENGINE CFO: KOMPARASI PERFORMA CABANG (DEEP DIVE)
+    // =========================================================
+    openBranchComparisonModal: function() {
+        // 1. Ekstrak & Agregasi Data Transaksi
+        let rawData = (this.db.Transaksi_Header || []).filter(x => x.Status === 'Sukses');
+        let branchMap = {};
+        let totalOmsetGrup = 0;
+
+        // Baca filter tanggal eksekutif aktif (jika ada)
+        const startInput = document.getElementById('exec-filter-start');
+        const endInput = document.getElementById('exec-filter-end');
+        let startObj = (startInput && startInput.value) ? new Date(startInput.value) : null;
+        if (startObj) startObj.setHours(0, 0, 0, 0);
+        let endObj = (endInput && endInput.value) ? new Date(endInput.value) : null;
+        if (endObj) endObj.setHours(23, 59, 59, 999);
+
+        rawData.forEach(trx => {
+            // Filter Tanggal
+            if (startObj || endObj) {
+                let cleanStr = (trx.Tanggal || '').split(',').pop().trim();
+                let match = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+                if (match) {
+                    let trxDate = new Date(parseInt(match[3],10), parseInt(match[2],10)-1, parseInt(match[1],10));
+                    if (startObj && trxDate < startObj) return;
+                    if (endObj && trxDate > endObj) return;
+                } else return;
+            }
+
+            // Normalisasi nama cabang
+            let outName = String(trx.Outlet || 'Pusat').replace(/^Ai\-Snack\s+/i, '').trim();
+            if (!branchMap[outName]) {
+                branchMap[outName] = { omset: 0, laba: 0, cash: 0, qris: 0, trxCount: 0 };
+            }
+
+            let omset = Number(trx.Total_Bayar || 0);
+            let cash = Number(trx.Tunai || 0);
+            let qris = Math.max(0, omset - cash);
+            let laba = omset * 0.55; // Simulasi margin kotor (Misal 55%)
+
+            branchMap[outName].omset += omset;
+            branchMap[outName].laba += laba;
+            branchMap[outName].cash += cash;
+            branchMap[outName].qris += qris;
+            branchMap[outName].trxCount += 1;
+            totalOmsetGrup += omset;
+        });
+
+        // 2. Sortir Cabang dari Omset Terbesar
+        let sortedBranches = Object.keys(branchMap).sort((a, b) => branchMap[b].omset - branchMap[a].omset);
+        let topOmset = sortedBranches.length > 0 ? branchMap[sortedBranches[0]].omset : 0;
+
+        // 3. Rakit AI Insight
+        let insightHtml = 'Belum ada data cabang untuk dianalisis.';
+        if (sortedBranches.length > 0) {
+            let topBranch = sortedBranches[0];
+            let dataTop = branchMap[topBranch];
+            let domMethod = dataTop.qris > dataTop.cash ? 'QRIS' : 'Cash';
+            let pct = Math.round((dataTop.omset / totalOmsetGrup) * 100);
+            
+            insightHtml = `Cabang <b class="text-sky-600 bg-sky-100 px-1.5 py-0.5 rounded-md">${topBranch}</b> memimpin dengan kontribusi <b>${pct}%</b> terhadap omset grup. Metode bayar paling populer di cabang ini adalah <b>${domMethod}</b>.`;
+        }
+
+        // 4. Rakit UI Battle Card per Cabang
+        let branchHtml = sortedBranches.map((out, index) => {
+            let d = branchMap[out];
+            let rank = index + 1;
+            let barWidth = topOmset > 0 ? Math.round((d.omset / topOmset) * 100) : 0;
+            
+            // Kalkulasi Rasio Metode Pembayaran
+            let pctQris = d.omset > 0 ? Math.round((d.qris / d.omset) * 100) : 0;
+            let pctCash = 100 - pctQris;
+
+            return `
+            <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-sky-200 transition-all group relative overflow-hidden mb-3">
+                <div class="flex justify-between items-start mb-2 relative z-10">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl ${rank === 1 ? 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-md shadow-sky-500/30' : 'bg-slate-100 text-slate-500'} flex items-center justify-center font-black text-sm transition-transform group-hover:scale-110 shrink-0">
+                            #${rank}
+                        </div>
+                        <div>
+                            <h4 class="font-black text-slate-800 text-sm group-hover:text-sky-600 transition-colors">Ai-CHA ${out}</h4>
+                            <span class="text-[10px] font-bold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">${d.trxCount} Transaksi</span>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <span class="font-black text-sky-600 text-base block">Rp ${d.omset.toLocaleString('id-ID')}</span>
+                        <span class="text-[10px] font-bold text-emerald-500">Laba: Rp ${d.laba.toLocaleString('id-ID')}</span>
+                    </div>
+                </div>
+                
+                <!-- Progress Bar Perbandingan Omset Total -->
+                <div class="flex items-center gap-2 mb-3 relative z-10 mt-1">
+                    <div class="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div class="h-full bg-slate-300 group-hover:bg-sky-400 transition-all duration-1000" style="width: 0%" data-target-width="${barWidth}%"></div>
+                    </div>
+                </div>
+                
+                <!-- Mini Dashboard: Analisis Metode Bayar -->
+                <div class="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-slate-100/80 relative z-10">
+                    <div class="bg-blue-50/50 p-2 rounded-lg border border-blue-100/50">
+                        <div class="flex justify-between text-[9px] font-black uppercase text-blue-500 mb-1.5">
+                            <span><i class="fas fa-qrcode mr-0.5"></i> QRIS</span>
+                            <span>${pctQris}%</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-blue-100 rounded-full overflow-hidden">
+                            <div class="h-full bg-blue-500 rounded-full" style="width: ${pctQris}%"></div>
+                        </div>
+                    </div>
+                    <div class="bg-emerald-50/50 p-2 rounded-lg border border-emerald-100/50">
+                        <div class="flex justify-between text-[9px] font-black uppercase text-emerald-600 mb-1.5">
+                            <span><i class="fas fa-money-bill-wave mr-0.5"></i> Cash</span>
+                            <span>${pctCash}%</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-emerald-100 rounded-full overflow-hidden">
+                            <div class="h-full bg-emerald-500 rounded-full" style="width: ${pctCash}%"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Efek Hover Glow -->
+                <div class="absolute inset-0 bg-gradient-to-r from-transparent to-sky-50/40 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+            </div>`;
+        }).join('');
+
+        // 5. Ciptakan dan Tampilkan Popup Modal
+        let modalId = 'cfo-branch-compare-modal';
+        let modal = document.getElementById(modalId);
+        
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = modalId;
+            modal.className = "fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/70 backdrop-blur-md opacity-0 pointer-events-none transition-opacity duration-300";
+            document.body.appendChild(modal);
+        }
+
+        modal.innerHTML = `
+            <div class="bg-slate-50 w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl overflow-hidden transform translate-y-full sm:translate-y-12 scale-95 transition-all duration-500 flex flex-col max-h-[90vh] border border-white/20 relative">
+                
+                <!-- Header Artistik -->
+                <div class="bg-gradient-to-br from-cyan-500 via-sky-500 to-blue-600 p-6 relative shrink-0">
+                    <button onclick="document.getElementById('${modalId}').classList.remove('opacity-100', 'pointer-events-auto'); document.getElementById('${modalId}').firstElementChild.classList.add('translate-y-full', 'sm:translate-y-12', 'scale-95');" class="absolute top-5 right-5 w-8 h-8 bg-white/20 hover:bg-white/40 rounded-full flex items-center justify-center transition active:scale-90 text-white backdrop-blur-md z-10 border border-white/30">
+                        <i class="fas fa-xmark"></i>
+                    </button>
+                    
+                    <div class="w-12 h-1.5 bg-white/30 rounded-full mx-auto mb-4 sm:hidden"></div>
+                    
+                    <div class="flex items-center gap-4 relative z-10 text-white">
+                        <div class="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/30 shadow-lg flex items-center justify-center shrink-0">
+                            <i class="fas fa-store-alt text-2xl drop-shadow-md"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-[10px] font-bold text-sky-100 uppercase tracking-widest mb-0.5">Analisis Kinerja</h4>
+                            <h2 class="text-xl font-black leading-tight drop-shadow-sm">Komparasi Cabang</h2>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Kotak Insight AI -->
+                <div class="px-6 pt-5 shrink-0">
+                    <div class="bg-white p-3.5 rounded-2xl border border-sky-100 shadow-sm flex gap-3 items-start relative z-10">
+                        <div class="mt-0.5 text-sky-500 bg-sky-50 w-7 h-7 flex items-center justify-center rounded-lg shadow-inner shrink-0"><i class="fas fa-robot"></i></div>
+                        <p class="text-xs text-slate-600 font-medium leading-relaxed pt-0.5">
+                            ${insightHtml}
+                        </p>
+                    </div>
+                </div>
+                
+                <!-- Breakdown List -->
+                <div class="px-6 pb-6 pt-4 overflow-y-auto custom-scroll flex-1 relative">
+                    ${branchHtml}
+                </div>
+            </div>
+        `;
+
+        // 6. Trigger Animasi Masuk Modal
+        void modal.offsetWidth;
+        modal.classList.add('opacity-100', 'pointer-events-auto');
+        
+        const modalContent = modal.firstElementChild;
+        modalContent.classList.remove('translate-y-full', 'sm:translate-y-12', 'scale-95');
+        modalContent.classList.add('translate-y-0', 'scale-100');
+
+        // 7. Play Animasi Progress Bar
+        setTimeout(() => {
+            modal.querySelectorAll('[data-target-width]').forEach(bar => {
+                bar.style.width = bar.getAttribute('data-target-width');
+            });
+        }, 350);
+    },
+
     
 
     

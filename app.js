@@ -3995,7 +3995,7 @@ changeOutlet: function(val) {
     // =========================================================
     openBranchComparisonModal: function() {
         // 1. Ekstrak & Agregasi Data Transaksi
-        let isConsolidated = (this.outlet === 'Pusat' || this.outlet === 'Semua' || !this.outlet); let currOutletClean = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();  let rawData = (this.db.transactions || []).filter(x => {     if (x.Status !== 'Sukses') return false;     let trxOutlet = String(x.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();     return isConsolidated || (trxOutlet === currOutletClean); });
+        let rawData = (this.db.transactions || []).filter(x => x.Status === 'Sukses');
         let branchMap = {};
         let totalOmsetGrup = 0;
 

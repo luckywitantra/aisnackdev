@@ -2752,6 +2752,8 @@ changeOutlet: function(val) {
     // =========================================================
     // 🚀 CONTROLLER POPUP ANALISIS SUPER DETAIL PER OUTLET
     // =========================================================
+    currentDetailExpMap: {}, // Memori sementara untuk popup detail pengeluaran
+
     openDetailOutletModal: function(outName) {
         const modal = document.getElementById('modal-detail-outlet-eksekutif');
         const titleEl = document.getElementById('modal-detail-outlet-name');
@@ -2797,18 +2799,30 @@ changeOutlet: function(val) {
             totBill += Number(rep.Bill || 0);
             totPcs += Number(rep.Pcs || 0);
 
+            // 🚀 PERBAIKAN: Simpan Nominal + Riwayat Tanggal Sekaligus
             try {
                 let expArr = JSON.parse(rep.Pengeluaran_JSON || '[]');
                 expArr.forEach(x => {
                     let nm = String(x.nama || 'LAINNYA').toUpperCase().trim();
                     let nmNom = Number(x.nominal || 0);
                     if (nm !== '' && nmNom > 0) {
-                        if (!expItemMap[nm]) expItemMap[nm] = 0;
-                        expItemMap[nm] += nmNom;
+                        if (!expItemMap[nm]) expItemMap[nm] = { total: 0, details: [] };
+                        
+                        expItemMap[nm].total += nmNom;
+                        let cleanTgl = (rep.Tanggal || '').split(',').pop().trim();
+                        
+                        expItemMap[nm].details.push({ 
+                            tgl: cleanTgl, 
+                            nominal: nmNom,
+                            cuaca: rep.Cuaca || '-'
+                        });
                     }
                 });
             } catch(e){}
         });
+
+        // Simpan ke memori global aplikasi agar bisa diakses oleh sub-modal
+        this.currentDetailExpMap = expItemMap;
 
         // 3. Kalkulasi Target Cabang & Rata-rata
         let avgBill = totBill > 0 ? Math.round(totSales / totBill) : 0;
@@ -2820,17 +2834,25 @@ changeOutlet: function(val) {
         if (savedT && !isNaN(savedT)) targetCabang = Number(savedT);
         let pctTarget = Math.min(Math.round((totSales / targetCabang) * 100), 100);
 
-        // Render Rincian Item Biaya Cabang
-        let expKeys = Object.keys(expItemMap).sort((a,b) => expItemMap[b] - expItemMap[a]);
+        // 🚀 RENDER HTML ITEM PENGELUARAN (TOMBOL INTERAKTIF MODERN)
+        let expKeys = Object.keys(expItemMap).sort((a,b) => expItemMap[b].total - expItemMap[a].total);
         let expHtml = expKeys.length === 0 
-            ? `<div class="text-xs text-slate-400 italic py-2">Tidak ada pengeluaran dicatat</div>` 
+            ? `<div class="text-xs text-slate-400 italic py-2 text-center">Tidak ada pengeluaran dicatat</div>` 
             : expKeys.map(k => `
-                <div class="flex justify-between items-center bg-slate-800/80 p-2 rounded-xl text-xs border border-slate-700/50">
-                    <span class="font-extrabold text-slate-300">▪️ ${k}</span>
-                    <span class="font-black text-amber-400">Rp ${expItemMap[k].toLocaleString('id-ID')}</span>
+                <div onclick="superApp.openExpenseHistoryModal('${k}')" class="flex justify-between items-center bg-slate-800/80 hover:bg-slate-700 p-2.5 rounded-xl text-xs border border-slate-700/50 cursor-pointer transition-all active:scale-95 group shadow-sm hover:shadow-md">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-7 h-7 rounded-full bg-slate-700 group-hover:bg-amber-500 text-slate-400 group-hover:text-white flex items-center justify-center transition-colors">
+                            <i class="fas fa-receipt text-[11px]"></i>
+                        </div>
+                        <span class="font-extrabold text-slate-300 group-hover:text-white transition-colors">${k}</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="font-black text-amber-400 group-hover:text-amber-300 transition-colors">Rp ${expItemMap[k].total.toLocaleString('id-ID')}</span>
+                        <i class="fas fa-chevron-right text-[10px] text-slate-500 group-hover:text-amber-400 group-hover:translate-x-1 transition-all"></i>
+                    </div>
                 </div>`).join('');
 
-        // 4. Rakit HTML Popup Super Lengkap
+        // 4. Rakit HTML Popup Utama
         contEl.innerHTML = `
             <!-- Kartu Progres Target Cabang -->
             <div class="bg-slate-800/90 p-4 rounded-2xl border border-slate-700">
@@ -2873,25 +2895,111 @@ changeOutlet: function(val) {
 
             <!-- Net Cash Bersih -->
             <div class="bg-gradient-to-r from-emerald-900/40 to-teal-900/40 p-3.5 rounded-2xl border border-emerald-500/30 flex justify-between items-center">
-                <span class="text-xs font-bold text-emerald-200">💵 Net Cash Bersih Tersedia di Toko (Cash - Biaya):</span>
+                <span class="text-xs font-bold text-emerald-200">💵 Net Cash Laci Tersedia:</span>
                 <span class="text-base font-black text-emerald-400">Rp ${netLaci.toLocaleString('id-ID')}</span>
             </div>
 
-            <!-- Rincian Biaya Khusus Cabang Ini -->
-            <div class="bg-slate-800/50 p-4 rounded-2xl border border-slate-700/60 space-y-2">
-                <h5 class="text-xs font-black text-amber-400 flex items-center gap-2">
-                    <i class="fas fa-list"></i> Breakdown Pengeluaran Cabang ${outName}
-                </h5>
-                <div class="space-y-1.5 max-h-36 overflow-y-auto custom-scroll pr-1 mt-2">
+            <!-- Rincian Biaya Interaktif -->
+            <div class="bg-slate-800/50 p-4 rounded-2xl border border-slate-700/60 space-y-3">
+                <div class="flex justify-between items-end">
+                    <h5 class="text-xs font-black text-amber-400 flex items-center gap-2">
+                        <i class="fas fa-list"></i> Breakdown Pengeluaran (Bisa Diklik)
+                    </h5>
+                </div>
+                <div class="space-y-2 max-h-40 overflow-y-auto custom-scroll pr-1">
                     ${expHtml}
                 </div>
             </div>
-        </div>`;
+        `;
     },
 
     closeDetailOutletModal: function() {
         const modal = document.getElementById('modal-detail-outlet-eksekutif');
         if (modal) modal.classList.add('hidden');
+    },
+
+    // =========================================================
+    // 🚀 ENGINE POPUP DETAIL RIWAYAT ITEM PENGELUARAN (TIMELINE)
+    // =========================================================
+    openExpenseHistoryModal: function(itemName) {
+        let data = this.currentDetailExpMap[itemName];
+        if (!data || !data.details) return;
+
+        // Sortir riwayat dari tanggal terbaru ke terlama
+        let sortedDetails = data.details.sort((a, b) => {
+            let partA = a.tgl.split('-'); let partB = b.tgl.split('-');
+            let dateA = new Date(partA[2], partA[1]-1, partA[0]);
+            let dateB = new Date(partB[2], partB[1]-1, partB[0]);
+            return dateB - dateA;
+        });
+
+        // Buat struktur Timeline HTML
+        let historyHtml = sortedDetails.map((d, i) => `
+            <div class="relative pl-7 py-2.5 group cursor-default">
+                <!-- Garis Timeline -->
+                ${i !== sortedDetails.length - 1 ? `<div class="absolute left-[11px] top-5 bottom-[-1rem] w-px bg-slate-200 group-hover:bg-rose-200 transition-colors"></div>` : ''}
+                <!-- Titik Timeline -->
+                <div class="absolute left-1.5 top-4 w-3.5 h-3.5 rounded-full bg-rose-500 border-2 border-white shadow-sm ring-1 ring-slate-200 z-10 group-hover:scale-125 transition-transform"></div>
+                
+                <div class="bg-white p-3 rounded-2xl border border-slate-100 shadow-2xs flex justify-between items-center group-hover:border-rose-200 group-hover:shadow-md transition-all">
+                    <div>
+                        <span class="font-extrabold text-slate-800 text-xs block">${d.tgl}</span>
+                        <span class="text-[9px] font-bold text-slate-400"><i class="fas fa-cloud-sun text-slate-300"></i> ${d.cuaca}</span>
+                    </div>
+                    <span class="font-black text-rose-600 text-sm bg-rose-50 px-2.5 py-1 rounded-lg">Rp ${d.nominal.toLocaleString('id-ID')}</span>
+                </div>
+            </div>
+        `).join('');
+
+        // 🚀 Ciptakan Elemen Sub-Modal Secara Dinamis agar tidak perlu edit index.html
+        let modalId = 'dynamic-expense-history-modal';
+        let modal = document.getElementById(modalId);
+        
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = modalId;
+            // Desain backdrop blur modern
+            modal.className = "fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300";
+            document.body.appendChild(modal);
+        }
+
+        modal.innerHTML = `
+            <div class="bg-slate-50 w-full max-w-sm rounded-t-[2rem] sm:rounded-[2.5rem] shadow-2xl overflow-hidden transform translate-y-full sm:translate-y-10 scale-95 transition-all duration-400 flex flex-col max-h-[85vh] border border-white/20 relative">
+                
+                <!-- Header Glassmorphism -->
+                <div class="bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500 p-6 text-white relative shrink-0">
+                    <button onclick="document.getElementById('${modalId}').classList.remove('opacity-100', 'pointer-events-auto'); document.getElementById('${modalId}').firstElementChild.classList.add('translate-y-full', 'sm:translate-y-10', 'scale-95');" class="absolute top-5 right-5 w-8 h-8 bg-white/20 hover:bg-white/40 rounded-full flex items-center justify-center transition active:scale-90 ring-1 ring-white/30 backdrop-blur-md">
+                        <i class="fas fa-xmark"></i>
+                    </button>
+                    
+                    <div class="w-12 h-1.5 bg-white/30 rounded-full mx-auto mb-4 sm:hidden"></div>
+                    
+                    <h4 class="text-[10px] font-bold text-amber-100 uppercase tracking-widest mb-1 flex items-center gap-1.5"><i class="fas fa-search"></i> Rincian Histori</h4>
+                    <h2 class="text-xl font-black leading-tight drop-shadow-sm truncate pr-8">${itemName}</h2>
+                    
+                    <div class="mt-4 bg-white/20 p-3 rounded-2xl backdrop-blur-md flex justify-between items-center border border-white/30 shadow-inner">
+                        <span class="text-[11px] font-bold text-amber-50 uppercase tracking-wide">Total Akumulasi</span>
+                        <span class="text-lg font-black drop-shadow-md">Rp ${data.total.toLocaleString('id-ID')}</span>
+                    </div>
+                </div>
+                
+                <!-- Timeline List -->
+                <div class="p-5 overflow-y-auto custom-scroll flex-1 relative">
+                    <div class="absolute top-0 left-0 w-full h-4 bg-gradient-to-b from-slate-50 to-transparent z-10"></div>
+                    <div class="pt-2 pb-4">
+                        ${historyHtml}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // 🚀 Trigger Animasi Masuk (Entry Animation)
+        void modal.offsetWidth; // Force reflow agar transisi CSS terpancing
+        modal.classList.add('opacity-100', 'pointer-events-auto');
+        
+        const modalContent = modal.firstElementChild;
+        modalContent.classList.remove('translate-y-full', 'sm:translate-y-10', 'scale-95');
+        modalContent.classList.add('translate-y-0', 'scale-100');
     },
 
     // =========================================================

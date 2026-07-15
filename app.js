@@ -1610,7 +1610,7 @@ const superApp = {
     },
 
 
-// =========================================================
+    // =========================================================
     // 🚀 MODUL LAPORAN HARIAN USAHA AI-CHA (NEW ENGINE)
     // =========================================================
     dailyExpensesList: [], // Memori daftar pengeluaran hari ini
@@ -2176,10 +2176,128 @@ const superApp = {
     },
 
     // =========================================================
+    // 🚀 ENGINE MODAL KOMPARASI REVISI ULTRA-MODERN
+    // =========================================================
+    currentApprovalId: null, // Memori penyimpan ID laporan yang sedang di-review
+
+    openApprovalModal: function(idRep) {
+        let rep = (this.db.laporanHarian || []).find(x => x.ID_Laporan === idRep);
+        if (!rep || !rep.Revisi_JSON) return this.showToast("Data revisi tidak ditemukan", "error");
+
+        this.currentApprovalId = idRep;
+        
+        let rev = {};
+        try { rev = JSON.parse(rep.Revisi_JSON); } catch(e) {}
+
+        // 1. Set Meta Info
+        let metaEl = document.getElementById('approval-meta-info');
+        if (metaEl) metaEl.innerText = `Diajukan oleh: ${rev.editor || 'Kasir / Staf'} (${rep.Tanggal})`;
+        
+        // 2. Fungsi perakit baris komparasi
+        let compHtml = '';
+        const makeRow = (label, oldVal, newVal, isCurrency = true) => {
+            let numOld = Number(oldVal || 0);
+            let numNew = Number(newVal || 0);
+            if (numOld === numNew) return ''; // Abaikan jika angka tidak diedit
+            
+            let strOld = isCurrency ? `Rp ${numOld.toLocaleString('id-ID')}` : `${numOld}`;
+            let strNew = isCurrency ? `Rp ${numNew.toLocaleString('id-ID')}` : `${numNew}`;
+            
+            return `
+            <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm flex items-center justify-between mb-3 hover:shadow-md hover:border-indigo-200 transition-all">
+                <div class="w-1/3">
+                    <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">${label} Lama</span>
+                    <div class="font-black text-rose-500 text-sm line-through opacity-70 decoration-rose-300 decoration-2">${strOld}</div>
+                </div>
+                <div class="w-10 h-10 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-400 border border-indigo-100 shrink-0">
+                    <i class="fas fa-arrow-right"></i>
+                </div>
+                <div class="w-1/3 text-right">
+                    <span class="text-[9px] font-black text-emerald-500 uppercase tracking-widest block mb-1">Revisi Baru</span>
+                    <div class="font-black text-emerald-600 text-base md:text-lg bg-emerald-50 px-2 py-1 rounded-lg inline-block shadow-inner border border-emerald-100">${strNew}</div>
+                </div>
+            </div>`;
+        };
+
+        // 3. Rakit perbandingan masing-masing item
+        compHtml += makeRow('Net Sales', rep.Net_Sales, rev.net_sales);
+        compHtml += makeRow('Cash Laci', rep.Cash, rev.cash);
+        compHtml += makeRow('QRIS', rep.QRIS, rev.qris);
+        compHtml += makeRow('Total Bill', rep.Bill, rev.bill, false);
+        compHtml += makeRow('Pcs Terjual', rep.Pcs, rev.pcs, false);
+        compHtml += makeRow('Total Pengeluaran', rep.Total_Pengeluaran, rev.total_pengeluaran);
+
+        // 🚀 4. DETEKSI PERUBAHAN RINCIAN ITEM PENGELUARAN (ULTRA MODERN DIFF)
+        if (rep.Pengeluaran_JSON !== rev.pengeluaran_json) {
+            let oldExp = []; let newExp = [];
+            try { oldExp = JSON.parse(rep.Pengeluaran_JSON || '[]'); } catch(e){}
+            try { newExp = JSON.parse(rev.pengeluaran_json || '[]'); } catch(e){}
+
+            let oldHtml = oldExp.length === 0 ? '<span class="italic text-slate-400">Kosong</span>' : oldExp.map(x => `▪️ ${x.nama}: Rp ${Number(x.nominal).toLocaleString('id-ID')}`).join('<br>');
+            let newHtml = newExp.length === 0 ? '<span class="italic text-slate-400">Kosong</span>' : newExp.map(x => `▪️ ${x.nama}: Rp ${Number(x.nominal).toLocaleString('id-ID')}`).join('<br>');
+
+            compHtml += `
+            <div class="bg-amber-50/40 border border-amber-200 p-4 rounded-2xl shadow-sm mt-4">
+                <h5 class="text-[10px] font-black text-amber-700 uppercase tracking-widest mb-3 flex items-center gap-1.5"><i class="fas fa-receipt"></i> Rincian Pengeluaran Diubah</h5>
+                <div class="flex flex-col sm:flex-row items-stretch justify-between gap-3">
+                    <div class="flex-1 bg-white p-3 rounded-xl border border-slate-200 text-[10px] font-bold text-rose-500 line-through decoration-rose-300 opacity-80 leading-relaxed">
+                        <span class="block text-slate-400 mb-1.5 no-underline uppercase text-[8px] font-black">Data Lama:</span>
+                        ${oldHtml}
+                    </div>
+                    <div class="flex-1 bg-white p-3 rounded-xl border border-emerald-200 text-[10px] font-bold text-emerald-700 leading-relaxed shadow-inner">
+                        <span class="block text-emerald-500 mb-1.5 uppercase text-[8px] font-black">Data Baru Diajukan:</span>
+                        ${newHtml}
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        if (compHtml === '') {
+            compHtml = `<div class="p-5 text-center text-slate-500 text-xs font-bold border-2 border-dashed border-slate-200 bg-white rounded-2xl">Tidak ada perubahan angka pada revisi ini. (Kasir hanya menyimpan ulang)</div>`;
+        }
+
+        const listCont = document.getElementById('approval-comparison-list');
+        if (listCont) listCont.innerHTML = compHtml;
+        
+        // 5. Tampilkan Modal dengan Animasi Transisi Halus
+        const modal = document.getElementById('modal-approval-revisi');
+        if (modal) {
+            modal.classList.remove('hidden');
+            void modal.offsetWidth; 
+            modal.classList.add('opacity-100');
+            if(modal.firstElementChild) {
+                modal.firstElementChild.classList.remove('scale-95');
+                modal.firstElementChild.classList.add('scale-100');
+            }
+        }
+    },
+    
+    closeApprovalModal: function() {
+        const modal = document.getElementById('modal-approval-revisi');
+        modal.classList.remove('opacity-100');
+        modal.firstElementChild.classList.remove('scale-100');
+        modal.firstElementChild.classList.add('scale-95');
+        setTimeout(() => modal.classList.add('hidden'), 400);
+        this.currentApprovalId = null;
+    },
+
+    approveRevision: function() {
+        if (!this.currentApprovalId) return;
+        this.eksekusiApprovalEdit(this.currentApprovalId, 'Disetujui');
+        this.closeApprovalModal();
+    },
+
+    rejectRevision: function() {
+        if (!this.currentApprovalId) return;
+        this.eksekusiApprovalEdit(this.currentApprovalId, 'Ditolak');
+        this.closeApprovalModal();
+    },
+
+    // =========================================================
     // 🚀 EKSEKUSI APPROVAL OWNER (SETUJUI / TOLAK)
     // =========================================================
     eksekusiApprovalEdit: async function(idRep, keputusan) {
-        if (!confirm(`Apakah Anda yakin ingin ${keputusan === 'Disetujui' ? 'MENYETUJUI' : 'MENOLAK'} revisi laporan ini?`)) return;
+        
 
         this.setLoading(true, "Memproses persetujuan...");
         
@@ -2217,7 +2335,7 @@ const superApp = {
     },
 
    
-    resetDailyForm: function() {
+    resetDailyForm: function(skipDateReset = false) {
         // Reset memori edit
         this.editReportId = null;
         let titleEl = document.getElementById('form-title-mode');
@@ -2225,17 +2343,20 @@ const superApp = {
         if (titleEl) titleEl.innerText = "Input Data Hari Ini";
         if (btnCancel) btnCancel.classList.add('hidden');
 
-        // Kembali ke tanggal hari ini
-        let d = new Date();
-        let days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-        let pad = n => String(n).padStart(2, '0');
-        let dateEl = document.getElementById('daily-form-date');
-        if (dateEl) dateEl.innerText = `${days[d.getDay()]}, ${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
+        // Hanya kembali ke tanggal hari ini jika TIDAK sedang memuat tanggal masa lalu (skipDateReset false)
+        if (!skipDateReset) {
+            let d = new Date();
+            let days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+            let pad = n => String(n).padStart(2, '0');
+            let dateEl = document.getElementById('daily-form-date');
+            if (dateEl) dateEl.innerText = `${days[d.getDay()]}, ${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
+        }
 
         // Kosongkan input
         ['daily-cash', 'daily-qris', 'daily-bill', 'daily-pcs'].forEach(id => {
             let el = document.getElementById(id); if (el) el.value = '';
         });
+        
         this.dailyExpensesList = [];
         this.addDailyExpenseRow();
         this.calcDailyReportLive();
@@ -2314,27 +2435,34 @@ const superApp = {
                 try {
                     let rev = JSON.parse(item.Revisi_JSON || '{}');
                     if (rev.net_sales !== undefined) {
+                        // Cek apakah item pengeluaran diubah
+                        let expChanged = (item.Pengeluaran_JSON !== rev.pengeluaran_json);
+                        let expBadge = expChanged ? `<div class="mt-1.5 bg-amber-200/60 text-amber-800 px-2 py-1 rounded-md border border-amber-300 inline-block text-[9px] shadow-sm"><i class="fas fa-receipt mr-1"></i> Rincian Pengeluaran Diubah</div>` : '';
+                        
                         infoRevisi = `
-                        <div class="mt-1.5 p-2 bg-amber-100/90 border border-amber-300 rounded-lg text-[10px] text-amber-900 leading-tight">
+                        <div class="mt-1.5 p-2.5 bg-amber-100/90 border border-amber-300 rounded-lg text-[10px] text-amber-900 leading-tight">
                             <b>📌 Ajuan Revisi (${rev.editor || 'Staf'}):</b><br>
                             Sales Baru: <b class="text-rose-600">Rp ${Number(rev.net_sales).toLocaleString('id-ID')}</b><br>
                             C: Rp ${Number(rev.cash||0).toLocaleString('id-ID')} | Q: Rp ${Number(rev.qris||0).toLocaleString('id-ID')}
+                            <br>${expBadge}
                         </div>`;
                     }
                 } catch(e){}
             }
 
             let tombolOwnerDesk = (status === 'Pending Edit' && isOwner) ? `
-                <div class="flex gap-1 mt-1.5 pt-1.5 border-t border-slate-200">
-                    <button type="button" onclick="superApp.eksekusiApprovalEdit('${item.ID_Laporan}', 'Disetujui')" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-1 rounded text-[10px] font-black shadow-2xs">✔ Setuju</button>
-                    <button type="button" onclick="superApp.eksekusiApprovalEdit('${item.ID_Laporan}', 'Ditolak')" class="flex-1 bg-rose-500 hover:bg-rose-600 text-white py-1 rounded text-[10px] font-black shadow-2xs">✖ Tolak</button>
+                <div class="mt-1.5 pt-1.5 border-t border-slate-200">
+                    <button type="button" onclick="superApp.openApprovalModal('${item.ID_Laporan}')" class="w-full bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white py-1.5 rounded-lg text-[10px] font-black shadow-md shadow-amber-500/30 flex items-center justify-center gap-1.5 transition active:scale-95">
+                        <i class="fas fa-magnifying-glass-chart"></i> Tinjau Revisi Baru
+                    </button>
                 </div>
             ` : '';
 
             let tombolOwnerMob = (status === 'Pending Edit' && isOwner) ? `
-                <div class="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
-                    <button type="button" onclick="superApp.eksekusiApprovalEdit('${item.ID_Laporan}', 'Disetujui')" class="bg-emerald-500 text-white py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1"><i class="fas fa-check"></i> Setujui</button>
-                    <button type="button" onclick="superApp.eksekusiApprovalEdit('${item.ID_Laporan}', 'Ditolak')" class="bg-rose-500 text-white py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1"><i class="fas fa-xmark"></i> Tolak</button>
+                <div class="pt-1 border-t border-slate-100">
+                    <button type="button" onclick="superApp.openApprovalModal('${item.ID_Laporan}')" class="w-full bg-gradient-to-r from-amber-400 to-orange-500 text-white py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-md shadow-amber-500/30 active:scale-95 transition">
+                        <i class="fas fa-magnifying-glass-chart"></i> Tinjau Perubahan Angka
+                    </button>
                 </div>
             ` : '';
 
@@ -2592,30 +2720,43 @@ const superApp = {
     },
 
     // =========================================================
-    // 🚀 2. ENGINE PEMILIHAN TANGGAL TERPADU (SINKRON DI KEDUA MENU)
+    // 🚀 ENGINE PEMILIHAN TANGGAL TERPADU (ANTI-MELESET)
     // =========================================================
     applyBackdate: function(dateVal) {
         if (!dateVal) return;
-        let targetDateObj = this.normalizeDateObj(dateVal);
-        let pad = n => String(n).padStart(2, '0');
-        let dateKeySearch = `${pad(targetDateObj.getDate())}-${pad(targetDateObj.getMonth() + 1)}-${targetDateObj.getFullYear()}`;
-        let dateKeySearchSlash = `${pad(targetDateObj.getDate())}/${pad(targetDateObj.getMonth() + 1)}/${targetDateObj.getFullYear()}`;
+        
+        let targetDate = this.normalizeDateObj(dateVal);
+        let tDay = targetDate.getDate();
+        let tMonth = targetDate.getMonth();
+        let tYear = targetDate.getFullYear();
 
-        // Cari apakah laporan untuk tanggal & outlet ini sudah ada di database
-        let existingReport = (this.db.laporanHarian || []).find(x => 
-            (x.Outlet === this.outlet || this.outlet === 'Pusat') && 
-            (String(x.Tanggal).includes(dateKeySearch) || String(x.Tanggal).includes(dateKeySearchSlash))
-        );
+        // 1. Blokir jika sedang di mode "Semua Cabang"
+        let isConsolidated = (this.outlet === 'Pusat' || this.outlet === 'Semua' || !this.outlet);
+        if (isConsolidated) {
+            this.showToast("Pilih salah satu cabang di barisan atas terlebih dahulu untuk mengedit laporan.", "error");
+            return;
+        }
+
+        let cleanOutlet = String(this.outlet).replace(/^Ai\-Snack\s+/i, '').trim();
+
+        // 2. Cari laporan dengan mencocokkan Hari, Bulan, Tahun secara presisi (Matematika)
+        let existingReport = (this.db.laporanHarian || []).find(x => {
+            let xOutlet = String(x.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+            if (xOutlet !== cleanOutlet || x.Status_Approval === 'Ditolak') return false;
+
+            let xDate = this.normalizeDateObj(x.Tanggal);
+            return (xDate.getDate() === tDay && xDate.getMonth() === tMonth && xDate.getFullYear() === tYear);
+        });
 
         if (existingReport) {
             // 🚀 DATA SUDAH ADA -> Masuk ke Mode Edit secara sinkron
             this.editLaporanHarian(existingReport.ID_Laporan);
         } else {
             // 🚀 DATA KOSONG -> Masuk ke Mode Input Baru untuk Tanggal Pilihan
-            this.resetDailyForm(true); // Reset tanpa konfirmasi ulang
+            this.resetDailyForm(true); // Reset dengan perintah khusus agar tanggal tidak kembali ke hari ini
             
-            let indoStr = this.formatToIndoDate(targetDateObj);
-            let inputStr = this.formatToInputDate(targetDateObj);
+            let indoStr = this.formatToIndoDate(targetDate);
+            let inputStr = this.formatToInputDate(targetDate);
 
             let dateEl = document.getElementById('daily-form-date');
             let picker = document.getElementById('hidden-date-picker');
@@ -2634,7 +2775,7 @@ const superApp = {
     },
 
     // =========================================================
-    // 🚀 3. ENGINE EDIT DATA (SINKRONISASI TANGGAL SANGAT PRESISI)
+    // 🚀 ENGINE EDIT DATA (SINKRONISASI REVISI & TANGGAL PRESISI)
     // =========================================================
     editLaporanHarian: function(idRep) {
         let rep = (this.db.laporanHarian || []).find(x => x.ID_Laporan === idRep);
@@ -2650,21 +2791,42 @@ const superApp = {
         if (titleEl) titleEl.innerText = "📝 Ajukan Revisi Laporan";
         if (btnCancel) btnCancel.classList.remove('hidden');
 
-        // 🚀 STANDARISASI TANGGAL AGAR TETAP BENAR DI FORM & KALENDER
+        // Standarisasi Tanggal
         let targetDateObj = this.normalizeDateObj(rep.Tanggal);
         if (dateEl) dateEl.innerText = this.formatToIndoDate(targetDateObj);
         if (picker) picker.value = this.formatToInputDate(targetDateObj);
 
-        // Isi form dengan angka lama
-        if (document.getElementById('daily-cash')) document.getElementById('daily-cash').value = Number(rep.Cash || 0).toLocaleString('id-ID');
-        if (document.getElementById('daily-qris')) document.getElementById('daily-qris').value = Number(rep.QRIS || 0).toLocaleString('id-ID');
-        if (document.getElementById('daily-bill')) document.getElementById('daily-bill').value = rep.Bill || 0;
-        if (document.getElementById('daily-pcs')) document.getElementById('daily-pcs').value = rep.Pcs || 0;
+        // 🚀 KUNCI: Ekstrak data Revisi_JSON jika laporan sedang "Pending Edit"
+        let cashVal = rep.Cash;
+        let qrisVal = rep.QRIS;
+        let billVal = rep.Bill;
+        let pcsVal = rep.Pcs;
+        let expJson = rep.Pengeluaran_JSON;
 
-        // Muat pengeluaran lama
+        if (rep.Status_Approval === 'Pending Edit' && rep.Revisi_JSON) {
+            try {
+                let rev = JSON.parse(rep.Revisi_JSON);
+                if (rev.net_sales !== undefined) {
+                    cashVal = rev.cash; qrisVal = rev.qris;
+                    billVal = rev.bill; pcsVal = rev.pcs;
+                    expJson = rev.pengeluaran_json;
+                    this.showToast("Menampilkan draf revisi yang belum disetujui", "warning");
+                }
+            } catch(e) {}
+        } else {
+            this.showToast(`Memuat data tanggal ${this.formatToIndoDate(targetDateObj)} untuk diperbaiki.`);
+        }
+
+        // Isi form dengan angka yang tepat
+        if (document.getElementById('daily-cash')) document.getElementById('daily-cash').value = Number(cashVal || 0).toLocaleString('id-ID');
+        if (document.getElementById('daily-qris')) document.getElementById('daily-qris').value = Number(qrisVal || 0).toLocaleString('id-ID');
+        if (document.getElementById('daily-bill')) document.getElementById('daily-bill').value = billVal || 0;
+        if (document.getElementById('daily-pcs')) document.getElementById('daily-pcs').value = pcsVal || 0;
+
+        // Muat pengeluaran
         this.dailyExpensesList = [];
         try {
-            let expArr = JSON.parse(rep.Pengeluaran_JSON || '[]');
+            let expArr = JSON.parse(expJson || '[]');
             expArr.forEach(x => this.addDailyExpenseRow(x.nama, x.nominal));
         } catch(e) {}
         if (this.dailyExpensesList.length === 0) this.addDailyExpenseRow();
@@ -2672,7 +2834,6 @@ const superApp = {
         // Kalkulasi ulang & alihkan ke tab Input
         this.calcDailyReportLive();
         this.switchLapHarianSubTab('input');
-        this.showToast(`Memuat data tanggal ${this.formatToIndoDate(targetDateObj)} untuk diperbaiki.`);
     },
 
     // =========================================================
@@ -2752,8 +2913,6 @@ changeOutlet: function(val) {
     // =========================================================
     // 🚀 CONTROLLER POPUP ANALISIS SUPER DETAIL PER OUTLET
     // =========================================================
-    currentDetailExpMap: {}, // Memori sementara untuk popup detail pengeluaran
-
     openDetailOutletModal: function(outName) {
         const modal = document.getElementById('modal-detail-outlet-eksekutif');
         const titleEl = document.getElementById('modal-detail-outlet-name');
@@ -2799,30 +2958,18 @@ changeOutlet: function(val) {
             totBill += Number(rep.Bill || 0);
             totPcs += Number(rep.Pcs || 0);
 
-            // 🚀 PERBAIKAN: Simpan Nominal + Riwayat Tanggal Sekaligus
             try {
                 let expArr = JSON.parse(rep.Pengeluaran_JSON || '[]');
                 expArr.forEach(x => {
                     let nm = String(x.nama || 'LAINNYA').toUpperCase().trim();
                     let nmNom = Number(x.nominal || 0);
                     if (nm !== '' && nmNom > 0) {
-                        if (!expItemMap[nm]) expItemMap[nm] = { total: 0, details: [] };
-                        
-                        expItemMap[nm].total += nmNom;
-                        let cleanTgl = (rep.Tanggal || '').split(',').pop().trim();
-                        
-                        expItemMap[nm].details.push({ 
-                            tgl: cleanTgl, 
-                            nominal: nmNom,
-                            cuaca: rep.Cuaca || '-'
-                        });
+                        if (!expItemMap[nm]) expItemMap[nm] = 0;
+                        expItemMap[nm] += nmNom;
                     }
                 });
             } catch(e){}
         });
-
-        // Simpan ke memori global aplikasi agar bisa diakses oleh sub-modal
-        this.currentDetailExpMap = expItemMap;
 
         // 3. Kalkulasi Target Cabang & Rata-rata
         let avgBill = totBill > 0 ? Math.round(totSales / totBill) : 0;
@@ -2834,25 +2981,17 @@ changeOutlet: function(val) {
         if (savedT && !isNaN(savedT)) targetCabang = Number(savedT);
         let pctTarget = Math.min(Math.round((totSales / targetCabang) * 100), 100);
 
-        // 🚀 RENDER HTML ITEM PENGELUARAN (TOMBOL INTERAKTIF MODERN)
-        let expKeys = Object.keys(expItemMap).sort((a,b) => expItemMap[b].total - expItemMap[a].total);
+        // Render Rincian Item Biaya Cabang
+        let expKeys = Object.keys(expItemMap).sort((a,b) => expItemMap[b] - expItemMap[a]);
         let expHtml = expKeys.length === 0 
-            ? `<div class="text-xs text-slate-400 italic py-2 text-center">Tidak ada pengeluaran dicatat</div>` 
+            ? `<div class="text-xs text-slate-400 italic py-2">Tidak ada pengeluaran dicatat</div>` 
             : expKeys.map(k => `
-                <div onclick="superApp.openExpenseHistoryModal('${k}')" class="flex justify-between items-center bg-slate-800/80 hover:bg-slate-700 p-2.5 rounded-xl text-xs border border-slate-700/50 cursor-pointer transition-all active:scale-95 group shadow-sm hover:shadow-md">
-                    <div class="flex items-center gap-2.5">
-                        <div class="w-7 h-7 rounded-full bg-slate-700 group-hover:bg-amber-500 text-slate-400 group-hover:text-white flex items-center justify-center transition-colors">
-                            <i class="fas fa-receipt text-[11px]"></i>
-                        </div>
-                        <span class="font-extrabold text-slate-300 group-hover:text-white transition-colors">${k}</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span class="font-black text-amber-400 group-hover:text-amber-300 transition-colors">Rp ${expItemMap[k].total.toLocaleString('id-ID')}</span>
-                        <i class="fas fa-chevron-right text-[10px] text-slate-500 group-hover:text-amber-400 group-hover:translate-x-1 transition-all"></i>
-                    </div>
+                <div class="flex justify-between items-center bg-slate-800/80 p-2 rounded-xl text-xs border border-slate-700/50">
+                    <span class="font-extrabold text-slate-300">▪️ ${k}</span>
+                    <span class="font-black text-amber-400">Rp ${expItemMap[k].toLocaleString('id-ID')}</span>
                 </div>`).join('');
 
-        // 4. Rakit HTML Popup Utama
+        // 4. Rakit HTML Popup Super Lengkap
         contEl.innerHTML = `
             <!-- Kartu Progres Target Cabang -->
             <div class="bg-slate-800/90 p-4 rounded-2xl border border-slate-700">
@@ -2895,111 +3034,40 @@ changeOutlet: function(val) {
 
             <!-- Net Cash Bersih -->
             <div class="bg-gradient-to-r from-emerald-900/40 to-teal-900/40 p-3.5 rounded-2xl border border-emerald-500/30 flex justify-between items-center">
-                <span class="text-xs font-bold text-emerald-200">💵 Net Cash Laci Tersedia:</span>
+                <span class="text-xs font-bold text-emerald-200">💵 Net Cash Bersih Tersedia di Toko (Cash - Biaya):</span>
                 <span class="text-base font-black text-emerald-400">Rp ${netLaci.toLocaleString('id-ID')}</span>
             </div>
 
-            <!-- Rincian Biaya Interaktif -->
-            <div class="bg-slate-800/50 p-4 rounded-2xl border border-slate-700/60 space-y-3">
-                <div class="flex justify-between items-end">
+            <div class="bg-slate-800/50 p-4 rounded-2xl border border-slate-700/60 flex flex-col min-h-[220px]">
+                <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3 pb-3 border-b border-slate-700/60">
                     <h5 class="text-xs font-black text-amber-400 flex items-center gap-2">
-                        <i class="fas fa-list"></i> Breakdown Pengeluaran (Bisa Diklik)
+                        <i class="fas fa-list"></i> Breakdown Cabang ${outName}
                     </h5>
+                    <div class="flex items-center gap-2">
+                        <div class="relative flex-1 sm:w-36">
+                            <i class="fas fa-search absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-[9px]"></i>
+                            <input type="text" id="detail-expense-search" oninput="superApp.renderDetailOutletExpenseList()" placeholder="Cari..." class="w-full bg-slate-900 border border-slate-700 text-slate-200 text-[10px] font-bold rounded-lg pl-6 pr-2 py-1.5 outline-none focus:border-amber-500 transition-colors shadow-inner">
+                        </div>
+                        <select id="detail-expense-sort" onchange="superApp.renderDetailOutletExpenseList()" class="bg-slate-900 border border-slate-700 text-slate-200 text-[10px] font-bold rounded-lg px-2 py-1.5 outline-none focus:border-amber-500 cursor-pointer shadow-sm">
+                            <option value="nominal">Tertinggi</option>
+                            <option value="az">A - Z</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="space-y-2 max-h-40 overflow-y-auto custom-scroll pr-1">
-                    ${expHtml}
-                </div>
+                
+                <!-- Area Daftar Interaktif -->
+                <div class="flex-1 overflow-y-auto custom-scroll pr-1 mt-3" id="detail-outlet-expense-list"></div>
             </div>
         `;
+        
+        // 🚀 PENTING: Simpan data ke variabel global dan render list
+        this.detailExpenseData = expItemMap;
+        this.renderDetailOutletExpenseList();
     },
 
     closeDetailOutletModal: function() {
         const modal = document.getElementById('modal-detail-outlet-eksekutif');
         if (modal) modal.classList.add('hidden');
-    },
-
-    // =========================================================
-    // 🚀 ENGINE POPUP DETAIL RIWAYAT ITEM PENGELUARAN (TIMELINE)
-    // =========================================================
-    openExpenseHistoryModal: function(itemName) {
-        let data = this.currentDetailExpMap[itemName];
-        if (!data || !data.details) return;
-
-        // Sortir riwayat dari tanggal terbaru ke terlama
-        let sortedDetails = data.details.sort((a, b) => {
-            let partA = a.tgl.split('-'); let partB = b.tgl.split('-');
-            let dateA = new Date(partA[2], partA[1]-1, partA[0]);
-            let dateB = new Date(partB[2], partB[1]-1, partB[0]);
-            return dateB - dateA;
-        });
-
-        // Buat struktur Timeline HTML
-        let historyHtml = sortedDetails.map((d, i) => `
-            <div class="relative pl-7 py-2.5 group cursor-default">
-                <!-- Garis Timeline -->
-                ${i !== sortedDetails.length - 1 ? `<div class="absolute left-[11px] top-5 bottom-[-1rem] w-px bg-slate-200 group-hover:bg-rose-200 transition-colors"></div>` : ''}
-                <!-- Titik Timeline -->
-                <div class="absolute left-1.5 top-4 w-3.5 h-3.5 rounded-full bg-rose-500 border-2 border-white shadow-sm ring-1 ring-slate-200 z-10 group-hover:scale-125 transition-transform"></div>
-                
-                <div class="bg-white p-3 rounded-2xl border border-slate-100 shadow-2xs flex justify-between items-center group-hover:border-rose-200 group-hover:shadow-md transition-all">
-                    <div>
-                        <span class="font-extrabold text-slate-800 text-xs block">${d.tgl}</span>
-                        <span class="text-[9px] font-bold text-slate-400"><i class="fas fa-cloud-sun text-slate-300"></i> ${d.cuaca}</span>
-                    </div>
-                    <span class="font-black text-rose-600 text-sm bg-rose-50 px-2.5 py-1 rounded-lg">Rp ${d.nominal.toLocaleString('id-ID')}</span>
-                </div>
-            </div>
-        `).join('');
-
-        // 🚀 Ciptakan Elemen Sub-Modal Secara Dinamis agar tidak perlu edit index.html
-        let modalId = 'dynamic-expense-history-modal';
-        let modal = document.getElementById(modalId);
-        
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.id = modalId;
-            // Desain backdrop blur modern
-            modal.className = "fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300";
-            document.body.appendChild(modal);
-        }
-
-        modal.innerHTML = `
-            <div class="bg-slate-50 w-full max-w-sm rounded-t-[2rem] sm:rounded-[2.5rem] shadow-2xl overflow-hidden transform translate-y-full sm:translate-y-10 scale-95 transition-all duration-400 flex flex-col max-h-[85vh] border border-white/20 relative">
-                
-                <!-- Header Glassmorphism -->
-                <div class="bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500 p-6 text-white relative shrink-0">
-                    <button onclick="document.getElementById('${modalId}').classList.remove('opacity-100', 'pointer-events-auto'); document.getElementById('${modalId}').firstElementChild.classList.add('translate-y-full', 'sm:translate-y-10', 'scale-95');" class="absolute top-5 right-5 w-8 h-8 bg-white/20 hover:bg-white/40 rounded-full flex items-center justify-center transition active:scale-90 ring-1 ring-white/30 backdrop-blur-md">
-                        <i class="fas fa-xmark"></i>
-                    </button>
-                    
-                    <div class="w-12 h-1.5 bg-white/30 rounded-full mx-auto mb-4 sm:hidden"></div>
-                    
-                    <h4 class="text-[10px] font-bold text-amber-100 uppercase tracking-widest mb-1 flex items-center gap-1.5"><i class="fas fa-search"></i> Rincian Histori</h4>
-                    <h2 class="text-xl font-black leading-tight drop-shadow-sm truncate pr-8">${itemName}</h2>
-                    
-                    <div class="mt-4 bg-white/20 p-3 rounded-2xl backdrop-blur-md flex justify-between items-center border border-white/30 shadow-inner">
-                        <span class="text-[11px] font-bold text-amber-50 uppercase tracking-wide">Total Akumulasi</span>
-                        <span class="text-lg font-black drop-shadow-md">Rp ${data.total.toLocaleString('id-ID')}</span>
-                    </div>
-                </div>
-                
-                <!-- Timeline List -->
-                <div class="p-5 overflow-y-auto custom-scroll flex-1 relative">
-                    <div class="absolute top-0 left-0 w-full h-4 bg-gradient-to-b from-slate-50 to-transparent z-10"></div>
-                    <div class="pt-2 pb-4">
-                        ${historyHtml}
-                    </div>
-                </div>
-            </div>
-        `;
-
-        // 🚀 Trigger Animasi Masuk (Entry Animation)
-        void modal.offsetWidth; // Force reflow agar transisi CSS terpancing
-        modal.classList.add('opacity-100', 'pointer-events-auto');
-        
-        const modalContent = modal.firstElementChild;
-        modalContent.classList.remove('translate-y-full', 'sm:translate-y-10', 'scale-95');
-        modalContent.classList.add('translate-y-0', 'scale-100');
     },
 
     // =========================================================
@@ -3043,7 +3111,9 @@ changeOutlet: function(val) {
 
         let totSales = 0, totCash = 0, totQris = 0, totExp = 0;
         let outletMap = {};
-        let expenseItemMap = {};
+        
+        // 🚀 KUNCI PERBAIKAN: Gunakan variabel global superApp untuk menampung data item biaya
+        this.execExpenseData = {}; 
 
         (this.db.laporanHarian || []).forEach(rep => {
             if (rep.Status_Approval === 'Ditolak') return;
@@ -3085,8 +3155,8 @@ changeOutlet: function(val) {
                     let itemName = String(itemExp.nama || 'LAINNYA').toUpperCase().trim();
                     let itemNom = Number(itemExp.nominal || 0);
                     if (itemName !== '' && itemNom > 0) {
-                        if (!expenseItemMap[itemName]) expenseItemMap[itemName] = 0;
-                        expenseItemMap[itemName] += itemNom;
+                        if (!this.execExpenseData[itemName]) this.execExpenseData[itemName] = 0;
+                        this.execExpenseData[itemName] += itemNom;
                     }
                 });
             } catch(e){}
@@ -3098,7 +3168,7 @@ changeOutlet: function(val) {
         if (document.getElementById('exec-total-qris')) document.getElementById('exec-total-qris').innerText = `Rp ${totQris.toLocaleString('id-ID')}`;
         if (document.getElementById('exec-total-expense')) document.getElementById('exec-total-expense').innerText = `Rp ${totExp.toLocaleString('id-ID')}`;
 
-        // 3. Update Akumulasi & Target Bulanan yang Terintegrasi
+        // 3. Update Akumulasi Target
         let targetTotal = this.targetBulanan || 180000000;
         if (isConsolidated && this.db && this.db.outlets) {
             let tCons = 0;
@@ -3120,56 +3190,32 @@ changeOutlet: function(val) {
         if (document.getElementById('accum-percent')) document.getElementById('accum-percent').innerText = `Progress: ${pctExec}%`;
         if (document.getElementById('accum-remaining')) document.getElementById('accum-remaining').innerText = `Kurang: Rp ${sisaTarget.toLocaleString('id-ID')}`;
 
-        // 4. Render Kartu Mini Outlet Interaktif
+        // 4. Render Kartu Mini Outlet
         const cardsGrid = document.getElementById('exec-outlet-cards-grid');
         if (cardsGrid) {
             let outletKeys = Object.keys(outletMap).sort((a,b) => outletMap[b].sales - outletMap[a].sales);
-            if (outletKeys.length === 0) {
-                cardsGrid.innerHTML = `<div class="col-span-full text-xs text-slate-400 italic text-center py-6 border border-dashed border-slate-700 rounded-2xl">Belum ada transaksi di periode ini</div>`;
-            } else {
-                cardsGrid.innerHTML = outletKeys.map(outName => {
+            cardsGrid.innerHTML = outletKeys.length === 0 
+                ? `<div class="col-span-full text-xs text-slate-400 italic text-center py-6 border border-dashed border-slate-700 rounded-2xl">Belum ada transaksi di periode ini</div>`
+                : outletKeys.map(outName => {
                     let oData = outletMap[outName];
                     let pct = totSales > 0 ? Math.round((oData.sales / totSales) * 100) : 0;
                     return `
                     <div onclick="superApp.openDetailOutletModal('${outName}')" class="bg-slate-800/80 hover:bg-slate-700/90 p-3.5 rounded-2xl border border-slate-700 hover:border-rose-500/50 cursor-pointer transition-all active:scale-95 shadow-md flex flex-col justify-between group">
                         <div class="flex justify-between items-start mb-2">
                             <span class="font-black text-white text-sm group-hover:text-rose-400 transition">Ai-CHA ${outName}</span>
-                            <span class="text-[9px] font-bold bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded-full border border-rose-500/30">${pct}% Kontribusi</span>
+                            <span class="text-[9px] font-bold bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded-full border border-rose-500/30">${pct}%</span>
                         </div>
                         <div>
-                            <span class="text-[10px] text-slate-400 block uppercase font-bold">Total Sales Cabang</span>
+                            <span class="text-[10px] text-slate-400 block uppercase font-bold">Sales Cabang</span>
                             <span class="font-black text-rose-400 text-base block tracking-tight">Rp ${oData.sales.toLocaleString('id-ID')}</span>
                         </div>
-                        <div class="mt-2 pt-2 border-t border-slate-700/70 flex justify-between items-center text-[10px] text-slate-400 font-bold">
-                            <span>💵 C: Rp ${oData.cash.toLocaleString('id-ID')}</span>
-                            <span class="text-indigo-300 group-hover:translate-x-1 transition-transform">Detail <i class="fas fa-arrow-right text-[9px] ml-0.5"></i></span>
-                        </div>
                     </div>`;
                 }).join('');
-            }
         }
 
-        // 5. Render Breakdown Pengeluaran Per Item
-        const expCont = document.getElementById('exec-expense-list');
-        if (expCont) {
-            let expKeys = Object.keys(expenseItemMap).sort((a,b) => expenseItemMap[b] - expenseItemMap[a]);
-            if (expKeys.length === 0) {
-                expCont.innerHTML = `<div class="col-span-full text-xs text-slate-400 italic text-center py-4">Belum ada pengeluaran pada periode ini</div>`;
-            } else {
-                expCont.innerHTML = expKeys.map(itemName => {
-                    let nom = expenseItemMap[itemName];
-                    let pctExp = totExp > 0 ? Math.round((nom / totExp) * 100) : 0;
-                    return `
-                    <div class="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/60 flex justify-between items-center text-xs">
-                        <span class="font-extrabold text-slate-200 block uppercase">▪️ ${itemName}</span>
-                        <div class="text-right">
-                            <span class="font-black text-amber-400 block">Rp ${nom.toLocaleString('id-ID')}</span>
-                            <span class="text-[9px] text-slate-400">${pctExp}% dari biaya</span>
-                        </div>
-                    </div>`;
-                }).join('');
-            }
-        }
+        // 5. Simpan Total ke Global & Panggil Engine List Interaktif (Search & Sort)
+        this.execTotalExpense = totExp;
+        this.renderExecExpenseList();
     },
 
     // =========================================================
@@ -7229,6 +7275,181 @@ openDetailStokOpname: function(sku) {
         }
     },
 
+    // =========================================================
+    // 🚀 ENGINE DETAIL RIWAYAT ITEM PENGELUARAN (POPUP)
+    // =========================================================
+    openExpenseDetailModal: function(itemName) {
+        const startInput = document.getElementById('exec-filter-start');
+        const endInput = document.getElementById('exec-filter-end');
+        let startObj = (startInput && startInput.value) ? new Date(startInput.value) : null;
+        if (startObj) startObj.setHours(0, 0, 0, 0);
+        let endObj = (endInput && endInput.value) ? new Date(endInput.value) : null;
+        if (endObj) endObj.setHours(23, 59, 59, 999);
+
+        let isConsolidated = (this.outlet === 'Pusat' || this.outlet === 'Semua' || !this.outlet);
+        let currOutletClean = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+
+        let detailList = [];
+        let totalNominal = 0;
+
+        // Kumpulkan data riwayat
+        (this.db.laporanHarian || []).forEach(rep => {
+            if (rep.Status_Approval === 'Ditolak') return;
+
+            let repOutlet = String(rep.Outlet || 'Lainnya').replace(/^Ai\-Snack\s+/i, '').trim();
+            if (!isConsolidated && repOutlet !== currOutletClean) return;
+
+            if (startObj || endObj) {
+                let cleanStr = (rep.Tanggal || '').split(',').pop().trim();
+                let match = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+                if (match) {
+                    let repDateObj = new Date(parseInt(match[3],10), parseInt(match[2],10)-1, parseInt(match[1],10));
+                    if (startObj && repDateObj < startObj) return;
+                    if (endObj && repDateObj > endObj) return;
+                } else return;
+            }
+
+            try {
+                let expArr = JSON.parse(rep.Pengeluaran_JSON || '[]');
+                expArr.forEach(itemExp => {
+                    let nm = String(itemExp.nama || '').toUpperCase().trim();
+                    let nmNom = Number(itemExp.nominal || 0);
+                    
+                    if (nm === itemName && nmNom > 0) {
+                        detailList.push({
+                            tanggal: rep.Tanggal,
+                            outlet: repOutlet,
+                            nominal: nmNom,
+                            dateStr: rep.Tanggal // Disimpan untuk sorting jika perlu
+                        });
+                        totalNominal += nmNom;
+                    }
+                });
+            } catch(e){}
+        });
+
+        // Eksekusi UI
+        document.getElementById('modal-expense-title').innerText = itemName;
+        document.getElementById('modal-expense-meta').innerText = `Total: Rp ${totalNominal.toLocaleString('id-ID')} dari ${detailList.length} Transaksi`;
+
+        let tbody = document.getElementById('modal-expense-tbody');
+        if (detailList.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="3" class="py-10 text-center text-slate-500 italic">Tidak ada rincian ditemukan</td></tr>`;
+        } else {
+            tbody.innerHTML = detailList.map(d => `
+                <tr class="hover:bg-slate-800/80 transition-colors">
+                    <td class="py-3 px-5 text-slate-300 font-extrabold">${d.tanggal}</td>
+                    <td class="py-3 px-5 text-amber-400 font-black text-[11px]"><i class="fas fa-store mr-1 opacity-70"></i> Ai-CHA ${d.outlet}</td>
+                    <td class="py-3 px-5 text-right text-rose-400 font-black">Rp ${d.nominal.toLocaleString('id-ID')}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Animasi Tampil
+        const modal = document.getElementById('modal-detail-expense');
+        if (modal) {
+            modal.classList.remove('hidden');
+            void modal.offsetWidth; 
+            modal.classList.add('opacity-100');
+            if(modal.firstElementChild) {
+                modal.firstElementChild.classList.remove('scale-95');
+                modal.firstElementChild.classList.add('scale-100');
+            }
+        }
+    },
+
+    closeExpenseDetailModal: function() {
+        const modal = document.getElementById('modal-detail-expense');
+        if (modal) {
+            modal.classList.remove('opacity-100');
+            if(modal.firstElementChild) {
+                modal.firstElementChild.classList.remove('scale-100');
+                modal.firstElementChild.classList.add('scale-95');
+            }
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+    },
+
+    // =========================================================
+    // 🚀 ENGINE LIST PENGELUARAN DINAMIS (SEARCH & SORT)
+    // =========================================================
+    execExpenseData: {},
+    execTotalExpense: 0,
+    detailExpenseData: {},
+
+    renderExecExpenseList: function() {
+        const expCont = document.getElementById('exec-expense-list');
+        const searchInput = (document.getElementById('exec-expense-search')?.value || '').toLowerCase();
+        const sortMode = document.getElementById('exec-expense-sort')?.value || 'nominal';
+
+        if (!expCont) return;
+
+        let expKeys = Object.keys(this.execExpenseData || {});
+        
+        // Fitur Pencarian
+        if (searchInput) expKeys = expKeys.filter(k => k.toLowerCase().includes(searchInput));
+
+        // Fitur Pengurutan
+        if (sortMode === 'nominal') {
+            expKeys.sort((a,b) => this.execExpenseData[b] - this.execExpenseData[a]);
+        } else {
+            expKeys.sort((a,b) => a.localeCompare(b));
+        }
+
+        if (expKeys.length === 0) {
+            expCont.innerHTML = `<div class="col-span-full text-xs text-slate-400 italic text-center py-6 border border-dashed border-slate-700/50 rounded-xl">Item tidak ditemukan</div>`;
+        } else {
+            expCont.innerHTML = expKeys.map(itemName => {
+                let nom = this.execExpenseData[itemName];
+                let pctExp = this.execTotalExpense > 0 ? Math.round((nom / this.execTotalExpense) * 100) : 0;
+                return `
+                <div onclick="superApp.openExpenseDetailModal('${itemName}')" class="group p-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-700/80 border border-slate-700/60 hover:border-amber-500/50 flex justify-between items-center text-xs cursor-pointer transition-all active:scale-95 shadow-sm">
+                    <span class="font-extrabold text-slate-200 block uppercase group-hover:text-amber-400 transition-colors truncate pr-2">▪️ ${itemName}</span>
+                    <div class="text-right shrink-0">
+                        <span class="font-black text-amber-400 block group-hover:scale-105 transition-transform origin-right">Rp ${nom.toLocaleString('id-ID')}</span>
+                        <span class="text-[9px] text-slate-400">${pctExp}% dari biaya <i class="fas fa-arrow-right text-[8px] ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity"></i></span>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+    },
+
+    renderDetailOutletExpenseList: function() {
+        const expCont = document.getElementById('detail-outlet-expense-list');
+        const searchInput = (document.getElementById('detail-expense-search')?.value || '').toLowerCase();
+        const sortMode = document.getElementById('detail-expense-sort')?.value || 'nominal';
+
+        if (!expCont) return;
+
+        let expKeys = Object.keys(this.detailExpenseData || {});
+        
+        // Fitur Pencarian
+        if (searchInput) expKeys = expKeys.filter(k => k.toLowerCase().includes(searchInput));
+
+        // Fitur Pengurutan
+        if (sortMode === 'nominal') {
+            expKeys.sort((a,b) => this.detailExpenseData[b] - this.detailExpenseData[a]);
+        } else {
+            expKeys.sort((a,b) => a.localeCompare(b));
+        }
+
+        if (expKeys.length === 0) {
+            expCont.innerHTML = `<div class="text-[11px] text-slate-400 italic text-center py-4 border border-dashed border-slate-700/50 rounded-xl mt-2">Item tidak ditemukan</div>`;
+        } else {
+            expCont.innerHTML = expKeys.map(k => {
+                let nom = this.detailExpenseData[k];
+                return `
+                <div onclick="superApp.openExpenseDetailModal('${k}')" class="flex justify-between items-center bg-slate-800/80 hover:bg-slate-700/80 p-3 rounded-xl text-[11px] border border-slate-700/50 hover:border-amber-500/50 cursor-pointer transition-all active:scale-95 group shadow-sm mb-1.5">
+                    <span class="font-extrabold text-slate-300 group-hover:text-amber-400 transition-colors uppercase truncate pr-2">▪️ ${k}</span>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <span class="font-black text-amber-400 group-hover:scale-105 transition-transform origin-right">Rp ${nom.toLocaleString('id-ID')}</span>
+                        <i class="fas fa-arrow-right text-[9px] text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+    },
+
     // Membuka Modal Detail Struk di Tab Laporan
     openDetailTrx: function(trxID) {
         let t = (this.db.transactions || []).find(x => x.ID_TRX === trxID);
@@ -8983,3 +9204,4 @@ setInterval(() => {
         superApp.pullFreshData(true); 
     }
 }, 300000);
+

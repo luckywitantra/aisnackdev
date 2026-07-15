@@ -5845,7 +5845,9 @@ openDetailStokOpname: function(sku) {
         }, 200);
     },
     
-    // AUDIT & BULK APPROVAL
+    // =========================================================
+    // 🚀 ENGINE AUDIT: SWITCHER TABS & BULK ACTIONS
+    // =========================================================
     toggleAuditTab: function(tabName) {
         const tabs = ['opname', 'terima', 'riwayat-opname', 'riwayat-terima'];
         
@@ -5884,19 +5886,15 @@ openDetailStokOpname: function(sku) {
         if (tabName === 'riwayat-terima' && typeof this.renderRestokHistory === 'function') this.renderRestokHistory();
         
         // Panggil fungsi render bawaan Anda jika kembali ke tab Pending
-        // (Sesuaikan nama fungsi di bawah ini dengan nama fungsi render otorisasi asli Anda)
         if (tabName === 'opname' && typeof this.renderAuditOpname === 'function') this.renderAuditOpname();
         if (tabName === 'terima' && typeof this.renderAuditTerima === 'function') this.renderAuditTerima();
     },
 
-    // =========================================================
-    // 🚀 ENGINE AUDIT: RIWAYAT OPNAME FISIK
-    // =========================================================
+    
     // =========================================================
     // 🚀 ENGINE AUDIT: RIWAYAT OPNAME FISIK
     // =========================================================
     renderOpnameHistory: function() {
-        // PERBAIKAN: Arahkan ke ID tbody Riwayat, BUKAN tbody Pending
         const tbody = document.getElementById('audit-riwayat-opname-tbody');
         const searchVal = (document.getElementById('search-opname')?.value || '').toLowerCase();
         if (!tbody) return;
@@ -5976,29 +5974,34 @@ openDetailStokOpname: function(sku) {
         }).join('');
 
         const modal = document.getElementById('modal-detail-opname');
-        modal.classList.remove('hidden');
-        void modal.offsetWidth;
-        modal.classList.add('opacity-100');
-        modal.firstElementChild.classList.remove('scale-95');
-        modal.firstElementChild.classList.add('scale-100');
+        if (modal) {
+            modal.classList.remove('hidden');
+            void modal.offsetWidth; // Memaksa browser merekam state sebelum animasi
+            modal.classList.add('opacity-100');
+            if(modal.firstElementChild) {
+                modal.firstElementChild.classList.remove('scale-95');
+                modal.firstElementChild.classList.add('scale-100');
+            }
+        }
     },
 
     closeDetailOpnameModal: function() {
         const modal = document.getElementById('modal-detail-opname');
-        modal.classList.remove('opacity-100');
-        modal.firstElementChild.classList.remove('scale-100');
-        modal.firstElementChild.classList.add('scale-95');
-        setTimeout(() => modal.classList.add('hidden'), 300);
+        if (modal) {
+            modal.classList.remove('opacity-100');
+            if(modal.firstElementChild) {
+                modal.firstElementChild.classList.remove('scale-100');
+                modal.firstElementChild.classList.add('scale-95');
+            }
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
     },
 
-    // =========================================================
-    // 🚀 ENGINE AUDIT: LOG BARANG MASUK
-    // =========================================================
+    
     // =========================================================
     // 🚀 ENGINE AUDIT: LOG BARANG MASUK
     // =========================================================
     renderRestokHistory: function() {
-        // PERBAIKAN: Arahkan ke ID tbody Riwayat, BUKAN tbody Pending
         const tbody = document.getElementById('audit-riwayat-restok-tbody');
         const searchVal = (document.getElementById('search-restok')?.value || '').toLowerCase();
         if (!tbody) return;
@@ -6044,22 +6047,28 @@ openDetailStokOpname: function(sku) {
             </tr>`).join('');
 
         const modal = document.getElementById('modal-detail-restok');
-        modal.classList.remove('hidden');
-        void modal.offsetWidth;
-        modal.classList.add('opacity-100');
-        modal.firstElementChild.classList.remove('scale-95');
-        modal.firstElementChild.classList.add('scale-100');
+        if (modal) {
+            modal.classList.remove('hidden');
+            void modal.offsetWidth;
+            modal.classList.add('opacity-100');
+            if(modal.firstElementChild) {
+                modal.firstElementChild.classList.remove('scale-95');
+                modal.firstElementChild.classList.add('scale-100');
+            }
+        }
     },
 
     closeDetailRestokModal: function() {
         const modal = document.getElementById('modal-detail-restok');
-        modal.classList.remove('opacity-100');
-        modal.firstElementChild.classList.remove('scale-100');
-        modal.firstElementChild.classList.add('scale-95');
-        setTimeout(() => modal.classList.add('hidden'), 300);
+        if (modal) {
+            modal.classList.remove('opacity-100');
+            if(modal.firstElementChild) {
+                modal.firstElementChild.classList.remove('scale-100');
+                modal.firstElementChild.classList.add('scale-95');
+            }
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
     },
-
-
     
 
     toggleGudangTab: function(tab) {

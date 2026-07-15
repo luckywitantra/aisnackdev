@@ -655,82 +655,170 @@
       <!-- ========================================================= -->
 <!-- VIEW: AUDIT & APPROVAL (ULTRA-MODERN REDESIGN)            -->
 <!-- ========================================================= -->
-<div id="view-audit" class="app-view hidden flex-col lg:min-h-[80vh] min-h-max gap-5 pb-20 md:pb-6 transition-all duration-300">
-    <div class="bg-white p-5 md:p-8 rounded-[2.5rem] shadow-[0_10px_35px_-5px_rgba(0,0,0,0.04)] border border-slate-100/80 text-slate-800 flex flex-col h-full min-h-0 relative overflow-hidden group">
+<div id="view-audit" class="app-view hidden flex-col lg:min-h-[80vh] min-h-max gap-5 pb-20 md:pb-6 transition-all duration-500 opacity-0 translate-y-4 data-[active=true]:opacity-100 data-[active=true]:translate-y-0">
+    <div class="bg-white/95 backdrop-blur-2xl p-5 md:p-8 rounded-[2.5rem] shadow-[0_20px_50px_-10px_rgba(0,0,0,0.05)] border border-white/60 ring-1 ring-slate-900/5 text-slate-800 flex flex-col h-full min-h-0 relative overflow-hidden group">
+        
+        <!-- Ornamen Latar Belakang Modern (Glow) -->
+        <div class="absolute top-0 right-0 w-[40rem] h-[40rem] bg-gradient-to-br from-indigo-100/40 via-purple-50/20 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none -z-10"></div>
         
         <!-- Watermark Latar Belakang -->
-        <div class="absolute top-0 right-0 -mt-8 -mr-10 text-[11rem] text-slate-50/80 pointer-events-none transition-transform duration-700 group-hover:scale-105 group-hover:rotate-6 z-0">
+        <div class="absolute top-0 right-0 -mt-8 -mr-10 text-[12rem] text-slate-50/80 pointer-events-none transition-transform duration-1000 group-hover:scale-110 group-hover:-rotate-3 -z-10 drop-shadow-sm">
             <i class="fas fa-user-shield"></i>
         </div>
 
-        <!-- HEADER SEKSI -->
-        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 border-b border-slate-100 pb-6 gap-5 shrink-0 relative z-10">
-            <div class="flex items-center gap-4">
-                <div class="w-14 h-14 md:w-16 md:h-16 bg-gradient-to-br from-indigo-500 via-blue-500 to-cyan-500 rounded-[1.35rem] flex items-center justify-center text-white text-2xl md:text-3xl shadow-lg shadow-indigo-500/25 shrink-0 transform transition-transform group-hover:scale-105">
-                    <i class="fas fa-user-check"></i>
+        <!-- HEADER SEKSI & TOMBOL BULK ACTION -->
+        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 border-b border-slate-100/80 pb-6 gap-5 shrink-0 relative z-10 w-full">
+            <div class="flex items-center gap-5">
+                <div class="w-14 h-14 md:w-16 md:h-16 bg-gradient-to-br from-indigo-500 via-blue-500 to-cyan-500 rounded-[1.4rem] flex items-center justify-center text-white text-2xl md:text-3xl shadow-[0_10px_25px_rgba(99,102,241,0.3)] shrink-0 transform transition-all duration-500 hover:scale-110 hover:rotate-3">
+                    <i class="fas fa-user-check relative z-10"></i>
                 </div>
                 <div>
-                    <h3 class="font-black text-2xl md:text-3xl text-slate-800 tracking-tight">Audit & Approval</h3>
-                    <p class="text-xs md:text-sm font-bold text-slate-400 mt-1 uppercase tracking-widest">Otorisasi Laporan Operasional</p>
+                    <h3 class="font-black text-2xl md:text-3xl text-slate-800 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-500">Audit & Approval</h3>
+                    <p class="text-xs md:text-sm font-bold text-indigo-500 mt-1 uppercase tracking-widest flex items-center gap-1.5"><i class="fas fa-shield-halved text-[10px]"></i> Otorisasi & Logistik</p>
                 </div>
             </div>
             
             <!-- TOMBOL AKSI MASSAL (Bulk Action) -->
             <div id="bulk-action-bar" class="hidden flex gap-2.5 w-full lg:w-auto mt-2 lg:mt-0">
-                <button onclick="superApp.processBulkApproval('Disetujui')" class="flex-1 lg:flex-none bg-gradient-to-r from-emerald-500 via-teal-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white px-5 py-3.5 rounded-2xl text-xs md:text-sm font-black shadow-[0_8px_20px_-4px_rgba(16,185,129,0.35)] transition-all hover:-translate-y-0.5 active:translate-y-0 active:scale-95 flex justify-center items-center gap-2.5 tracking-wide">
+                <button onclick="superApp.processBulkApproval('Disetujui')" class="flex-1 lg:flex-none bg-gradient-to-r from-emerald-500 via-teal-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white px-5 py-3.5 rounded-2xl text-xs md:text-sm font-black shadow-[0_8px_20px_-4px_rgba(16,185,129,0.35)] transition-all hover:-translate-y-1 active:translate-y-0 active:scale-95 flex justify-center items-center gap-2.5 tracking-wide">
                     <i class="fas fa-check-double text-base md:text-lg"></i> <span>Setuju Terpilih</span>
                 </button>
-                <button onclick="superApp.processBulkApproval('Ditolak')" class="flex-1 lg:flex-none bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-white px-5 py-3.5 rounded-2xl text-xs md:text-sm font-black shadow-[0_8px_20px_-4px_rgba(239,68,68,0.35)] transition-all hover:-translate-y-0.5 active:translate-y-0 active:scale-95 flex justify-center items-center gap-2.5 tracking-wide">
+                <button onclick="superApp.processBulkApproval('Ditolak')" class="flex-1 lg:flex-none bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-white px-5 py-3.5 rounded-2xl text-xs md:text-sm font-black shadow-[0_8px_20px_-4px_rgba(239,68,68,0.35)] transition-all hover:-translate-y-1 active:translate-y-0 active:scale-95 flex justify-center items-center gap-2.5 tracking-wide">
                     <i class="fas fa-ban text-base md:text-lg"></i> <span>Tolak Terpilih</span>
                 </button>
             </div>
         </div>
 
-        <!-- PILL TABS -->
-        <div class="flex gap-2 bg-slate-50 p-1.5 rounded-2xl shadow-inner border border-slate-200 overflow-x-auto mb-5 shrink-0 relative z-10 w-full lg:w-max custom-scroll">
-            <button onclick="superApp.toggleAuditTab('opname')" id="tab-audit-opname" class="px-6 py-3 bg-white text-indigo-600 rounded-xl text-xs md:text-sm font-black shadow-sm whitespace-nowrap transition border border-slate-200 flex items-center gap-2">
-                <i class="fas fa-clipboard-list text-indigo-500 opacity-80"></i> Audit Opname Fisik
+        <!-- PILL TABS NAVIGASI (4 TABS) -->
+        <div class="flex gap-2 bg-slate-100/50 p-2 rounded-3xl shadow-inner border border-slate-200/50 overflow-x-auto mb-6 shrink-0 relative z-10 w-full custom-scroll backdrop-blur-sm">
+            <button onclick="superApp.toggleAuditTab('opname')" id="tab-audit-opname" class="px-5 py-3 bg-white text-indigo-600 rounded-2xl text-xs md:text-sm font-black shadow-[0_4px_12px_rgba(0,0,0,0.05)] whitespace-nowrap transition-all flex items-center gap-2 shrink-0 active:scale-95">
+                <i class="fas fa-clipboard-list text-indigo-500 opacity-90 text-base"></i> Pending Opname
             </button>
-            <button onclick="superApp.toggleAuditTab('terima')" id="tab-audit-terima" class="px-6 py-3 text-slate-500 hover:bg-white hover:text-slate-800 rounded-xl text-xs md:text-sm font-bold whitespace-nowrap transition border border-transparent flex items-center gap-2">
-                <i class="fas fa-dolly text-slate-400 opacity-80"></i> Audit Barang Masuk
+            <button onclick="superApp.toggleAuditTab('terima')" id="tab-audit-terima" class="px-5 py-3 text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-sm rounded-2xl text-xs md:text-sm font-bold whitespace-nowrap transition-all flex items-center gap-2 shrink-0 active:scale-95">
+                <i class="fas fa-dolly text-slate-400 opacity-80 text-base"></i> Pending Restok
+            </button>
+            
+            <div class="w-px h-8 bg-slate-200/80 my-auto mx-1 shrink-0"></div>
+            
+            <button onclick="superApp.toggleAuditTab('riwayat-opname')" id="tab-audit-riwayat-opname" class="px-5 py-3 text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-sm rounded-2xl text-xs md:text-sm font-bold whitespace-nowrap transition-all flex items-center gap-2 shrink-0 active:scale-95">
+                <i class="fas fa-history text-slate-400 opacity-80 text-base"></i> Riwayat Opname
+            </button>
+            <button onclick="superApp.toggleAuditTab('riwayat-terima')" id="tab-audit-riwayat-terima" class="px-5 py-3 text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-sm rounded-2xl text-xs md:text-sm font-bold whitespace-nowrap transition-all flex items-center gap-2 shrink-0 active:scale-95">
+                <i class="fas fa-boxes-stacked text-slate-400 opacity-80 text-base"></i> Log Barang Masuk
             </button>
         </div>
         
-        <!-- TABEL 1: AUDIT OPNAME -->
-        <div id="audit-content-opname" class="flex-1 overflow-x-auto overflow-y-auto bg-white rounded-[1.25rem] border border-slate-100 min-h-[300px] custom-scroll relative shadow-sm">
-            <table class="w-full text-left whitespace-nowrap text-sm border-collapse">
-                <thead class="text-slate-400 border-b border-slate-100 sticky top-0 bg-slate-50/90 backdrop-blur-md z-10 shadow-sm text-[10px] uppercase tracking-wider font-black">
-                    <tr>
-                        <th class="py-3.5 px-4 text-center w-12"><input type="checkbox" class="w-5 h-5 rounded border-slate-300 cursor-pointer accent-indigo-500 hover:scale-110 transition-transform shadow-sm" onchange="superApp.toggleAllAuditCb('opname', this.checked)"></th>
-                        <th class="py-3.5 px-4">Waktu</th>
-                        <th class="py-3.5 px-4">Outlet & Kasir</th>
-                        <th class="py-3.5 px-4">Item Laporan</th>
-                        <th class="py-3.5 px-4 text-center">Sys vs Fisik</th>
-                        <th class="py-3.5 px-4 text-right">Selisih</th>
-                        <th class="py-3.5 px-4">Alasan Kasir</th>
-                    </tr>
-                </thead>
-                <tbody id="audit-opname-tbody" class="font-bold divide-y divide-slate-50 text-slate-700"></tbody>
-            </table>
+        <!-- ============================================================== -->
+        <!-- TABEL 1: PENDING OTORISASI OPNAME (Kodingan Asli Anda)         -->
+        <!-- ============================================================== -->
+        <div id="audit-content-opname" class="flex-1 overflow-hidden bg-white rounded-[2rem] border border-slate-100 min-h-[300px] shadow-[0_8px_30px_rgba(0,0,0,0.03)] relative flex flex-col transition-all duration-300">
+            <div class="p-5 md:p-6 pb-4 border-b border-slate-50 flex items-center gap-3 bg-indigo-50/30">
+                <div class="w-8 h-8 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center"><i class="fas fa-user-clock"></i></div>
+                <h4 class="font-black text-slate-800 text-sm uppercase tracking-wider">Menunggu Persetujuan Opname</h4>
+            </div>
+            <div class="overflow-x-auto overflow-y-auto flex-1 custom-scroll">
+                <table class="w-full text-left whitespace-nowrap text-xs">
+                    <thead class="bg-white/90 backdrop-blur-md sticky top-0 z-20 text-slate-500 font-black uppercase tracking-widest text-[9px] shadow-sm">
+                        <tr>
+                            <th class="py-4 px-5 text-center w-12"><input type="checkbox" class="w-5 h-5 rounded-md border-slate-300 cursor-pointer accent-indigo-500 hover:scale-110 transition-transform shadow-sm" onchange="superApp.toggleAllAuditCb('opname', this.checked)"></th>
+                            <th class="py-4 px-5">Waktu</th>
+                            <th class="py-4 px-5">Outlet & Kasir</th>
+                            <th class="py-4 px-5">Item Laporan</th>
+                            <th class="py-4 px-5 text-center">Sys vs Fisik</th>
+                            <th class="py-4 px-5 text-right">Selisih</th>
+                            <th class="py-4 px-5">Alasan Kasir</th>
+                        </tr>
+                    </thead>
+                    <tbody id="audit-opname-tbody" class="font-bold divide-y divide-slate-100 text-slate-700"></tbody>
+                </table>
+            </div>
         </div>
 
-        <!-- TABEL 2: AUDIT TERIMA BARANG -->
-        <div id="audit-content-terima" class="hidden flex-1 overflow-x-auto overflow-y-auto bg-white rounded-[1.25rem] border border-slate-100 min-h-[300px] custom-scroll relative shadow-sm">
-            <table class="w-full text-left whitespace-nowrap text-sm border-collapse">
-                <thead class="text-slate-400 border-b border-slate-100 sticky top-0 bg-slate-50/90 backdrop-blur-md z-10 shadow-sm text-[10px] uppercase tracking-wider font-black">
-                    <tr>
-                        <th class="py-3.5 px-4 text-center w-12"><input type="checkbox" class="w-5 h-5 rounded border-slate-300 cursor-pointer accent-indigo-500 hover:scale-110 transition-transform shadow-sm" onchange="superApp.toggleAllAuditCb('terima', this.checked)"></th>
-                        <th class="py-3.5 px-4">Waktu</th>
-                        <th class="py-3.5 px-4">Outlet & Kasir</th>
-                        <th class="py-3.5 px-4">Item Masuk</th>
-                        <th class="py-3.5 px-4 text-center">Qty Diterima</th>
-                        <th class="py-3.5 px-4">Catatan Kasir</th>
-                    </tr>
-                </thead>
-                <tbody id="audit-terima-tbody" class="font-bold divide-y divide-slate-50 text-slate-700"></tbody>
-            </table>
+        <!-- ============================================================== -->
+        <!-- TABEL 2: PENDING OTORISASI TERIMA BARANG (Kodingan Asli Anda)  -->
+        <!-- ============================================================== -->
+        <div id="audit-content-terima" class="hidden flex-1 overflow-hidden bg-white rounded-[2rem] border border-slate-100 min-h-[300px] shadow-[0_8px_30px_rgba(0,0,0,0.03)] relative flex flex-col transition-all duration-300">
+            <div class="p-5 md:p-6 pb-4 border-b border-slate-50 flex items-center gap-3 bg-emerald-50/30">
+                <div class="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-lg flex items-center justify-center"><i class="fas fa-truck-ramp-box"></i></div>
+                <h4 class="font-black text-slate-800 text-sm uppercase tracking-wider">Menunggu Persetujuan Restok</h4>
+            </div>
+            <div class="overflow-x-auto overflow-y-auto flex-1 custom-scroll">
+                <table class="w-full text-left whitespace-nowrap text-xs">
+                    <thead class="bg-white/90 backdrop-blur-md sticky top-0 z-20 text-slate-500 font-black uppercase tracking-widest text-[9px] shadow-sm">
+                        <tr>
+                            <th class="py-4 px-5 text-center w-12"><input type="checkbox" class="w-5 h-5 rounded-md border-slate-300 cursor-pointer accent-emerald-500 hover:scale-110 transition-transform shadow-sm" onchange="superApp.toggleAllAuditCb('terima', this.checked)"></th>
+                            <th class="py-4 px-5">Waktu</th>
+                            <th class="py-4 px-5">Outlet & Kasir</th>
+                            <th class="py-4 px-5">Item Masuk</th>
+                            <th class="py-4 px-5 text-center">Qty Diterima</th>
+                            <th class="py-4 px-5">Catatan Kasir</th>
+                        </tr>
+                    </thead>
+                    <tbody id="audit-terima-tbody" class="font-bold divide-y divide-slate-100 text-slate-700"></tbody>
+                </table>
+            </div>
         </div>
-        
+
+        <!-- ============================================================== -->
+        <!-- TABEL 3: RIWAYAT OPNAME FISIK (NEW - DEEP DIVE READY)          -->
+        <!-- ============================================================== -->
+        <div id="audit-content-riwayat-opname" class="hidden flex-1 overflow-hidden bg-white rounded-[2rem] border border-slate-100 min-h-[400px] shadow-[0_8px_30px_rgba(0,0,0,0.03)] relative flex flex-col transition-all duration-300">
+            <div class="p-5 md:p-6 pb-4 border-b border-slate-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50/50">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-slate-200 text-slate-600 rounded-lg flex items-center justify-center"><i class="fas fa-tasks"></i></div>
+                    <h4 class="font-black text-slate-800 text-sm uppercase tracking-wider">Log Audit Fisik (Opname)</h4>
+                </div>
+                <div class="relative w-full sm:w-56 group/search">
+                    <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] group-focus-within/search:text-indigo-500 transition-colors"></i>
+                    <input type="text" id="search-opname" placeholder="Cari Resi / Cabang..." class="w-full bg-white border border-slate-200 rounded-full pl-9 pr-4 py-2 text-xs font-bold outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-sm hover:border-slate-300" oninput="superApp.renderOpnameHistory()">
+                </div>
+            </div>
+            <div class="overflow-x-auto overflow-y-auto flex-1 custom-scroll">
+                <table class="w-full text-left whitespace-nowrap text-xs">
+                    <thead class="bg-white/90 backdrop-blur-md sticky top-0 z-20 text-slate-500 font-black uppercase tracking-widest text-[9px] shadow-sm">
+                        <tr>
+                            <th class="py-4 px-5">Waktu Audit</th>
+                            <th class="py-4 px-5">Cabang & Auditor</th>
+                            <th class="py-4 px-5 text-center">Total Item</th>
+                            <th class="py-4 px-5 text-center">Status Akurasi</th>
+                            <th class="py-4 px-5 text-center">Rincian Lengkap</th>
+                        </tr>
+                    </thead>
+                    <tbody id="audit-riwayat-opname-tbody" class="font-bold divide-y divide-slate-100 text-slate-700"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ============================================================== -->
+        <!-- TABEL 4: RIWAYAT BARANG MASUK (NEW - DEEP DIVE READY)          -->
+        <!-- ============================================================== -->
+        <div id="audit-content-riwayat-terima" class="hidden flex-1 overflow-hidden bg-white rounded-[2rem] border border-slate-100 min-h-[400px] shadow-[0_8px_30px_rgba(0,0,0,0.03)] relative flex flex-col transition-all duration-300">
+            <div class="p-5 md:p-6 pb-4 border-b border-slate-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50/50">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-slate-200 text-slate-600 rounded-lg flex items-center justify-center"><i class="fas fa-boxes-stacked"></i></div>
+                    <h4 class="font-black text-slate-800 text-sm uppercase tracking-wider">Log Barang Masuk & Restok</h4>
+                </div>
+                <div class="relative w-full sm:w-56 group/search">
+                    <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] group-focus-within/search:text-emerald-500 transition-colors"></i>
+                    <input type="text" id="search-restok" placeholder="Cari Surat Jalan..." class="w-full bg-white border border-slate-200 rounded-full pl-9 pr-4 py-2 text-xs font-bold outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-sm hover:border-slate-300" oninput="superApp.renderRestokHistory()">
+                </div>
+            </div>
+            <div class="overflow-x-auto overflow-y-auto flex-1 custom-scroll">
+                <table class="w-full text-left whitespace-nowrap text-xs">
+                    <thead class="bg-white/90 backdrop-blur-md sticky top-0 z-20 text-slate-500 font-black uppercase tracking-widest text-[9px] shadow-sm">
+                        <tr>
+                            <th class="py-4 px-5">Tanggal Terima</th>
+                            <th class="py-4 px-5">Surat Jalan & Asal</th>
+                            <th class="py-4 px-5">Cabang Penerima</th>
+                            <th class="py-4 px-5 text-center">Status</th>
+                            <th class="py-4 px-5 text-center">Bongkar Muat</th>
+                        </tr>
+                    </thead>
+                    <tbody id="audit-riwayat-restok-tbody" class="font-bold divide-y divide-slate-100 text-slate-700"></tbody>
+                </table>
+            </div>
+        </div>
+
     </div>
 </div>
 
@@ -2849,6 +2937,69 @@
         
         <div class="p-4 bg-slate-50 border-t border-slate-100">
             <button onclick="superApp.closeModal('modal-menu-guide')" class="w-full py-3.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-black text-sm transition active:scale-95 shadow-md tracking-wider">SAYA MENGERTI</button>
+        </div>
+    </div>
+</div>
+
+
+  <!-- ========================================================================= -->
+<!-- MODAL DEEP-DIVE OPNAME FISIK (DILETAKKAN DI LUAR CONTAINER view-audit)    -->
+<!-- ========================================================================= -->
+<div id="modal-detail-opname" class="hidden fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4 animate-fade-in opacity-0 transition-opacity duration-300">
+    <div class="bg-white rounded-[2.5rem] shadow-2xl border border-white/20 w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] transform scale-95 transition-transform duration-400">
+        <div class="bg-gradient-to-br from-indigo-500 via-purple-600 to-fuchsia-600 p-6 relative shrink-0">
+            <button onclick="superApp.closeDetailOpnameModal()" class="absolute top-5 right-5 w-9 h-9 bg-white/20 hover:bg-white/40 rounded-full flex items-center justify-center transition active:scale-90 text-white backdrop-blur-md z-10 border border-white/30"><i class="fas fa-xmark"></i></button>
+            <div class="flex items-center gap-4 relative z-10 text-white">
+                <div class="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/30 shadow-lg flex items-center justify-center shrink-0">
+                    <i class="fas fa-clipboard-list text-2xl drop-shadow-md"></i>
+                </div>
+                <div>
+                    <span class="text-[10px] font-bold text-indigo-100 uppercase tracking-widest mb-0.5 bg-black/10 px-2 py-0.5 rounded-md backdrop-blur-sm" id="opname-meta-id">OPN-XXXX</span>
+                    <h2 class="text-xl font-black leading-tight drop-shadow-sm mt-1" id="opname-meta-title">Rincian Audit Selisih Fisik</h2>
+                    <p class="text-[11px] font-medium text-indigo-50 mt-1 opacity-90" id="opname-meta-subtitle">Cabang: - | Waktu: -</p>
+                </div>
+            </div>
+        </div>
+        <div class="p-6 overflow-y-auto custom-scroll flex-1 bg-slate-50/50">
+            <div class="flex gap-2 mb-4 bg-indigo-50/50 p-3 rounded-2xl border border-indigo-100 shadow-sm">
+                <div class="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-500"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm"></span> Surplus</div>
+                <div class="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-500 ml-3"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm"></span> Defisit (Hilang)</div>
+                <div class="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-500 ml-3"><span class="w-2.5 h-2.5 rounded-full bg-slate-300 shadow-sm"></span> Akurat</div>
+            </div>
+            <div class="space-y-3" id="opname-item-list"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL DEEP-DIVE BARANG MASUK (DILETAKKAN DI LUAR CONTAINER view-audit)    -->
+<!-- ========================================================================= -->
+<div id="modal-detail-restok" class="hidden fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4 animate-fade-in opacity-0 transition-opacity duration-300">
+    <div class="bg-white rounded-[2.5rem] shadow-2xl border border-white/20 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] transform scale-95 transition-transform duration-400">
+        <div class="bg-gradient-to-br from-emerald-400 via-teal-500 to-emerald-600 p-6 relative shrink-0">
+            <button onclick="superApp.closeDetailRestokModal()" class="absolute top-5 right-5 w-9 h-9 bg-white/20 hover:bg-white/40 rounded-full flex items-center justify-center transition active:scale-90 text-white backdrop-blur-md z-10 border border-white/30"><i class="fas fa-xmark"></i></button>
+            <div class="flex items-center gap-4 relative z-10 text-white">
+                <div class="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/30 shadow-lg flex items-center justify-center shrink-0">
+                    <i class="fas fa-box-open text-2xl drop-shadow-md"></i>
+                </div>
+                <div>
+                    <span class="text-[10px] font-bold text-emerald-50 uppercase tracking-widest mb-0.5 bg-black/10 px-2 py-0.5 rounded-md backdrop-blur-sm" id="restok-meta-id">SJ-XXXX</span>
+                    <h2 class="text-xl font-black leading-tight drop-shadow-sm mt-1">Detail Penerimaan Logistik</h2>
+                    <p class="text-[11px] font-medium text-emerald-50 mt-1 opacity-90" id="restok-meta-subtitle">Dari: Pusat | Diterima oleh: -</p>
+                </div>
+            </div>
+        </div>
+        <div class="p-6 overflow-y-auto custom-scroll flex-1 bg-slate-50/50">
+            <table class="w-full text-left whitespace-nowrap text-xs bg-white rounded-2xl overflow-hidden shadow-[0_4px_15px_rgba(0,0,0,0.02)] border border-slate-100">
+                <thead class="bg-slate-50/80 backdrop-blur-sm text-slate-400 font-black uppercase tracking-widest text-[9px] border-b border-slate-100">
+                    <tr>
+                        <th class="py-4 px-5">Nama Item / Barang</th>
+                        <th class="py-4 px-5 text-center">Qty Diterima</th>
+                        <th class="py-4 px-5">Kondisi / Catatan</th>
+                    </tr>
+                </thead>
+                <tbody id="restok-item-list" class="divide-y divide-slate-50 text-slate-700 font-bold"></tbody>
+            </table>
         </div>
     </div>
 </div>

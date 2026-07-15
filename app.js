@@ -5879,20 +5879,28 @@ openDetailStokOpname: function(sku) {
             }
         }
 
-        // Panggil Engine Render untuk memuat tabel riwayat
+       // Panggil Engine Render untuk memuat tabel riwayat
         if (tabName === 'riwayat-opname' && typeof this.renderOpnameHistory === 'function') this.renderOpnameHistory();
         if (tabName === 'riwayat-terima' && typeof this.renderRestokHistory === 'function') this.renderRestokHistory();
+        
+        // Panggil fungsi render bawaan Anda jika kembali ke tab Pending
+        // (Sesuaikan nama fungsi di bawah ini dengan nama fungsi render otorisasi asli Anda)
+        if (tabName === 'opname' && typeof this.renderAuditOpname === 'function') this.renderAuditOpname();
+        if (tabName === 'terima' && typeof this.renderAuditTerima === 'function') this.renderAuditTerima();
     },
 
     // =========================================================
     // 🚀 ENGINE AUDIT: RIWAYAT OPNAME FISIK
     // =========================================================
+    // =========================================================
+    // 🚀 ENGINE AUDIT: RIWAYAT OPNAME FISIK
+    // =========================================================
     renderOpnameHistory: function() {
-        const tbody = document.getElementById('audit-opname-tbody');
+        // PERBAIKAN: Arahkan ke ID tbody Riwayat, BUKAN tbody Pending
+        const tbody = document.getElementById('audit-riwayat-opname-tbody');
         const searchVal = (document.getElementById('search-opname')?.value || '').toLowerCase();
         if (!tbody) return;
 
-        // ⚠️ Asumsi data dari Google Sheet bernama this.db.riwayatOpname
         let data = (this.db.riwayatOpname || []).filter(x => {
             let str = `${x.ID_Opname} ${x.Cabang} ${x.Auditor}`.toLowerCase();
             return str.includes(searchVal);
@@ -5907,7 +5915,6 @@ openDetailStokOpname: function(sku) {
             let items = [];
             try { items = JSON.parse(op.Item_JSON || '[]'); } catch(e){}
             
-            // Hitung akurasi kasar
             let akuratCount = 0;
             items.forEach(i => { if (Number(i.fisik) === Number(i.sistem)) akuratCount++; });
             let isPerfect = items.length > 0 && akuratCount === items.length;
@@ -5927,7 +5934,7 @@ openDetailStokOpname: function(sku) {
             </tr>`;
         }).join('');
     },
-
+    
     openDetailOpnameModal: function(id) {
         let op = (this.db.riwayatOpname || []).find(x => x.ID_Opname === id);
         if (!op) return;
@@ -5987,12 +5994,15 @@ openDetailStokOpname: function(sku) {
     // =========================================================
     // 🚀 ENGINE AUDIT: LOG BARANG MASUK
     // =========================================================
+    // =========================================================
+    // 🚀 ENGINE AUDIT: LOG BARANG MASUK
+    // =========================================================
     renderRestokHistory: function() {
-        const tbody = document.getElementById('audit-restok-tbody');
+        // PERBAIKAN: Arahkan ke ID tbody Riwayat, BUKAN tbody Pending
+        const tbody = document.getElementById('audit-riwayat-restok-tbody');
         const searchVal = (document.getElementById('search-restok')?.value || '').toLowerCase();
         if (!tbody) return;
 
-        // ⚠️ Asumsi data dari Google Sheet bernama this.db.barangMasuk
         let data = (this.db.barangMasuk || []).filter(x => {
             let str = `${x.Surat_Jalan} ${x.Cabang} ${x.Supplier}`.toLowerCase();
             return str.includes(searchVal);
@@ -6015,6 +6025,7 @@ openDetailStokOpname: function(sku) {
             </tr>`).join('');
     },
 
+    
     openDetailRestokModal: function(id) {
         let bm = (this.db.barangMasuk || []).find(x => x.Surat_Jalan === id);
         if (!bm) return;

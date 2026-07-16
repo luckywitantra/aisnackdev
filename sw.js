@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aisnack-erp-v525';
+const CACHE_NAME = 'aisnack-erp-v526';
 
 const urlsToCache = [
   './index.html',

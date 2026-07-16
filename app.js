@@ -5853,92 +5853,168 @@ openDetailStokOpname: function(sku) {
     },
     
 // =========================================================
-    // 🚀 1. PEMERIKSAAN & PEMANGGIL POPUP CANTIK OPNAME
+    // 🚀 ENGINE: SUBMIT OPNAME FISIK (FULL STOK & KATEGORI READY)
     // =========================================================
-    submitOpname: function() {
+    submitOpname: async function() {
         if (this.isProcessing) return;
-
-        let itemsToSubmit = [];
-        let itemsForWa = [];
+        
+        let items = [];
+        let totalSelisih = 0;
         let countSelisih = 0;
+        
+        // Persiapan Variabel untuk Template WA
+        let waTextBahanUtama = '';
+        let waTextPendukung = '';
+        let countBahanUtama = 0;
+        let countPendukung = 0;
 
         (this.db.masterProduk || []).forEach(m => {
-            let kat = String(m.Kategori || '').toLowerCase();
-            if (kat === 'bahan' || kat === 'pendukung') {
+            let cat = String(m.Kategori || '').toLowerCase();
+            if (cat === 'bahan' || cat === 'pendukung') {
                 
-                // 1. Ambil Data Sistem
-                let sData = (this.db.hargaStokOutlet || []).find(x => x.SKU === m.SKU && x.ID_Outlet === this.outlet);
-                let sys = sData ? Number(sData.Stok_Toko) : 0;
+                // Cari Inputan Fisik
+                let inputDesk = document.getElementById(`op-qty-${m.SKU}`); 
+                let inputMob = document.getElementById(`op-qty-mob-${m.SKU}`);
+                
+                // Cari Stok Sistem Saat Ini (Berdasarkan cabang yang login)
+                let stokData = (this.db.hargaStokOutlet || []).find(s => s.SKU === m.SKU && s.ID_Outlet === this.outlet);
+                let stokSistem = stokData ? parseInt(stokData.Stok_Toko || 0) : 0;
+                
+                // Ambil nilai input fisik (Jika kosong, anggap 0)
+                let fisikStr = inputDesk && inputDesk.value !== '' ? inputDesk.value : (inputMob && inputMob.value !== '' ? inputMob.value : '');
+                let stokFisik = fisikStr !== '' ? parseInt(this.getNumericValue(fisikStr)) : 0;
+                
+                // Catatan Kasir
+                let noteDesk = document.getElementById(`op-note-${m.SKU}`); 
+                let noteMob = document.getElementById(`op-note-mob-${m.SKU}`);
+                let note = noteDesk && noteDesk.value !== '' ? noteDesk.value : (noteMob && noteMob.value !== '' ? noteMob.value : '');
+                
+                let selisih = stokFisik - stokSistem;
 
-                // 2. Ambil Elemen Input (Desktop & Mobile)
-                let inputDesk = document.getElementById(`opn-fisik-${m.SKU}`); 
-                let inputMob = document.getElementById(`opn-fisik-mob-${m.SKU}`);
-                let noteDesk = document.getElementById(`opn-note-${m.SKU}`); 
-                let noteMob = document.getElementById(`opn-note-mob-${m.SKU}`);
+                // Memasukkan SEMUA barang ke dalam Payload Server
+                items.push({ 
+                    sku: m.SKU, 
+                    nama: m.Nama_Produk, 
+                    sistem: stokSistem, 
+                    fisik: stokFisik, 
+                    selisih: selisih, 
+                    catatan: note 
+                });
 
-                // 3. Baca Isian Kasir
-                let valDesk = inputDesk && inputDesk.value !== '' ? this.getNumericValue(inputDesk.value) : sys;
-                let valMob = inputMob && inputMob.value !== '' ? this.getNumericValue(inputMob.value) : sys;
-
-                // 4. Deteksi Otomatis Sumber Input
-                let fisik = sys;
-                let note = '';
-
-                if (valMob !== sys) {
-                    fisik = valMob;
-                    note = noteMob ? noteMob.value : '';
-                } else if (valDesk !== sys) {
-                    fisik = valDesk;
-                    note = noteDesk ? noteDesk.value : '';
-                } else {
-                    note = (noteMob && noteMob.value !== '') ? noteMob.value : (noteDesk && noteDesk.value !== '' ? noteDesk.value : '');
+                if (selisih !== 0) {
+                    totalSelisih += Math.abs(selisih);
+                    countSelisih++;
                 }
 
-                let selisih = fisik - sys;
-                if (selisih !== 0) countSelisih++;
+                // ==========================================
+                // 📝 PEMBUATAN BARIS PESAN WA
+                // ==========================================
+                let diffBadge = selisih === 0 ? "✅ PAS" : (selisih > 0 ? `📈 +${selisih} (Surplus)` : `📉 ${selisih} (Hilang)`);
+                let noteStr = note ? `\n   ↳ Catatan: ${note}` : '';
+                let rowWa = `▫️ ${m.Nama_Produk}\n   Sis: ${stokSistem} | Fis: ${stokFisik} 👉 *${diffBadge}*${noteStr}\n`;
 
-                // 5. Masukkan ke list WA
-                itemsForWa.push({ sku: m.SKU, nama: m.Nama_Produk, kategori: m.Kategori, sys: sys, fisik: fisik, selisih: selisih, note: note });
-                
-                // 6. Masukkan ke list Submit jika ada perubahan
-                if (fisik !== sys || note !== '') {
-                    itemsToSubmit.push({ sku: m.SKU, sistem: sys, fisik: fisik, selisih: selisih, catatan: note });
+                if (cat === 'bahan') {
+                    waTextBahanUtama += rowWa;
+                    countBahanUtama++;
+                } else {
+                    waTextPendukung += rowWa;
+                    countPendukung++;
                 }
             }
         });
+
+        if (items.length === 0) return this.showToast("Database master produk kosong!", "error");
+
+        // ==========================================
+        // 📝 PENYUSUNAN TEMPLATE WA FINAL
+        // ==========================================
+        let d = new Date(); let pad = (n) => n < 10 ? '0' + n : n;
+        let todayStrLocal = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
         
-        // Pencegahan jika kasir belum mengubah apapun
-        if (itemsToSubmit.length === 0) { 
-            return this.showToast("Tidak ada perubahan stok atau catatan untuk dilaporkan!", "warning"); 
+        let waTextFinal = `*[ LAPORAN AUDIT STOK FISIK / OPNAME ]*\n\n`;
+        waTextFinal += `📍 Cabang: *Ai-CHA ${this.outlet}*\n`;
+        waTextFinal += `👤 Auditor: ${this.currentUser ? this.currentUser.Username : 'Kasir'}\n`;
+        waTextFinal += `📅 Waktu: ${d.toLocaleString('id-ID')}\n\n`;
+        
+        if (countSelisih === 0) {
+            waTextFinal += `*🏆 STATUS: 100% AKURAT (NO SELISIH)*\nSeluruh stok fisik sesuai dengan sistem.\n\n`;
+        } else {
+            waTextFinal += `*⚠️ STATUS: TERDAPAT SELISIH*\nDitemukan selisih pada ${countSelisih} macam barang.\n*_Menunggu Otorisasi Owner_*\n\n`;
         }
 
-        // 🚀 SUSUN KARTU RINGKASAN DI DALAM MODAL
+        if (countBahanUtama > 0) {
+            waTextFinal += `*📦 BAHAN UTAMA*\n`;
+            waTextFinal += waTextBahanUtama + `\n`;
+        }
+
+        if (countPendukung > 0) {
+            waTextFinal += `*🛒 BAHAN PENDUKUNG*\n`;
+            waTextFinal += waTextPendukung + `\n`;
+        }
+
+        // --- CEK DUPLIKAT INPUTAN HARI INI ---
+        let sudahInputHariIni = (this.db.riwayatOpname || []).some(m => 
+            m.Outlet === this.outlet && 
+            (typeof this.cleanDateOnly === 'function' ? this.cleanDateOnly(m.Waktu) : m.Waktu.includes(todayStrLocal)) &&
+            m.Status_Approval === 'Pending'
+        );
+
+        // --- PENGKONDISIAN UI MODAL KONFIRMASI ---
+        const iconBox = document.getElementById('opname-confirm-icon-box');
+        const titleEl = document.getElementById('opname-confirm-title');
+        const subtitleEl = document.getElementById('opname-confirm-subtitle');
+        const warningBox = document.getElementById('opname-confirm-warning-box');
+
+        if (sudahInputHariIni) {
+            if (iconBox) iconBox.className = "w-20 h-20 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 border-[6px] border-amber-100/60 shadow-inner";
+            if (titleEl) titleEl.innerText = "Laporan Ganda Terdeteksi";
+            if (subtitleEl) subtitleEl.innerText = "Cabang ini sudah mengirim data pending hari ini.";
+            if (warningBox) {
+                warningBox.className = "bg-red-50 border border-red-200/80 rounded-xl p-3 text-left flex items-start gap-2.5 mb-6";
+                warningBox.innerHTML = `<i class="fas fa-triangle-exclamation text-red-500 text-base mt-0.5 shrink-0"></i><p class="text-[11px] font-bold text-red-800 leading-relaxed"><b>PERINGATAN GRAV:</b> Sudah ada pengajuan opname yang pending hari ini. Lanjutkan kirim?</p>`;
+            }
+        } else {
+            if (iconBox) iconBox.className = "w-20 h-20 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 border-[6px] border-indigo-100/60 shadow-inner";
+            if (titleEl) titleEl.innerText = "Konfirmasi Laporan Audit";
+            if (subtitleEl) subtitleEl.innerText = "Pastikan fisik telah dihitung ulang dengan benar.";
+            if (warningBox) {
+                warningBox.className = "bg-amber-50 border border-amber-200/80 rounded-xl p-3 text-left flex items-start gap-2.5 mb-6";
+                warningBox.innerHTML = `<i class="fas fa-circle-info text-amber-500 text-base mt-0.5 shrink-0"></i><p class="text-[11px] font-bold text-amber-800 leading-relaxed">Selisih stok akan menahan nilai laporan hingga diotorisasi oleh pihak pusat.</p>`;
+            }
+        }
+
         const summaryContainer = document.getElementById('opname-confirm-summary');
         if (summaryContainer) {
             summaryContainer.innerHTML = `
                 <div class="flex justify-between items-center pb-2 border-b border-slate-200/60">
-                    <span class="text-xs font-bold text-slate-500">Cabang Audit</span>
+                    <span class="text-xs font-bold text-slate-500">Cabang Lapor</span>
                     <span class="text-xs font-black text-slate-800 bg-white px-2.5 py-0.5 rounded-md border border-slate-200 shadow-2xs">${this.outlet}</span>
                 </div>
                 <div class="flex justify-between items-center pb-2 border-b border-slate-200/60">
-                    <span class="text-xs font-bold text-slate-500">Total Item Diperiksa</span>
-                    <span class="text-xs font-black text-indigo-600">${itemsToSubmit.length} Barang</span>
+                    <span class="text-xs font-bold text-slate-500">Item Akurat</span>
+                    <span class="text-xs font-black text-emerald-600">${items.length - countSelisih} Macam</span>
                 </div>
                 <div class="flex justify-between items-center">
-                    <span class="text-xs font-bold text-slate-500">Ditemukan Selisih</span>
-                    <span class="text-xs font-black ${countSelisih > 0 ? 'text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md animate-pulse' : 'text-emerald-600'}">${countSelisih} Barang Berselisih</span>
+                    <span class="text-xs font-bold text-slate-500">Item Selisih (Hilang/Sisa)</span>
+                    <span class="text-xs font-black text-rose-600">${countSelisih} Macam</span>
                 </div>
             `;
         }
 
-        // Hubungkan data ke tombol "Ya, Kirim Audit"
         const btnExecute = document.getElementById('btn-confirm-opname-execute');
         if (btnExecute) {
-            btnExecute.onclick = () => this.executeSubmitOpname(itemsToSubmit, itemsForWa);
+            // MENGIRIMKAN waTextFinal ke fungsi executeSubmitOpname
+            btnExecute.onclick = () => this.executeSubmitOpname(items, waTextFinal);
         }
 
-        // Buka Popup Modal
-        this.openModal('modal-confirm-opname');
+        if (typeof this.openModal === 'function') {
+            this.openModal('modal-confirm-opname');
+        } else {
+            let confirmMsg = sudahInputHariIni 
+                ? "Laporan ganda terdeteksi! Yakin ingin melanjutkan pengiriman?"
+                : `Konfirmasi laporan opname dengan ${countSelisih} selisih?`;
+            if (confirm(confirmMsg)) this.executeSubmitOpname(items, waTextFinal);
+        }
     },
 
     // =========================================================

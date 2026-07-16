@@ -5883,15 +5883,12 @@ openDetailStokOpname: function(sku) {
     },
     
 // =========================================================
-    // 🚀 ENGINE: SUBMIT OPNAME FISIK (FULL STOK & KATEGORI READY)
-    // =========================================================
-    // =========================================================
-    // 🚀 ENGINE: SUBMIT OPNAME FISIK (SINKRONISASI PARAMETER)
+    // 🚀 ENGINE: SUBMIT OPNAME FISIK (AUTO-FILL STOK KOSONG)
     // =========================================================
     submitOpname: async function() {
         if (this.isProcessing) return;
         
-        let items = []; // <-- Ini adalah format Array murni
+        let items = [];
         let countSelisih = 0;
 
         (this.db.masterProduk || []).forEach(m => {
@@ -5905,7 +5902,9 @@ openDetailStokOpname: function(sku) {
                 let stokSistem = stokData ? parseInt(stokData.Stok_Toko || 0) : 0;
                 
                 let fisikStr = inputDesk && inputDesk.value !== '' ? inputDesk.value : (inputMob && inputMob.value !== '' ? inputMob.value : '');
-                let stokFisik = fisikStr !== '' ? parseInt(this.getNumericValue(fisikStr)) : 0;
+                
+                // JIKA KOSONG, ANGGAP STOK FISIK SAMA DENGAN SISTEM
+                let stokFisik = fisikStr !== '' ? parseInt(this.getNumericValue(fisikStr)) : stokSistem;
                 
                 let noteDesk = document.getElementById(`op-note-${m.SKU}`); 
                 let noteMob = document.getElementById(`op-note-mob-${m.SKU}`);
@@ -5934,7 +5933,7 @@ openDetailStokOpname: function(sku) {
         let kasirName = this.currentUser ? this.currentUser.Username : 'Kasir';
         let waktuStr = d.toLocaleString('id-ID');
         
-        // PARAMETER WAJIB MATCH: outlet, kasir, waktu, items
+        // Membangun Teks WA
         let waTextFinal = this.buildOpnameWaText(this.outlet, kasirName, waktuStr, items);
 
         let sudahInputHariIni = (this.db.riwayatOpname || []).some(m => 
@@ -5986,48 +5985,62 @@ openDetailStokOpname: function(sku) {
 
         const btnExecute = document.getElementById('btn-confirm-opname-execute');
         if (btnExecute) {
+            // Meneruskan variabel Teks WA
             btnExecute.onclick = () => this.executeSubmitOpname(items, waTextFinal);
         }
 
         if (typeof this.openModal === 'function') {
             this.openModal('modal-confirm-opname');
         } else {
-            let confirmMsg = sudahInputHariIni 
-                ? "Laporan ganda terdeteksi! Yakin ingin melanjutkan pengiriman?"
-                : `Konfirmasi laporan opname dengan ${countSelisih} selisih?`;
+            let confirmMsg = sudahInputHariIni ? "Laporan ganda terdeteksi! Yakin ingin melanjutkan pengiriman?" : `Konfirmasi laporan opname dengan ${countSelisih} selisih?`;
             if (confirm(confirmMsg)) this.executeSubmitOpname(items, waTextFinal);
         }
     },
-
     // =========================================================
-    // 🚀 2. EKSEKUSI PENGIRIMAN API & WHATSAPP
+    // 🚀 ENGINE: EKSEKUSI DATA (MEMANGGIL WA POPUP)
     // =========================================================
-    executeSubmitOpname: async function(itemsToSubmit, itemsForWa) {
+    executeSubmitOpname: async function(items, waText) {
         if (this.isProcessing) return;
-        this.closeModal('modal-confirm-opname');
+        if (typeof this.closeModal === 'function') this.closeModal('modal-confirm-opname');
         
         setTimeout(async () => {
-            this.setLoading(true, "Menyimpan & Mengirim Audit...");
-            
-            let waText = this.buildOpnameWaText(this.outlet, this.currentUser.Username, new Date().toLocaleString('id-ID'), itemsForWa);
-            const payload = { action: 'submit_opname', outlet: this.outlet, kasir: this.currentUser.Username, items: itemsToSubmit };
+            this.setLoading(true, "Menyimpan Hasil Opname...");
+            const payload = { action: 'submit_opname', outlet: this.outlet, kasir: this.currentUser ? this.currentUser.Username : 'Kasir', items: items };
             
             let res = await this.apiPost(payload);
             
             if (res.status === 'sukses') {
-                this.showToast("Opname berhasil Disimpan!");
-                this.showWaModal(waText);
-                if (!res.is_offline) { 
-                    const r = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); 
-                    this.db = await r.json(); 
-                    this.refreshData(); 
-                    this.switchMenu('pos'); 
-                } else { 
-                    this.switchMenu('pos'); 
+                this.setLoading(false);
+                
+                // 1. TAMPILKAN POPUP WA CANTIK
+                if (typeof this.openWaShareModal === 'function') {
+                    this.openWaShareModal(waText);
+                } else {
+                    this.showToast("Berhasil disimpan!", "success");
                 }
+
+                // 2. Bersihkan Inputan Fisik
+                items.forEach(i => {
+                    let idDesk = document.getElementById(`op-qty-${i.sku}`); if(idDesk) idDesk.value = '';
+                    let idMob = document.getElementById(`op-qty-mob-${i.sku}`); if(idMob) idMob.value = '';
+                    let nd = document.getElementById(`op-note-${i.sku}`); if(nd) nd.value = '';
+                    let nm = document.getElementById(`op-note-mob-${i.sku}`); if(nm) nm.value = '';
+                });
+                
+                // 3. Refresh Data
+                if (!res.is_offline) { 
+                    try {
+                        let rUrl = (typeof API_URL !== 'undefined') ? API_URL : this.webAppUrl;
+                        const r = await fetch(rUrl + "?ts=" + new Date().getTime(), { redirect: 'follow' }); 
+                        this.db = await r.json(); 
+                        if (typeof this.refreshData === 'function') this.refreshData(); 
+                    } catch(e) {}
+                }
+            } else {
+                this.setLoading(false);
+                this.showToast("Gagal menyimpan data: " + res.pesan, "error");
             }
-            this.setLoading(false);
-        }, 200);
+        }, 300);
     },
     
    
@@ -6293,57 +6306,70 @@ openDetailStokOpname: function(sku) {
     },
 
     
-   openDetailOpnameModal: function(waktu, outlet) {
+   // =========================================================
+    // 🚀 ENGINE: MODAL OTORISASI (HANYA TAMPIL YANG BERUBAH)
+    // =========================================================
+    openDetailOpnameModal: function(waktu, outlet) {
         let op = this.getGroupedOpname().find(x => x.Waktu === waktu && x.Outlet === outlet);
         if (!op) return;
 
         document.getElementById('opname-meta-id').innerText = op.ID_Opname;
         document.getElementById('opname-meta-subtitle').innerText = `Cabang: Ai-CHA ${op.Outlet} | Auditor: ${op.Kasir}`;
 
+        // JIKA PENDING: HANYA TAMPILKAN ITEM YANG ADA SELISIH / CATATAN
+        let displayItems = op.Status === 'Pending' 
+            ? op.Items.filter(i => Number(i.fisik) !== Number(i.sistem) || (i.catatan && i.catatan.trim() !== '')) 
+            : op.Items;
+
         const listCont = document.getElementById('opname-item-list');
-        listCont.innerHTML = op.Items.map((i, idx) => {
-            let nSis = Number(i.sistem); let nFis = Number(i.fisik); let diff = nFis - nSis;
-            let diffBadge = `<div class="font-black text-slate-400 text-sm bg-slate-100 px-2 py-1 rounded-lg">Match ✔</div>`;
-            let borderClass = 'border-slate-200';
-            
-            if (diff > 0) { diffBadge = `<div class="font-black text-emerald-600 text-sm bg-emerald-50 px-2 py-1 rounded-lg">+${diff} Surplus</div>`; borderClass = 'border-emerald-200'; } 
-            else if (diff < 0) { diffBadge = `<div class="font-black text-rose-600 text-sm bg-rose-50 px-2 py-1 rounded-lg">${diff} Defisit</div>`; borderClass = 'border-rose-200'; }
+        
+        if (displayItems.length === 0 && op.Status === 'Pending') {
+            listCont.innerHTML = `<div class="p-8 text-center text-emerald-600 font-bold text-xs border border-dashed border-emerald-200 bg-emerald-50 rounded-2xl">🎉 Luar biasa! Seluruh stok 100% akurat.<br>Silakan langsung Setujui Laporan ini.</div>`;
+        } else {
+            listCont.innerHTML = displayItems.map(i => {
+                let nSis = Number(i.sistem); let nFis = Number(i.fisik); let diff = nFis - nSis;
+                let diffBadge = `<div class="font-black text-slate-400 text-sm bg-slate-100 px-2 py-1 rounded-lg">Match ✔</div>`;
+                let borderClass = 'border-slate-200';
+                
+                if (diff > 0) { diffBadge = `<div class="font-black text-emerald-600 text-sm bg-emerald-50 px-2 py-1 rounded-lg">+${diff} Surplus</div>`; borderClass = 'border-emerald-200'; } 
+                else if (diff < 0) { diffBadge = `<div class="font-black text-rose-600 text-sm bg-rose-50 px-2 py-1 rounded-lg">${diff} Defisit</div>`; borderClass = 'border-rose-200'; }
 
-            // Tampilkan Radio Button Setuju/Tolak jika status masih Pending
-            let actionHtml = '';
-            if (op.Status === 'Pending') {
-                actionHtml = `
-                <div class="mt-3 pt-3 border-t border-slate-100 flex gap-2">
-                    <label class="flex-1 cursor-pointer">
-                        <input type="radio" name="op_app_${idx}" value="Disetujui" class="peer sr-only" checked>
-                        <div class="text-center py-2 rounded-lg border border-slate-200 text-slate-400 text-[10px] font-black peer-checked:bg-emerald-50 peer-checked:text-emerald-600 peer-checked:border-emerald-300 transition-all">✅ SETUJUI ITEM INI</div>
-                    </label>
-                    <label class="flex-1 cursor-pointer">
-                        <input type="radio" name="op_app_${idx}" value="Ditolak" class="peer sr-only">
-                        <div class="text-center py-2 rounded-lg border border-slate-200 text-slate-400 text-[10px] font-black peer-checked:bg-rose-50 peer-checked:text-rose-600 peer-checked:border-rose-300 transition-all">❌ TOLAK ITEM INI</div>
-                    </label>
-                </div>`;
-            }
+                let actionHtml = '';
+                if (op.Status === 'Pending') {
+                    // MENGGUNAKAN SKU SEBAGAI NAMA RADIO BUTTON AGAR TIDAK TERTUKAR
+                    actionHtml = `
+                    <div class="mt-3 pt-3 border-t border-slate-100 flex gap-2">
+                        <label class="flex-1 cursor-pointer">
+                            <input type="radio" name="op_app_${i.sku}" value="Disetujui" class="peer sr-only" checked>
+                            <div class="text-center py-2 rounded-lg border border-slate-200 text-slate-400 text-[10px] font-black peer-checked:bg-emerald-50 peer-checked:text-emerald-600 peer-checked:border-emerald-300 transition-all">✅ SETUJUI</div>
+                        </label>
+                        <label class="flex-1 cursor-pointer">
+                            <input type="radio" name="op_app_${i.sku}" value="Ditolak" class="peer sr-only">
+                            <div class="text-center py-2 rounded-lg border border-slate-200 text-slate-400 text-[10px] font-black peer-checked:bg-rose-50 peer-checked:text-rose-600 peer-checked:border-rose-300 transition-all">❌ TOLAK</div>
+                        </label>
+                    </div>`;
+                }
 
-            return `
-            <div class="bg-white border ${borderClass} p-3 rounded-2xl shadow-sm flex flex-col hover:shadow-md transition">
-                <div class="flex items-center justify-between">
-                    <div class="w-1/2">
-                        <span class="font-extrabold text-slate-700 text-xs block mb-1 truncate">${i.nama}</span>
-                        <div class="flex gap-3 text-[10px] font-bold text-slate-400">
-                            <span>Sistem: <b class="text-slate-600">${nSis}</b></span><span>Fisik: <b class="text-slate-800">${nFis}</b></span>
+                return `
+                <div class="bg-white border ${borderClass} p-3 rounded-2xl shadow-sm flex flex-col hover:shadow-md transition">
+                    <div class="flex items-center justify-between">
+                        <div class="w-1/2">
+                            <span class="font-extrabold text-slate-700 text-xs block mb-1 truncate">${i.nama}</span>
+                            <div class="flex gap-3 text-[10px] font-bold text-slate-400">
+                                <span>Sistem: <b class="text-slate-600">${nSis}</b></span><span>Fisik: <b class="text-slate-800">${nFis}</b></span>
+                            </div>
                         </div>
+                        <div class="text-right shrink-0">${diffBadge}</div>
                     </div>
-                    <div class="text-right shrink-0">${diffBadge}</div>
-                </div>
-                ${actionHtml}
-            </div>`;
-        }).join('');
+                    ${actionHtml}
+                </div>`;
+            }).join('');
+        }
 
         let footer = document.getElementById('opname-modal-footer');
         if (footer) {
             if (op.Status === 'Pending') {
-                footer.innerHTML = `<button onclick="superApp.processPartialOpname('${op.Waktu}', '${op.Outlet}')" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-3.5 rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"><i class="fas fa-check-double"></i> Simpan Otorisasi Pilihan</button>`;
+                footer.innerHTML = `<button onclick="superApp.processPartialOpname('${op.Waktu}', '${op.Outlet}')" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-3.5 rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"><i class="fas fa-check-double"></i> Simpan Otorisasi Laporan</button>`;
                 footer.classList.remove('hidden');
             } else {
                 footer.innerHTML = ''; footer.classList.add('hidden');
@@ -6457,16 +6483,23 @@ openDetailStokOpname: function(sku) {
     },
 
     // =========================================================
-    // 🚀 ENGINE: FUNGSI SUBMIT OTORISASI PER ITEM (AUTO REFRESH FIXED)
+    // 🚀 ENGINE: PROSES OTORISASI (AUTO-APPROVE YANG AMAN)
     // =========================================================
     processPartialOpname: async function(waktu, outlet) {
         let op = this.getGroupedOpname().find(x => x.Waktu === waktu && x.Outlet === outlet);
         if (!op) return;
 
         let itemsSetuju = []; let itemsTolak = [];
-        op.Items.forEach((item, idx) => {
-            let radio = document.querySelector(`input[name="op_app_${idx}"]:checked`);
-            let val = radio ? radio.value : 'Disetujui'; // Setuju = Default
+        op.Items.forEach((item) => {
+            // Jika item ini akurat (tidak ada selisih & catatan), OTOMATIS DISETUJUI (karena disembunyikan dari layar)
+            if (Number(item.fisik) === Number(item.sistem) && (!item.catatan || item.catatan.trim() === '')) {
+                itemsSetuju.push({ waktu: op.Waktu, outlet: op.Outlet, sku: item.sku });
+                return; // Lanjut ke item berikutnya
+            }
+
+            // Jika ada selisih, baca keputusan Owner dari radio button yang tampil di layar
+            let radio = document.querySelector(`input[name="op_app_${item.sku}"]:checked`);
+            let val = radio ? radio.value : 'Disetujui'; // Default Setuju jika tidak diklik
 
             let payloadItem = { waktu: op.Waktu, outlet: op.Outlet, sku: item.sku };
             if (val === 'Disetujui') itemsSetuju.push(payloadItem);
@@ -6483,14 +6516,13 @@ openDetailStokOpname: function(sku) {
         }
 
         this.setLoading(false);
-        this.showToast("Keputusan per-item berhasil disimpan!");
+        this.showToast("Keputusan berhasil disimpan!");
         this.closeDetailOpnameModal();
         
-        // AUTO REFRESH DATA & UI
         if (typeof this.refreshData === 'function') {
-            await this.refreshData(); // Tunggu DB baru ter-fetch
-            this.renderAuditOpname(); // Render ulang tabel PENDING
-            this.renderOpnameHistory(); // Render ulang tabel RIWAYAT
+            await this.refreshData(); 
+            this.renderAuditOpname(); 
+            this.renderOpnameHistory(); 
         }
     },
 

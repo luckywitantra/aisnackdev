@@ -5669,10 +5669,9 @@ refreshData: function() {
         if (selisih < 0) selEl.className = 'font-black text-red-500 text-lg'; else if (selisih > 0) selEl.className = 'font-black text-green-500 text-lg'; else selEl.className = 'font-black text-slate-400 text-lg';
     },
    // =========================================================
-    // 🚀 ENGINE: GENERATOR WA OPNAME (BUG-FIX & ARRAY SAFEGUARD)
+    // 🚀 ENGINE: GENERATOR WA OPNAME (DAFTAR DIJADIKAN SATU)
     // =========================================================
     buildOpnameWaText: function(outlet, kasir, waktu, items) {
-        // SABUK PENGAMAN 1: Pastikan items adalah Array
         if (!Array.isArray(items)) items = [];
 
         // 1. Hitung Kecepatan Jualan (Velocity) untuk Bahan Utama dari Riwayat Transaksi
@@ -5687,7 +5686,6 @@ refreshData: function() {
                 let parsedItems = []; 
                 try { parsedItems = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
                 
-                // SABUK PENGAMAN 2: Pastikan hasil parse adalah Array
                 if (Array.isArray(parsedItems)) {
                     parsedItems.forEach(item => {
                         let refSku = item.sku_bahan || item.sku;
@@ -5711,11 +5709,9 @@ refreshData: function() {
         let daysActive = Math.ceil((todayObj - oldestDate) / (1000 * 60 * 60 * 24));
         if (daysActive < 1) daysActive = 1;
 
-        // 2. Pisahkan Kategori (Utama vs Pendukung) & Status (Bermasalah vs Aman)
-        let bahanBermasalah = [];
-        let bahanAman = [];
-        let pendukungBermasalah = [];
-        let pendukungAman = [];
+        // 2. Pisahkan Kategori (Hanya Utama vs Pendukung)
+        let listBahan = [];
+        let listPendukung = [];
 
         items.forEach(item => {
             let master = (this.db.masterProduk || []).find(m => m.SKU === item.sku);
@@ -5725,6 +5721,7 @@ refreshData: function() {
                 let soldQty = productSales[item.sku] || 0;
                 let vel = soldQty / daysActive;
                 item.estHari = vel > 0 ? Math.floor(item.fisik / vel) : -1; 
+                listBahan.push(item);
             } else {
                 let totalReceived = mutasiIn[item.sku] || item.sistem; 
                 let totalUsed = totalReceived - item.fisik;
@@ -5735,69 +5732,40 @@ refreshData: function() {
                 } else {
                     item.estHari = -1; 
                 }
-            }
-
-            if (item.selisih !== 0 || (item.catatan && item.catatan.trim() !== '')) {
-                if (kategori === 'bahan') bahanBermasalah.push(item);
-                else pendukungBermasalah.push(item);
-            } else {
-                if (kategori === 'bahan') bahanAman.push(item);
-                else pendukungAman.push(item);
+                listPendukung.push(item);
             }
         });
 
        // 3. Pengurutan Mutlak A-Z
         const sortAZ = (a,b) => String(a.nama).toUpperCase().localeCompare(String(b.nama).toUpperCase());
-        bahanBermasalah.sort(sortAZ);
-        bahanAman.sort(sortAZ);
-        pendukungBermasalah.sort(sortAZ);
-        pendukungAman.sort(sortAZ);
+        listBahan.sort(sortAZ);
+        listPendukung.sort(sortAZ);
 
         // 4. SUSUN TEKS WHATSAPP EKSEKUTIF
         let waText = `*[ LAPORAN OPNAME FISIK & AUDIT ]*\n📍 Cabang: *Ai-CHA ${outlet}*\n👤 Kasir: ${kasir}\n📅 Waktu: ${waktu}\n\n*_Mohon cek menu Audit Opname di aplikasi untuk menyetujui_*\n\n`;
 
-        let totalBermasalah = bahanBermasalah.length + pendukungBermasalah.length;
-        if (totalBermasalah > 0) {
-            waText += `🚨 *ITEM SELISIH / CATATAN (${totalBermasalah})*\n\n`;
-            
-            if (bahanBermasalah.length > 0) {
-                waText += `*📦 BAHAN UTAMA*\n`;
-                bahanBermasalah.forEach(i => {
-                    let alertStr = i.fisik <= 0 ? 'HABIS 🛑' : (i.estHari === -1 ? 'Belum ada data pakai 📉' : (i.estHari < 4 ? `${i.estHari} Hari (Kritis ⚠️)` : `${i.estHari > 99 ? '>99' : i.estHari} Hari (Aman ✅)`));
-                    let icon = i.selisih < 0 ? '📉' : (i.selisih > 0 ? '📈' : '⚠️');
-                    waText += `${icon} *${i.nama}*\nSys: ${i.sistem} | Fisik: ${i.fisik} | Selisih: *${i.selisih > 0 ? '+'+i.selisih : i.selisih}*\n⏳ Est Habis: ${alertStr}\nCatatan: ${i.catatan || '-'}\n\n`;
-                });
-            }
-            if (pendukungBermasalah.length > 0) {
-                waText += `*🛒 BAHAN PENDUKUNG*\n`;
-                pendukungBermasalah.forEach(i => {
-                    let alertStr = i.fisik <= 0 ? 'HABIS 🛑' : (i.estHari === -1 ? 'Belum ada data pakai 📉' : (i.estHari < 4 ? `${i.estHari} Hari (Kritis ⚠️)` : `${i.estHari > 99 ? '>99' : i.estHari} Hari (Aman ✅)`));
-                    let icon = i.selisih < 0 ? '📉' : (i.selisih > 0 ? '📈' : '⚠️');
-                    waText += `${icon} *${i.nama}*\nSys: ${i.sistem} | Fisik: ${i.fisik} | Selisih: *${i.selisih > 0 ? '+'+i.selisih : i.selisih}*\n⏳ Est Habis: ${alertStr}\nCatatan: ${i.catatan || '-'}\n\n`;
-                });
-            }
-        } else {
-            waText += `🚨 *ITEM SELISIH / CATATAN*\n_Nihil. Kinerja staf sangat teliti, tidak ada selisih stok!_ 🎉\n\n`;
+        if (listBahan.length > 0) {
+            waText += `*📦 BAHAN UTAMA*\n`;
+            listBahan.forEach(i => {
+                let alertStr = i.fisik <= 0 ? 'HABIS 🛑' : (i.estHari === -1 ? 'Belum ada pakai 📉' : (i.estHari < 4 ? `${i.estHari} Hari (Kritis ⚠️)` : `${i.estHari > 99 ? '>99' : i.estHari} Hari (Aman ✅)`));
+                let icon = i.selisih < 0 ? '📉' : (i.selisih > 0 ? '📈' : '✅');
+                let diffBadge = i.selisih === 0 ? "PAS" : (i.selisih > 0 ? `+${i.selisih}` : `${i.selisih}`);
+                let noteStr = (i.catatan && i.catatan.trim() !== '') ? `\nCatatan: ${i.catatan}` : '';
+                
+                waText += `${icon} *${i.nama}*\nSys: ${i.sistem} | Fisik: ${i.fisik} | Selisih: *${diffBadge}*\n⏳ Est Habis: ${alertStr}${noteStr}\n\n`;
+            });
         }
 
-        let totalAman = bahanAman.length + pendukungAman.length;
-        if (totalAman > 0) {
-            waText += `✅ *ITEM AMAN FISIK SESUAI SISTEM (${totalAman})*\n\n`;
-            
-            if (bahanAman.length > 0) {
-                waText += `*📦 BAHAN UTAMA*\n`;
-                bahanAman.forEach(i => {
-                    let alertStr = i.fisik <= 0 ? 'HABIS 🛑' : (i.estHari === -1 ? 'Belum ada data pakai 📉' : (i.estHari < 4 ? `${i.estHari} Hari (Kritis ⚠️)` : `${i.estHari > 99 ? '>99' : i.estHari} Hari (Aman ✅)`));
-                    waText += `▫️ *${i.nama}*\nSys: ${i.sistem} | Fisik: ${i.fisik} | Selisih: *0*\n⏳ Est Habis: ${alertStr}\n\n`;
-                });
-            }
-            if (pendukungAman.length > 0) {
-                waText += `*🛒 BAHAN PENDUKUNG*\n`;
-                pendukungAman.forEach(i => {
-                    let alertStr = i.fisik <= 0 ? 'HABIS 🛑' : (i.estHari === -1 ? 'Belum ada data pakai 📉' : (i.estHari < 4 ? `${i.estHari} Hari (Kritis ⚠️)` : `${i.estHari > 99 ? '>99' : i.estHari} Hari (Aman ✅)`));
-                    waText += `▫️ *${i.nama}*\nSys: ${i.sistem} | Fisik: ${i.fisik} | Selisih: *0*\n⏳ Est Habis: ${alertStr}\n\n`;
-                });
-            }
+        if (listPendukung.length > 0) {
+            waText += `*🛒 BAHAN PENDUKUNG*\n`;
+            listPendukung.forEach(i => {
+                let alertStr = i.fisik <= 0 ? 'HABIS 🛑' : (i.estHari === -1 ? 'Belum ada pakai 📉' : (i.estHari < 4 ? `${i.estHari} Hari (Kritis ⚠️)` : `${i.estHari > 99 ? '>99' : i.estHari} Hari (Aman ✅)`));
+                let icon = i.selisih < 0 ? '📉' : (i.selisih > 0 ? '📈' : '✅');
+                let diffBadge = i.selisih === 0 ? "PAS" : (i.selisih > 0 ? `+${i.selisih}` : `${i.selisih}`);
+                let noteStr = (i.catatan && i.catatan.trim() !== '') ? `\nCatatan: ${i.catatan}` : '';
+                
+                waText += `${icon} *${i.nama}*\nSys: ${i.sistem} | Fisik: ${i.fisik} | Selisih: *${diffBadge}*\n⏳ Est Habis: ${alertStr}${noteStr}\n\n`;
+            });
         }
 
         return waText;
@@ -5896,19 +5864,19 @@ openDetailStokOpname: function(sku) {
     },
     
     // =========================================================
-    // 🚀 ENGINE: SUBMIT OPNAME FISIK (ID HTML DISINKRONKAN)
+    // 🚀 ENGINE: SUBMIT OPNAME FISIK (HANYA SIMPAN YANG BERUBAH)
     // =========================================================
     submitOpname: async function() {
         if (this.isProcessing) return;
         
-        let items = [];
+        let allItems = []; // Array 100% Lengkap untuk Laporan WA
+        let dbItems = []; // Array Filter untuk masuk Google Sheets
         let countSelisih = 0;
 
         (this.db.masterProduk || []).forEach(m => {
             let cat = String(m.Kategori || '').toLowerCase();
             if (cat === 'bahan' || cat === 'pendukung') {
                 
-                // 1. PENCARIAN INPUT MENGGUNAKAN ID MILIK ANDA ('opn-fisik', 'opn-note')
                 let inputDesk = document.getElementById(`opn-fisik-${m.SKU}`); 
                 let inputMob = document.getElementById(`opn-fisik-mob-${m.SKU}`);
                 
@@ -5917,40 +5885,43 @@ openDetailStokOpname: function(sku) {
                 
                 let fisikStr = (inputDesk && inputDesk.value !== '') ? inputDesk.value : ((inputMob && inputMob.value !== '') ? inputMob.value : '');
                 
-                // JIKA KOSONG / ERROR, OTOMATIS AMBIL STOK SISTEM
                 let stokFisik = stokSistem;
                 if (fisikStr !== '') {
                     let parsed = parseInt(String(fisikStr).replace(/\D/g, ''));
                     if (!isNaN(parsed)) stokFisik = parsed;
                 }
                 
-                // CATATAN KASIR
                 let noteDesk = document.getElementById(`opn-note-${m.SKU}`); 
                 let noteMob = document.getElementById(`opn-note-mob-${m.SKU}`);
                 let note = (noteDesk && noteDesk.value !== '') ? noteDesk.value : ((noteMob && noteMob.value !== '') ? noteMob.value : '');
                 
                 let selisih = stokFisik - stokSistem;
 
-                // SELURUH BARANG (TANPA TERKECUALI) DIMASUKKAN KE DATABASE
-                items.push({ 
+                let itemObj = { 
                     sku: m.SKU, nama: m.Nama_Produk, sistem: stokSistem, fisik: stokFisik, selisih: selisih, catatan: note 
-                });
+                };
 
-                if (selisih !== 0) countSelisih++;
+                // Masukkan ke Array WA (Semua Barang)
+                allItems.push(itemObj);
+
+                // 🛑 FILTERING: HANYA MASUKKAN KE DB JIKA ADA SELISIH ATAU CATATAN
+                if (selisih !== 0 || (note && note.trim() !== '')) {
+                    dbItems.push(itemObj);
+                    if (selisih !== 0) countSelisih++;
+                }
             }
         });
 
-        if (items.length === 0) return this.showToast("Database master produk kosong!", "error");
+        if (allItems.length === 0) return this.showToast("Database master produk kosong!", "error");
 
         let d = new Date(); let pad = (n) => n < 10 ? '0' + n : n;
         let todayStrLocal = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
         let kasirName = this.currentUser ? this.currentUser.Username : 'Kasir';
         let waktuStr = d.toLocaleString('id-ID');
         
-        // Panggil perakit teks WA canggih kita (yang ada Velocity-nya)
-        let waTextFinal = this.buildOpnameWaText(this.outlet, kasirName, waktuStr, items);
+        // Buat Teks WA Menggunakan "allItems" (100% Barang)
+        let waTextFinal = this.buildOpnameWaText(this.outlet, kasirName, waktuStr, allItems);
 
-        // Cek Double Input Hari Ini
         let sudahInputHariIni = (this.db.riwayatOpname || []).some(m => 
             m.Outlet === this.outlet && 
             (typeof this.cleanDateOnly === 'function' ? this.cleanDateOnly(m.Waktu) : m.Waktu.includes(todayStrLocal)) &&
@@ -5971,32 +5942,41 @@ openDetailStokOpname: function(sku) {
             if (iconBox) iconBox.className = "w-20 h-20 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 border-[6px] border-indigo-100/60 shadow-inner";
             if (titleEl) titleEl.innerText = "Konfirmasi Laporan Audit";
             if (subtitleEl) subtitleEl.innerText = "Pastikan fisik telah dihitung ulang dengan benar.";
-            if (warningBox) warningBox.innerHTML = `<i class="fas fa-circle-info text-amber-500 text-base mt-0.5 shrink-0"></i><p class="text-[11px] font-bold text-amber-800 leading-relaxed">Selisih stok akan menahan nilai laporan hingga diotorisasi oleh pihak pusat.</p>`;
+            if (warningBox) warningBox.innerHTML = `<i class="fas fa-circle-info text-amber-500 text-base mt-0.5 shrink-0"></i><p class="text-[11px] font-bold text-amber-800 leading-relaxed">Hanya barang yang berselisih (${dbItems.length} Item) yang akan dikirim ke server.</p>`;
         }
 
         const summaryContainer = document.getElementById('opname-confirm-summary');
         if (summaryContainer) {
             summaryContainer.innerHTML = `
                 <div class="flex justify-between items-center pb-2 border-b border-slate-200/60">
-                    <span class="text-xs font-bold text-slate-500">Item Akurat</span>
-                    <span class="text-xs font-black text-emerald-600">${items.length - countSelisih} Macam</span>
+                    <span class="text-xs font-bold text-slate-500">Item Akurat (Otomatis Aman)</span>
+                    <span class="text-xs font-black text-emerald-600">${allItems.length - dbItems.length} Macam</span>
                 </div>
                 <div class="flex justify-between items-center">
-                    <span class="text-xs font-bold text-slate-500">Item Selisih (Hilang/Sisa)</span>
-                    <span class="text-xs font-black text-rose-600">${countSelisih} Macam</span>
+                    <span class="text-xs font-bold text-slate-500">Item Masuk Server (Selisih/Note)</span>
+                    <span class="text-xs font-black text-rose-600">${dbItems.length} Macam</span>
                 </div>
             `;
         }
 
         const btnExecute = document.getElementById('btn-confirm-opname-execute');
-        if (btnExecute) btnExecute.onclick = () => this.executeSubmitOpname(items, waTextFinal);
+        // KUNCI PENTING: Melempar "dbItems" (yg sudah difilter) ke server, dan "waTextFinal" (Lengkap) ke WhatsApp
+        if (btnExecute) btnExecute.onclick = () => {
+            // JIKA SEMUA AKURAT 100%, TIDAK PERLU PUSH KE DB! LANGSUNG MUNCUL WA!
+            if (dbItems.length === 0) {
+                if (typeof this.closeModal === 'function') this.closeModal('modal-confirm-opname');
+                this.showToast("Semua stok akurat! Tidak ada yang diupload ke server.", "success");
+                if (typeof this.openWaShareModal === 'function') this.openWaShareModal(waTextFinal);
+            } else {
+                this.executeSubmitOpname(dbItems, waTextFinal);
+            }
+        };
 
-        // Munculkan Modal Konfirmasi
         if (typeof this.openModal === 'function') {
             this.openModal('modal-confirm-opname');
         } else {
             let confirmMsg = sudahInputHariIni ? "Laporan ganda terdeteksi! Lanjutkan?" : `Konfirmasi laporan opname dengan ${countSelisih} selisih?`;
-            if (confirm(confirmMsg)) this.executeSubmitOpname(items, waTextFinal);
+            if (confirm(confirmMsg)) this.executeSubmitOpname(dbItems, waTextFinal);
         }
     },
     

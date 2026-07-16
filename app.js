@@ -5895,11 +5895,8 @@ openDetailStokOpname: function(sku) {
         this.openModal('modal-stok-detail');
     },
     
-// =========================================================
-    // 🚀 ENGINE: SUBMIT OPNAME FISIK (AUTO-FILL STOK KOSONG)
     // =========================================================
-   // =========================================================
-    // 🚀 ENGINE: SUBMIT OPNAME FISIK (SUPER ROBUST INPUT)
+    // 🚀 ENGINE: SUBMIT OPNAME FISIK (ID HTML DISINKRONKAN)
     // =========================================================
     submitOpname: async function() {
         if (this.isProcessing) return;
@@ -5911,29 +5908,30 @@ openDetailStokOpname: function(sku) {
             let cat = String(m.Kategori || '').toLowerCase();
             if (cat === 'bahan' || cat === 'pendukung') {
                 
-                // 1. PENCARIAN INPUT SUPER AMAN (Bisa deteksi berbagai ID HTML)
-                let inputDesk = document.getElementById(`op-qty-${m.SKU}`) || document.getElementById(`qty-${m.SKU}`); 
-                let inputMob = document.getElementById(`op-qty-mob-${m.SKU}`) || document.getElementById(`qty-mob-${m.SKU}`);
+                // 1. PENCARIAN INPUT MENGGUNAKAN ID MILIK ANDA ('opn-fisik', 'opn-note')
+                let inputDesk = document.getElementById(`opn-fisik-${m.SKU}`); 
+                let inputMob = document.getElementById(`opn-fisik-mob-${m.SKU}`);
                 
                 let stokData = (this.db.hargaStokOutlet || []).find(s => s.SKU === m.SKU && s.ID_Outlet === this.outlet);
                 let stokSistem = stokData ? parseInt(stokData.Stok_Toko || 0) : 0;
                 
                 let fisikStr = (inputDesk && inputDesk.value !== '') ? inputDesk.value : ((inputMob && inputMob.value !== '') ? inputMob.value : '');
                 
-                // 2. JIKA KOSONG / ERROR, OTOMATIS AMBIL STOK SISTEM
+                // JIKA KOSONG / ERROR, OTOMATIS AMBIL STOK SISTEM
                 let stokFisik = stokSistem;
                 if (fisikStr !== '') {
                     let parsed = parseInt(String(fisikStr).replace(/\D/g, ''));
                     if (!isNaN(parsed)) stokFisik = parsed;
                 }
                 
-                let noteDesk = document.getElementById(`op-note-${m.SKU}`); 
-                let noteMob = document.getElementById(`op-note-mob-${m.SKU}`);
+                // CATATAN KASIR
+                let noteDesk = document.getElementById(`opn-note-${m.SKU}`); 
+                let noteMob = document.getElementById(`opn-note-mob-${m.SKU}`);
                 let note = (noteDesk && noteDesk.value !== '') ? noteDesk.value : ((noteMob && noteMob.value !== '') ? noteMob.value : '');
                 
                 let selisih = stokFisik - stokSistem;
 
-                // 3. SELURUH BARANG (TANPA TERKECUALI) DIMASUKKAN KE DATABASE
+                // SELURUH BARANG (TANPA TERKECUALI) DIMASUKKAN KE DATABASE
                 items.push({ 
                     sku: m.SKU, nama: m.Nama_Produk, sistem: stokSistem, fisik: stokFisik, selisih: selisih, catatan: note 
                 });
@@ -5949,9 +5947,10 @@ openDetailStokOpname: function(sku) {
         let kasirName = this.currentUser ? this.currentUser.Username : 'Kasir';
         let waktuStr = d.toLocaleString('id-ID');
         
-        // Panggil perakit teks WA
+        // Panggil perakit teks WA canggih kita (yang ada Velocity-nya)
         let waTextFinal = this.buildOpnameWaText(this.outlet, kasirName, waktuStr, items);
 
+        // Cek Double Input Hari Ini
         let sudahInputHariIni = (this.db.riwayatOpname || []).some(m => 
             m.Outlet === this.outlet && 
             (typeof this.cleanDateOnly === 'function' ? this.cleanDateOnly(m.Waktu) : m.Waktu.includes(todayStrLocal)) &&
@@ -5992,6 +5991,7 @@ openDetailStokOpname: function(sku) {
         const btnExecute = document.getElementById('btn-confirm-opname-execute');
         if (btnExecute) btnExecute.onclick = () => this.executeSubmitOpname(items, waTextFinal);
 
+        // Munculkan Modal Konfirmasi
         if (typeof this.openModal === 'function') {
             this.openModal('modal-confirm-opname');
         } else {
@@ -6024,12 +6024,12 @@ openDetailStokOpname: function(sku) {
                 }
 
                 // 2. Bersihkan Inputan Fisik
-                items.forEach(i => {
-                    let idDesk = document.getElementById(`op-qty-${i.sku}`); if(idDesk) idDesk.value = '';
-                    let idMob = document.getElementById(`op-qty-mob-${i.sku}`); if(idMob) idMob.value = '';
-                    let nd = document.getElementById(`op-note-${i.sku}`); if(nd) nd.value = '';
-                    let nm = document.getElementById(`op-note-mob-${i.sku}`); if(nm) nm.value = '';
-                });
+               items.forEach(i => {
+               let idDesk = document.getElementById(`opn-fisik-${i.sku}`); if(idDesk) idDesk.value = i.sistem; // Kembalikan ke nilai sistem awal
+               let idMob = document.getElementById(`opn-fisik-mob-${i.sku}`); if(idMob) idMob.value = i.sistem;
+               let nd = document.getElementById(`opn-note-${i.sku}`); if(nd) nd.value = '';
+               let nm = document.getElementById(`opn-note-mob-${i.sku}`); if(nm) nm.value = '';
+            });
                 
                 // 3. Refresh Data
                 if (!res.is_offline) { 
@@ -6153,7 +6153,7 @@ openDetailStokOpname: function(sku) {
     },
 
     // =========================================================
-    // 🚀 ENGINE AUDIT 1: PENDING OPNAME (Tanpa Checkbox)
+    // 🚀 ENGINE AUDIT 1: PENDING OPNAME (Auto-Kalkulasi Selisih)
     // =========================================================
     renderAuditOpname: function() {
         const tbody = document.getElementById('audit-opname-tbody');
@@ -6162,33 +6162,52 @@ openDetailStokOpname: function(sku) {
         let pendingData = this.getGroupedOpname().filter(x => x.Status === 'Pending');
 
         if (pendingData.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-slate-400 italic text-xs">Tidak ada pengajuan Opname yang menunggu persetujuan</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-slate-400 italic text-xs border border-dashed border-slate-200 rounded-xl">Tidak ada pengajuan Opname yang menunggu persetujuan</td></tr>`;
             return;
         }
 
         tbody.innerHTML = pendingData.map(op => {
             let akuratCount = 0;
-            op.Items.forEach(i => { if (Number(i.fisik) === Number(i.sistem)) akuratCount++; });
-            let statusBadge = (akuratCount === op.Items.length) 
+            let totalDeviasi = 0;
+            let catatanKasir = '';
+
+            op.Items.forEach(i => { 
+                let diff = Number(i.fisik) - Number(i.sistem);
+                if (diff === 0) {
+                    akuratCount++; 
+                } else {
+                    totalDeviasi += Math.abs(diff); // Menghitung total pcs yang selisih
+                    if (!catatanKasir && i.catatan && i.catatan.trim() !== '') {
+                        catatanKasir = i.catatan; // Mengambil catatan pertama yang ditemukan
+                    }
+                }
+            });
+
+            let isAkurat = akuratCount === op.Items.length;
+            let statusBadge = isAkurat
                 ? `<span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[9px]">Akurat</span>`
                 : `<span class="bg-rose-100 text-rose-600 px-2 py-0.5 rounded text-[9px]">Ada Selisih</span>`;
 
+            // Tampilkan jumlah item yang selisih & total pcs deviasinya
+            let selisihTeks = isAkurat ? '-' : `<span class="text-rose-600 font-black">${op.Items.length - akuratCount} Brg</span> <span class="text-slate-400 text-[9px]">(Deviasi ${totalDeviasi})</span>`;
+            let catatanTeks = catatanKasir ? catatanKasir : '-';
+
             return `
-            <tr class="hover:bg-slate-50 transition">
+            <tr class="hover:bg-slate-50 transition border-b border-slate-50">
                 <td class="py-3 px-4 text-[11px]">${op.Waktu}</td>
                 <td class="py-3 px-4"><span class="text-indigo-600 font-black">Ai-CHA ${op.Outlet}</span><br><span class="text-[9px] text-slate-400">Oleh: ${op.Kasir}</span></td>
                 <td class="py-3 px-4 text-center">
                     <button onclick="superApp.openDetailOpnameModal('${op.Waktu}', '${op.Outlet}')" class="text-indigo-500 underline text-[10px] font-black bg-indigo-50 px-3 py-1 rounded-lg hover:bg-indigo-100 transition"><i class="fas fa-tasks mr-1"></i> ${op.Items.length} Item</button>
                 </td>
                 <td class="py-3 px-4 text-center">${statusBadge}</td>
-                <td class="py-3 px-4 text-center text-slate-400 italic text-[10px]">-</td>
-                <td class="py-3 px-4 text-[10px] text-slate-500 italic max-w-[120px] truncate">-</td>
+                <td class="py-3 px-4 text-right text-[11px]">${selisihTeks}</td>
+                <td class="py-3 px-4 text-[10px] text-slate-500 italic max-w-[150px] truncate" title="${catatanTeks}">${catatanTeks}</td>
             </tr>`;
         }).join('');
     },
 
     // =========================================================
-    // 🚀 ENGINE AUDIT 2: PENDING TERIMA BARANG (Tanpa Checkbox)
+    // 🚀 ENGINE AUDIT 2: PENDING TERIMA BARANG (Info Ekstra)
     // =========================================================
     renderAuditTerima: function() {
         const tbody = document.getElementById('audit-terima-tbody');
@@ -6197,21 +6216,31 @@ openDetailStokOpname: function(sku) {
         let pendingData = this.getGroupedRestok().filter(x => x.Status === 'Pending');
 
         if (pendingData.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-slate-400 italic text-xs">Tidak ada pengajuan Restok yang menunggu persetujuan</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-slate-400 italic text-xs border border-dashed border-slate-200 rounded-xl">Tidak ada pengajuan Restok yang menunggu persetujuan</td></tr>`;
             return;
         }
 
         tbody.innerHTML = pendingData.map(bm => {
-            let totalQty = 0; bm.Items.forEach(i => totalQty += Number(i.qty));
+            let totalQty = 0; 
+            let firstNote = '';
+            
+            bm.Items.forEach(i => { 
+                totalQty += Number(i.qty);
+                if (!firstNote && i.catatan && i.catatan.trim() !== '') firstNote = i.catatan;
+            });
+
+            // Menampilkan catatan kasir jika ada, jika tidak tampilkan Nomor Surat Jalan
+            let noteTeks = firstNote ? `<span class="text-slate-600">${firstNote}</span>` : `SJ: ${bm.Surat_Jalan}`;
+
             return `
-            <tr class="hover:bg-slate-50 transition">
+            <tr class="hover:bg-slate-50 transition border-b border-slate-50">
                 <td class="py-3 px-4 text-[11px]">${bm.Waktu}</td>
                 <td class="py-3 px-4"><span class="text-emerald-600 font-black">Ai-CHA ${bm.Outlet}</span><br><span class="text-[9px] text-slate-400">Oleh: ${bm.Kasir}</span></td>
                 <td class="py-3 px-4 text-center">
                     <button onclick="superApp.openDetailRestokModal('${bm.Surat_Jalan}')" class="text-emerald-500 underline text-[10px] font-black bg-emerald-50 px-3 py-1 rounded-lg hover:bg-emerald-100 transition"><i class="fas fa-box-open mr-1"></i> ${bm.Items.length} Item</button>
                 </td>
                 <td class="py-3 px-4 text-center font-black">${totalQty} Pcs</td>
-                <td class="py-3 px-4 text-[10px] text-slate-500 italic">Surat Jalan: ${bm.Surat_Jalan}</td>
+                <td class="py-3 px-4 text-[10px] text-slate-500 italic max-w-[150px] truncate" title="${bm.Surat_Jalan}">${noteTeks}</td>
             </tr>`;
         }).join('');
     },
@@ -6486,6 +6515,8 @@ openDetailStokOpname: function(sku) {
         window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(txt)}`, '_blank');
     },
 
+  
+   
     // =========================================================
     // 🚀 ENGINE: PROSES OTORISASI (AUTO-APPROVE YANG AMAN)
     // =========================================================

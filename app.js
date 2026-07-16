@@ -5391,7 +5391,7 @@ refreshData: function() {
    // =========================================================
     // 🚀 TAHAP 1: VALIDASI & MODAL KONFIRMASI TERIMA BARANG
     // =========================================================
-    submitTerimaBarangKasir: async function() {
+    : async function() {
         if (this.isProcessing) return;
 
         // 1. Validasi keranjang (menggunakan cartRestok)

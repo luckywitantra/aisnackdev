@@ -5387,48 +5387,37 @@ refreshData: function() {
         }, 50); 
     },
     
+  
    // =========================================================
-    // 🚀 1. TAHAP VALIDASI & PEMICU MODAL TERIMA BARANG CANTIK
+    // 🚀 TAHAP 1: VALIDASI & MODAL KONFIRMASI TERIMA BARANG
     // =========================================================
-    submitTerimaBarang: async function() {
+    submitTerimaBarangKasir: async function() {
         if (this.isProcessing) return;
-        
-        let items = [];
+
+        // 1. Validasi keranjang (menggunakan cartRestok)
+        if (!this.cartRestok || this.cartRestok.length === 0) return this.showToast("Daftar barang kosong! Masukkan qty terlebih dahulu.", "error");
+
+        let items = this.cartRestok;
         let totalPcs = 0;
-        let waText = `*LAPORAN BARANG DATANG PUSAT*\n📍 Cabang: ${this.outlet}\n👤 Kasir: ${this.currentUser.Username}\n📅 Waktu: ${new Date().toLocaleString('id-ID')}\n\n*_Mohon cek aplikasi menu Audit untuk memverifikasi agar stok masuk ke sistem_*\n\n`;
+        let waText = `*LAPORAN BARANG DATANG PUSAT*\n📍 Cabang: ${this.outlet}\n👤 Kasir: ${this.currentUser ? this.currentUser.Username : 'Kasir'}\n📅 Waktu: ${new Date().toLocaleString('id-ID')}\n\n*_Mohon cek aplikasi menu Audit untuk memverifikasi agar stok masuk ke sistem_*\n\n`;
 
-        (this.db.masterProduk || []).forEach(m => {
-            if (String(m.Kategori || '').toLowerCase() === 'bahan' || String(m.Kategori || '').toLowerCase() === 'pendukung') {
-                let inputDesk = document.getElementById(`trm-qty-${m.SKU}`); 
-                let inputMob = document.getElementById(`trm-qty-mob-${m.SKU}`);
-                let qtyStr = inputDesk && inputDesk.value !== '' ? inputDesk.value : (inputMob && inputMob.value !== '' ? inputMob.value : '');
-
-                if (qtyStr !== '' && parseInt(this.getNumericValue(qtyStr)) > 0) {
-                    let qtyNum = parseInt(this.getNumericValue(qtyStr));
-                    let noteDesk = document.getElementById(`trm-note-${m.SKU}`); 
-                    let noteMob = document.getElementById(`trm-note-mob-${m.SKU}`);
-                    let note = noteDesk && noteDesk.value !== '' ? noteDesk.value : (noteMob && noteMob.value !== '' ? noteMob.value : '');
-                    
-                    items.push({ sku: m.SKU, nama: m.Nama_Produk, qty: qtyNum, catatan: note });
-                    totalPcs += qtyNum;
-                    waText += `📦 *${m.Nama_Produk}*\nQty Diterima: *${qtyStr} Pcs*\nCatatan: ${note || '-'}\n\n`;
-                }
-            }
+        items.forEach(i => {
+            totalPcs += Number(i.qty);
+            waText += `📦 *${i.nama}*\nQty Diterima: *${i.qty} Pcs*\nCatatan: ${i.catatan || '-'}\n\n`;
         });
 
-        if (items.length === 0) return this.showToast("Tidak ada barang masuk yang diinput!", "error");
-
-        // --- CEK DUPLIKAT INPUTAN HARI INI ---
+        // 2. CEK DUPLIKAT INPUTAN HARI INI
         let d = new Date(); let pad = (n) => n < 10 ? '0' + n : n;
         let todayStrLocal = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
         
-        let sudahInputHariIni = this.db.mutasi.some(m => 
+        // Asumsi cleanDateOnly mengembalikan format DD/MM/YYYY
+        let sudahInputHariIni = (this.db.barangMasuk || []).some(m => 
             m.Outlet_Tujuan === this.outlet && 
-            this.cleanDateOnly(m.Waktu) === todayStrLocal &&
+            (typeof this.cleanDateOnly === 'function' ? this.cleanDateOnly(m.Waktu) : m.Waktu.includes(todayStrLocal)) &&
             m.Status_Approval === 'Pending'
         );
 
-        // Pengkondisian Visual Isi Modal jika terdeteksi Double Input
+        // 3. Pengkondisian Visual Isi Modal jika terdeteksi Double Input
         const iconBox = document.getElementById('terima-confirm-icon-box');
         const titleEl = document.getElementById('terima-confirm-title');
         const subtitleEl = document.getElementById('terima-confirm-subtitle');
@@ -5454,7 +5443,7 @@ refreshData: function() {
             }
         }
 
-        // Inject Ringkasan Angka
+        // 4. Inject Ringkasan Angka ke UI Modal
         const summaryContainer = document.getElementById('terima-confirm-summary');
         if (summaryContainer) {
             summaryContainer.innerHTML = `
@@ -5473,43 +5462,68 @@ refreshData: function() {
             `;
         }
 
-        // Tautkan fungsi eksekusi ke tombol
+        // 5. Tautkan fungsi eksekusi ke tombol
         const btnExecute = document.getElementById('btn-confirm-terima-execute');
         if (btnExecute) {
             btnExecute.onclick = () => this.executeSubmitTerimaBarang(items, waText);
         }
 
-        // Buka Modal Box
-        this.openModal('modal-confirm-terima');
+        // 6. Buka Modal Box
+        if (typeof this.openModal === 'function') {
+            this.openModal('modal-confirm-terima');
+        } else {
+            // Fallback jika tidak ada fungsi openModal (langsung eksekusi)
+            let confirmMsg = sudahInputHariIni 
+                ? "Laporan ganda terdeteksi! Yakin ingin melanjutkan pengiriman antrean baru?"
+                : `Konfirmasi pengiriman ${totalPcs} Pcs barang?`;
+            if (confirm(confirmMsg)) this.executeSubmitTerimaBarang(items, waText);
+        }
     },
 
     // =========================================================
-    // 🚀 2. TAHAP EKSEKUSI DATA KELUAR KE SERVER & WA MODAL
+    // 🚀 TAHAP 2: EKSEKUSI DATA KELUAR KE SERVER & WA MODAL
     // =========================================================
     executeSubmitTerimaBarang: async function(items, waText) {
         if (this.isProcessing) return;
-        this.closeModal('modal-confirm-terima');
+        if (typeof this.closeModal === 'function') this.closeModal('modal-confirm-terima');
         
         // Beri sedikit jeda waktu agar transisi modal tutup selesai
         setTimeout(async () => {
             this.setLoading(true, "Menyimpan Laporan Masuk...");
-            const payload = { action: 'terima_barang_kasir', outlet: this.outlet, kasir: this.currentUser.Username, items: items };
+            const payload = { 
+                action: 'terima_barang_kasir', 
+                outlet: this.outlet, 
+                kasir: this.currentUser ? this.currentUser.Username : 'Kasir', 
+                items: items 
+            };
             
             let res = await this.apiPost(payload);
             
             if (res.status === 'sukses') {
                 this.showToast("Berhasil Disimpan di Sistem!");
-                this.showWaModal(waText);
                 
+                // Panggil Modal WA
+                if (typeof this.showWaModal === 'function') this.showWaModal(waText);
+                else if (typeof this.openWaLaporanModal === 'function') this.openWaLaporanModal(waText);
+
+                // Kosongkan keranjang setelah sukses
+                this.cartRestok = [];
+                
+                // Refresh data dari server
                 if (!res.is_offline) { 
-                    const r = await fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' }); 
-                    this.db = await r.json(); 
-                    this.refreshData(); 
+                    try {
+                        let rUrl = (typeof API_URL !== 'undefined') ? API_URL : this.webAppUrl;
+                        const r = await fetch(rUrl + "?ts=" + new Date().getTime(), { redirect: 'follow' }); 
+                        this.db = await r.json(); 
+                        if (typeof this.refreshData === 'function') this.refreshData(); 
+                    } catch(e) {}
                 }
-                this.switchMenu('pos');
+                
+                // Alihkan menu jika fungsi tersedia
+                if (typeof this.switchMenu === 'function') this.switchMenu('pos');
             }
             this.setLoading(false);
-        }, 200);
+        }, 300);
     },
     
     calcOpname: function(sku) {
@@ -5890,83 +5904,197 @@ openDetailStokOpname: function(sku) {
         if (tabName === 'terima' && typeof this.renderAuditTerima === 'function') this.renderAuditTerima();
     },
 
-    
     // =========================================================
-    // 🚀 ENGINE AUDIT: RIWAYAT OPNAME FISIK
+    // 🚀 HELPER: GROUPING DATA ECERAN MENJADI DATA SESI TRANSAKSI
+    // =========================================================
+    getProductName: function(sku) {
+        let prod = (this.db.masterProduk || []).find(p => p.SKU === sku);
+        return prod ? prod.Nama_Produk : sku;
+    },
+
+    getGroupedOpname: function() {
+        let map = {};
+        (this.db.riwayatOpname || []).forEach(r => {
+            let key = r.Waktu + "_" + r.Outlet;
+            if(!map[key]) {
+                map[key] = {
+                    Waktu: r.Waktu, Outlet: r.Outlet, Kasir: r.Kasir, Status: r.Status_Approval,
+                    ID_Opname: 'OPN-' + (r.Waktu||'').replace(/\D/g, '').substring(0,8) + '-' + (r.Outlet||'').substring(0,3).toUpperCase(),
+                    Items: []
+                };
+            }
+            map[key].Items.push({ sku: r.SKU, nama: this.getProductName(r.SKU), sistem: r.Stok_Sistem, fisik: r.Stok_Fisik, selisih: r.Selisih, catatan: r.Keterangan_Fisik });
+        });
+        return Object.values(map).reverse();
+    },
+
+    getGroupedRestok: function() {
+        let map = {};
+        (this.db.barangMasuk || []).forEach(r => {
+            let key = r.Waktu + "_" + r.Outlet_Tujuan;
+            if(!map[key]) {
+                map[key] = {
+                    Waktu: r.Waktu, Outlet: r.Outlet_Tujuan, Kasir: r.Kasir, Status: r.Status_Approval,
+                    Surat_Jalan: r.ID_Mutasi || 'MUT-' + (r.Waktu||'').replace(/\D/g, '').substring(0,8),
+                    Supplier: (r.Keterangan||'').includes('Transfer') ? r.Keterangan : 'Pusat',
+                    Items: []
+                };
+            }
+            map[key].Items.push({ sku: r.SKU, nama: this.getProductName(r.SKU), qty: r.Qty, catatan: r.Keterangan });
+        });
+        return Object.values(map).reverse();
+    },
+
+    // =========================================================
+    // 🚀 ENGINE AUDIT 1: PENDING OPNAME
+    // =========================================================
+    renderAuditOpname: function() {
+        const tbody = document.getElementById('audit-opname-tbody');
+        if (!tbody) return;
+        
+        let pendingData = this.getGroupedOpname().filter(x => x.Status === 'Pending');
+
+        if (pendingData.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400 italic text-xs">Tidak ada pengajuan Opname yang menunggu persetujuan</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = pendingData.map(op => {
+            let akuratCount = 0;
+            op.Items.forEach(i => { if (Number(i.fisik) === Number(i.sistem)) akuratCount++; });
+            let statusBadge = (akuratCount === op.Items.length) 
+                ? `<span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[9px]">Akurat</span>`
+                : `<span class="bg-rose-100 text-rose-600 px-2 py-0.5 rounded text-[9px]">Ada Selisih</span>`;
+            
+            // Menyimpan payload data untuk bulk action di dalam value checkbox
+            let cbValue = JSON.stringify(op.Items.map(i => ({ waktu: op.Waktu, outlet: op.Outlet, sku: i.sku })));
+
+            return `
+            <tr class="hover:bg-slate-50 transition">
+                <td class="py-3 px-4 text-center"><input type="checkbox" value='${cbValue}' class="cb-audit-opname w-4 h-4 rounded border-slate-300 accent-indigo-500"></td>
+                <td class="py-3 px-4 text-[11px]">${op.Waktu}</td>
+                <td class="py-3 px-4"><span class="text-indigo-600 font-black">Ai-CHA ${op.Outlet}</span><br><span class="text-[9px] text-slate-400">Oleh: ${op.Kasir}</span></td>
+                <td class="py-3 px-4 text-center"><button onclick="superApp.openDetailOpnameModal('${op.Waktu}', '${op.Outlet}')" class="text-indigo-500 underline text-[10px] font-black">${op.Items.length} Item</button></td>
+                <td class="py-3 px-4 text-center">${statusBadge}</td>
+                <td class="py-3 px-4 text-center">-</td>
+                <td class="py-3 px-4 text-[10px] text-slate-500 italic max-w-[120px] truncate">-</td>
+            </tr>`;
+        }).join('');
+    },
+
+    // =========================================================
+    // 🚀 ENGINE AUDIT 2: PENDING TERIMA BARANG (RESTOK)
+    // =========================================================
+    renderAuditTerima: function() {
+        const tbody = document.getElementById('audit-terima-tbody');
+        if (!tbody) return;
+        
+        let pendingData = this.getGroupedRestok().filter(x => x.Status === 'Pending');
+
+        if (pendingData.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-slate-400 italic text-xs">Tidak ada pengajuan Restok yang menunggu persetujuan</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = pendingData.map(bm => {
+            let totalQty = 0; bm.Items.forEach(i => totalQty += Number(i.qty));
+            let cbValue = bm.Surat_Jalan; // Backend mutasi butuh ID Mutasi
+
+            return `
+            <tr class="hover:bg-slate-50 transition">
+                <td class="py-3 px-4 text-center"><input type="checkbox" value='${cbValue}' class="cb-audit-terima w-4 h-4 rounded border-slate-300 accent-emerald-500"></td>
+                <td class="py-3 px-4 text-[11px]">${bm.Waktu}</td>
+                <td class="py-3 px-4"><span class="text-emerald-600 font-black">Ai-CHA ${bm.Outlet}</span><br><span class="text-[9px] text-slate-400">Oleh: ${bm.Kasir}</span></td>
+                <td class="py-3 px-4 text-center"><button onclick="superApp.openDetailRestokModal('${bm.Surat_Jalan}')" class="text-emerald-500 underline text-[10px] font-black">${bm.Items.length} Item</button></td>
+                <td class="py-3 px-4 text-center font-black">${totalQty} Pcs</td>
+                <td class="py-3 px-4 text-[10px] text-slate-500 italic">Surat Jalan: ${bm.Surat_Jalan}</td>
+            </tr>`;
+        }).join('');
+    },
+
+    // =========================================================
+    // 🚀 ENGINE AUDIT 3 & 4: RIWAYAT OPNAME & RIWAYAT RESTOK
     // =========================================================
     renderOpnameHistory: function() {
         const tbody = document.getElementById('audit-riwayat-opname-tbody');
         const searchVal = (document.getElementById('search-opname')?.value || '').toLowerCase();
         if (!tbody) return;
 
-        let data = (this.db.riwayatOpname || []).filter(x => {
-            let str = `${x.ID_Opname} ${x.Cabang} ${x.Auditor}`.toLowerCase();
-            return str.includes(searchVal);
-        }).reverse();
+        let historyData = this.getGroupedOpname().filter(x => x.Status !== 'Pending');
+        if (searchVal) historyData = historyData.filter(x => `${x.ID_Opname} ${x.Outlet} ${x.Kasir}`.toLowerCase().includes(searchVal));
 
-        if (data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-slate-400 italic text-xs">Belum ada riwayat audit</td></tr>`;
+        if (historyData.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-slate-400 italic text-xs">Belum ada riwayat audit tersimpan</td></tr>`;
             return;
         }
 
-        tbody.innerHTML = data.map(op => {
-            let items = [];
-            try { items = JSON.parse(op.Item_JSON || '[]'); } catch(e){}
-            
-            let akuratCount = 0;
-            items.forEach(i => { if (Number(i.fisik) === Number(i.sistem)) akuratCount++; });
-            let isPerfect = items.length > 0 && akuratCount === items.length;
-            let statusBadge = isPerfect 
-                ? `<span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[9px]">100% Akurat</span>`
-                : `<span class="bg-rose-100 text-rose-600 px-2 py-0.5 rounded text-[9px]">Ada Selisih</span>`;
+        tbody.innerHTML = historyData.map(op => {
+            let akuratCount = 0; op.Items.forEach(i => { if (Number(i.fisik) === Number(i.sistem)) akuratCount++; });
+            let isPerfect = op.Items.length > 0 && akuratCount === op.Items.length;
+            let statusBadge = isPerfect ? `<span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[9px]">100% Akurat</span>` : `<span class="bg-rose-100 text-rose-600 px-2 py-0.5 rounded text-[9px]">Ada Selisih</span>`;
 
             return `
-            <tr class="hover:bg-slate-50/50 transition">
-                <td class="py-3 px-4">${op.Tanggal}</td>
-                <td class="py-3 px-4"><span class="text-indigo-600">Ai-CHA ${op.Cabang}</span><br><span class="text-[10px] text-slate-400">Oleh: ${op.Auditor}</span></td>
-                <td class="py-3 px-4 text-center">${items.length} Item</td>
-                <td class="py-3 px-4 text-center">${statusBadge}</td>
-                <td class="py-3 px-4 text-center">
-                    <button onclick="superApp.openDetailOpnameModal('${op.ID_Opname}')" class="bg-indigo-50 hover:bg-indigo-500 text-indigo-600 hover:text-white px-3 py-1.5 rounded-lg text-[10px] transition"><i class="fas fa-search-plus"></i> Detail</button>
+            <tr class="hover:bg-slate-50 transition">
+                <td class="py-3 px-4 text-[11px]">${op.Waktu}</td>
+                <td class="py-3 px-4"><span class="text-indigo-600 font-black">Ai-CHA ${op.Outlet}</span><br><span class="text-[9px] text-slate-400">Oleh: ${op.Kasir}</span></td>
+                <td class="py-3 px-4 text-center">${op.Items.length} Item</td>
+                <td class="py-3 px-4 text-center">${statusBadge}<br><span class="text-[9px] text-slate-400">${op.Status}</span></td>
+                <td class="py-3 px-4 text-center flex justify-center gap-1.5">
+                    <button onclick="superApp.openDetailOpnameModal('${op.Waktu}', '${op.Outlet}')" class="bg-indigo-50 hover:bg-indigo-500 text-indigo-600 hover:text-white px-3 py-1.5 rounded-lg text-[10px] transition"><i class="fas fa-search-plus"></i> Detail</button>
+                    <button onclick="superApp.sendWaOpname('${op.Waktu}', '${op.Outlet}')" class="bg-emerald-500 hover:bg-emerald-600 text-white px-2 py-1.5 rounded-lg text-[10px] transition"><i class="fab fa-whatsapp"></i></button>
                 </td>
             </tr>`;
         }).join('');
     },
-    
-    openDetailOpnameModal: function(id) {
-        let op = (this.db.riwayatOpname || []).find(x => x.ID_Opname === id);
+
+    renderRestokHistory: function() {
+        const tbody = document.getElementById('audit-riwayat-restok-tbody');
+        const searchVal = (document.getElementById('search-restok')?.value || '').toLowerCase();
+        if (!tbody) return;
+
+        let historyData = this.getGroupedRestok().filter(x => x.Status !== 'Pending');
+        if (searchVal) historyData = historyData.filter(x => `${x.Surat_Jalan} ${x.Outlet} ${x.Supplier}`.toLowerCase().includes(searchVal));
+
+        if (historyData.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-slate-400 italic text-xs">Belum ada riwayat penerimaan</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = historyData.map(bm => `
+            <tr class="hover:bg-slate-50 transition">
+                <td class="py-3 px-4 text-[11px]">${bm.Waktu}</td>
+                <td class="py-3 px-4 font-black"><span class="text-slate-700">${bm.Surat_Jalan}</span><br><span class="text-[9px] text-slate-400 font-bold">Dari: ${bm.Supplier}</span></td>
+                <td class="py-3 px-4 text-emerald-600 font-black">Ai-CHA ${bm.Outlet}</td>
+                <td class="py-3 px-4 text-center"><span class="bg-emerald-50 border border-emerald-200 text-emerald-600 px-2 py-0.5 rounded text-[9px]">${bm.Status}</span></td>
+                <td class="py-3 px-4 text-center flex justify-center gap-1.5">
+                    <button onclick="superApp.openDetailRestokModal('${bm.Surat_Jalan}')" class="bg-emerald-50 hover:bg-emerald-500 text-emerald-600 hover:text-white px-3 py-1.5 rounded-lg text-[10px] transition"><i class="fas fa-box-open"></i> Buka</button>
+                    <button onclick="superApp.sendWaTerima('${bm.Surat_Jalan}')" class="bg-emerald-500 hover:bg-emerald-600 text-white px-2 py-1.5 rounded-lg text-[10px] transition"><i class="fab fa-whatsapp"></i></button>
+                </td>
+            </tr>`).join('');
+    },
+
+    openDetailOpnameModal: function(waktu, outlet) {
+        let op = this.getGroupedOpname().find(x => x.Waktu === waktu && x.Outlet === outlet);
         if (!op) return;
 
         document.getElementById('opname-meta-id').innerText = op.ID_Opname;
-        document.getElementById('opname-meta-subtitle').innerText = `Cabang: Ai-CHA ${op.Cabang} | Auditor: ${op.Auditor}`;
-
-        let items = [];
-        try { items = JSON.parse(op.Item_JSON || '[]'); } catch(e){}
+        document.getElementById('opname-meta-subtitle').innerText = `Cabang: Ai-CHA ${op.Outlet} | Auditor: ${op.Kasir}`;
 
         const listCont = document.getElementById('opname-item-list');
-        listCont.innerHTML = items.map(i => {
-            let nSis = Number(i.sistem);
-            let nFis = Number(i.fisik);
-            let diff = nFis - nSis;
-
+        listCont.innerHTML = op.Items.map(i => {
+            let nSis = Number(i.sistem); let nFis = Number(i.fisik); let diff = nFis - nSis;
             let diffBadge = `<div class="font-black text-slate-400 text-sm bg-slate-100 px-2 py-1 rounded-lg">Match ✔</div>`;
             let borderClass = 'border-slate-200';
             
-            if (diff > 0) {
-                diffBadge = `<div class="font-black text-emerald-600 text-sm bg-emerald-50 px-2 py-1 rounded-lg">+${diff} Surplus</div>`;
-                borderClass = 'border-emerald-200';
-            } else if (diff < 0) {
-                diffBadge = `<div class="font-black text-rose-600 text-sm bg-rose-50 px-2 py-1 rounded-lg">${diff} Defisit</div>`;
-                borderClass = 'border-rose-200';
-            }
+            if (diff > 0) { diffBadge = `<div class="font-black text-emerald-600 text-sm bg-emerald-50 px-2 py-1 rounded-lg">+${diff} Surplus</div>`; borderClass = 'border-emerald-200'; } 
+            else if (diff < 0) { diffBadge = `<div class="font-black text-rose-600 text-sm bg-rose-50 px-2 py-1 rounded-lg">${diff} Defisit</div>`; borderClass = 'border-rose-200'; }
 
             return `
             <div class="bg-white border ${borderClass} p-3 rounded-2xl shadow-sm flex items-center justify-between hover:shadow-md transition">
                 <div class="w-1/2">
                     <span class="font-extrabold text-slate-700 text-xs block mb-1 truncate">${i.nama}</span>
                     <div class="flex gap-3 text-[10px] font-bold text-slate-400">
-                        <span>Sistem: <b class="text-slate-600">${nSis}</b></span>
-                        <span>Fisik: <b class="text-slate-800">${nFis}</b></span>
+                        <span>Sistem: <b class="text-slate-600">${nSis}</b></span><span>Fisik: <b class="text-slate-800">${nFis}</b></span>
                     </div>
                 </div>
                 <div class="text-right shrink-0">${diffBadge}</div>
@@ -5974,17 +6102,27 @@ openDetailStokOpname: function(sku) {
         }).join('');
 
         const modal = document.getElementById('modal-detail-opname');
-        if (modal) {
-            modal.classList.remove('hidden');
-            void modal.offsetWidth; // Memaksa browser merekam state sebelum animasi
-            modal.classList.add('opacity-100');
-            if(modal.firstElementChild) {
-                modal.firstElementChild.classList.remove('scale-95');
-                modal.firstElementChild.classList.add('scale-100');
-            }
-        }
+        if (modal) { modal.classList.remove('hidden'); void modal.offsetWidth; modal.classList.add('opacity-100'); modal.firstElementChild.classList.remove('scale-95'); modal.firstElementChild.classList.add('scale-100'); }
     },
 
+    openDetailRestokModal: function(suratJalan) {
+        let bm = this.getGroupedRestok().find(x => x.Surat_Jalan === suratJalan);
+        if (!bm) return;
+
+        document.getElementById('restok-meta-id').innerText = bm.Surat_Jalan;
+        document.getElementById('restok-meta-subtitle').innerText = `Tujuan: Ai-CHA ${bm.Outlet} | Diterima: ${bm.Waktu}`;
+
+        document.getElementById('restok-item-list').innerHTML = bm.Items.map(i => `
+            <tr class="hover:bg-slate-50 transition">
+                <td class="py-3 px-4"><span class="font-extrabold text-slate-700">${i.nama}</span></td>
+                <td class="py-3 px-4 text-center"><span class="bg-slate-100 text-slate-600 font-black px-2 py-1 rounded-md border border-slate-200">${i.qty}</span></td>
+                <td class="py-3 px-4 text-[10px] text-slate-400 italic">${i.catatan || 'Kondisi Baik'}</td>
+            </tr>`).join('');
+
+        const modal = document.getElementById('modal-detail-restok');
+        if (modal) { modal.classList.remove('hidden'); void modal.offsetWidth; modal.classList.add('opacity-100'); modal.firstElementChild.classList.remove('scale-95'); modal.firstElementChild.classList.add('scale-100'); }
+    },
+   
     closeDetailOpnameModal: function() {
         const modal = document.getElementById('modal-detail-opname');
         if (modal) {
@@ -5997,66 +6135,6 @@ openDetailStokOpname: function(sku) {
         }
     },
 
-    
-    // =========================================================
-    // 🚀 ENGINE AUDIT: LOG BARANG MASUK
-    // =========================================================
-    renderRestokHistory: function() {
-        const tbody = document.getElementById('audit-riwayat-restok-tbody');
-        const searchVal = (document.getElementById('search-restok')?.value || '').toLowerCase();
-        if (!tbody) return;
-
-        let data = (this.db.barangMasuk || []).filter(x => {
-            let str = `${x.Surat_Jalan} ${x.Cabang} ${x.Supplier}`.toLowerCase();
-            return str.includes(searchVal);
-        }).reverse();
-
-        if (data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-slate-400 italic text-xs">Belum ada riwayat penerimaan</td></tr>`;
-            return;
-        }
-
-        tbody.innerHTML = data.map(bm => `
-            <tr class="hover:bg-slate-50/50 transition">
-                <td class="py-3 px-4">${bm.Tanggal}</td>
-                <td class="py-3 px-4 font-black"><span class="text-slate-700">${bm.Surat_Jalan}</span><br><span class="text-[10px] text-slate-400 font-bold">Dari: ${bm.Supplier || 'Pusat'}</span></td>
-                <td class="py-3 px-4 text-emerald-600">Ai-CHA ${bm.Cabang}</td>
-                <td class="py-3 px-4 text-center"><span class="bg-emerald-50 border border-emerald-200 text-emerald-600 px-2 py-0.5 rounded text-[9px]"><i class="fas fa-check"></i> Diterima</span></td>
-                <td class="py-3 px-4 text-center">
-                    <button onclick="superApp.openDetailRestokModal('${bm.Surat_Jalan}')" class="bg-emerald-50 hover:bg-emerald-500 text-emerald-600 hover:text-white px-3 py-1.5 rounded-lg text-[10px] transition"><i class="fas fa-box-open"></i> Buka</button>
-                </td>
-            </tr>`).join('');
-    },
-
-    
-    openDetailRestokModal: function(id) {
-        let bm = (this.db.barangMasuk || []).find(x => x.Surat_Jalan === id);
-        if (!bm) return;
-
-        document.getElementById('restok-meta-id').innerText = bm.Surat_Jalan;
-        document.getElementById('restok-meta-subtitle').innerText = `Tujuan: Ai-CHA ${bm.Cabang} | Diterima: ${bm.Tanggal}`;
-
-        let items = [];
-        try { items = JSON.parse(bm.Item_JSON || '[]'); } catch(e){}
-
-        document.getElementById('restok-item-list').innerHTML = items.map(i => `
-            <tr class="hover:bg-slate-50 transition">
-                <td class="py-3 px-4"><span class="font-extrabold text-slate-700">${i.nama}</span></td>
-                <td class="py-3 px-4 text-center"><span class="bg-slate-100 text-slate-600 font-black px-2 py-1 rounded-md border border-slate-200">${i.qty}</span></td>
-                <td class="py-3 px-4 text-[10px] text-slate-400 italic">${i.catatan || 'Kondisi Baik'}</td>
-            </tr>`).join('');
-
-        const modal = document.getElementById('modal-detail-restok');
-        if (modal) {
-            modal.classList.remove('hidden');
-            void modal.offsetWidth;
-            modal.classList.add('opacity-100');
-            if(modal.firstElementChild) {
-                modal.firstElementChild.classList.remove('scale-95');
-                modal.firstElementChild.classList.add('scale-100');
-            }
-        }
-    },
 
     closeDetailRestokModal: function() {
         const modal = document.getElementById('modal-detail-restok');
@@ -6068,6 +6146,49 @@ openDetailStokOpname: function(sku) {
             }
             setTimeout(() => modal.classList.add('hidden'), 300);
         }
+    },
+
+    sendWaOpname: function(waktu, outlet) {
+        let op = this.getGroupedOpname().find(x => x.Waktu === waktu && x.Outlet === outlet);
+        if (!op) return;
+
+        let txt = `*[ LAPORAN OPNAME FISIK ]*\n\n`;
+        txt += `Cabang: *Ai-CHA ${op.Outlet}*\n`;
+        txt += `Waktu: ${op.Waktu}\n`;
+        txt += `Auditor: ${op.Kasir}\n\n`;
+        txt += `*Rincian Selisih:*\n`;
+
+        op.Items.forEach(i => {
+            let diff = Number(i.fisik) - Number(i.sistem);
+            if (diff !== 0) {
+                let status = diff > 0 ? 'Surplus' : 'Defisit (HILANG)';
+                txt += `- ${i.nama}:\n  (Sis: ${i.sistem} | Fis: ${i.fisik} | *${diff} ${status}*)\n`;
+            }
+        });
+
+        if (op.Items.every(i => Number(i.fisik) === Number(i.sistem))) {
+            txt += `✅ SELURUH STOK 100% AKURAT. TIDAK ADA SELISIH.\n`;
+        }
+        
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+    },
+
+    sendWaTerima: function(suratJalan) {
+        let bm = this.getGroupedRestok().find(x => x.Surat_Jalan === suratJalan);
+        if (!bm) return;
+
+        let txt = `*[ LAPORAN PENERIMAAN BARANG ]*\n\n`;
+        txt += `Cabang: *Ai-CHA ${bm.Outlet}*\n`;
+        txt += `Surat Jalan: ${bm.Surat_Jalan}\n`;
+        txt += `Waktu Terima: ${bm.Waktu}\n`;
+        txt += `Penerima: ${bm.Kasir}\n\n`;
+        txt += `*Rincian Barang Diterima:*\n`;
+
+        bm.Items.forEach(i => {
+            txt += `- ${i.nama} (*${i.qty} Pcs*)\n`;
+        });
+        
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
     },
     
 

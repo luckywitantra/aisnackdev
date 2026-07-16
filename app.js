@@ -5981,7 +5981,8 @@ openDetailStokOpname: function(sku) {
                     Items: []
                 };
             }
-            map[key].Items.push({ sku: r.SKU, nama: this.getProductName(r.SKU), qty: r.Qty, catatan: r.Keterangan });
+            // KUNCI PENTING: Sisipkan id_mutasi agar bisa di-approve per-item
+            map[key].Items.push({ id_mutasi: r.ID_Mutasi, sku: r.SKU, nama: this.getProductName(r.SKU), qty: r.Qty, catatan: r.Keterangan });
         });
         return Object.values(map).reverse();
     },
@@ -6114,7 +6115,7 @@ openDetailStokOpname: function(sku) {
             </tr>`).join('');
     },
 
-    openDetailOpnameModal: function(waktu, outlet) {
+   openDetailOpnameModal: function(waktu, outlet) {
         let op = this.getGroupedOpname().find(x => x.Waktu === waktu && x.Outlet === outlet);
         if (!op) return;
 
@@ -6122,7 +6123,7 @@ openDetailStokOpname: function(sku) {
         document.getElementById('opname-meta-subtitle').innerText = `Cabang: Ai-CHA ${op.Outlet} | Auditor: ${op.Kasir}`;
 
         const listCont = document.getElementById('opname-item-list');
-        listCont.innerHTML = op.Items.map(i => {
+        listCont.innerHTML = op.Items.map((i, idx) => {
             let nSis = Number(i.sistem); let nFis = Number(i.fisik); let diff = nFis - nSis;
             let diffBadge = `<div class="font-black text-slate-400 text-sm bg-slate-100 px-2 py-1 rounded-lg">Match ✔</div>`;
             let borderClass = 'border-slate-200';
@@ -6130,17 +6131,46 @@ openDetailStokOpname: function(sku) {
             if (diff > 0) { diffBadge = `<div class="font-black text-emerald-600 text-sm bg-emerald-50 px-2 py-1 rounded-lg">+${diff} Surplus</div>`; borderClass = 'border-emerald-200'; } 
             else if (diff < 0) { diffBadge = `<div class="font-black text-rose-600 text-sm bg-rose-50 px-2 py-1 rounded-lg">${diff} Defisit</div>`; borderClass = 'border-rose-200'; }
 
+            // Tampilkan Radio Button Setuju/Tolak jika status masih Pending
+            let actionHtml = '';
+            if (op.Status === 'Pending') {
+                actionHtml = `
+                <div class="mt-3 pt-3 border-t border-slate-100 flex gap-2">
+                    <label class="flex-1 cursor-pointer">
+                        <input type="radio" name="op_app_${idx}" value="Disetujui" class="peer sr-only" checked>
+                        <div class="text-center py-2 rounded-lg border border-slate-200 text-slate-400 text-[10px] font-black peer-checked:bg-emerald-50 peer-checked:text-emerald-600 peer-checked:border-emerald-300 transition-all">✅ SETUJUI ITEM INI</div>
+                    </label>
+                    <label class="flex-1 cursor-pointer">
+                        <input type="radio" name="op_app_${idx}" value="Ditolak" class="peer sr-only">
+                        <div class="text-center py-2 rounded-lg border border-slate-200 text-slate-400 text-[10px] font-black peer-checked:bg-rose-50 peer-checked:text-rose-600 peer-checked:border-rose-300 transition-all">❌ TOLAK ITEM INI</div>
+                    </label>
+                </div>`;
+            }
+
             return `
-            <div class="bg-white border ${borderClass} p-3 rounded-2xl shadow-sm flex items-center justify-between hover:shadow-md transition">
-                <div class="w-1/2">
-                    <span class="font-extrabold text-slate-700 text-xs block mb-1 truncate">${i.nama}</span>
-                    <div class="flex gap-3 text-[10px] font-bold text-slate-400">
-                        <span>Sistem: <b class="text-slate-600">${nSis}</b></span><span>Fisik: <b class="text-slate-800">${nFis}</b></span>
+            <div class="bg-white border ${borderClass} p-3 rounded-2xl shadow-sm flex flex-col hover:shadow-md transition">
+                <div class="flex items-center justify-between">
+                    <div class="w-1/2">
+                        <span class="font-extrabold text-slate-700 text-xs block mb-1 truncate">${i.nama}</span>
+                        <div class="flex gap-3 text-[10px] font-bold text-slate-400">
+                            <span>Sistem: <b class="text-slate-600">${nSis}</b></span><span>Fisik: <b class="text-slate-800">${nFis}</b></span>
+                        </div>
                     </div>
+                    <div class="text-right shrink-0">${diffBadge}</div>
                 </div>
-                <div class="text-right shrink-0">${diffBadge}</div>
+                ${actionHtml}
             </div>`;
         }).join('');
+
+        let footer = document.getElementById('opname-modal-footer');
+        if (footer) {
+            if (op.Status === 'Pending') {
+                footer.innerHTML = `<button onclick="superApp.processPartialOpname('${op.Waktu}', '${op.Outlet}')" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-3.5 rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"><i class="fas fa-check-double"></i> Simpan Otorisasi Pilihan</button>`;
+                footer.classList.remove('hidden');
+            } else {
+                footer.innerHTML = ''; footer.classList.add('hidden');
+            }
+        }
 
         const modal = document.getElementById('modal-detail-opname');
         if (modal) { modal.classList.remove('hidden'); void modal.offsetWidth; modal.classList.add('opacity-100'); modal.firstElementChild.classList.remove('scale-95'); modal.firstElementChild.classList.add('scale-100'); }
@@ -6153,12 +6183,42 @@ openDetailStokOpname: function(sku) {
         document.getElementById('restok-meta-id').innerText = bm.Surat_Jalan;
         document.getElementById('restok-meta-subtitle').innerText = `Tujuan: Ai-CHA ${bm.Outlet} | Diterima: ${bm.Waktu}`;
 
-        document.getElementById('restok-item-list').innerHTML = bm.Items.map(i => `
-            <tr class="hover:bg-slate-50 transition">
-                <td class="py-3 px-4"><span class="font-extrabold text-slate-700">${i.nama}</span></td>
-                <td class="py-3 px-4 text-center"><span class="bg-slate-100 text-slate-600 font-black px-2 py-1 rounded-md border border-slate-200">${i.qty}</span></td>
-                <td class="py-3 px-4 text-[10px] text-slate-400 italic">${i.catatan || 'Kondisi Baik'}</td>
-            </tr>`).join('');
+        document.getElementById('restok-item-list').innerHTML = bm.Items.map((i, idx) => {
+            let actionHtml = '';
+            if (bm.Status === 'Pending') {
+                actionHtml = `
+                <div class="mt-2 flex gap-1.5 w-full">
+                    <label class="flex-1 cursor-pointer">
+                        <input type="radio" name="res_app_${idx}" value="Disetujui" class="peer sr-only" checked>
+                        <div class="text-center py-1.5 rounded border border-slate-200 text-slate-400 text-[9px] font-black peer-checked:bg-emerald-50 peer-checked:text-emerald-600 peer-checked:border-emerald-300 transition-all">SETUJU</div>
+                    </label>
+                    <label class="flex-1 cursor-pointer">
+                        <input type="radio" name="res_app_${idx}" value="Ditolak" class="peer sr-only">
+                        <div class="text-center py-1.5 rounded border border-slate-200 text-slate-400 text-[9px] font-black peer-checked:bg-rose-50 peer-checked:text-rose-600 peer-checked:border-rose-300 transition-all">TOLAK</div>
+                    </label>
+                </div>`;
+            }
+
+            return `
+            <tr class="hover:bg-slate-50 transition border-b border-slate-50">
+                <td class="py-3 px-4">
+                    <span class="font-extrabold text-slate-700 block">${i.nama}</span>
+                    ${actionHtml}
+                </td>
+                <td class="py-3 px-4 text-center align-top"><span class="bg-slate-100 text-slate-600 font-black px-2 py-1 rounded-md border border-slate-200">${i.qty}</span></td>
+                <td class="py-3 px-4 text-[10px] text-slate-400 italic align-top">${i.catatan || '-'}</td>
+            </tr>`;
+        }).join('');
+
+        let footer = document.getElementById('restok-modal-footer');
+        if (footer) {
+            if (bm.Status === 'Pending') {
+                footer.innerHTML = `<button onclick="superApp.processPartialRestok('${bm.Surat_Jalan}')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3.5 rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"><i class="fas fa-check-double"></i> Simpan Otorisasi Pilihan</button>`;
+                footer.classList.remove('hidden');
+            } else {
+                footer.innerHTML = ''; footer.classList.add('hidden');
+            }
+        }
 
         const modal = document.getElementById('modal-detail-restok');
         if (modal) { modal.classList.remove('hidden'); void modal.offsetWidth; modal.classList.add('opacity-100'); modal.firstElementChild.classList.remove('scale-95'); modal.firstElementChild.classList.add('scale-100'); }
@@ -6193,9 +6253,7 @@ openDetailStokOpname: function(sku) {
         let op = this.getGroupedOpname().find(x => x.Waktu === waktu && x.Outlet === outlet);
         if (!op) return;
 
-        let txt = `*[ LAPORAN OPNAME FISIK ]*\n\n`;
-        txt += `Cabang: *Ai-CHA ${op.Outlet}*\nWaktu: ${op.Waktu}\nAuditor: ${op.Kasir}\n\n*Rincian Selisih:*\n`;
-
+        let txt = `*[ LAPORAN OPNAME FISIK ]*\n\nCabang: *Ai-CHA ${op.Outlet}*\nWaktu: ${op.Waktu}\nAuditor: ${op.Kasir}\n\n*Rincian Selisih:*\n`;
         op.Items.forEach(i => {
             let diff = Number(i.fisik) - Number(i.sistem);
             if (diff !== 0) {
@@ -6203,8 +6261,9 @@ openDetailStokOpname: function(sku) {
                 txt += `- ${i.nama}:\n  (Sis: ${i.sistem} | Fis: ${i.fisik} | *${diff} ${status}*)\n`;
             }
         });
-
         if (op.Items.every(i => Number(i.fisik) === Number(i.sistem))) txt += `✅ SELURUH STOK 100% AKURAT. TIDAK ADA SELISIH.\n`;
+        
+        // TYPO DIPERBAIKI (txt bukan text)
         window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(txt)}`, '_blank');
     },
 
@@ -6212,11 +6271,73 @@ openDetailStokOpname: function(sku) {
         let bm = this.getGroupedRestok().find(x => x.Surat_Jalan === suratJalan);
         if (!bm) return;
 
-        let txt = `*[ LAPORAN PENERIMAAN BARANG ]*\n\n`;
-        txt += `Cabang: *Ai-CHA ${bm.Outlet}*\nSurat Jalan: ${bm.Surat_Jalan}\nWaktu Terima: ${bm.Waktu}\nPenerima: ${bm.Kasir}\n\n*Rincian Barang Diterima:*\n`;
-
+        let txt = `*[ LAPORAN PENERIMAAN BARANG ]*\n\nCabang: *Ai-CHA ${bm.Outlet}*\nSurat Jalan: ${bm.Surat_Jalan}\nWaktu Terima: ${bm.Waktu}\nPenerima: ${bm.Kasir}\n\n*Rincian Barang Diterima:*\n`;
         bm.Items.forEach(i => { txt += `- ${i.nama} (*${i.qty} Pcs*)\n`; });
+        
+        // TYPO DIPERBAIKI (txt bukan text)
         window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(txt)}`, '_blank');
+    },
+
+    // =========================================================
+    // 🚀 ENGINE: FUNGSI SUBMIT OTORISASI PER ITEM (BARU!)
+    // =========================================================
+    processPartialOpname: async function(waktu, outlet) {
+        let op = this.getGroupedOpname().find(x => x.Waktu === waktu && x.Outlet === outlet);
+        if (!op) return;
+
+        let itemsSetuju = []; let itemsTolak = [];
+        op.Items.forEach((item, idx) => {
+            let radio = document.querySelector(`input[name="op_app_${idx}"]:checked`);
+            let val = radio ? radio.value : 'Disetujui'; // Setuju = Default
+
+            let payloadItem = { waktu: op.Waktu, outlet: op.Outlet, sku: item.sku };
+            if (val === 'Disetujui') itemsSetuju.push(payloadItem);
+            else itemsTolak.push(payloadItem);
+        });
+
+        this.setLoading(true, "Menyimpan Keputusan Opname...");
+        
+        // Kirim persetujuan yang disetujui (jika ada)
+        if (itemsSetuju.length > 0) {
+            await this.apiPost({ action: 'bulk_approve_opname', status_app: 'Disetujui', items: itemsSetuju });
+        }
+        // Kirim persetujuan yang ditolak (jika ada)
+        if (itemsTolak.length > 0) {
+            await this.apiPost({ action: 'bulk_approve_opname', status_app: 'Ditolak', items: itemsTolak });
+        }
+
+        this.setLoading(false);
+        this.showToast("Keputusan per-item berhasil disimpan!");
+        this.closeDetailOpnameModal();
+        this.refreshData(); // Sinkronisasi ulang database agar tabel riwayat terupdate
+    },
+
+    processPartialRestok: async function(suratJalan) {
+        let bm = this.getGroupedRestok().find(x => x.Surat_Jalan === suratJalan);
+        if (!bm) return;
+
+        let itemsSetuju = []; let itemsTolak = [];
+        bm.Items.forEach((item, idx) => {
+            let radio = document.querySelector(`input[name="res_app_${idx}"]:checked`);
+            let val = radio ? radio.value : 'Disetujui'; 
+
+            if (val === 'Disetujui') itemsSetuju.push(item.id_mutasi);
+            else itemsTolak.push(item.id_mutasi);
+        });
+
+        this.setLoading(true, "Menyimpan Keputusan Restok...");
+        
+        if (itemsSetuju.length > 0) {
+            await this.apiPost({ action: 'bulk_approve_mutasi', status_app: 'Disetujui', items: itemsSetuju });
+        }
+        if (itemsTolak.length > 0) {
+            await this.apiPost({ action: 'bulk_approve_mutasi', status_app: 'Ditolak', items: itemsTolak });
+        }
+
+        this.setLoading(false);
+        this.showToast("Keputusan per-item berhasil disimpan!");
+        this.closeDetailRestokModal();
+        this.refreshData(); // Sinkronisasi ulang database agar tabel riwayat terupdate
     },
     
 

@@ -2659,22 +2659,40 @@
     </div>
   </div>
 
-  <div id="modal-wa-history" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[200] hidden flex-col items-center justify-center p-4">
-    <div class="bg-white rounded-[2rem] w-full max-w-2xl p-6 shadow-2xl modal-enter text-slate-800 flex flex-col max-h-[90vh]" id="modal-wa-history-content">
-      <div class="flex justify-between items-center mb-4 shrink-0">
-        <h3 class="font-extrabold text-xl" id="wa-history-title">Riwayat Laporan WA</h3>
-        <button onclick="superApp.closeModal('modal-wa-history')" class="text-slate-400 hover:text-red-500 transition"><i class="fas fa-times text-xl"></i></button>
-      </div>
-      <div class="flex-1 overflow-y-auto custom-scroll min-h-0 bg-slate-50 border border-slate-200 rounded-xl p-2 shadow-inner">
-        <table class="w-full text-left whitespace-nowrap text-sm">
-          <thead class="text-slate-500 border-b border-slate-200 sticky top-0 bg-slate-50 z-10 shadow-sm">
-            <tr><th class="py-3 px-4">Waktu Lapor</th><th class="py-3 px-4">Kasir</th><th class="py-3 px-4 text-center">Total Item</th><th class="py-3 px-4 text-center">Aksi</th></tr>
-          </thead>
-          <tbody id="wa-history-tbody" class="font-bold divide-y divide-slate-200"></tbody>
-        </table>
-      </div>
+  <!-- MODAL RIWAYAT WA (TABLE VIEW) -->
+<div id="modal-wa-history" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[200] hidden flex-col items-center justify-center p-4 transition-opacity duration-300 opacity-0">
+    <div class="bg-white rounded-[2rem] w-full max-w-2xl p-6 shadow-2xl modal-enter text-slate-800 flex flex-col max-h-[90vh] transform scale-95 transition-transform duration-300" id="modal-wa-history-content">
+        
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-5 shrink-0 border-b border-slate-100 pb-4">
+            <h3 class="font-extrabold text-xl text-slate-700 flex items-center gap-2">
+                <i class="fab fa-whatsapp text-emerald-500 text-2xl"></i> 
+                <span id="wa-history-title">Riwayat Laporan WA</span>
+            </h3>
+            <button onclick="superApp.closeWaHistory()" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-400 hover:bg-rose-100 hover:text-rose-500 transition-colors active:scale-90"><i class="fas fa-times"></i></button>
+        </div>
+        
+        <!-- Table Area -->
+        <div class="flex-1 overflow-y-auto custom-scroll min-h-0 bg-slate-50 border border-slate-200 rounded-2xl shadow-inner relative">
+            <table class="w-full text-left whitespace-nowrap text-sm">
+                <thead class="text-slate-500 border-b border-slate-200 sticky top-0 bg-slate-50 z-10 shadow-sm text-xs uppercase tracking-wider font-black">
+                    <tr>
+                        <th class="py-3 px-4">Waktu Lapor</th>
+                        <th class="py-3 px-4">Kasir / Resi</th>
+                        <th class="py-3 px-4 text-center">Total Item</th>
+                        <th class="py-3 px-4 text-center">Kirim Ulang</th>
+                    </tr>
+                </thead>
+                <tbody id="wa-history-tbody" class="font-bold text-slate-700 divide-y divide-slate-200"></tbody>
+            </table>
+        </div>
+        
+        <!-- Footer -->
+        <div class="mt-5 shrink-0 text-right">
+            <button onclick="superApp.closeWaHistory()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2.5 px-6 rounded-xl transition text-xs shadow-sm">Kembali</button>
+        </div>
     </div>
-  </div>
+</div>
 
   <div id="virtual-keyboard-overlay" class="fixed inset-0 z-[9998] hidden bg-transparent" onclick="osKeyboard.close()"></div>
 
@@ -2850,7 +2868,7 @@
 
   
 <!-- 1. PANGGIL APP.JS TERLEBIH DAHULU -->
-  <script src="app.js?v=527"></script>
+  <script src="app.js?v=528"></script>
   
 
   <!-- 2. BARU JALANKAN SCRIPT INLINE ANDA -->

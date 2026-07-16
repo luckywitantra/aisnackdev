@@ -5111,18 +5111,15 @@ refreshData: function() {
             return;
         }
 
-        let d = new Date(); let pad = (n) => n < 10 ? '0' + n : n;
-        let todayStrLocal = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
         let filteredData = [];
         let htmlList = '';
 
         if (type === 'opname') {
             titleEl.innerText = "Riwayat WA Opname (Hari Ini)";
-            // Ambil data milik cabang ini saja (tanpa batasan hari ini agar test lebih mudah, tapi kita utamakan hari ini)
             filteredData = this.getGroupedOpname().filter(x => x.Outlet === this.outlet);
 
             if (filteredData.length === 0) {
-                htmlList = `<tr><td colspan="4" class="text-center p-6 text-slate-400 text-xs italic">Belum ada riwayat pengajuan opname.</td></tr>`;
+                htmlList = `<tr><td colspan="4" class="text-center p-8 text-slate-400 text-xs italic">Belum ada riwayat pengajuan opname.</td></tr>`;
             } else {
                 htmlList = filteredData.map(op => `
                     <tr class="hover:bg-indigo-50/50 transition-colors">
@@ -5146,7 +5143,7 @@ refreshData: function() {
             filteredData = this.getGroupedRestok().filter(x => x.Outlet === this.outlet);
 
             if (filteredData.length === 0) {
-                htmlList = `<tr><td colspan="4" class="text-center p-6 text-slate-400 text-xs italic">Belum ada riwayat penerimaan barang.</td></tr>`;
+                htmlList = `<tr><td colspan="4" class="text-center p-8 text-slate-400 text-xs italic">Belum ada riwayat penerimaan barang.</td></tr>`;
             } else {
                 htmlList = filteredData.map(bm => `
                     <tr class="hover:bg-emerald-50/50 transition-colors">
@@ -5166,29 +5163,20 @@ refreshData: function() {
             }
         }
 
+        // Tembakkan HTML ke dalam tabel
         tbody.innerHTML = htmlList;
         
-        // Eksekusi Animasi Buka Modal
+        // Buka Modal (Anti Gagal)
         modal.classList.remove('hidden');
         modal.classList.add('flex');
-        void modal.offsetWidth; // Force reflow
-        modal.classList.add('opacity-100');
-        modal.firstElementChild.classList.remove('scale-95');
-        modal.firstElementChild.classList.add('scale-100');
     },
 
     closeWaHistory: function() {
         const modal = document.getElementById('modal-wa-history');
         if (modal) {
-            modal.classList.remove('opacity-100');
-            if(modal.firstElementChild) {
-                modal.firstElementChild.classList.remove('scale-100');
-                modal.firstElementChild.classList.add('scale-95');
-            }
-            setTimeout(() => {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-            }, 300);
+            // Tutup Modal Langsung
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
         }
     },
     

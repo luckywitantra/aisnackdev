@@ -4423,22 +4423,26 @@ updatePendingNotifications: function() {
         let roleStr = this.currentUser ? String(this.currentUser.Role).toLowerCase() : '';
         let isAdmin = roleStr.includes('admin') || roleStr.includes('owner');
 
+        // 🚀 MENGGUNAKAN GETGROUPED AGAR YANG DIHITUNG ADALAH "DOKUMEN LAPORAN", BUKAN "ITEM ECERAN"
+        let groupedOpname = typeof this.getGroupedOpname === 'function' ? this.getGroupedOpname() : [];
+        let groupedRestok = typeof this.getGroupedRestok === 'function' ? this.getGroupedRestok() : [];
+
         let pOpnameTotal = 0; let pTerimaTotal = 0;
         let pOpnameOutlet = 0; let pTerimaOutlet = 0;
 
-        // 1. Hitung Opname Fisik Pending
-        (this.db.opname || []).forEach(o => {
-            if (o.Status_Approval === 'Pending') {
+        // 1. Hitung Laporan Opname Fisik Pending
+        groupedOpname.forEach(o => {
+            if (o.Status === 'Pending') {
                 pOpnameTotal++;
                 if (o.Outlet === this.outlet) pOpnameOutlet++;
             }
         });
 
-        // 2. Hitung Terima Barang (Mutasi) Pending
-        (this.db.mutasi || []).forEach(m => {
-            if (m.Status_Approval === 'Pending') {
+        // 2. Hitung Laporan Terima Barang (Mutasi) Pending
+        groupedRestok.forEach(m => {
+            if (m.Status === 'Pending') {
                 pTerimaTotal++;
-                if (m.Outlet_Tujuan === this.outlet) pTerimaOutlet++;
+                if (m.Outlet === this.outlet) pTerimaOutlet++;
             }
         });
 
@@ -4463,7 +4467,8 @@ updatePendingNotifications: function() {
             if (pTerimaOutlet > 0) {
                 badgeTerima.innerText = pTerimaOutlet;
                 badgeTerima.classList.remove('hidden');
-                textTerima.innerHTML = `Terdapat <b>${pTerimaOutlet} item</b> barang masuk di Cabang ${this.outlet} yang belum disetujui. Stok belum bertambah.`;
+                // Teks diubah agar lebih logis (menyebut antrean dokumen, bukan item)
+                textTerima.innerHTML = `Terdapat <b>${pTerimaOutlet} antrean Surat Jalan</b> di Cabang ${this.outlet} yang belum disetujui. Stok belum bertambah.`;
                 bannerTerima.classList.remove('hidden');
             } else {
                 badgeTerima.classList.add('hidden');
@@ -4479,7 +4484,8 @@ updatePendingNotifications: function() {
             if (pOpnameOutlet > 0) {
                 badgeOpname.innerText = pOpnameOutlet;
                 badgeOpname.classList.remove('hidden');
-                textOpname.innerHTML = `Terdapat <b>${pOpnameOutlet} item</b> laporan selisih di Cabang ${this.outlet} yang menunggu diperiksa Owner.`;
+                // Teks diubah agar lebih logis
+                textOpname.innerHTML = `Terdapat <b>${pOpnameOutlet} antrean Laporan Audit</b> di Cabang ${this.outlet} yang menunggu diperiksa Owner.`;
                 bannerOpname.classList.remove('hidden');
             } else {
                 badgeOpname.classList.add('hidden');
@@ -6496,9 +6502,8 @@ openDetailStokOpname: function(sku) {
     },
 
   
-   
-    // =========================================================
-    // 🚀 ENGINE: PROSES OTORISASI (AUTO-APPROVE YANG AMAN)
+   // =========================================================
+    // 🚀 ENGINE: PROSES OTORISASI OPNAME (AUTO-REFRESH FIXED)
     // =========================================================
     processPartialOpname: async function(waktu, outlet) {
         let op = this.getGroupedOpname().find(x => x.Waktu === waktu && x.Outlet === outlet);
@@ -6506,17 +6511,14 @@ openDetailStokOpname: function(sku) {
 
         let itemsSetuju = []; let itemsTolak = [];
         op.Items.forEach((item) => {
-            // Jika item ini akurat (tidak ada selisih & catatan), OTOMATIS DISETUJUI (karena disembunyikan dari layar)
             if (Number(item.fisik) === Number(item.sistem) && (!item.catatan || item.catatan.trim() === '')) {
                 itemsSetuju.push({ waktu: op.Waktu, outlet: op.Outlet, sku: item.sku });
-                return; // Lanjut ke item berikutnya
+                return; 
             }
-
-            // Jika ada selisih, baca keputusan Owner dari radio button yang tampil di layar
             let radio = document.querySelector(`input[name="op_app_${item.sku}"]:checked`);
-            let val = radio ? radio.value : 'Disetujui'; // Default Setuju jika tidak diklik
-
+            let val = radio ? radio.value : 'Disetujui'; 
             let payloadItem = { waktu: op.Waktu, outlet: op.Outlet, sku: item.sku };
+            
             if (val === 'Disetujui') itemsSetuju.push(payloadItem);
             else itemsTolak.push(payloadItem);
         });
@@ -6530,17 +6532,29 @@ openDetailStokOpname: function(sku) {
             await this.apiPost({ action: 'bulk_approve_opname', status_app: 'Ditolak', items: itemsTolak });
         }
 
-        this.setLoading(false);
         this.showToast("Keputusan berhasil disimpan!");
         this.closeDetailOpnameModal();
         
-        if (typeof this.refreshData === 'function') {
-            await this.refreshData(); 
-            this.renderAuditOpname(); 
-            this.renderOpnameHistory(); 
+        // 🛑 TARIK DATA TERBARU DARI SERVER SEBELUM MERENDER ULANG 🛑
+        try {
+            let rUrl = (typeof API_URL !== 'undefined') ? API_URL : this.webAppUrl;
+            const r = await fetch(rUrl + "?ts=" + new Date().getTime(), { redirect: 'follow' });
+            this.db = await r.json();
+            
+            if (typeof this.refreshData === 'function') this.refreshData(); 
+            this.updatePendingBanners(); // Update Saklar Banner
+            this.renderAuditOpname();    // Bersihkan Tabel Pending
+            this.renderOpnameHistory();  // Masukkan ke Tabel Riwayat
+        } catch (e) {
+            console.error("Gagal sinkronisasi data", e);
         }
+        
+        this.setLoading(false);
     },
 
+    // =========================================================
+    // 🚀 ENGINE: PROSES OTORISASI RESTOK (AUTO-REFRESH FIXED)
+    // =========================================================
     processPartialRestok: async function(suratJalan) {
         let bm = this.getGroupedRestok().find(x => x.Surat_Jalan === suratJalan);
         if (!bm) return;
@@ -6563,16 +6577,24 @@ openDetailStokOpname: function(sku) {
             await this.apiPost({ action: 'bulk_approve_mutasi', status_app: 'Ditolak', items: itemsTolak });
         }
 
-        this.setLoading(false);
-        this.showToast("Keputusan per-item berhasil disimpan!");
+        this.showToast("Keputusan berhasil disimpan!");
         this.closeDetailRestokModal();
 
-        // AUTO REFRESH DATA & UI
-        if (typeof this.refreshData === 'function') {
-            await this.refreshData(); // Tunggu DB baru ter-fetch
-            this.renderAuditTerima(); // Render ulang tabel PENDING
-            this.renderRestokHistory(); // Render ulang tabel RIWAYAT
+        // 🛑 TARIK DATA TERBARU DARI SERVER SEBELUM MERENDER ULANG 🛑
+        try {
+            let rUrl = (typeof API_URL !== 'undefined') ? API_URL : this.webAppUrl;
+            const r = await fetch(rUrl + "?ts=" + new Date().getTime(), { redirect: 'follow' });
+            this.db = await r.json();
+            
+            if (typeof this.refreshData === 'function') this.refreshData(); 
+            this.updatePendingBanners(); // Update Saklar Banner
+            this.renderAuditTerima();    // Bersihkan Tabel Pending
+            this.renderRestokHistory();  // Masukkan ke Tabel Riwayat
+        } catch (e) {
+            console.error("Gagal sinkronisasi data", e);
         }
+        
+        this.setLoading(false);
     },
     
 

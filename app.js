@@ -6194,10 +6194,7 @@ openDetailStokOpname: function(sku) {
         if (!op) return;
 
         let txt = `*[ LAPORAN OPNAME FISIK ]*\n\n`;
-        txt += `Cabang: *Ai-CHA ${op.Outlet}*\n`;
-        txt += `Waktu: ${op.Waktu}\n`;
-        txt += `Auditor: ${op.Kasir}\n\n`;
-        txt += `*Rincian Selisih:*\n`;
+        txt += `Cabang: *Ai-CHA ${op.Outlet}*\nWaktu: ${op.Waktu}\nAuditor: ${op.Kasir}\n\n*Rincian Selisih:*\n`;
 
         op.Items.forEach(i => {
             let diff = Number(i.fisik) - Number(i.sistem);
@@ -6207,11 +6204,8 @@ openDetailStokOpname: function(sku) {
             }
         });
 
-        if (op.Items.every(i => Number(i.fisik) === Number(i.sistem))) {
-            txt += `✅ SELURUH STOK 100% AKURAT. TIDAK ADA SELISIH.\n`;
-        }
-        
-        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+        if (op.Items.every(i => Number(i.fisik) === Number(i.sistem))) txt += `✅ SELURUH STOK 100% AKURAT. TIDAK ADA SELISIH.\n`;
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(txt)}`, '_blank');
     },
 
     sendWaTerima: function(suratJalan) {
@@ -6219,17 +6213,10 @@ openDetailStokOpname: function(sku) {
         if (!bm) return;
 
         let txt = `*[ LAPORAN PENERIMAAN BARANG ]*\n\n`;
-        txt += `Cabang: *Ai-CHA ${bm.Outlet}*\n`;
-        txt += `Surat Jalan: ${bm.Surat_Jalan}\n`;
-        txt += `Waktu Terima: ${bm.Waktu}\n`;
-        txt += `Penerima: ${bm.Kasir}\n\n`;
-        txt += `*Rincian Barang Diterima:*\n`;
+        txt += `Cabang: *Ai-CHA ${bm.Outlet}*\nSurat Jalan: ${bm.Surat_Jalan}\nWaktu Terima: ${bm.Waktu}\nPenerima: ${bm.Kasir}\n\n*Rincian Barang Diterima:*\n`;
 
-        bm.Items.forEach(i => {
-            txt += `- ${i.nama} (*${i.qty} Pcs*)\n`;
-        });
-        
-        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+        bm.Items.forEach(i => { txt += `- ${i.nama} (*${i.qty} Pcs*)\n`; });
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(txt)}`, '_blank');
     },
     
 

@@ -5098,47 +5098,75 @@ refreshData: function() {
             }, 10);
         }
     },
+   // =========================================================
+    // 🚀 ENGINE: TAMPILKAN MODAL RIWAYAT WA (UNTUK KASIR)
+    // =========================================================
     openWaHistory: function(type) {
-        const tbody = document.getElementById('wa-history-tbody');
-        if(!tbody) return;
-        let grouped = {};
+        const modal = document.getElementById('modal-wa-history');
+        const listCont = document.getElementById('wa-history-list');
+        const titleEl = document.getElementById('wa-history-title');
         
-        if (type === 'terima') {
-            document.getElementById('wa-history-title').innerText = 'Riwayat Terima Barang';
-            (this.db.mutasi || []).forEach(m => {
-                if (m.Outlet_Tujuan === this.outlet) {
-                    let w = String(m.Waktu);
-                    if(!grouped[w]) grouped[w] = { kasir: m.Kasir, items: [], waktu: w };
-                    let nama = this.db.masterProduk.find(x => x.SKU === m.SKU)?.Nama_Produk || m.SKU;
-                    grouped[w].items.push({ nama: nama, qty: m.Qty, note: m.Keterangan });
-                }
-            });
-        } else {
-            document.getElementById('wa-history-title').innerText = 'Riwayat Opname Fisik';
-            (this.db.opname || []).forEach(o => {
-                if (o.Outlet === this.outlet) {
-                    let w = String(o.Waktu);
-                    if(!grouped[w]) grouped[w] = { kasir: o.Kasir, items: [], waktu: w };
-                    let nama = this.db.masterProduk.find(x => x.SKU === o.SKU)?.Nama_Produk || o.SKU;
-                    grouped[w].items.push({ nama: nama, sys: o.Stok_Sistem, fisik: o.Stok_Fisik, selisih: o.Selisih, note: o.Keterangan_Fisik });
-                }
-            });
+        if (!modal || !listCont) {
+            this.showToast("Komponen Modal Riwayat WA belum tersedia di HTML.", "error");
+            return;
         }
 
-        let arr = Object.values(grouped).sort((a,b) => new Date(this.parseDateId(b.waktu)) - new Date(this.parseDateId(a.waktu)));
-        let html = '';
-        arr.slice(0, 50).forEach(g => { 
-            let safeWaktu = g.waktu.includes('T') ? this.cleanDateOnly(g.waktu) + ' ' + this.cleanTimeOnly(g.waktu) : g.waktu;
-            let btnAction = `<button onclick="superApp.resendWa('${type}', '${encodeURIComponent(g.waktu)}')" class="bg-[#25D366] text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-[#20bd5a] transition"><i class="fab fa-whatsapp mr-1"></i> Kirim</button>`;
-            html += `<tr class="border-b border-slate-50 hover:bg-slate-100 transition"><td class="py-3 px-4 text-xs">${safeWaktu}</td><td class="py-3 px-4 text-xs font-bold">${g.kasir}</td><td class="py-3 px-4 text-center text-xs">${g.items.length} Item</td><td class="py-3 px-4 text-center">${btnAction}</td></tr>`;
-        });
-        
-        tbody.innerHTML = html || `<tr><td colspan="4" class="text-center py-6 text-slate-400 text-xs italic">Belum ada riwayat laporan</td></tr>`;
-        
-        const mod = document.getElementById('modal-wa-history');
-        const modc = document.getElementById('modal-wa-history-content');
-        if(mod && modc) { mod.classList.remove('hidden'); setTimeout(() => modc.classList.add('modal-enter-active'), 10); }
+        let d = new Date(); let pad = (n) => n < 10 ? '0' + n : n;
+        let todayStrLocal = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+        let filteredData = [];
+        let htmlList = '';
+
+        if (type === 'opname') {
+            titleEl.innerText = "Riwayat WA Opname Hari Ini";
+            filteredData = this.getGroupedOpname().filter(x => 
+                x.Outlet === this.outlet && 
+                x.Waktu.includes(todayStrLocal)
+            );
+
+            if (filteredData.length === 0) {
+                htmlList = `<div class="text-center p-6 text-slate-400 text-xs italic">Belum ada pengajuan opname hari ini.</div>`;
+            } else {
+                htmlList = filteredData.map(op => `
+                    <div class="flex justify-between items-center p-3 border border-slate-200 rounded-xl mb-2 hover:bg-slate-50 transition">
+                        <div>
+                            <span class="font-black text-slate-700 text-xs block mb-1">Opname: ${op.Waktu.split(' ')[1] || op.Waktu}</span>
+                            <span class="text-[10px] font-bold text-slate-400">${op.Items.length} Item • Status: ${op.Status}</span>
+                        </div>
+                        <button onclick="superApp.sendWaOpname('${op.Waktu}', '${op.Outlet}')" class="bg-emerald-50 hover:bg-emerald-500 text-emerald-600 hover:text-white w-9 h-9 flex items-center justify-center rounded-full transition shadow-sm border border-emerald-100">
+                            <i class="fab fa-whatsapp"></i>
+                        </button>
+                    </div>
+                `).join('');
+            }
+        } 
+        else if (type === 'terima') {
+            titleEl.innerText = "Riwayat WA Restok Hari Ini";
+            filteredData = this.getGroupedRestok().filter(x => 
+                x.Outlet === this.outlet && 
+                x.Waktu.includes(todayStrLocal)
+            );
+
+            if (filteredData.length === 0) {
+                htmlList = `<div class="text-center p-6 text-slate-400 text-xs italic">Belum ada penerimaan restok hari ini.</div>`;
+            } else {
+                htmlList = filteredData.map(bm => `
+                    <div class="flex justify-between items-center p-3 border border-slate-200 rounded-xl mb-2 hover:bg-slate-50 transition">
+                        <div>
+                            <span class="font-black text-slate-700 text-xs block mb-1">Surat Jalan: ${bm.Surat_Jalan}</span>
+                            <span class="text-[10px] font-bold text-slate-400">${bm.Items.length} Macam • Diterima: ${bm.Waktu.split(' ')[1] || bm.Waktu}</span>
+                        </div>
+                        <button onclick="superApp.sendWaTerima('${bm.Surat_Jalan}')" class="bg-emerald-50 hover:bg-emerald-500 text-emerald-600 hover:text-white w-9 h-9 flex items-center justify-center rounded-full transition shadow-sm border border-emerald-100">
+                            <i class="fab fa-whatsapp"></i>
+                        </button>
+                    </div>
+                `).join('');
+            }
+        }
+
+        listCont.innerHTML = htmlList;
+        this.openModal('modal-wa-history');
     },
+    
     resendWa: function(type, encodedWaktu) {
         let waktu = decodeURIComponent(encodedWaktu);
         let waText = '';
@@ -6327,7 +6355,7 @@ openDetailStokOpname: function(sku) {
     },
 
     // =========================================================
-    // 🚀 ENGINE: FUNGSI SUBMIT OTORISASI PER ITEM (BARU!)
+    // 🚀 ENGINE: FUNGSI SUBMIT OTORISASI PER ITEM (AUTO REFRESH FIXED)
     // =========================================================
     processPartialOpname: async function(waktu, outlet) {
         let op = this.getGroupedOpname().find(x => x.Waktu === waktu && x.Outlet === outlet);
@@ -6345,11 +6373,9 @@ openDetailStokOpname: function(sku) {
 
         this.setLoading(true, "Menyimpan Keputusan Opname...");
         
-        // Kirim persetujuan yang disetujui (jika ada)
         if (itemsSetuju.length > 0) {
             await this.apiPost({ action: 'bulk_approve_opname', status_app: 'Disetujui', items: itemsSetuju });
         }
-        // Kirim persetujuan yang ditolak (jika ada)
         if (itemsTolak.length > 0) {
             await this.apiPost({ action: 'bulk_approve_opname', status_app: 'Ditolak', items: itemsTolak });
         }
@@ -6357,7 +6383,13 @@ openDetailStokOpname: function(sku) {
         this.setLoading(false);
         this.showToast("Keputusan per-item berhasil disimpan!");
         this.closeDetailOpnameModal();
-        this.refreshData(); // Sinkronisasi ulang database agar tabel riwayat terupdate
+        
+        // AUTO REFRESH DATA & UI
+        if (typeof this.refreshData === 'function') {
+            await this.refreshData(); // Tunggu DB baru ter-fetch
+            this.renderAuditOpname(); // Render ulang tabel PENDING
+            this.renderOpnameHistory(); // Render ulang tabel RIWAYAT
+        }
     },
 
     processPartialRestok: async function(suratJalan) {
@@ -6385,7 +6417,13 @@ openDetailStokOpname: function(sku) {
         this.setLoading(false);
         this.showToast("Keputusan per-item berhasil disimpan!");
         this.closeDetailRestokModal();
-        this.refreshData(); // Sinkronisasi ulang database agar tabel riwayat terupdate
+
+        // AUTO REFRESH DATA & UI
+        if (typeof this.refreshData === 'function') {
+            await this.refreshData(); // Tunggu DB baru ter-fetch
+            this.renderAuditTerima(); // Render ulang tabel PENDING
+            this.renderRestokHistory(); // Render ulang tabel RIWAYAT
+        }
     },
     
 

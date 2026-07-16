@@ -5900,50 +5900,7 @@ openDetailStokOpname: function(sku) {
         }, 200);
     },
     
-    // =========================================================
-    // 🚀 ENGINE AUDIT: SWITCHER TABS & BULK ACTIONS
-    // =========================================================
-    toggleAuditTab: function(tabName) {
-        const tabs = ['opname', 'terima', 'riwayat-opname', 'riwayat-terima'];
-        
-        tabs.forEach(t => {
-            const btn = document.getElementById(`tab-audit-${t}`);
-            const content = document.getElementById(`audit-content-${t}`);
-            if (!btn || !content) return;
-
-            if (t === tabName) {
-                btn.classList.replace('text-slate-500', 'text-indigo-600');
-                btn.classList.add('bg-white', 'shadow-[0_4px_12px_rgba(0,0,0,0.05)]');
-                content.classList.remove('hidden');
-                content.classList.add('flex');
-            } else {
-                btn.classList.replace('text-indigo-600', 'text-slate-500');
-                btn.classList.remove('bg-white', 'shadow-[0_4px_12px_rgba(0,0,0,0.05)]');
-                content.classList.add('hidden');
-                content.classList.remove('flex');
-            }
-        });
-
-        // Tampilkan tombol Bulk Action HANYA di tab Pending Approval
-        const bulkBar = document.getElementById('bulk-action-bar');
-        if (bulkBar) {
-            if (tabName === 'opname' || tabName === 'terima') {
-                bulkBar.classList.remove('hidden');
-                bulkBar.classList.add('flex');
-            } else {
-                bulkBar.classList.add('hidden');
-                bulkBar.classList.remove('flex');
-            }
-        }
-
-       // Panggil Engine Render untuk memuat tabel riwayat
-        if (tabName === 'riwayat-opname' && typeof this.renderOpnameHistory === 'function') this.renderOpnameHistory();
-        if (tabName === 'riwayat-terima' && typeof this.renderRestokHistory === 'function') this.renderRestokHistory();
-        
-        // Panggil fungsi render bawaan Anda jika kembali ke tab Pending
-        if (tabName === 'opname' && typeof this.renderAuditOpname === 'function') this.renderAuditOpname();
-        if (tabName === 'terima' && typeof this.renderAuditTerima === 'function') this.renderAuditTerima();
-    },
+   
 
     // =========================================================
     // 🚀 HELPER: GROUPING DATA ECERAN MENJADI DATA SESI TRANSAKSI
@@ -5987,8 +5944,69 @@ openDetailStokOpname: function(sku) {
         return Object.values(map).reverse();
     },
 
+   
     // =========================================================
-    // 🚀 ENGINE AUDIT 1: PENDING OPNAME
+    // 🚀 ENGINE AUDIT: NAVIGASI BULAN (BARU)
+    // =========================================================
+    auditHistoryDate: new Date(),
+
+    changeAuditMonth: function(offset) {
+        this.auditHistoryDate.setMonth(this.auditHistoryDate.getMonth() + offset);
+        this.updateAuditMonthLabel();
+        this.renderOpnameHistory();
+        this.renderRestokHistory();
+    },
+
+    resetAuditMonth: function() {
+        this.auditHistoryDate = new Date();
+        this.updateAuditMonthLabel();
+        this.renderOpnameHistory();
+        this.renderRestokHistory();
+    },
+
+    updateAuditMonthLabel: function() {
+        const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+        const label = `${months[this.auditHistoryDate.getMonth()]} ${this.auditHistoryDate.getFullYear()}`;
+        const lbls = document.querySelectorAll('.audit-month-label');
+        lbls.forEach(el => el.innerText = label);
+    },
+
+    // =========================================================
+    // 🚀 ENGINE AUDIT: SWITCHER TABS (Bulk Hapus)
+    // =========================================================
+    toggleAuditTab: function(tabName) {
+        const tabs = ['opname', 'terima', 'riwayat-opname', 'riwayat-terima'];
+        
+        tabs.forEach(t => {
+            const btn = document.getElementById(`tab-audit-${t}`);
+            const content = document.getElementById(`audit-content-${t}`);
+            if (!btn || !content) return;
+
+            if (t === tabName) {
+                btn.classList.replace('text-slate-500', 'text-indigo-600');
+                btn.classList.add('bg-white', 'shadow-[0_4px_12px_rgba(0,0,0,0.05)]');
+                content.classList.remove('hidden');
+                content.classList.add('flex');
+            } else {
+                btn.classList.replace('text-indigo-600', 'text-slate-500');
+                btn.classList.remove('bg-white', 'shadow-[0_4px_12px_rgba(0,0,0,0.05)]');
+                content.classList.add('hidden');
+                content.classList.remove('flex');
+            }
+        });
+
+        // Setel tanggal ke bulan saat ini tiap buka tab
+        this.updateAuditMonthLabel();
+
+        // Panggil Engine Render untuk memuat tabel
+        if (tabName === 'riwayat-opname' && typeof this.renderOpnameHistory === 'function') this.renderOpnameHistory();
+        if (tabName === 'riwayat-terima' && typeof this.renderRestokHistory === 'function') this.renderRestokHistory();
+        if (tabName === 'opname' && typeof this.renderAuditOpname === 'function') this.renderAuditOpname();
+        if (tabName === 'terima' && typeof this.renderAuditTerima === 'function') this.renderAuditTerima();
+    },
+
+    // =========================================================
+    // 🚀 ENGINE AUDIT 1: PENDING OPNAME (Tanpa Checkbox)
     // =========================================================
     renderAuditOpname: function() {
         const tbody = document.getElementById('audit-opname-tbody');
@@ -5997,7 +6015,7 @@ openDetailStokOpname: function(sku) {
         let pendingData = this.getGroupedOpname().filter(x => x.Status === 'Pending');
 
         if (pendingData.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400 italic text-xs">Tidak ada pengajuan Opname yang menunggu persetujuan</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-slate-400 italic text-xs">Tidak ada pengajuan Opname yang menunggu persetujuan</td></tr>`;
             return;
         }
 
@@ -6007,25 +6025,23 @@ openDetailStokOpname: function(sku) {
             let statusBadge = (akuratCount === op.Items.length) 
                 ? `<span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[9px]">Akurat</span>`
                 : `<span class="bg-rose-100 text-rose-600 px-2 py-0.5 rounded text-[9px]">Ada Selisih</span>`;
-            
-            // Menyimpan payload data untuk bulk action di dalam value checkbox
-            let cbValue = JSON.stringify(op.Items.map(i => ({ waktu: op.Waktu, outlet: op.Outlet, sku: i.sku })));
 
             return `
             <tr class="hover:bg-slate-50 transition">
-                <td class="py-3 px-4 text-center"><input type="checkbox" value='${cbValue}' class="cb-audit-opname w-4 h-4 rounded border-slate-300 accent-indigo-500"></td>
                 <td class="py-3 px-4 text-[11px]">${op.Waktu}</td>
                 <td class="py-3 px-4"><span class="text-indigo-600 font-black">Ai-CHA ${op.Outlet}</span><br><span class="text-[9px] text-slate-400">Oleh: ${op.Kasir}</span></td>
-                <td class="py-3 px-4 text-center"><button onclick="superApp.openDetailOpnameModal('${op.Waktu}', '${op.Outlet}')" class="text-indigo-500 underline text-[10px] font-black">${op.Items.length} Item</button></td>
+                <td class="py-3 px-4 text-center">
+                    <button onclick="superApp.openDetailOpnameModal('${op.Waktu}', '${op.Outlet}')" class="text-indigo-500 underline text-[10px] font-black bg-indigo-50 px-3 py-1 rounded-lg hover:bg-indigo-100 transition"><i class="fas fa-tasks mr-1"></i> ${op.Items.length} Item</button>
+                </td>
                 <td class="py-3 px-4 text-center">${statusBadge}</td>
-                <td class="py-3 px-4 text-center">-</td>
+                <td class="py-3 px-4 text-center text-slate-400 italic text-[10px]">-</td>
                 <td class="py-3 px-4 text-[10px] text-slate-500 italic max-w-[120px] truncate">-</td>
             </tr>`;
         }).join('');
     },
 
     // =========================================================
-    // 🚀 ENGINE AUDIT 2: PENDING TERIMA BARANG (RESTOK)
+    // 🚀 ENGINE AUDIT 2: PENDING TERIMA BARANG (Tanpa Checkbox)
     // =========================================================
     renderAuditTerima: function() {
         const tbody = document.getElementById('audit-terima-tbody');
@@ -6034,20 +6050,19 @@ openDetailStokOpname: function(sku) {
         let pendingData = this.getGroupedRestok().filter(x => x.Status === 'Pending');
 
         if (pendingData.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-slate-400 italic text-xs">Tidak ada pengajuan Restok yang menunggu persetujuan</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-slate-400 italic text-xs">Tidak ada pengajuan Restok yang menunggu persetujuan</td></tr>`;
             return;
         }
 
         tbody.innerHTML = pendingData.map(bm => {
             let totalQty = 0; bm.Items.forEach(i => totalQty += Number(i.qty));
-            let cbValue = bm.Surat_Jalan; // Backend mutasi butuh ID Mutasi
-
             return `
             <tr class="hover:bg-slate-50 transition">
-                <td class="py-3 px-4 text-center"><input type="checkbox" value='${cbValue}' class="cb-audit-terima w-4 h-4 rounded border-slate-300 accent-emerald-500"></td>
                 <td class="py-3 px-4 text-[11px]">${bm.Waktu}</td>
                 <td class="py-3 px-4"><span class="text-emerald-600 font-black">Ai-CHA ${bm.Outlet}</span><br><span class="text-[9px] text-slate-400">Oleh: ${bm.Kasir}</span></td>
-                <td class="py-3 px-4 text-center"><button onclick="superApp.openDetailRestokModal('${bm.Surat_Jalan}')" class="text-emerald-500 underline text-[10px] font-black">${bm.Items.length} Item</button></td>
+                <td class="py-3 px-4 text-center">
+                    <button onclick="superApp.openDetailRestokModal('${bm.Surat_Jalan}')" class="text-emerald-500 underline text-[10px] font-black bg-emerald-50 px-3 py-1 rounded-lg hover:bg-emerald-100 transition"><i class="fas fa-box-open mr-1"></i> ${bm.Items.length} Item</button>
+                </td>
                 <td class="py-3 px-4 text-center font-black">${totalQty} Pcs</td>
                 <td class="py-3 px-4 text-[10px] text-slate-500 italic">Surat Jalan: ${bm.Surat_Jalan}</td>
             </tr>`;
@@ -6055,18 +6070,34 @@ openDetailStokOpname: function(sku) {
     },
 
     // =========================================================
-    // 🚀 ENGINE AUDIT 3 & 4: RIWAYAT OPNAME & RIWAYAT RESTOK
+    // 🚀 ENGINE AUDIT 3 & 4: RIWAYAT (DENGAN FILTER BULAN)
     // =========================================================
     renderOpnameHistory: function() {
         const tbody = document.getElementById('audit-riwayat-opname-tbody');
         const searchVal = (document.getElementById('search-opname')?.value || '').toLowerCase();
         if (!tbody) return;
 
-        let historyData = this.getGroupedOpname().filter(x => x.Status !== 'Pending');
-        if (searchVal) historyData = historyData.filter(x => `${x.ID_Opname} ${x.Outlet} ${x.Kasir}`.toLowerCase().includes(searchVal));
+        let targetMonth = this.auditHistoryDate.getMonth();
+        let targetYear = this.auditHistoryDate.getFullYear();
+
+        let historyData = this.getGroupedOpname().filter(x => {
+            if (x.Status === 'Pending') return false; // Jangan tampilkan pending di riwayat
+            
+            // Filter Berdasarkan Bulan dan Tahun
+            let parts = (x.Waktu || '').split(' ')[0].split(/[\/\-]/); 
+            if(parts.length === 3) {
+                let m = parseInt(parts[1], 10) - 1;
+                let y = parseInt(parts[2], 10);
+                if (m !== targetMonth || y !== targetYear) return false;
+            }
+            
+            // Filter Berdasarkan Search (jika ada)
+            if (searchVal && !`${x.ID_Opname} ${x.Outlet} ${x.Kasir}`.toLowerCase().includes(searchVal)) return false;
+            return true;
+        });
 
         if (historyData.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-slate-400 italic text-xs">Belum ada riwayat audit tersimpan</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-slate-400 italic text-xs border border-dashed border-slate-200 rounded-xl">Tidak ada riwayat audit di bulan ini.</td></tr>`;
             return;
         }
 
@@ -6094,11 +6125,27 @@ openDetailStokOpname: function(sku) {
         const searchVal = (document.getElementById('search-restok')?.value || '').toLowerCase();
         if (!tbody) return;
 
-        let historyData = this.getGroupedRestok().filter(x => x.Status !== 'Pending');
-        if (searchVal) historyData = historyData.filter(x => `${x.Surat_Jalan} ${x.Outlet} ${x.Supplier}`.toLowerCase().includes(searchVal));
+        let targetMonth = this.auditHistoryDate.getMonth();
+        let targetYear = this.auditHistoryDate.getFullYear();
+
+        let historyData = this.getGroupedRestok().filter(x => {
+            if (x.Status === 'Pending') return false; // Jangan tampilkan pending di riwayat
+            
+            // Filter Berdasarkan Bulan dan Tahun
+            let parts = (x.Waktu || '').split(' ')[0].split(/[\/\-]/); 
+            if(parts.length === 3) {
+                let m = parseInt(parts[1], 10) - 1;
+                let y = parseInt(parts[2], 10);
+                if (m !== targetMonth || y !== targetYear) return false;
+            }
+
+            // Filter Berdasarkan Search (jika ada)
+            if (searchVal && !`${x.Surat_Jalan} ${x.Outlet} ${x.Supplier}`.toLowerCase().includes(searchVal)) return false;
+            return true;
+        });
 
         if (historyData.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-slate-400 italic text-xs">Belum ada riwayat penerimaan</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-slate-400 italic text-xs border border-dashed border-slate-200 rounded-xl">Tidak ada riwayat penerimaan di bulan ini.</td></tr>`;
             return;
         }
 
@@ -6115,6 +6162,7 @@ openDetailStokOpname: function(sku) {
             </tr>`).join('');
     },
 
+    
    openDetailOpnameModal: function(waktu, outlet) {
         let op = this.getGroupedOpname().find(x => x.Waktu === waktu && x.Outlet === outlet);
         if (!op) return;

@@ -6542,7 +6542,7 @@ openDetailStokOpname: function(sku) {
             this.db = await r.json();
             
             if (typeof this.refreshData === 'function') this.refreshData(); 
-            this.updatePendingBanners(); // Update Saklar Banner
+            this.updatePendingNotifications(); // Update Saklar Banner
             this.renderAuditOpname();    // Bersihkan Tabel Pending
             this.renderOpnameHistory();  // Masukkan ke Tabel Riwayat
         } catch (e) {
@@ -6587,7 +6587,7 @@ openDetailStokOpname: function(sku) {
             this.db = await r.json();
             
             if (typeof this.refreshData === 'function') this.refreshData(); 
-            this.updatePendingBanners(); // Update Saklar Banner
+            this.updatePendingNotifications(); // Update Saklar Banner
             this.renderAuditTerima();    // Bersihkan Tabel Pending
             this.renderRestokHistory();  // Masukkan ke Tabel Riwayat
         } catch (e) {

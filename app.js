@@ -5388,43 +5388,51 @@ refreshData: function() {
     },
     
   
-   // =========================================================
-    // 🚀 TAHAP 1: VALIDASI & MODAL KONFIRMASI TERIMA BARANG
-    // =========================================================
-    : async function() {
+   submitTerimaBarang: async function() {
         if (this.isProcessing) return;
-
-        // 1. Validasi keranjang (menggunakan cartRestok)
-        if (!this.cartRestok || this.cartRestok.length === 0) return this.showToast("Daftar barang kosong! Masukkan qty terlebih dahulu.", "error");
-
-        let items = this.cartRestok;
+        
+        let items = [];
         let totalPcs = 0;
         let waText = `*LAPORAN BARANG DATANG PUSAT*\n📍 Cabang: ${this.outlet}\n👤 Kasir: ${this.currentUser ? this.currentUser.Username : 'Kasir'}\n📅 Waktu: ${new Date().toLocaleString('id-ID')}\n\n*_Mohon cek aplikasi menu Audit untuk memverifikasi agar stok masuk ke sistem_*\n\n`;
 
-        items.forEach(i => {
-            totalPcs += Number(i.qty);
-            waText += `📦 *${i.nama}*\nQty Diterima: *${i.qty} Pcs*\nCatatan: ${i.catatan || '-'}\n\n`;
+        (this.db.masterProduk || []).forEach(m => {
+            if (String(m.Kategori || '').toLowerCase() === 'bahan' || String(m.Kategori || '').toLowerCase() === 'pendukung') {
+                let inputDesk = document.getElementById(`trm-qty-${m.SKU}`); 
+                let inputMob = document.getElementById(`trm-qty-mob-${m.SKU}`);
+                let qtyStr = inputDesk && inputDesk.value !== '' ? inputDesk.value : (inputMob && inputMob.value !== '' ? inputMob.value : '');
+
+                if (qtyStr !== '' && parseInt(this.getNumericValue(qtyStr)) > 0) {
+                    let qtyNum = parseInt(this.getNumericValue(qtyStr));
+                    let noteDesk = document.getElementById(`trm-note-${m.SKU}`); 
+                    let noteMob = document.getElementById(`trm-note-mob-${m.SKU}`);
+                    let note = noteDesk && noteDesk.value !== '' ? noteDesk.value : (noteMob && noteMob.value !== '' ? noteMob.value : '');
+                    
+                    items.push({ sku: m.SKU, nama: m.Nama_Produk, qty: qtyNum, catatan: note });
+                    totalPcs += qtyNum;
+                    waText += `📦 *${m.Nama_Produk}*\nQty Diterima: *${qtyStr} Pcs*\nCatatan: ${note || '-'}\n\n`;
+                }
+            }
         });
 
-        // 2. CEK DUPLIKAT INPUTAN HARI INI
+        if (items.length === 0) return this.showToast("Tidak ada barang masuk yang diinput!", "error");
+
+        // --- CEK DUPLIKAT INPUTAN HARI INI ---
         let d = new Date(); let pad = (n) => n < 10 ? '0' + n : n;
         let todayStrLocal = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
         
-        // Asumsi cleanDateOnly mengembalikan format DD/MM/YYYY
         let sudahInputHariIni = (this.db.barangMasuk || []).some(m => 
             m.Outlet_Tujuan === this.outlet && 
             (typeof this.cleanDateOnly === 'function' ? this.cleanDateOnly(m.Waktu) : m.Waktu.includes(todayStrLocal)) &&
             m.Status_Approval === 'Pending'
         );
 
-        // 3. Pengkondisian Visual Isi Modal jika terdeteksi Double Input
+        // Pengkondisian Visual Isi Modal jika terdeteksi Double Input
         const iconBox = document.getElementById('terima-confirm-icon-box');
         const titleEl = document.getElementById('terima-confirm-title');
         const subtitleEl = document.getElementById('terima-confirm-subtitle');
         const warningBox = document.getElementById('terima-confirm-warning-box');
 
         if (sudahInputHariIni) {
-            // Ubah tema modal menjadi Kuning Peringatan (Warning)
             if (iconBox) iconBox.className = "w-20 h-20 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 border-[6px] border-amber-100/60 shadow-inner";
             if (titleEl) titleEl.innerText = "Laporan Ganda Terdeteksi";
             if (subtitleEl) subtitleEl.innerText = "Cabang ini sudah mengirim data pending hari ini.";
@@ -5433,7 +5441,6 @@ refreshData: function() {
                 warningBox.innerHTML = `<i class="fas fa-triangle-exclamation text-red-500 text-base mt-0.5 shrink-0"></i><p class="text-[11px] font-bold text-red-800 leading-relaxed"><b>PERINGATAN GRAV:</b> Sudah ada input barang datang yang pending hari ini. Yakin ingin mengirim antrean laporan baru?</p>`;
             }
         } else {
-            // Kembalikan ke tema Hijau Normal (Success/Info)
             if (iconBox) iconBox.className = "w-20 h-20 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 border-[6px] border-emerald-100/60 shadow-inner";
             if (titleEl) titleEl.innerText = "Konfirmasi Barang Datang";
             if (subtitleEl) subtitleEl.innerText = "Verifikasi jumlah barang yang dikirim kurir pusat.";
@@ -5443,7 +5450,6 @@ refreshData: function() {
             }
         }
 
-        // 4. Inject Ringkasan Angka ke UI Modal
         const summaryContainer = document.getElementById('terima-confirm-summary');
         if (summaryContainer) {
             summaryContainer.innerHTML = `
@@ -5462,22 +5468,57 @@ refreshData: function() {
             `;
         }
 
-        // 5. Tautkan fungsi eksekusi ke tombol
         const btnExecute = document.getElementById('btn-confirm-terima-execute');
         if (btnExecute) {
             btnExecute.onclick = () => this.executeSubmitTerimaBarang(items, waText);
         }
 
-        // 6. Buka Modal Box
         if (typeof this.openModal === 'function') {
             this.openModal('modal-confirm-terima');
         } else {
-            // Fallback jika tidak ada fungsi openModal (langsung eksekusi)
             let confirmMsg = sudahInputHariIni 
                 ? "Laporan ganda terdeteksi! Yakin ingin melanjutkan pengiriman antrean baru?"
                 : `Konfirmasi pengiriman ${totalPcs} Pcs barang?`;
             if (confirm(confirmMsg)) this.executeSubmitTerimaBarang(items, waText);
         }
+    },
+
+    executeSubmitTerimaBarang: async function(items, waText) {
+        if (this.isProcessing) return;
+        if (typeof this.closeModal === 'function') this.closeModal('modal-confirm-terima');
+        
+        setTimeout(async () => {
+            this.setLoading(true, "Menyimpan Laporan Masuk...");
+            const payload = { action: 'terima_barang_kasir', outlet: this.outlet, kasir: this.currentUser ? this.currentUser.Username : 'Kasir', items: items };
+            
+            let res = await this.apiPost(payload);
+            
+            if (res.status === 'sukses') {
+                this.showToast("Berhasil Disimpan di Sistem!");
+                if (typeof this.showWaModal === 'function') this.showWaModal(waText);
+                else if (typeof this.openWaLaporanModal === 'function') this.openWaLaporanModal(waText);
+
+                // Bersihkan Inputan
+                items.forEach(i => {
+                    let idDesk = document.getElementById(`trm-qty-${i.sku}`); if(idDesk) idDesk.value = '';
+                    let idMob = document.getElementById(`trm-qty-mob-${i.sku}`); if(idMob) idMob.value = '';
+                    let nd = document.getElementById(`trm-note-${i.sku}`); if(nd) nd.value = '';
+                    let nm = document.getElementById(`trm-note-mob-${i.sku}`); if(nm) nm.value = '';
+                });
+                
+                if (!res.is_offline) { 
+                    try {
+                        let rUrl = (typeof API_URL !== 'undefined') ? API_URL : this.webAppUrl;
+                        const r = await fetch(rUrl + "?ts=" + new Date().getTime(), { redirect: 'follow' }); 
+                        this.db = await r.json(); 
+                        if (typeof this.refreshData === 'function') this.refreshData(); 
+                    } catch(e) {}
+                }
+                
+                if (typeof this.switchMenu === 'function') this.switchMenu('pos');
+            }
+            this.setLoading(false);
+        }, 300);
     },
 
     // =========================================================

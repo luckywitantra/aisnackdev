@@ -5787,7 +5787,7 @@ refreshData: function() {
         }
 
         return waText;
-    }
+    },
 
 openDetailStokOpname: function(sku) {
         let m = (this.db.masterProduk || []).find(x => x.SKU === sku);

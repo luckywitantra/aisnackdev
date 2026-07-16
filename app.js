@@ -5662,7 +5662,8 @@ refreshData: function() {
         
         (this.db.transactions || []).forEach(t => {
             if(t.Status === 'Sukses' && t.Outlet === outlet) {
-                let d = this.parseDateId(t.Tanggal); 
+                // Asumsi parseDateId mengembalikan objek Date valid
+                let d = typeof this.parseDateId === 'function' ? this.parseDateId(t.Tanggal) : new Date(t.Tanggal); 
                 if(d < oldestDate && d.getTime() > 0) oldestDate = d;
                 
                 let parsedItems = []; 
@@ -5689,76 +5690,104 @@ refreshData: function() {
         let daysActive = Math.ceil((todayObj - oldestDate) / (1000 * 60 * 60 * 24));
         if (daysActive < 1) daysActive = 1;
 
-        // 2. Pisahkan Kategori & Urutkan A-Z
-        let bermasalah = [];
-        let aman = [];
+        // 2. Pisahkan Kategori (Utama vs Pendukung) & Status (Bermasalah vs Aman)
+        let bahanBermasalah = [];
+        let bahanAman = [];
+        let pendukungBermasalah = [];
+        let pendukungAman = [];
 
         items.forEach(item => {
+            // Tarik Kategori dari Database Master
+            let master = (this.db.masterProduk || []).find(m => m.SKU === item.sku);
+            let kategori = master ? String(master.Kategori || '').toLowerCase() : 'bahan';
             
             // 🚀 KALKULASI PINTAR BERDASARKAN KATEGORI BARANG
-            if (String(item.kategori).toLowerCase() === 'bahan') {
+            if (kategori === 'bahan') {
                 // A. Barang Utama (Dihitung dari kasir/POS)
                 let soldQty = productSales[item.sku] || 0;
                 let vel = soldQty / daysActive;
-                if (vel > 0) item.estHari = Math.floor(item.fisik / vel);
-                else item.estHari = -1; 
+                item.estHari = vel > 0 ? Math.floor(item.fisik / vel) : -1; 
             } else {
                 // B. Barang Pendukung (Dihitung dari Arus Masuk vs Fisik)
-                // Total Terpakai = Total Pernah Dikirim Pusat - Sisa Fisik Saat Ini
-                let totalReceived = mutasiIn[item.sku] || item.sys; // Fallback ke stok sistem jika blm ada mutasi
+                let totalReceived = mutasiIn[item.sku] || item.sistem; // Diperbaiki: item.sistem
                 let totalUsed = totalReceived - item.fisik;
                 
                 if (totalUsed > 0 && daysActive > 0) {
-                    let vel = totalUsed / daysActive; // Rata-rata pemakaian pcs per hari
+                    let vel = totalUsed / daysActive; 
                     item.estHari = Math.floor(item.fisik / vel);
                 } else {
-                    item.estHari = -1; // Jika barang belum pernah dipakai sama sekali
+                    item.estHari = -1; 
                 }
             }
 
-            // FILTER: Jika ada selisih ATAU kasir memberikan catatan khusus
-            if (item.selisih !== 0 || (item.note && item.note.trim() !== '')) {
-                bermasalah.push(item);
+            // FILTER: Jika ada selisih ATAU kasir memberikan catatan khusus (Diperbaiki: item.catatan)
+            if (item.selisih !== 0 || (item.catatan && item.catatan.trim() !== '')) {
+                if (kategori === 'bahan') bahanBermasalah.push(item);
+                else pendukungBermasalah.push(item);
             } else {
-                aman.push(item);
+                if (kategori === 'bahan') bahanAman.push(item);
+                else pendukungAman.push(item);
             }
         });
 
-       // 1. Pengurutan Mutlak A-Z (Mengabaikan huruf besar/kecil)
-        bermasalah.sort((a,b) => String(a.nama).toUpperCase().localeCompare(String(b.nama).toUpperCase()));
-        aman.sort((a,b) => String(a.nama).toUpperCase().localeCompare(String(b.nama).toUpperCase()));
+       // 3. Pengurutan Mutlak A-Z (Mengabaikan huruf besar/kecil)
+        const sortAZ = (a,b) => String(a.nama).toUpperCase().localeCompare(String(b.nama).toUpperCase());
+        bahanBermasalah.sort(sortAZ);
+        bahanAman.sort(sortAZ);
+        pendukungBermasalah.sort(sortAZ);
+        pendukungAman.sort(sortAZ);
 
-        // 2. SUSUN TEKS WHATSAPP EKSEKUTIF
-        let waText = `*LAPORAN OPNAME FISIK & AUDIT*\n📍 Cabang: ${outlet}\n👤 Kasir: ${kasir}\n📅 Waktu: ${waktu}\n\n*_Mohon cek menu Audit Opname di aplikasi untuk menyetujui_*\n\n`;
+        // 4. SUSUN TEKS WHATSAPP EKSEKUTIF
+        let waText = `*[ LAPORAN OPNAME FISIK & AUDIT ]*\n📍 Cabang: *Ai-CHA ${outlet}*\n👤 Kasir: ${kasir}\n📅 Waktu: ${waktu}\n\n*_Mohon cek menu Audit Opname di aplikasi untuk menyetujui_*\n\n`;
 
         // --- A. Render Barang Bermasalah / Selisih ---
-        if (bermasalah.length > 0) {
-            waText += `🚨 *ITEM SELISIH / CATATAN (${bermasalah.length})*\n`;
-            bermasalah.forEach(i => {
-                let alertStr = i.fisik <= 0 ? 'HABIS 🛑' : (i.estHari === -1 ? 'Belum ada data pakai 📉' : (i.estHari < 4 ? `${i.estHari} Hari (Kritis ⚠️)` : `${i.estHari > 99 ? '>99' : i.estHari} Hari (Aman ✅)`));
-                let icon = i.selisih < 0 ? '📉' : (i.selisih > 0 ? '📈' : '⚠️');
-                
-                waText += `${icon} *${i.nama}*\nSys: ${i.sys} | Fisik: ${i.fisik} | Selisih: *${i.selisih > 0 ? '+'+i.selisih : i.selisih}*\n⏳ Est Habis: ${alertStr}\nCatatan: ${i.note || '-'}\n\n`;
-            });
+        let totalBermasalah = bahanBermasalah.length + pendukungBermasalah.length;
+        if (totalBermasalah > 0) {
+            waText += `🚨 *ITEM SELISIH / CATATAN (${totalBermasalah})*\n\n`;
+            
+            if (bahanBermasalah.length > 0) {
+                waText += `*📦 BAHAN UTAMA*\n`;
+                bahanBermasalah.forEach(i => {
+                    let alertStr = i.fisik <= 0 ? 'HABIS 🛑' : (i.estHari === -1 ? 'Belum ada data pakai 📉' : (i.estHari < 4 ? `${i.estHari} Hari (Kritis ⚠️)` : `${i.estHari > 99 ? '>99' : i.estHari} Hari (Aman ✅)`));
+                    let icon = i.selisih < 0 ? '📉' : (i.selisih > 0 ? '📈' : '⚠️');
+                    waText += `${icon} *${i.nama}*\nSys: ${i.sistem} | Fisik: ${i.fisik} | Selisih: *${i.selisih > 0 ? '+'+i.selisih : i.selisih}*\n⏳ Est Habis: ${alertStr}\nCatatan: ${i.catatan || '-'}\n\n`;
+                });
+            }
+            if (pendukungBermasalah.length > 0) {
+                waText += `*🛒 BAHAN PENDUKUNG*\n`;
+                pendukungBermasalah.forEach(i => {
+                    let alertStr = i.fisik <= 0 ? 'HABIS 🛑' : (i.estHari === -1 ? 'Belum ada data pakai 📉' : (i.estHari < 4 ? `${i.estHari} Hari (Kritis ⚠️)` : `${i.estHari > 99 ? '>99' : i.estHari} Hari (Aman ✅)`));
+                    let icon = i.selisih < 0 ? '📉' : (i.selisih > 0 ? '📈' : '⚠️');
+                    waText += `${icon} *${i.nama}*\nSys: ${i.sistem} | Fisik: ${i.fisik} | Selisih: *${i.selisih > 0 ? '+'+i.selisih : i.selisih}*\n⏳ Est Habis: ${alertStr}\nCatatan: ${i.catatan || '-'}\n\n`;
+                });
+            }
         } else {
             waText += `🚨 *ITEM SELISIH / CATATAN*\n_Nihil. Kinerja staf sangat teliti, tidak ada selisih stok!_ 🎉\n\n`;
         }
 
         // --- B. Render Barang Aman ---
-        if (aman.length > 0) {
-            waText += `✅ *ITEM AMAN FISIK SESUAI SISTEM (${aman.length})*\n`;
+        let totalAman = bahanAman.length + pendukungAman.length;
+        if (totalAman > 0) {
+            waText += `✅ *ITEM AMAN FISIK SESUAI SISTEM (${totalAman})*\n\n`;
             
-            // Loop semua barang aman agar rincian stoknya muncul ke bawah
-            aman.forEach(i => {
-                let alertStr = i.fisik <= 0 ? 'HABIS 🛑' : (i.estHari === -1 ? 'Belum ada data pakai 📉' : (i.estHari < 4 ? `${i.estHari} Hari (Kritis ⚠️)` : `${i.estHari > 99 ? '>99' : i.estHari} Hari (Aman ✅)`));
-                
-                // Selisih pasti 0 untuk kategori aman, catatan tidak perlu ditampilkan agar laporan bersih
-                waText += `📦 *${i.nama}*\nSys: ${i.sys} | Fisik: ${i.fisik} | Selisih: *0*\n⏳ Est Habis: ${alertStr}\n\n`;
-            });
+            if (bahanAman.length > 0) {
+                waText += `*📦 BAHAN UTAMA*\n`;
+                bahanAman.forEach(i => {
+                    let alertStr = i.fisik <= 0 ? 'HABIS 🛑' : (i.estHari === -1 ? 'Belum ada data pakai 📉' : (i.estHari < 4 ? `${i.estHari} Hari (Kritis ⚠️)` : `${i.estHari > 99 ? '>99' : i.estHari} Hari (Aman ✅)`));
+                    waText += `▫️ *${i.nama}*\nSys: ${i.sistem} | Fisik: ${i.fisik} | Selisih: *0*\n⏳ Est Habis: ${alertStr}\n\n`;
+                });
+            }
+            if (pendukungAman.length > 0) {
+                waText += `*🛒 BAHAN PENDUKUNG*\n`;
+                pendukungAman.forEach(i => {
+                    let alertStr = i.fisik <= 0 ? 'HABIS 🛑' : (i.estHari === -1 ? 'Belum ada data pakai 📉' : (i.estHari < 4 ? `${i.estHari} Hari (Kritis ⚠️)` : `${i.estHari > 99 ? '>99' : i.estHari} Hari (Aman ✅)`));
+                    waText += `▫️ *${i.nama}*\nSys: ${i.sistem} | Fisik: ${i.fisik} | Selisih: *0*\n⏳ Est Habis: ${alertStr}\n\n`;
+                });
+            }
         }
 
         return waText;
-    },
+    }
 
 openDetailStokOpname: function(sku) {
         let m = (this.db.masterProduk || []).find(x => x.SKU === sku);
@@ -5859,15 +5888,9 @@ openDetailStokOpname: function(sku) {
         if (this.isProcessing) return;
         
         let items = [];
-        let totalSelisih = 0;
         let countSelisih = 0;
-        
-        // Persiapan Variabel untuk Template WA
-        let waTextBahanUtama = '';
-        let waTextPendukung = '';
-        let countBahanUtama = 0;
-        let countPendukung = 0;
 
+        // Tarik semua data dari form
         (this.db.masterProduk || []).forEach(m => {
             let cat = String(m.Kategori || '').toLowerCase();
             if (cat === 'bahan' || cat === 'pendukung') {
@@ -5901,56 +5924,23 @@ openDetailStokOpname: function(sku) {
                     catatan: note 
                 });
 
-                if (selisih !== 0) {
-                    totalSelisih += Math.abs(selisih);
-                    countSelisih++;
-                }
-
-                // ==========================================
-                // 📝 PEMBUATAN BARIS PESAN WA
-                // ==========================================
-                let diffBadge = selisih === 0 ? "✅ PAS" : (selisih > 0 ? `📈 +${selisih} (Surplus)` : `📉 ${selisih} (Hilang)`);
-                let noteStr = note ? `\n   ↳ Catatan: ${note}` : '';
-                let rowWa = `▫️ ${m.Nama_Produk}\n   Sis: ${stokSistem} | Fis: ${stokFisik} 👉 *${diffBadge}*${noteStr}\n`;
-
-                if (cat === 'bahan') {
-                    waTextBahanUtama += rowWa;
-                    countBahanUtama++;
-                } else {
-                    waTextPendukung += rowWa;
-                    countPendukung++;
-                }
+                if (selisih !== 0) countSelisih++;
             }
         });
 
         if (items.length === 0) return this.showToast("Database master produk kosong!", "error");
 
         // ==========================================
-        // 📝 PENYUSUNAN TEMPLATE WA FINAL
+        // 🚀 PANGGIL ENGINE WA CERDAS (YANG ADA ESTIMASI HABIS)
         // ==========================================
         let d = new Date(); let pad = (n) => n < 10 ? '0' + n : n;
         let todayStrLocal = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
         
-        let waTextFinal = `*[ LAPORAN AUDIT STOK FISIK / OPNAME ]*\n\n`;
-        waTextFinal += `📍 Cabang: *Ai-CHA ${this.outlet}*\n`;
-        waTextFinal += `👤 Auditor: ${this.currentUser ? this.currentUser.Username : 'Kasir'}\n`;
-        waTextFinal += `📅 Waktu: ${d.toLocaleString('id-ID')}\n\n`;
+        let kasirName = this.currentUser ? this.currentUser.Username : 'Kasir';
+        let waktuStr = d.toLocaleString('id-ID');
         
-        if (countSelisih === 0) {
-            waTextFinal += `*🏆 STATUS: 100% AKURAT (NO SELISIH)*\nSeluruh stok fisik sesuai dengan sistem.\n\n`;
-        } else {
-            waTextFinal += `*⚠️ STATUS: TERDAPAT SELISIH*\nDitemukan selisih pada ${countSelisih} macam barang.\n*_Menunggu Otorisasi Owner_*\n\n`;
-        }
-
-        if (countBahanUtama > 0) {
-            waTextFinal += `*📦 BAHAN UTAMA*\n`;
-            waTextFinal += waTextBahanUtama + `\n`;
-        }
-
-        if (countPendukung > 0) {
-            waTextFinal += `*🛒 BAHAN PENDUKUNG*\n`;
-            waTextFinal += waTextPendukung + `\n`;
-        }
+        // Cukup 1 baris ini untuk menghasilkan laporan super lengkap!
+        let waTextFinal = this.buildOpnameWaText(this.outlet, kasirName, waktuStr, items);
 
         // --- CEK DUPLIKAT INPUTAN HARI INI ---
         let sudahInputHariIni = (this.db.riwayatOpname || []).some(m => 
@@ -6003,7 +5993,7 @@ openDetailStokOpname: function(sku) {
 
         const btnExecute = document.getElementById('btn-confirm-opname-execute');
         if (btnExecute) {
-            // MENGIRIMKAN waTextFinal ke fungsi executeSubmitOpname
+            // Mengirimkan waTextFinal ke eksekutor
             btnExecute.onclick = () => this.executeSubmitOpname(items, waTextFinal);
         }
 

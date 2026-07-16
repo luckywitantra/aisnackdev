@@ -5524,6 +5524,38 @@ refreshData: function() {
         }
     },
 
+    // =========================================================
+    // 🚀 ENGINE: MODAL SHARE WA CANTIK (AUTO POPUP SETELAH SUBMIT)
+    // =========================================================
+    openWaShareModal: function(text) {
+        const modal = document.getElementById('modal-wa-share');
+        const preview = document.getElementById('wa-share-preview');
+        const btn = document.getElementById('btn-wa-share-execute');
+        
+        if (modal && preview && btn) {
+            preview.innerText = text;
+            // Pasang fungsi kirim ke tombol
+            btn.onclick = () => {
+                window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+                this.closeWaShareModal();
+            };
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+    },
+
+    closeWaShareModal: function() {
+        const modal = document.getElementById('modal-wa-share');
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+    },
+
+
+    // =========================================================
+    // 🚀 UPDATE: EKSEKUSI TERIMA BARANG
+    // =========================================================
     executeSubmitTerimaBarang: async function(items, waText) {
         if (this.isProcessing) return;
         if (typeof this.closeModal === 'function') this.closeModal('modal-confirm-terima');
@@ -5535,11 +5567,12 @@ refreshData: function() {
             let res = await this.apiPost(payload);
             
             if (res.status === 'sukses') {
-                this.showToast("Berhasil Disimpan di Sistem!");
-                if (typeof this.showWaModal === 'function') this.showWaModal(waText);
-                else if (typeof this.openWaLaporanModal === 'function') this.openWaLaporanModal(waText);
+                this.setLoading(false);
+                
+                // 1. Tampilkan Popup WA Cantik!
+                this.openWaShareModal(waText);
 
-                // Bersihkan Inputan
+                // 2. Bersihkan Inputan
                 items.forEach(i => {
                     let idDesk = document.getElementById(`trm-qty-${i.sku}`); if(idDesk) idDesk.value = '';
                     let idMob = document.getElementById(`trm-qty-mob-${i.sku}`); if(idMob) idMob.value = '';
@@ -5547,6 +5580,7 @@ refreshData: function() {
                     let nm = document.getElementById(`trm-note-mob-${i.sku}`); if(nm) nm.value = '';
                 });
                 
+                // 3. Refresh Data
                 if (!res.is_offline) { 
                     try {
                         let rUrl = (typeof API_URL !== 'undefined') ? API_URL : this.webAppUrl;
@@ -5555,43 +5589,41 @@ refreshData: function() {
                         if (typeof this.refreshData === 'function') this.refreshData(); 
                     } catch(e) {}
                 }
-                
-                if (typeof this.switchMenu === 'function') this.switchMenu('pos');
+            } else {
+                this.setLoading(false);
+                this.showToast("Gagal menyimpan data: " + res.pesan, "error");
             }
-            this.setLoading(false);
         }, 300);
     },
 
     // =========================================================
-    // 🚀 TAHAP 2: EKSEKUSI DATA KELUAR KE SERVER & WA MODAL
+    // 🚀 UPDATE: EKSEKUSI OPNAME FISIK
     // =========================================================
-    executeSubmitTerimaBarang: async function(items, waText) {
+    executeSubmitOpname: async function(items, waText) {
         if (this.isProcessing) return;
-        if (typeof this.closeModal === 'function') this.closeModal('modal-confirm-terima');
+        if (typeof this.closeModal === 'function') this.closeModal('modal-confirm-opname');
         
-        // Beri sedikit jeda waktu agar transisi modal tutup selesai
         setTimeout(async () => {
-            this.setLoading(true, "Menyimpan Laporan Masuk...");
-            const payload = { 
-                action: 'terima_barang_kasir', 
-                outlet: this.outlet, 
-                kasir: this.currentUser ? this.currentUser.Username : 'Kasir', 
-                items: items 
-            };
+            this.setLoading(true, "Menyimpan Hasil Opname...");
+            const payload = { action: 'submit_opname', outlet: this.outlet, kasir: this.currentUser ? this.currentUser.Username : 'Kasir', items: items };
             
             let res = await this.apiPost(payload);
             
             if (res.status === 'sukses') {
-                this.showToast("Berhasil Disimpan di Sistem!");
+                this.setLoading(false);
                 
-                // Panggil Modal WA
-                if (typeof this.showWaModal === 'function') this.showWaModal(waText);
-                else if (typeof this.openWaLaporanModal === 'function') this.openWaLaporanModal(waText);
+                // 1. Tampilkan Popup WA Cantik!
+                this.openWaShareModal(waText);
 
-                // Kosongkan keranjang setelah sukses
-                this.cartRestok = [];
+                // 2. Bersihkan Inputan Fisik
+                items.forEach(i => {
+                    let idDesk = document.getElementById(`op-qty-${i.sku}`); if(idDesk) idDesk.value = '';
+                    let idMob = document.getElementById(`op-qty-mob-${i.sku}`); if(idMob) idMob.value = '';
+                    let nd = document.getElementById(`op-note-${i.sku}`); if(nd) nd.value = '';
+                    let nm = document.getElementById(`op-note-mob-${i.sku}`); if(nm) nm.value = '';
+                });
                 
-                // Refresh data dari server
+                // 3. Refresh Data
                 if (!res.is_offline) { 
                     try {
                         let rUrl = (typeof API_URL !== 'undefined') ? API_URL : this.webAppUrl;
@@ -5600,11 +5632,10 @@ refreshData: function() {
                         if (typeof this.refreshData === 'function') this.refreshData(); 
                     } catch(e) {}
                 }
-                
-                // Alihkan menu jika fungsi tersedia
-                if (typeof this.switchMenu === 'function') this.switchMenu('pos');
+            } else {
+                this.setLoading(false);
+                this.showToast("Gagal menyimpan data: " + res.pesan, "error");
             }
-            this.setLoading(false);
         }, 300);
     },
     

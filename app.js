@@ -5743,49 +5743,6 @@ refreshData: function() {
         }, 300);
     },
 
-    // =========================================================
-    // 🚀 UPDATE: EKSEKUSI OPNAME FISIK
-    // =========================================================
-    executeSubmitOpname: async function(items, waText) {
-        if (this.isProcessing) return;
-        if (typeof this.closeModal === 'function') this.closeModal('modal-confirm-opname');
-        
-        setTimeout(async () => {
-            this.setLoading(true, "Menyimpan Hasil Opname...");
-            const payload = { action: 'submit_opname', outlet: this.outlet, kasir: this.currentUser ? this.currentUser.Username : 'Kasir', items: items };
-            
-            let res = await this.apiPost(payload);
-            
-            if (res.status === 'sukses') {
-                this.setLoading(false);
-                
-                // 1. Tampilkan Popup WA Cantik!
-                this.openWaShareModal(waText);
-
-                // 2. Bersihkan Inputan Fisik
-                items.forEach(i => {
-                    let idDesk = document.getElementById(`op-qty-${i.sku}`); if(idDesk) idDesk.value = '';
-                    let idMob = document.getElementById(`op-qty-mob-${i.sku}`); if(idMob) idMob.value = '';
-                    let nd = document.getElementById(`op-note-${i.sku}`); if(nd) nd.value = '';
-                    let nm = document.getElementById(`op-note-mob-${i.sku}`); if(nm) nm.value = '';
-                });
-                
-                // 3. Refresh Data
-                if (!res.is_offline) { 
-                    try {
-                        let rUrl = (typeof API_URL !== 'undefined') ? API_URL : this.webAppUrl;
-                        const r = await fetch(rUrl + "?ts=" + new Date().getTime(), { redirect: 'follow' }); 
-                        this.db = await r.json(); 
-                        if (typeof this.refreshData === 'function') this.refreshData(); 
-                    } catch(e) {}
-                }
-            } else {
-                this.setLoading(false);
-                this.showToast("Gagal menyimpan data: " + res.pesan, "error");
-            }
-        }, 300);
-    },
-    
     calcOpname: function(sku) {
         const sysEl = document.getElementById(`opn-sys-${sku}`); let sys = parseInt(sysEl ? sysEl.innerText : 0) || 0;
         let fisikEl = document.getElementById(`opn-fisik-${sku}`); let fisik = this.getNumericValue(fisikEl ? fisikEl.value : 0);

@@ -4762,9 +4762,22 @@ refreshData: function() {
     },
     
     addToCart: function(sku, nama, price, maxStok, skuBahan, event) {
-        let currentStokBahanDiKeranjang = 0; let refBahan = skuBahan || sku;
+        // 1. Pancing sinkronisasi data secara diam-diam di latar belakang
+        if (typeof this.refreshStokOnly === 'function') this.refreshStokOnly();
+
+        let currentStokBahanDiKeranjang = 0; 
+        let refBahan = skuBahan || sku;
+        
+        // 2. 🚀 CEK STOK AKTUAL: Tarik dari memori terbaru (bukan dari tampilan HTML lama)
+        let realStokData = (this.db.hargaStokOutlet || []).find(x => x.SKU === refBahan && x.ID_Outlet === this.outlet);
+        let actualMaxStok = realStokData ? Number(realStokData.Stok_Toko) : maxStok;
+
         this.cart.forEach(i => { if ((i.sku_bahan || i.sku) === refBahan) currentStokBahanDiKeranjang += i.qty; });
-        if (currentStokBahanDiKeranjang >= maxStok) return this.showToast(`Stok Habis! Sisa di Toko: ${maxStok - currentStokBahanDiKeranjang}`, 'error');
+        
+        // Cek menggunakan stok aktual terbaru
+        if (currentStokBahanDiKeranjang >= actualMaxStok) {
+            return this.showToast(`Stok Habis! Sisa di Toko: ${actualMaxStok - currentStokBahanDiKeranjang}`, 'error');
+        }
 
         if (event) {
             const cartIcon = document.getElementById('cart-badge');
@@ -4776,8 +4789,15 @@ refreshData: function() {
                 setTimeout(() => dot.remove(), 500);
             }
         }
+        
         let item = this.cart.find(i => i.sku === sku);
-        if (item) item.qty++; else this.cart.push({ sku, nama, price, qty: 1, sku_bahan: skuBahan, maxStok: maxStok });
+        if (item) {
+            item.qty++;
+            item.maxStok = actualMaxStok; // Update referensi maksimal terbaru di keranjang
+        } else {
+            this.cart.push({ sku, nama, price, qty: 1, sku_bahan: skuBahan, maxStok: actualMaxStok });
+        }
+        
         this.renderCart();
         setTimeout(() => { const cont = document.getElementById('cart-container'); if (cont) cont.scrollTop = cont.scrollHeight; }, 50);
     },
@@ -4948,9 +4968,38 @@ refreshData: function() {
             }
         }
     },
+
+    // =========================================================
+    // 🚀 ENGINE: SILENT SYNC (SINKRONISASI STOK DI LATAR BELAKANG)
+    // =========================================================
+    refreshStokOnly: async function() {
+        // Anti-Spam: Beri jeda 10 detik antar penarikan agar server Google tidak kelebihan beban
+        let now = new Date().getTime();
+        if (this._lastSyncTime && (now - this._lastSyncTime < 10000)) return;
+        this._lastSyncTime = now;
+
+        try {
+            let rUrl = (typeof API_URL !== 'undefined') ? API_URL : this.webAppUrl;
+            // Gunakan history=1 agar penarikan super kilat (hanya data hari ini)
+            const res = await fetch(rUrl + "?ts=" + now + "&history=1", { redirect: 'follow' });
+            const data = await res.json();
+            
+            if (data && data.hargaStokOutlet) {
+                // Hanya perbarui blok stok dan transaksi, biarkan yang lain utuh
+                this.db.hargaStokOutlet = data.hargaStokOutlet;
+                this.db.transactions = data.transactions;
+                localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
+                
+                // Opsional: Anda bisa memanggil this.renderProducts() di sini jika ingin 
+                // angka di kartu produk otomatis berkedip/berubah saat HP kasir didiamkan.
+            }
+        } catch(e) {
+            console.log("Silent sync terganggu koneksi, lanjut gunakan cache.");
+        }
+    },
     
     // PENAMBAHAN SISTEM NOMOR ANTRIAN
-   executeCheckout: async function() {
+    executeCheckout: async function() {
         // 1. GEMBOK ANTI DOUBLE-CLICK & KERANJANG KOSONG
         if (this.isProcessing) return; 
         if (this.cart.length === 0) {
@@ -4967,19 +5016,63 @@ refreshData: function() {
         if (btnPay) {
             originalBtnHtml = btnPay.innerHTML;
             btnPay.disabled = true;
-            btnPay.innerHTML = '<i class="fas fa-spinner fa-spin text-lg"></i> Memproses...';
+            btnPay.innerHTML = '<i class="fas fa-spinner fa-spin text-lg"></i> Cek Server...';
             btnPay.classList.add('opacity-70', 'cursor-not-allowed');
         }
         
+        // ======================================================================
+        // 🚀 SINKRONISASI KILAT SEBELUM BAYAR (Cegah Antrian & Stok Bentrok)
+        // ======================================================================
+        if (this.isOnline && typeof this.refreshStokOnly === 'function') {
+            await this.refreshStokOnly(); // Tarik data terbaru diam-diam
+        }
+
+        // 🚀 VALIDASI STOK TERAKHIR (Cegah stok minus karena keduluan device lain)
+        let stokAman = true;
+        let barangHabis = '';
+        
+        for (let item of this.cart) {
+            let refBahan = item.sku_bahan || item.sku;
+            let realStokData = (this.db.hargaStokOutlet || []).find(x => x.SKU === refBahan && x.ID_Outlet === this.outlet);
+            let actualMaxStok = realStokData ? Number(realStokData.Stok_Toko) : item.maxStok;
+            
+            let qtyTerpakaiDiKeranjang = 0;
+            this.cart.forEach(c => { if ((c.sku_bahan || c.sku) === refBahan) qtyTerpakaiDiKeranjang += c.qty; });
+
+            if (qtyTerpakaiDiKeranjang > actualMaxStok) {
+                stokAman = false;
+                barangHabis = item.nama;
+                break;
+            }
+        }
+
+        // Jika keduluan dibeli kasir PC, tolak transaksi di HP!
+        if (!stokAman) {
+            this.isProcessing = false;
+            if (btnPay) {
+                btnPay.disabled = false;
+                btnPay.innerHTML = originalBtnHtml;
+                btnPay.classList.remove('opacity-70', 'cursor-not-allowed');
+            }
+            this.showToast(`Gagal! Stok ${barangHabis} baru saja dihabiskan device lain.`, "error");
+            return;
+        }
+        // ======================================================================
+
         let d = new Date(); let pad = (n) => n < 10 ? '0' + n : n;
         let todayStrLocal = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
         
+        // Nomor Antrean dijamin urut karena database memori baru saja di-refresh
         let countToday = 0;
         (this.db.transactions || []).forEach(t => {
-            if (t.Outlet === this.outlet && this.cleanDateOnly(t.Tanggal) === todayStrLocal) { countToday++; }
+            let tglTrx = typeof this.cleanDateOnly === 'function' ? this.cleanDateOnly(t.Tanggal) : t.Tanggal;
+            if (t.Outlet === this.outlet && tglTrx === todayStrLocal) { countToday++; }
         });
         let noAntrian = countToday + 1;
-        let trxID = 'TRX' + d.getTime();
+        
+        // ID Resi Dijamin Unik
+        let kasirPrefix = this.currentUser ? this.currentUser.Username.substring(0,3).toUpperCase() : 'KSR';
+        let trxID = `TRX-${kasirPrefix}-${d.getTime()}`;
 
         let isPrintSuccess = this.printerCharacteristic ? true : false;
         
@@ -4994,6 +5087,14 @@ refreshData: function() {
             Items_JSON: JSON.stringify(this.cart), ID_Shift: this.activeShiftId, Status: 'Sukses', Antrian: noAntrian,
             Status_Cetak: isPrintSuccess ? 'Sudah' : 'Belum'
         });
+
+        // 🚀 Kurangi visual stok langsung di layar kasir device ini
+        this.cart.forEach(item => {
+            let refBahan = item.sku_bahan || item.sku;
+            let realStokData = (this.db.hargaStokOutlet || []).find(x => x.SKU === refBahan && x.ID_Outlet === this.outlet);
+            if(realStokData) realStokData.Stok_Toko -= item.qty;
+        });
+
         localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
         this.refreshData(); 
         this.showToast(`Transaksi Sukses! No Antrian: ${noAntrian}`);
@@ -5007,7 +5108,7 @@ refreshData: function() {
         this._lastPaidTotal = this.payTotal;
         this._lastPaidChange = this.payChange;
         this.cart = []; 
-        this.payCash = 0; // Hapus ingatan uang tunai yang diketik
+        this.payCash = 0; 
         this.payTotal = 0;
         this.renderCart(); 
         this.syncStorage('paid', noAntrian); 
@@ -5026,22 +5127,10 @@ refreshData: function() {
         // 4. SINKRONISASI SERVER DI LATAR BELAKANG
         this.apiPost(payload).then(res => {
             if (res && res.status === 'sukses' && !res.is_offline) {
-                
                 if (isPrintSuccess) {
                     this.laporStrukDicetak(trxID);
                 }
-
-                fetch(API_URL + "?ts=" + new Date().getTime(), { redirect: 'follow' })
-                    .then(r => r.json())
-                    .then(data => {
-                        if (data && data.status === 'sukses') {
-                            this.db = data;
-                            localStorage.setItem('aisnack_db_cache', JSON.stringify(data));
-                            if (this.cart.length === 0) {
-                                this.refreshData();
-                            }
-                        }
-                    }).catch(e => console.log("Aman, memori lokal sudah tercatat."));
+                // Hapus fetch manual di sini karena refreshStokOnly sudah menanganinya di awal!
             } else if (res && res.status !== 'sukses' && !res.is_offline) {
                let isAlreadyQueued = this.offlineQueue.some(q => q.trx_id === payload.trx_id);
                if (!isAlreadyQueued) {

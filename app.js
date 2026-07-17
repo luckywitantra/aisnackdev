@@ -5954,8 +5954,8 @@ openDetailStokOpname: function(sku) {
         this.openModal('modal-stok-detail');
     },
     
-   // =========================================================
-    // 🚀 ENGINE: SUBMIT OPNAME FISIK (HANYA SIMPAN YANG BERUBAH)
+  // =========================================================
+    // 🚀 ENGINE: SUBMIT OPNAME FISIK (ANTI-KASIR MALAS)
     // =========================================================
     submitOpname: async function() {
         if (this.isProcessing) return;
@@ -5963,8 +5963,9 @@ openDetailStokOpname: function(sku) {
         let allItems = []; 
         let dbItems = []; 
         let countSelisih = 0;
+        let totalDiisi = 0; // 🚀 RADAR PENDETEKSI INPUT
 
-        // 🚀 DETEKSI LAYAR: HP (< 768px) atau PC (>= 768px)
+        // Deteksi Layar: HP (< 768px) atau PC (>= 768px)
         let isMobile = window.innerWidth < 768;
 
         (this.db.masterProduk || []).forEach(m => {
@@ -5977,7 +5978,7 @@ openDetailStokOpname: function(sku) {
                 let stokData = (this.db.hargaStokOutlet || []).find(s => s.SKU === m.SKU && s.ID_Outlet === this.outlet);
                 let stokSistem = stokData ? parseInt(stokData.Stok_Toko || 0) : 0;
                 
-                // 🚀 BACA INPUT BERDASARKAN LAYAR YANG SEDANG AKTIF
+                // BACA INPUT BERDASARKAN LAYAR YANG SEDANG AKTIF
                 let fisikStr = '';
                 if (isMobile && inputMob) fisikStr = inputMob.value;
                 else if (!isMobile && inputDesk) fisikStr = inputDesk.value;
@@ -5985,16 +5986,21 @@ openDetailStokOpname: function(sku) {
                 let stokFisik = stokSistem;
                 if (fisikStr !== '') {
                     let parsed = parseInt(String(fisikStr).replace(/\D/g, ''));
-                    if (!isNaN(parsed)) stokFisik = parsed;
+                    if (!isNaN(parsed)) {
+                        stokFisik = parsed;
+                        totalDiisi++; // 🚀 DETEKSI: Kasir benar-benar mengetik angka di kotak ini
+                    }
                 }
                 
                 let noteDesk = document.getElementById(`opn-note-${m.SKU}`); 
                 let noteMob = document.getElementById(`opn-note-mob-${m.SKU}`);
                 
-                // 🚀 BACA CATATAN BERDASARKAN LAYAR YANG AKTIF
                 let note = '';
                 if (isMobile && noteMob) note = noteMob.value;
                 else if (!isMobile && noteDesk) note = noteDesk.value;
+
+                // Hitung valid jika kasir setidaknya mengisi keterangan fisik
+                if (note && note.trim() !== '') totalDiisi++; 
                 
                 let selisih = stokFisik - stokSistem;
 
@@ -6005,7 +6011,7 @@ openDetailStokOpname: function(sku) {
                 // Masukkan ke Array WA (Semua Barang)
                 allItems.push(itemObj);
 
-                // 🛑 FILTERING: HANYA MASUKKAN KE DB JIKA ADA SELISIH ATAU CATATAN
+                // FILTERING: HANYA MASUKKAN KE DB JIKA ADA SELISIH ATAU CATATAN
                 if (selisih !== 0 || (note && note.trim() !== '')) {
                     dbItems.push(itemObj);
                     if (selisih !== 0) countSelisih++;
@@ -6014,6 +6020,19 @@ openDetailStokOpname: function(sku) {
         });
 
         if (allItems.length === 0) return this.showToast("Database master produk kosong!", "error");
+
+        // ======================================================================
+        // 🚀 LAPISAN KEAMANAN ANTI-KASIR MALAS
+        // ======================================================================
+        if (totalDiisi === 0) {
+            return this.showToast("❌ LAPORAN DITOLAK: Anda belum mengetik sisa fisik satupun! Silakan hitung dan ketik sisa stok aktual di toko.", "error");
+        }
+
+        if (dbItems.length === 0) {
+            let peringatan = confirm("⚠️ LAPORAN MENCURIGAKAN:\n\nSistem mendeteksi 100% barang sama persis dengan komputer (Tidak ada selisih sama sekali).\n\nPadahal barang pendukung (cup, plastik, dll) biasanya PASTI selalu berkurang setiap hari.\n\nApakah Anda YAKIN sudah menghitung fisik dengan jujur?");
+            if (!peringatan) return; // Batalkan submit jika kasir tidak berani konfirmasi
+        }
+        // ======================================================================
 
         let d = new Date(); let pad = (n) => n < 10 ? '0' + n : n;
         let todayStrLocal = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
@@ -6061,7 +6080,9 @@ openDetailStokOpname: function(sku) {
         }
 
         const btnExecute = document.getElementById('btn-confirm-opname-execute');
+        // KUNCI PENTING: Melempar "dbItems" (yg sudah difilter) ke server, dan "waTextFinal" (Lengkap) ke WhatsApp
         if (btnExecute) btnExecute.onclick = () => {
+            // JIKA SEMUA AKURAT 100%, TIDAK PERLU PUSH KE DB! LANGSUNG MUNCUL WA!
             if (dbItems.length === 0) {
                 if (typeof this.closeModal === 'function') this.closeModal('modal-confirm-opname');
                 this.showToast("Semua stok akurat! Tidak ada yang diupload ke server.", "success");

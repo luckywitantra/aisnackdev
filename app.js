@@ -5954,15 +5954,18 @@ openDetailStokOpname: function(sku) {
         this.openModal('modal-stok-detail');
     },
     
-    // =========================================================
+   // =========================================================
     // 🚀 ENGINE: SUBMIT OPNAME FISIK (HANYA SIMPAN YANG BERUBAH)
     // =========================================================
     submitOpname: async function() {
         if (this.isProcessing) return;
         
-        let allItems = []; // Array 100% Lengkap untuk Laporan WA
-        let dbItems = []; // Array Filter untuk masuk Google Sheets
+        let allItems = []; 
+        let dbItems = []; 
         let countSelisih = 0;
+
+        // 🚀 DETEKSI LAYAR: HP (< 768px) atau PC (>= 768px)
+        let isMobile = window.innerWidth < 768;
 
         (this.db.masterProduk || []).forEach(m => {
             let cat = String(m.Kategori || '').toLowerCase();
@@ -5974,7 +5977,10 @@ openDetailStokOpname: function(sku) {
                 let stokData = (this.db.hargaStokOutlet || []).find(s => s.SKU === m.SKU && s.ID_Outlet === this.outlet);
                 let stokSistem = stokData ? parseInt(stokData.Stok_Toko || 0) : 0;
                 
-                let fisikStr = (inputDesk && inputDesk.value !== '') ? inputDesk.value : ((inputMob && inputMob.value !== '') ? inputMob.value : '');
+                // 🚀 BACA INPUT BERDASARKAN LAYAR YANG SEDANG AKTIF
+                let fisikStr = '';
+                if (isMobile && inputMob) fisikStr = inputMob.value;
+                else if (!isMobile && inputDesk) fisikStr = inputDesk.value;
                 
                 let stokFisik = stokSistem;
                 if (fisikStr !== '') {
@@ -5984,7 +5990,11 @@ openDetailStokOpname: function(sku) {
                 
                 let noteDesk = document.getElementById(`opn-note-${m.SKU}`); 
                 let noteMob = document.getElementById(`opn-note-mob-${m.SKU}`);
-                let note = (noteDesk && noteDesk.value !== '') ? noteDesk.value : ((noteMob && noteMob.value !== '') ? noteMob.value : '');
+                
+                // 🚀 BACA CATATAN BERDASARKAN LAYAR YANG AKTIF
+                let note = '';
+                if (isMobile && noteMob) note = noteMob.value;
+                else if (!isMobile && noteDesk) note = noteDesk.value;
                 
                 let selisih = stokFisik - stokSistem;
 
@@ -6051,9 +6061,7 @@ openDetailStokOpname: function(sku) {
         }
 
         const btnExecute = document.getElementById('btn-confirm-opname-execute');
-        // KUNCI PENTING: Melempar "dbItems" (yg sudah difilter) ke server, dan "waTextFinal" (Lengkap) ke WhatsApp
         if (btnExecute) btnExecute.onclick = () => {
-            // JIKA SEMUA AKURAT 100%, TIDAK PERLU PUSH KE DB! LANGSUNG MUNCUL WA!
             if (dbItems.length === 0) {
                 if (typeof this.closeModal === 'function') this.closeModal('modal-confirm-opname');
                 this.showToast("Semua stok akurat! Tidak ada yang diupload ke server.", "success");

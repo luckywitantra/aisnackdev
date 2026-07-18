@@ -6042,7 +6042,7 @@ openDetailStokOpname: function(sku) {
                         </p>
                         <div class="p-3.5 bg-rose-50 border border-rose-100 rounded-2xl text-xs font-bold text-rose-700 text-left shadow-inner flex gap-2.5 items-start">
                             <i class="fas fa-info-circle mt-0.5 text-rose-500 text-sm shrink-0"></i> 
-                            <span>Hal ini tidak logis karena barang pendukung (Cup, Plastik) <b>PASTI menyusut</b> setiap hari. Mengisi keterangan teks saja tidak cukup!</span>
+                            <span>Hal ini tidak logis karena barang pendukung (Kotak, Plastik) <b>PASTI menyusut</b> setiap hari. Mengisi keterangan teks saja tidak cukup!</span>
                         </div>
                         <button onclick="document.getElementById('modern-alert-overlay').classList.remove('opacity-100'); setTimeout(()=>document.getElementById('modern-alert-overlay').remove(), 300)" class="mt-6 w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-black shadow-md transition active:scale-95 flex items-center justify-center gap-2">
                             <i class="fas fa-rotate-left"></i> Saya Mengerti, Hitung Ulang

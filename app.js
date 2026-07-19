@@ -8719,13 +8719,11 @@ executeVoidTrx: async function(trxId) {
             if (avgPerDay > 0) {
                 let realStok = 0; let found = false;
                 dbMaster.forEach(p => {
-                    let outNm = p.Outlet || p.Cabang || this.outlet; // Support format lama/baru
-                    // Ambil stok dari hargaStokOutlet
+                    let outNm = p.Outlet || p.Cabang || this.outlet; 
                     let sData = (this.db.hargaStokOutlet || []).find(x => x.SKU === p.SKU && x.ID_Outlet === d.outlet);
                     if (sData && (p.Nama_Produk === d.nama)) { realStok = Number(sData.Stok_Toko); found = true; }
                 });
                 
-                // Fallback jika tidak ditemukan
                 if (!found && this.cart && this.cart.length >= 0) realStok = Math.floor(Math.random() * 15); 
 
                 let sisaUmur = realStok / avgPerDay;
@@ -8738,13 +8736,30 @@ executeVoidTrx: async function(trxId) {
         criticalItems.forEach(c => {
             let isDanger = c.umur <= 3;
             let umurText = Math.floor(c.umur) <= 0 ? 'Hari Ini Habis!' : `${Math.floor(c.umur)} Hari`;
-            let badgeColor = isDanger ? 'bg-red-100 text-red-600 border border-red-200 shadow-sm animate-pulse' : 'bg-amber-100 text-amber-600 border border-amber-200';
-            predHtml += `<tr class="hover:bg-slate-50 transition border-b border-slate-50"><td class="py-3 px-4 text-xs font-black text-slate-500">${c.outlet}</td><td class="py-3 px-4 font-black text-slate-800 text-sm">${isDanger ? '🚨 ' : ''}${c.nama}</td><td class="py-3 px-4 text-center text-xs font-bold text-slate-500">${c.avg.toFixed(1)}/hr</td><td class="py-3 px-4 text-right text-base font-black ${isDanger ? 'text-red-500' : 'text-amber-500'}">${c.stok}</td><td class="py-3 px-4 text-center"><span class="${badgeColor} px-2 py-1 rounded text-[10px] font-black">${umurText}</span></td><td class="py-3 px-4 text-center"><button onclick="superApp.switchMenu('gudang')" class="bg-slate-900 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold hover:bg-indigo-500 transition active:scale-95">Restok</button></td></tr>`;
+            let badgeColor = isDanger ? 'bg-rose-50 text-rose-600 border-rose-200 shadow-sm animate-pulse' : 'bg-amber-50 text-amber-600 border-amber-200';
+            let safeNameParam = c.nama.replace(/'/g, "\\'"); // Mencegah error petik
+            
+            // 🚀 DITAMBAHKAN ONCLICK DAN HOVER EFFECT
+            predHtml += `
+            <tr onclick="superApp.openAIPredictiveDetail('${safeNameParam}', '${c.outlet}', ${c.stok}, ${c.avg}, ${c.umur})" class="border-b border-slate-50 hover:bg-slate-100 transition-colors cursor-pointer group active:bg-slate-200">
+                <td class="py-3 px-3">
+                    <span class="text-[10px] font-black uppercase text-slate-400 block">${c.outlet}</span>
+                    <span class="font-extrabold text-sm text-slate-800 group-hover:text-indigo-600 transition-colors">${isDanger ? '<i class="fas fa-exclamation-circle text-rose-500 mr-1 animate-pulse"></i>' : ''}${c.nama}</span>
+                </td>
+                <td class="py-3 px-3 text-center text-xs font-bold text-slate-500">${c.avg.toFixed(1)}/hr</td>
+                <td class="py-3 px-3 text-right text-lg font-black ${isDanger ? 'text-rose-500' : 'text-amber-500'}">${c.stok}</td>
+                <td class="py-3 px-3 text-center"><span class="${badgeColor} px-2.5 py-1 rounded-md text-[10px] font-black border">${umurText}</span></td>
+                <td class="py-3 px-3 text-center">
+                    <div class="w-8 h-8 flex items-center justify-center rounded-full bg-white border border-slate-200 text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 group-hover:border-indigo-200 transition-all mx-auto shadow-sm">
+                        <i class="fas fa-chevron-right text-xs"></i>
+                    </div>
+                </td>
+            </tr>`;
         });
 
         let tbPred = document.getElementById('ai-predictive-tbody');
         if(tbPred) tbPred.innerHTML = predHtml || `<tr><td colspan="6" class="py-12 text-center"><div class="inline-flex flex-col items-center justify-center"><i class="fas fa-shield-check text-4xl mb-2 text-emerald-400"></i><p class="text-emerald-700 font-bold text-sm">Prediksi AI: Semua stok aman (> 7 hari).</p></div></td></tr>`;
-
+        
         // ==========================================
         // 11. GENERATOR TEKS KESIMPULAN AI (Cerdas)
         // ==========================================
@@ -8882,6 +8897,125 @@ executeVoidTrx: async function(trxId) {
         }, 10);
     },
 
+    // =========================================================
+    // 🚀 ENGINE: CFO DASHBOARD PREDICTIVE INVENTORY (POPUP)
+    // =========================================================
+    openAIPredictiveDetail: function(nama, outlet, stok, avg, umur) {
+        // 1. Kalkulasi Tanggal Presisi Kapan Stok Akan Habis
+        let today = new Date();
+        let depletionDate = new Date(today.getTime() + (umur * 24 * 60 * 60 * 1000));
+        let daysArr = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+        let monthsArr = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+        
+        let depletionStr = umur <= 0 ? 'Hari Ini' : `${daysArr[depletionDate.getDay()]}, ${depletionDate.getDate()} ${monthsArr[depletionDate.getMonth()]}`;
+        
+        // 2. Saran AI (Hitung kebutuhan stok untuk aman 14 Hari ke depan)
+        let safetyBufferDays = 14;
+        let recommendedRestock = Math.ceil(avg * safetyBufferDays) - stok;
+        if (recommendedRestock < 0) recommendedRestock = Math.ceil(avg * 7); // Jika stok masih ada tapi sisa sedikit, saran minimal pemesanan 7 hari
+        
+        let isDanger = umur <= 3;
+        let headerBg = isDanger ? 'bg-gradient-to-br from-rose-500 to-red-600' : 'bg-gradient-to-br from-amber-500 to-orange-500';
+        let iconBox = isDanger ? 'text-rose-500' : 'text-amber-500';
+        let alertMsg = isDanger ? 'Kritis! Segera lakukan restok hari ini juga untuk menghindari potensi kehilangan sales.' : 'Perhatian. Stok diproyeksikan akan segera habis dalam minggu ini.';
+
+        // Simulasi Visual Bar Sisa Umur Stok (Max 7 Hari)
+        let sisaPersen = Math.min(100, Math.max(0, (umur / 7) * 100)); 
+        let barColor = isDanger ? 'bg-rose-500' : 'bg-amber-400';
+
+        // 3. Rakit Modal Modern (Tailwind Glassmorphism)
+        let existingModal = document.getElementById('ai-predictive-modal');
+        if (existingModal) existingModal.remove();
+
+        let modalHtml = `
+        <div id="ai-predictive-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[9999] flex items-end md:items-center justify-center p-0 md:p-4 opacity-0 transition-opacity duration-300">
+            <div class="bg-white w-full max-w-md md:rounded-3xl rounded-t-3xl shadow-2xl transform translate-y-full md:translate-y-10 md:scale-95 transition-transform duration-300 overflow-hidden border border-white/20">
+                
+                <!-- Header Component -->
+                <div class="${headerBg} p-6 md:p-8 text-white relative overflow-hidden shrink-0">
+                    <div class="absolute -right-6 -bottom-6 text-white/10 text-9xl"><i class="fas fa-boxes"></i></div>
+                    <div class="relative z-10 flex justify-between items-start">
+                        <div class="pr-4">
+                            <span class="bg-white/20 backdrop-blur-md px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border border-white/30 shadow-sm mb-3 inline-block">Ai-CHA ${outlet}</span>
+                            <h3 class="font-black text-xl md:text-2xl leading-tight text-white">${nama}</h3>
+                        </div>
+                        <button onclick="document.getElementById('ai-predictive-modal').classList.remove('opacity-100'); document.getElementById('ai-predictive-modal').firstElementChild.classList.add('translate-y-full', 'md:translate-y-10', 'md:scale-95'); setTimeout(()=>document.getElementById('ai-predictive-modal').remove(), 300)" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/40 border border-white/30 text-white transition active:scale-90 shrink-0 shadow-sm">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Body Component -->
+                <div class="p-6 bg-slate-50">
+                    <div class="grid grid-cols-2 gap-3 mb-5">
+                        <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm text-center">
+                            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Sisa Stok Fisik</span>
+                            <span class="text-3xl font-black text-slate-800">${stok} <span class="text-xs text-slate-500 font-bold">Pcs</span></span>
+                        </div>
+                        <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm text-center">
+                            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Rata² Penjualan</span>
+                            <span class="text-3xl font-black text-indigo-600">${avg.toFixed(1)} <span class="text-xs text-slate-500 font-bold">Pcs/Hr</span></span>
+                        </div>
+                    </div>
+
+                    <!-- Timeline & Warning -->
+                    <div class="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm mb-5 relative overflow-hidden">
+                        <div class="flex items-start gap-4">
+                            <div class="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-xl shadow-inner border border-slate-100 shrink-0 ${iconBox}">
+                                <i class="fas ${isDanger ? 'fa-exclamation-triangle animate-pulse' : 'fa-info-circle'}"></i>
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="font-extrabold text-sm text-slate-800 mb-1">Prediksi Habis: ${depletionStr}</h4>
+                                <p class="text-xs text-slate-500 font-medium leading-relaxed">${alertMsg}</p>
+                                
+                                <div class="mt-4 bg-slate-100 h-2 rounded-full overflow-hidden w-full">
+                                    <div class="${barColor} h-full rounded-full transition-all duration-1000" style="width: ${sisaPersen}%"></div>
+                                </div>
+                                <div class="flex justify-between mt-1 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                                    <span>Sekarang</span>
+                                    <span>${Math.ceil(umur)} Hari Lagi</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AI Recommendation Box -->
+                    <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl shadow-inner mb-6 flex items-center justify-between">
+                        <div>
+                            <span class="text-[10px] font-black text-emerald-600 uppercase tracking-widest block mb-0.5"><i class="fas fa-robot mr-1"></i> Saran AI (Aman 14 Hari)</span>
+                            <span class="text-xs font-bold text-slate-700">Lakukan restok sebanyak:</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-2xl font-black text-emerald-600">+${recommendedRestock} <span class="text-xs">Pcs</span></span>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex gap-3">
+                        <button onclick="superApp.switchMenu('gudang'); document.getElementById('ai-predictive-modal').remove(); setTimeout(()=>superApp.toggleGudangTab('stok'), 100);" class="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-black py-3.5 rounded-xl shadow-md transition active:scale-95 text-xs flex items-center justify-center gap-2">
+                            <i class="fas fa-boxes"></i> Lihat Gudang
+                        </button>
+                        <button onclick="window.open('https://api.whatsapp.com/send?text=${encodeURIComponent(`Halo Tim Gudang, tolong bantu restok barang berikut untuk cabang *Ai-CHA ${outlet}*:\n\n📦 *${nama}*\n⚠️ Sisa Stok: ${stok} Pcs (Diperkirakan habis pada ${depletionStr})\n🤖 Saran Restok (Sistem AI): *${recommendedRestock} Pcs*\n\nMohon segera diproses pengirimannya. Terima kasih.`)}', '_blank');" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-black py-3.5 rounded-xl shadow-md shadow-emerald-500/30 transition active:scale-95 text-xs flex items-center justify-center gap-2">
+                            <i class="fab fa-whatsapp text-sm"></i> Order via WA
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Animation Trigger
+        setTimeout(() => {
+            let el = document.getElementById('ai-predictive-modal');
+            if(el) {
+                el.classList.remove('opacity-0');
+                el.classList.add('opacity-100');
+                el.firstElementChild.classList.remove('translate-y-full', 'md:translate-y-10', 'md:scale-95');
+                el.firstElementChild.classList.add('translate-y-0', 'md:translate-y-0', 'md:scale-100');
+            }
+        }, 10);
+    },
     
     
     exportPDF: function() {

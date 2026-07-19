@@ -8454,8 +8454,9 @@ executeVoidTrx: async function(trxId) {
         }
         this.setLoading(false);
     },
-    // AI ASSISTANT
-   generateAIReport: function() {
+    
+   // AI ASSISTANT
+    generateAIReport: function() {
         if (!this.db) return; 
         
         // 1. Setup Filter Tanggal (Range)
@@ -8598,13 +8599,13 @@ executeVoidTrx: async function(trxId) {
         if (canvas) {
             if (this.aiProfitChart) this.aiProfitChart.destroy();
             this.aiProfitChart = new Chart(canvas.getContext('2d'), {
-                type: 'line', // Ganti ke Line Chart dengan Fill
+                type: 'line', 
                 data: {
                     labels: Object.keys(trendLabaHarian),
                     datasets: [{
                         label: 'Laba Bersih (Rp)',
                         data: Object.values(trendLabaHarian),
-                        borderColor: '#10b981', // Emerald 500
+                        borderColor: '#10b981', 
                         backgroundColor: 'rgba(16, 185, 129, 0.1)',
                         borderWidth: 3,
                         pointBackgroundColor: '#fff',
@@ -8612,7 +8613,7 @@ executeVoidTrx: async function(trxId) {
                         pointBorderWidth: 2,
                         pointRadius: 4,
                         fill: true,
-                        tension: 0.4 // Bikin melengkung mulus
+                        tension: 0.4 
                     }]
                 },
                 options: { 
@@ -8628,7 +8629,7 @@ executeVoidTrx: async function(trxId) {
         }
 
         // ==========================================
-        // 7. RENDER GRAFIK JAM SIBUK
+        // 7. RENDER GRAFIK JAM SIBUK (CLICKABLE DEEP DIVE)
         // ==========================================
         let maxHourlyOmset = 0; let peakHour = '-';
         for (let h in hourlyData) { if (hourlyData[h].omset > maxHourlyOmset) { maxHourlyOmset = hourlyData[h].omset; peakHour = String(h).padStart(2,'0')+':00'; } }
@@ -8640,13 +8641,15 @@ executeVoidTrx: async function(trxId) {
                 adaTransaksi = true;
                 let pct = maxHourlyOmset > 0 ? (d.omset / maxHourlyOmset) * 100 : 0;
                 let barColor = d.omset === maxHourlyOmset ? 'from-indigo-500 to-purple-500 shadow-md' : 'from-slate-200 to-slate-300';
-                hourlyHtml += `<div class="flex items-center gap-3"><div class="w-10 text-right text-[10px] font-black text-slate-500">${String(h).padStart(2, '0')}:00</div><div class="flex-1 bg-slate-50 rounded-full h-4 overflow-hidden"><div class="bg-gradient-to-r ${barColor} h-full rounded-full transition-all duration-1000 ease-out" style="width: ${pct}%"></div></div><div class="w-20 text-right"><p class="text-[10px] font-black text-slate-800">Rp ${(d.omset/1000).toFixed(0)}k</p></div></div>`;
+                
+                // 🚀 DITAMBAHKAN ONCLICK DAN HOVER EFFECT
+                hourlyHtml += `<div onclick="superApp.openAIDeepDive('hourly', ${h})" class="flex items-center gap-3 p-1.5 -mx-1.5 rounded-xl hover:bg-slate-100 cursor-pointer transition active:scale-95 group"><div class="w-10 text-right text-[10px] font-black text-slate-500 group-hover:text-indigo-600 transition-colors">${String(h).padStart(2, '0')}:00</div><div class="flex-1 bg-slate-50 rounded-full h-4 overflow-hidden"><div class="bg-gradient-to-r ${barColor} h-full rounded-full transition-all duration-1000 ease-out group-hover:brightness-110" style="width: ${pct}%"></div></div><div class="w-20 text-right"><p class="text-[10px] font-black text-slate-800 group-hover:text-indigo-600">Rp ${(d.omset/1000).toFixed(0)}k</p></div></div>`;
             }
         }
         document.getElementById('ai-hourly-chart').innerHTML = adaTransaksi ? hourlyHtml : `<div class="text-center text-slate-400 text-sm py-10">Belum ada transaksi di rentang jam ini.</div>`;
 
         // ==========================================
-        // 8. RENDER TABEL PERINGKAT PRODUK (MARGIN)
+        // 8. RENDER TABEL PERINGKAT PRODUK (CLICKABLE DEEP DIVE)
         // ==========================================
         let topProductName = '-'; let highestProfit = 0;
         let tbodyProd = document.getElementById('ai-product-profit-tbody');
@@ -8656,18 +8659,21 @@ executeVoidTrx: async function(trxId) {
                 let marginItem = data.omset > 0 ? ((data.laba / data.omset) * 100).toFixed(1) : 0;
                 let badgeClass = marginItem < 30 ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600';
                 
+                let safeNameParam = name.replace(/'/g, "\\'"); // Mencegah error jika ada tanda petik di nama menu
+
+                // 🚀 DITAMBAHKAN ONCLICK DAN HOVER EFFECT
                 return `
-                <tr class="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                    <td class="py-3 font-bold text-slate-700">${name}</td>
-                    <td class="py-3 text-center text-slate-500 font-bold">${data.qty}x</td>
-                    <td class="py-3 text-right font-black ${data.laba < 0 ? 'text-red-500' : 'text-emerald-600'}">Rp ${data.laba.toLocaleString('id-ID')}</td>
-                    <td class="py-3 text-right"><span class="px-2 py-1 rounded text-[10px] font-black ${badgeClass}">${marginItem}%</span></td>
+                <tr onclick="superApp.openAIDeepDive('product', '${safeNameParam}')" class="border-b border-slate-50 hover:bg-indigo-50/50 transition-colors cursor-pointer active:bg-slate-100 group">
+                    <td class="py-3 px-3 font-bold text-slate-700 group-hover:text-indigo-600 transition-colors">${name}</td>
+                    <td class="py-3 px-3 text-center text-slate-500 font-bold">${data.qty}x</td>
+                    <td class="py-3 px-3 text-right font-black ${data.laba < 0 ? 'text-red-500' : 'text-emerald-600'}">Rp ${data.laba.toLocaleString('id-ID')}</td>
+                    <td class="py-3 px-3 text-right"><span class="px-2 py-1 rounded text-[10px] font-black ${badgeClass}">${marginItem}%</span></td>
                 </tr>`;
             }).join('') || '<tr><td colspan="4" class="text-center py-6 text-slate-400">Tidak ada penjualan</td></tr>';
         }
 
         // ==========================================
-        // 9. RENDER TABEL KOMPARASI CABANG
+        // 9. RENDER TABEL KOMPARASI CABANG (CLICKABLE DEEP DIVE)
         // ==========================================
         let compHtml = ''; let bestBranch = '-'; let highestOmset = 0;
         let sortedOutlets = Object.keys(compareData).sort((a, b) => compareData[b].laba - compareData[a].laba);
@@ -8679,11 +8685,12 @@ executeVoidTrx: async function(trxId) {
             let pctQris = totPay > 0 ? (d.qris / totPay) * 100 : 0;
             let pctTunai = totPay > 0 ? (d.tunai / totPay) * 100 : 0;
 
-            compHtml += `<tr class="hover:bg-slate-50 transition border-b border-slate-50">
-                <td class="py-3"><span class="font-black text-slate-700">${outName}</span><br><span class="text-[9px] text-slate-400 font-bold">${d.struk} Struk</span></td>
-                <td class="py-3 text-right text-slate-600 font-black">Rp ${(d.omset/1000).toFixed(0)}k</td>
-                <td class="py-3 text-right text-emerald-600 font-black">Rp ${(d.laba/1000).toFixed(0)}k</td>
-                <td class="py-3 px-2">
+            // 🚀 DITAMBAHKAN ONCLICK DAN HOVER EFFECT
+            compHtml += `<tr onclick="superApp.openAIDeepDive('branch', '${outName}')" class="hover:bg-indigo-50/50 transition border-b border-slate-50 cursor-pointer active:bg-slate-100 group">
+                <td class="py-3 px-3"><span class="font-black text-slate-700 group-hover:text-indigo-600 transition-colors">${outName}</span><br><span class="text-[9px] text-slate-400 font-bold">${d.struk} Struk</span></td>
+                <td class="py-3 px-3 text-right text-slate-600 font-black">Rp ${(d.omset/1000).toFixed(0)}k</td>
+                <td class="py-3 px-3 text-right text-emerald-600 font-black">Rp ${(d.laba/1000).toFixed(0)}k</td>
+                <td class="py-3 px-3">
                     <div class="flex items-center gap-1 justify-end">
                         <span class="text-[9px] text-emerald-500 font-black">${pctTunai.toFixed(0)}%</span>
                         <div class="w-12 h-2 flex rounded-full overflow-hidden bg-slate-100">
@@ -8752,6 +8759,130 @@ executeVoidTrx: async function(trxId) {
         }
         document.getElementById('ai-insight-text').innerHTML = insightTxt;
     },
+
+    // =========================================================
+    // 🚀 ENGINE: CFO DASHBOARD DEEP DIVE ANALYSIS (POPUP)
+    // =========================================================
+    openAIDeepDive: function(type, param) {
+        // 1. Dapatkan Rentang Filter Aktif dari Dashboard AI
+        const fStartEl = document.getElementById('ai-filter-start');
+        const fEndEl = document.getElementById('ai-filter-end');
+        let dStart = fStartEl ? fStartEl.value : '';
+        let dEnd = fEndEl ? fEndEl.value : '';
+        let dateStart = new Date(dStart + "T00:00:00");
+        let dateEnd = new Date(dEnd + "T23:59:59");
+        let selOut = document.getElementById('ai-filter-outlet')?.value || 'Semua';
+
+        let title = '';
+        let subtitle = `Periode: ${dStart} s/d ${dEnd}`;
+        let details = [];
+        let totalVal = 0;
+
+        // 2. Kumpulkan Transaksi Terkait
+        (this.db.transactions || []).forEach(t => {
+            if (t.Status !== 'Sukses') return;
+            let trxDate = this.parseDateId(t.Tanggal);
+            
+            if (trxDate >= dateStart && trxDate <= dateEnd) {
+                let tOut = t.Outlet || 'Pusat';
+                if (selOut !== 'Semua' && tOut !== selOut) return;
+
+                let jam = t.Waktu ? parseInt(String(t.Waktu).split('.')[0]) : 0;
+                let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
+
+                // Logika Filter Berdasarkan Klik
+                if (type === 'hourly' && jam === parseInt(param)) {
+                    title = `Deep Dive: Transaksi Pukul ${String(param).padStart(2,'0')}:00`;
+                    details.push({ wkt: `${t.Tanggal} ${t.Waktu}`, ref: t.ID_TRX, desc: `Kasir: ${t.Kasir} • Cabang ${tOut}`, nom: Number(t.Total_Bayar) });
+                    totalVal += Number(t.Total_Bayar);
+                } 
+                else if (type === 'branch' && tOut === param) {
+                    title = `Deep Dive: Kinerja Cabang ${param}`;
+                    details.push({ wkt: `${t.Tanggal} ${t.Waktu}`, ref: t.ID_TRX, desc: `Metode: ${t.Metode_Bayar} • Kasir: ${t.Kasir}`, nom: Number(t.Total_Bayar) });
+                    totalVal += Number(t.Total_Bayar);
+                } 
+                else if (type === 'product') {
+                    title = `Deep Dive: Produk ${param}`;
+                    items.forEach(it => {
+                        let safeNama = it.nama || 'Unknown';
+                        if (safeNama === param) {
+                            let omsetIt = Number(it.qty) * Number(it.price);
+                            details.push({ wkt: `${t.Tanggal} ${t.Waktu}`, ref: t.ID_TRX, desc: `${it.qty} Pcs Terjual di ${tOut} (Oleh: ${t.Kasir})`, nom: omsetIt });
+                            totalVal += omsetIt;
+                        }
+                    });
+                }
+            }
+        });
+
+        // Urutkan dari Omset terbesar ke terkecil
+        details.sort((a, b) => b.nom - a.nom);
+
+        // 3. Bangun Komponen UI List
+        let listHtml = details.length === 0 ? `<div class="p-8 text-center text-slate-400 italic text-xs border border-dashed border-slate-200 rounded-xl m-2">Rincian transaksi tidak ditemukan</div>` :
+            details.map(d => `
+                <div class="flex items-center justify-between p-3.5 border-b border-slate-100 hover:bg-slate-50 transition group">
+                    <div class="flex-1 min-w-0 pr-3">
+                        <div class="font-extrabold text-xs text-slate-800 truncate group-hover:text-brand-600 transition-colors">${d.ref}</div>
+                        <div class="text-[10px] font-bold text-slate-400 mt-0.5 flex flex-col sm:flex-row gap-1 sm:gap-2">
+                            <span><i class="far fa-clock mr-1"></i>${d.wkt}</span>
+                            <span class="text-indigo-500">${d.desc}</span>
+                        </div>
+                    </div>
+                    <div class="text-right shrink-0">
+                        <div class="font-black text-brand-600 text-sm">Rp ${d.nom.toLocaleString('id-ID')}</div>
+                    </div>
+                </div>
+            `).join('');
+
+        // 4. Injeksi Modal Modern (Tailwind Glassmorphism)
+        let existingModal = document.getElementById('ai-deepdive-modal');
+        if (existingModal) existingModal.remove();
+
+        let modalHtml = `
+        <div id="ai-deepdive-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-end md:items-center justify-center p-0 md:p-4 opacity-0 transition-opacity duration-300">
+            <div class="bg-white w-full md:max-w-xl md:rounded-3xl rounded-t-3xl shadow-2xl flex flex-col h-[85vh] md:h-[75vh] transform translate-y-full md:translate-y-10 md:scale-95 transition-transform duration-300 overflow-hidden border border-white/20">
+                
+                <!-- HEADER -->
+                <div class="p-5 md:p-6 border-b border-slate-100 flex justify-between items-start bg-slate-50/80 shrink-0">
+                    <div>
+                        <h3 class="font-black text-slate-800 text-sm md:text-base flex items-center gap-2">
+                            <i class="fas fa-microscope text-brand-500 p-1.5 bg-white rounded-lg shadow-sm border border-slate-100"></i> 
+                            ${title}
+                        </h3>
+                        <p class="text-[10px] font-bold text-slate-500 mt-2 uppercase tracking-widest">${subtitle}</p>
+                        <div class="mt-1 text-xs font-black text-slate-700">Total Filter: <span class="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded shadow-sm">Rp ${totalVal.toLocaleString('id-ID')}</span></div>
+                    </div>
+                    <button onclick="document.getElementById('ai-deepdive-modal').classList.remove('opacity-100'); document.getElementById('ai-deepdive-modal').firstElementChild.classList.add('translate-y-full', 'md:translate-y-10', 'md:scale-95'); setTimeout(()=>document.getElementById('ai-deepdive-modal').remove(), 300)" class="w-8 h-8 flex items-center justify-center rounded-full bg-white border border-slate-200 text-slate-400 hover:text-rose-500 hover:bg-rose-50 hover:border-rose-200 transition active:scale-90 shadow-sm shrink-0">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <!-- BODY LIST -->
+                <div class="flex-1 overflow-y-auto custom-scroll p-2 md:p-4 bg-slate-50/30">
+                    <div class="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
+                        ${listHtml}
+                    </div>
+                </div>
+
+            </div>
+        </div>`;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Animasi Tampil (Fade In & Slide Up)
+        setTimeout(() => {
+            let el = document.getElementById('ai-deepdive-modal');
+            if(el) {
+                el.classList.remove('opacity-0');
+                el.classList.add('opacity-100');
+                el.firstElementChild.classList.remove('translate-y-full', 'md:translate-y-10', 'md:scale-95');
+                el.firstElementChild.classList.add('translate-y-0', 'md:translate-y-0', 'md:scale-100');
+            }
+        }, 10);
+    },
+
+    
     
     exportPDF: function() {
         this.showToast("Mempersiapkan PDF Laporan...");

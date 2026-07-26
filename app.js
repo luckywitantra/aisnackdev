@@ -459,32 +459,7 @@ const superApp = {
         }
     },
 
-    // =========================================================
-    // 🚀 ENGINE: DYNAMIC MENU GUIDE MODAL CONTROLLER
-    // =========================================================
-    openMenuGuide: function(title, subtitle, iconClass, iconBgClass, contentHtml) {
-        const modal = document.getElementById('modal-menu-guide');
-        const contentBox = document.getElementById('modal-menu-guide-content');
-        if (!modal || !contentBox) return;
-
-        if(document.getElementById('guide-title')) document.getElementById('guide-title').innerText = title || "Panduan Sistem";
-        if(document.getElementById('guide-subtitle')) document.getElementById('guide-subtitle').innerText = subtitle || "Informasi & Cara Penggunaan";
-        
-        const iconContainer = document.getElementById('guide-icon-container');
-        if(iconContainer) {
-            iconContainer.className = `w-16 h-16 md:w-20 md:h-20 rounded-2xl flex items-center justify-center text-3xl md:text-4xl mx-auto mb-3.5 shadow-inner border transform transition-transform duration-500 hover:scale-105 hover:rotate-3 ${iconBgClass || 'bg-indigo-50 text-indigo-600 border-indigo-100'}`;
-        }
-        
-        if(document.getElementById('guide-icon')) document.getElementById('guide-icon').className = iconClass || "fas fa-info-circle";
-        if(document.getElementById('guide-content-body')) document.getElementById('guide-content-body').innerHTML = contentHtml || "<p>Tidak ada informasi tambahan.</p>";
-
-        modal.classList.remove('hidden');
-        modal.classList.add('flex', 'opacity-100');
-        setTimeout(() => {
-            contentBox.classList.remove('scale-95');
-            contentBox.classList.add('scale-100');
-        }, 10);
-    },
+   
 
     toggleDarkMode: function() { 
         document.documentElement.classList.toggle('dark'); 
@@ -992,7 +967,7 @@ const superApp = {
         // =========================================================================
         // 🚀 0. AUTO-PURGE CACHE ENGINE (ANTI-CACHE CHROME HP JARAK JAUH)
         // =========================================================================
-        const CURRENT_VER = "v556"; // Naikkan versi agar HP toko ter-reset
+        const CURRENT_VER = "v557"; // Naikkan versi agar HP toko ter-reset
         const savedVer = localStorage.getItem('aisnack_sys_version');
         
         if (savedVer !== CURRENT_VER) {

@@ -990,7 +990,34 @@ const superApp = {
   
     // STARTUP & LOGIN
     init: async function() {
-        // --- 🚀 RADAR UPDATE APLIKASI (SERVICE WORKER) ---
+        // =========================================================================
+        // 🚀 0. AUTO-PURGE CACHE ENGINE (ANTI-CACHE CHROME HP JARAK JAUH)
+        // =========================================================================
+        // 🛑 ATURAN EMAS: Setiap kali Anda update kodingan penting, UBAH TEKS VERSI INI!
+        const CURRENT_VER = "v549_FIX_HP_LANCAR"; 
+        const savedVer = localStorage.getItem('aisnack_sys_version');
+        
+        if (savedVer !== CURRENT_VER) {
+            console.log("Versi baru terdeteksi! Membersihkan cache lama di HP...");
+            localStorage.setItem('aisnack_sys_version', CURRENT_VER);
+            
+            // Hapus semua Cache Storage HTML/JS lawas di HP
+            if ('caches' in window) {
+                caches.keys().then(names => names.forEach(name => caches.delete(name)));
+            }
+            // Cabut Service Worker lawas yang bandel
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(reg => reg.unregister()));
+            }
+            // Paksa reload browser HP langsung dari server jaringan
+            setTimeout(() => {
+                window.location.href = window.location.pathname + "?v=" + Date.now();
+            }, 500);
+            return; // Hentikan proses init karena halaman akan segera di-reload
+        }
+        // =========================================================================
+
+        // --- 🚀 1. RADAR UPDATE APLIKASI (SERVICE WORKER) ---
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js').then(registration => {
                 registration.addEventListener('updatefound', () => {
@@ -1007,9 +1034,24 @@ const superApp = {
                             
                             const btn = document.getElementById('btn-update-app');
                             if (btn) {
+                                // 🚀 UPGRADE: Nuclear Reset pada tombol Update Banner
                                 btn.onclick = () => {
-                                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                                    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Memperbarui...';
+                                    btn.disabled = true;
+                                    
+                                    // Bersihkan cache dan SW sebelum reload
+                                    if ('caches' in window) {
+                                        caches.keys().then(names => names.forEach(name => caches.delete(name)));
+                                    }
+                                    if ('serviceWorker' in navigator) {
+                                        navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(reg => reg.unregister()));
+                                    }
                                     newWorker.postMessage({ action: 'skipWaiting' });
+                                    
+                                    localStorage.setItem('aisnack_sys_version', CURRENT_VER);
+                                    setTimeout(() => {
+                                        window.location.href = window.location.pathname + "?nocache=" + Date.now();
+                                    }, 500);
                                 };
                             }
                         }

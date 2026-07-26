@@ -475,10 +475,9 @@ const superApp = {
 
     
     // =========================================================
-    // 🚀 ENGINE: API POST (XHR ANTI-GANTUNG & ANTI-CRASH CHROME HP)
+    // 🚀 ENGINE: API POST (XHR ANTI-GANTUNG & ANTI-CRASH DI HP)
     // =========================================================
     apiPost: async function(payload) {
-        // 1. Cek mode offline sejak awal
         if (!this.isOnline) { 
             this.offlineQueue.push(payload); 
             localStorage.setItem('aisnack_offline_queue', JSON.stringify(this.offlineQueue)); 
@@ -488,15 +487,14 @@ const superApp = {
 
         let rUrl = (typeof API_URL !== 'undefined') ? API_URL : this.webAppUrl;
 
-        // 2. Gunakan XMLHttpRequest (XHR) dengan batas waktu maksimal 8 detik
         return new Promise((resolve) => {
             const xhr = new XMLHttpRequest();
             xhr.open("POST", rUrl, true);
             
-            // Wajib text/plain agar dianggap "Simple Request" oleh Chrome Mobile
+            // Wajib text/plain agar tidak diblokir oleh keamanan CORS Chrome Mobile
             xhr.setRequestHeader("Content-Type", "text/plain;charset=utf-8");
             
-            // 🛑 KUNCI ANTI-GANTUNG: Jika Google Sheets > 100 baris dan melambat > 8 detik, otomatis putus!
+            // Batas maksimal 8 detik. Jika sinyal HP jelek/lemot, otomatis putus ke mode offline!
             xhr.timeout = 8000; 
 
             xhr.onload = () => {
@@ -511,9 +509,8 @@ const superApp = {
                 }
             };
 
-            // Fungsi penyelamat jika koneksi error, diblokir Chrome, atau timeout (> 8 detik)
             const handleOfflineFallback = () => {
-                console.log("Server lambat/terblokir Chrome HP, otomatis mengalihkan ke antrean offline.");
+                console.log("Koneksi HP melambat/terblokir, mengalihkan otomatis ke antrean offline.");
                 this.offlineQueue.push(payload); 
                 localStorage.setItem('aisnack_offline_queue', JSON.stringify(this.offlineQueue)); 
                 if (typeof this.updateNetworkUI === 'function') this.updateNetworkUI(); 
@@ -527,7 +524,6 @@ const superApp = {
         });
     },
 
-    // ... (fungsi-fungsi superApp lainnya di atas) ...
 
     openSyncCenter: function() {
         this.renderSyncQueue();
@@ -2086,7 +2082,7 @@ const superApp = {
 
     // 4. Simpan & Buat Teks Laporan WhatsApp Presisi
    // =========================================================
-    // 🚀 SUBMIT LAPORAN HARIAN (DIET DATABASE & ANTI-LAG DI HP)
+    // 🚀 SUBMIT LAPORAN HARIAN (ANTI-LAG & ANTI-CRASH DI HP)
     // =========================================================
     submitLaporanHarian: async function() {
         if (this.isProcessing) return;
@@ -2114,7 +2110,7 @@ const superApp = {
         this.setLoading(true, "Membaca Akumulasi...");
 
         // ======================================================================
-        // 🚀 SINKRONISASI RINGAN (HANYA 40 KB): Mengambil jalur get_laporan_only
+        // 🚀 SINKRONISASI KILAT (Maksimal tunggu 3 detik di HP)
         // ======================================================================
         if (this.isOnline) {
             try {
@@ -2124,10 +2120,7 @@ const superApp = {
                 await new Promise((resolve) => {
                     const xhr = new XMLHttpRequest();
                     xhr.open("GET", syncUrl, true);
-                    
-                    // 🛑 KATUP PENGAMAN: Jika dalam 3 detik tidak selesai, putus otomatis
-                    // agar kasir tidak terhambat loading lama di HP!
-                    xhr.timeout = 3000; 
+                    xhr.timeout = 3000; // Putus otomatis dalam 3 detik jika koneksi HP lambat!
                     
                     xhr.onload = () => {
                         if (xhr.status >= 200 && xhr.status < 400) {
@@ -2143,7 +2136,7 @@ const superApp = {
                     };
                     xhr.onerror = () => resolve();
                     xhr.ontimeout = () => {
-                        console.log("Jaringan seluler lambat, sinkronisasi dilewati demi kecepatan aplikasi.");
+                        console.log("Koneksi HP lambat, sinkronisasi dilompati agar tidak lag.");
                         resolve();
                     };
                     xhr.send();
@@ -2153,7 +2146,6 @@ const superApp = {
             }
         }
 
-        // Kalkulasi ulang menggunakan data terbaru di memori
         let exactAccumulation = typeof this.calcMonthlyAccumulation === 'function' 
             ? this.calcMonthlyAccumulation(netSales) 
             : (this.currentAccumMonth || netSales);
@@ -2208,7 +2200,7 @@ const superApp = {
         }
         localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
 
-        // Kirim via apiPost
+        // Kirim menggunakan apiPost XHR yang baru
         await this.apiPost(payload);
         this.setLoading(false);
         

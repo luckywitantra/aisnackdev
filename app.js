@@ -976,7 +976,7 @@ const superApp = {
         // 🚀 0. AUTO-PURGE CACHE ENGINE (ANTI-CACHE CHROME HP JARAK JAUH)
         // =========================================================================
         // 🛑 ATURAN EMAS: Setiap kali Anda update kodingan penting, UBAH TEKS VERSI INI!
-        const CURRENT_VER = "v554"; 
+        const CURRENT_VER = "v555"; 
         const savedVer = localStorage.getItem('aisnack_sys_version');
         
         if (savedVer !== CURRENT_VER) {

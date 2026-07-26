@@ -730,28 +730,45 @@ const superApp = {
         } else { ind.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-50 border border-red-200 transition'; dot.className = 'w-2 h-2 rounded-full bg-red-500'; txt.className = 'text-[10px] font-bold text-red-600 hidden md:inline'; txt.innerText = `Offline (${this.offlineQueue.length} Pending)`; }
     },
 
-    // CFD DUAL MONITOR SMART SYNC + ANTRIAN
+   // CFD DUAL MONITOR SMART SYNC + ANTRIAN
     cfdSuccessTimeout: null, // Tambahkan variabel global untuk menyimpan memori waktu
 
     openCFD: async function(isAutoRestore = false) {
         localStorage.setItem('cfd_wants_open', 'true');
+        
+        // 🚀 KUNCI PERBAIKAN: Gunakan origin + pathname murni agar bebas dari bug tanda tanya ganda (?v= / ?nocache=)
+        let cfdUrl = window.location.origin + window.location.pathname + '?mode=cfd';
+
         try { 
             if ('getScreenDetails' in window) { 
                 const screens = await window.getScreenDetails(); 
                 const extScreen = screens.screens.find(s => s !== screens.currentScreen); 
-                if (extScreen) { this.cfdWindow = window.open(window.location.href + '?mode=cfd', 'CFD_WINDOW_AISNACK', `left=${extScreen.availLeft},top=${extScreen.availTop},width=${extScreen.availWidth},height=${extScreen.availHeight},fullscreen=yes`); return; } 
+                if (extScreen) { 
+                    // Gunakan variabel cfdUrl yang sudah dibersihkan
+                    this.cfdWindow = window.open(cfdUrl, 'CFD_WINDOW_AISNACK', `left=${extScreen.availLeft},top=${extScreen.availTop},width=${extScreen.availWidth},height=${extScreen.availHeight},fullscreen=yes`); 
+                    return; 
+                } 
             } 
         } catch (e) {}
         
-        if (!this.cfdWindow || this.cfdWindow.closed) { this.cfdWindow = window.open(window.location.href + '?mode=cfd', 'CFD_WINDOW_AISNACK', `left=${window.screen.width},top=0,width=1024,height=768`); }
+        if (!this.cfdWindow || this.cfdWindow.closed) { 
+            // Gunakan variabel cfdUrl yang sudah dibersihkan
+            this.cfdWindow = window.open(cfdUrl, 'CFD_WINDOW_AISNACK', `left=${window.screen.width},top=0,width=1024,height=768`); 
+        }
+        
         if (this.cfdWindow) {
             this.cfdWindow.focus();
             if (!this.cfdFocusHandlerAdded) {
-                window.addEventListener('focus', () => { if (this.cfdWindow && !this.cfdWindow.closed && localStorage.getItem('cfd_wants_open') === 'true') { this.syncStorage(); } });
+                window.addEventListener('focus', () => { 
+                    if (this.cfdWindow && !this.cfdWindow.closed && localStorage.getItem('cfd_wants_open') === 'true') { 
+                        this.syncStorage(); 
+                    } 
+                });
                 this.cfdFocusHandlerAdded = true;
             }
         }
     },
+    
    changePromoImage: function(type) {
         let fileInput = document.createElement('input'); 
         fileInput.type = 'file'; 
@@ -970,13 +987,12 @@ const superApp = {
         }
     },
   
-    // STARTUP & LOGIN
+   // STARTUP & LOGIN
     init: async function() {
         // =========================================================================
         // 🚀 0. AUTO-PURGE CACHE ENGINE (ANTI-CACHE CHROME HP JARAK JAUH)
         // =========================================================================
-        // 🛑 ATURAN EMAS: Setiap kali Anda update kodingan penting, UBAH TEKS VERSI INI!
-        const CURRENT_VER = "v555"; 
+        const CURRENT_VER = "v556"; // Naikkan versi agar HP toko ter-reset
         const savedVer = localStorage.getItem('aisnack_sys_version');
         
         if (savedVer !== CURRENT_VER) {
@@ -996,12 +1012,19 @@ const superApp = {
                 } catch(e) {}
             }
             setTimeout(() => {
-                // Paksa load bersih tanpa memori cache browser
                 window.location.replace(window.location.pathname + "?v=" + Date.now());
             }, 600);
-            return; // Hentikan proses init eksekusi lawas
+            return; 
         }
+
         // =========================================================================
+        // 🚀 0.5 URL CLEANER: Hapus angka ?v= atau ?nocache= dari Address Bar (NEW!)
+        // =========================================================================
+        // Membersihkan alamat web secara senyap tanpa mereload halaman
+        if (window.location.search.includes('v=') || window.location.search.includes('nocache=')) {
+            let cleanUrl = window.location.pathname + (window.location.search.includes('mode=cfd') ? '?mode=cfd' : '');
+            window.history.replaceState(null, '', cleanUrl);
+        }
 
         // --- 🚀 1. RADAR UPDATE APLIKASI (SERVICE WORKER) ---
         if ('serviceWorker' in navigator) {

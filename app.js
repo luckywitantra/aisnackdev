@@ -2086,7 +2086,7 @@ const superApp = {
 
     // 4. Simpan & Buat Teks Laporan WhatsApp Presisi
    // =========================================================
-    // 🚀 SUBMIT LAPORAN HARIAN (ANTI-CRASH 1000+ BARIS DI CHROME HP)
+    // 🚀 SUBMIT LAPORAN HARIAN (DIET DATABASE & ANTI-LAG DI HP)
     // =========================================================
     submitLaporanHarian: async function() {
         if (this.isProcessing) return;
@@ -2111,24 +2111,23 @@ const superApp = {
         let isOwner = this.currentUser && (this.currentUser.Role === 'owner' || this.currentUser.Role === 'supervisor');
         let statusApp = (isEdit && !isOwner) ? 'Pending Edit' : 'Disetujui';
 
-        this.setLoading(true, "Menyinkronkan Akumulasi Bulan Ini...");
+        this.setLoading(true, "Membaca Akumulasi...");
 
         // ======================================================================
-        // 🚀 SINKRONISASI KILAT ANTI-CRASH (MAKSIMAL TUNGGU 3.5 DETIK)
-        // Menggunakan XHR agar RAM Chrome HP tidak kelebihan beban saat baris > 100
+        // 🚀 SINKRONISASI RINGAN (HANYA 40 KB): Mengambil jalur get_laporan_only
         // ======================================================================
         if (this.isOnline) {
             try {
                 let rUrl = (typeof API_URL !== 'undefined') ? API_URL : this.webAppUrl;
-                let syncUrl = rUrl + "?ts=" + new Date().getTime() + "&history=31";
+                let syncUrl = rUrl + "?ts=" + new Date().getTime() + "&action=get_laporan_only";
                 
                 await new Promise((resolve) => {
                     const xhr = new XMLHttpRequest();
                     xhr.open("GET", syncUrl, true);
                     
-                    // 🛑 ATURAN BESI: Jika database terlalu besar & lambat dibaca,
-                    // batal otomatis dalam 3.5 detik agar HP kasir tidak macet/freeze!
-                    xhr.timeout = 3500; 
+                    // 🛑 KATUP PENGAMAN: Jika dalam 3 detik tidak selesai, putus otomatis
+                    // agar kasir tidak terhambat loading lama di HP!
+                    xhr.timeout = 3000; 
                     
                     xhr.onload = () => {
                         if (xhr.status >= 200 && xhr.status < 400) {
@@ -2144,17 +2143,17 @@ const superApp = {
                     };
                     xhr.onerror = () => resolve();
                     xhr.ontimeout = () => {
-                        console.log("Database > 100 baris melambat, sinkronisasi dilewati demi kenyamanan kasir.");
+                        console.log("Jaringan seluler lambat, sinkronisasi dilewati demi kecepatan aplikasi.");
                         resolve();
                     };
                     xhr.send();
                 });
             } catch(e) {
-                console.log("Koneksi tidak stabil, menggunakan akumulasi dari memori lokal.");
+                console.log("Koneksi offline, menggunakan data lokal.");
             }
         }
 
-        // 🚀 PAKSA KALKULASI ULANG AGAR MENGGUNAKAN DATA TERBARU DARI SERVER
+        // Kalkulasi ulang menggunakan data terbaru di memori
         let exactAccumulation = typeof this.calcMonthlyAccumulation === 'function' 
             ? this.calcMonthlyAccumulation(netSales) 
             : (this.currentAccumMonth || netSales);
@@ -2175,7 +2174,7 @@ const superApp = {
             pcs: pcs,
             pengeluaran_json: JSON.stringify(expValid),
             total_pengeluaran: totExp,
-            akumulasi_bulan: exactAccumulation, // 🚀 Kirim angka yang sudah dijamin akurat
+            akumulasi_bulan: exactAccumulation,
             kasir: (this.currentUser && this.currentUser.Username) ? this.currentUser.Username : 'Kasir',
             status_approval: statusApp
         };
@@ -2209,7 +2208,7 @@ const superApp = {
         }
         localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
 
-        // Kirim ke server di background menggunakan fungsi apiPost (yang sudah kita ganti ke XHR sebelumnya)
+        // Kirim via apiPost
         await this.apiPost(payload);
         this.setLoading(false);
         
@@ -2219,7 +2218,6 @@ const superApp = {
             this.showToast("Laporan Berhasil Tersimpan!");
         }
         
-        // 🚀 RAKIT TEKS WA MENGGUNAKAN EXACT ACCUMULATION TERBARU
         let amountPaid = bill > 0 ? Math.round(netSales / bill) : 0;
         let amountPcs = pcs > 0 ? Math.round(netSales / pcs) : 0;
         
@@ -2249,7 +2247,6 @@ const superApp = {
             waText += `*Net Cash Laci: Rp ${(cash - totExp).toLocaleString('id-ID')}*\n`;
         }
         
-        // 🚀 ANGKA INI DIJAMIN 100% COCOK DENGAN SERVER
         waText += `\nAkumulasi Bulanan: Rp ${exactAccumulation.toLocaleString('id-ID')}\n`;
         waText += `Target Bulanan: Rp ${this.targetBulanan.toLocaleString('id-ID')}`;
 

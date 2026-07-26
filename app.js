@@ -1,48 +1,3 @@
-// =========================================================================
-// 🚀 ENGINE: AUTO-PURGE CACHE & FORCE RELOAD (ANTI-CACHE CHROME MOBILE)
-// =========================================================================
-// 🛑 ATURAN: Setiap kali Anda update kodingan penting, UBAH ANGKA VERSI INI!
-const SYSTEM_VERSION = "v551"; 
-
-(function autoCleanRemoteDevices() {
-    const localVer = localStorage.getItem('aisnack_sys_version');
-    
-    // Jika HP toko mendeteksi versi di server berbeda dengan versi di memori HP
-    if (localVer !== SYSTEM_VERSION) {
-        console.log("Versi baru terdeteksi! Mempersiapkan pembersihan cache mendalam...");
-        
-        // 1. Simpan versi baru agar tidak reload terus-menerus (Infinite Loop)
-        localStorage.setItem('aisnack_sys_version', SYSTEM_VERSION);
-        
-        // 2. Hapus seluruh Cache Storage (Tempat bersarangnya file HTML/JS lawas di HP)
-        if ('caches' in window) {
-            caches.keys().then(function(cacheNames) {
-                cacheNames.forEach(function(cacheName) {
-                    caches.delete(cacheName);
-                    console.log("Cache lama dihapus: ", cacheName);
-                });
-            });
-        }
-        
-        // 3. Cabut / Unregister Service Worker (sw.js) lawas yang keras kepala
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                registrations.forEach(function(registration) {
-                    registration.unregister();
-                    console.log("Service Worker lama dicabut");
-                });
-            });
-        }
-        
-        // 4. Paksa Chrome HP memuat ulang (Reload) dari jaringan server, BUKAN dari cache!
-        setTimeout(() => {
-            console.log("Memuat ulang aplikasi dengan kode terbaru...");
-            // Penggunaan window.location.href + parameter unik memaksa Chrome mengunduh file baru
-            window.location.href = window.location.pathname + "?updated=" + Date.now();
-        }, 800);
-    }
-})();
-
 const API_URL = "https://script.google.com/macros/s/AKfycbzIG5gEXEfMeOiwJUd7SGROqcVWktQnsvQJFgW5HKBE5lXeH1hR6S1fIrCw1xpmLyl-rA/exec"; // <-- GANTI DENGAN URL API ANDA
 
 /* ========================================== */
@@ -994,7 +949,7 @@ const superApp = {
         // 🚀 0. AUTO-PURGE CACHE ENGINE (ANTI-CACHE CHROME HP JARAK JAUH)
         // =========================================================================
         // 🛑 ATURAN EMAS: Setiap kali Anda update kodingan penting, UBAH TEKS VERSI INI!
-        const CURRENT_VER = "v549_FIX_HP_LANCAR"; 
+        const CURRENT_VER = "v551"; 
         const savedVer = localStorage.getItem('aisnack_sys_version');
         
         if (savedVer !== CURRENT_VER) {

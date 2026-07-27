@@ -962,16 +962,33 @@ const superApp = {
         }
     },
   
-   // STARTUP & LOGIN
+    // STARTUP & LOGIN
     init: async function() {
         // =========================================================================
-        // 🚀 0. AUTO-PURGE CACHE ENGINE (ANTI-CACHE CHROME HP JARAK JAUH)
+        // 🚀 0. AUTO-PURGE CACHE ENGINE (ANTI-CACHE & GEMBOK INSTAN HP)
         // =========================================================================
-        const CURRENT_VER = "v557"; // Naikkan versi agar HP toko ter-reset
+        // 🛑 ATURAN EMAS: Setiap kali Anda update kodingan penting, UBAH TEKS VERSI INI!
+        const CURRENT_VER = "v560"; 
         const savedVer = localStorage.getItem('aisnack_sys_version');
         
+        // JIKA VERSI BEDA: Langsung kunci tombol PIN di detik ke-0!
         if (savedVer !== CURRENT_VER) {
-            console.warn("Versi baru terdeteksi! Membersihkan cache lama di HP...");
+            console.warn("Versi baru terdeteksi! Mengunci layar & membersihkan cache...");
+            this.isSystemUpdating = true; // 🔒 Kunci variabel satpam
+            
+            // 🔒 GEMBOK FISIK: Matikan semua tombol angka PIN agar kasir tidak bisa mengetik!
+            document.querySelectorAll('#pin-numpad-container button').forEach(b => {
+                b.disabled = true;
+                b.classList.add('opacity-40', 'cursor-not-allowed');
+            });
+
+            // Ubah teks status di bawah layar login menjadi merah berkedip
+            const statusEl = document.getElementById('login-status');
+            if (statusEl) {
+                statusEl.innerText = "⚡ MENGINSTAL VERSI TERBARU, MOHON TUNGGU...";
+                statusEl.className = "text-xs font-black text-rose-500 animate-pulse text-center";
+            }
+
             localStorage.setItem('aisnack_sys_version', CURRENT_VER);
             
             if ('caches' in window) {
@@ -989,25 +1006,57 @@ const superApp = {
             setTimeout(() => {
                 window.location.replace(window.location.pathname + "?v=" + Date.now());
             }, 600);
-            return; 
+            return; // 🛑 Hentikan seluruh eksekusi agar tidak bisa login
         }
 
         // =========================================================================
-        // 🚀 0.5 URL CLEANER: Hapus angka ?v= atau ?nocache= dari Address Bar (NEW!)
+        // 🚀 0.5 URL CLEANER: Hapus angka ?v= atau ?nocache= dari Address Bar
         // =========================================================================
-        // Membersihkan alamat web secara senyap tanpa mereload halaman
         if (window.location.search.includes('v=') || window.location.search.includes('nocache=')) {
             let cleanUrl = window.location.pathname + (window.location.search.includes('mode=cfd') ? '?mode=cfd' : '');
             window.history.replaceState(null, '', cleanUrl);
         }
 
-        // --- 🚀 1. RADAR UPDATE APLIKASI (SERVICE WORKER) ---
+        // --- 🚀 1. RADAR UPDATE ASINKRONUS (SERVICE WORKER) ---
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js').then(registration => {
                 registration.addEventListener('updatefound', () => {
                     const newWorker = registration.installing;
-                    newWorker.addEventListener('statechange', () => {
+                    newWorker.addEventListener('statechange', async () => {
                         if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            
+                            // 🛑 SATPAM KHUSUS HP / LAYAR LOGIN: FORCE UPDATE OTOMATIS!
+                            // Jika layar di HP (< 1024px) atau belum login, LANGSUNG EKSEKUSI TANPA BANNER!
+                            if (!this.currentUser || window.innerWidth < 1024) {
+                                console.log("⚡ Update otomatis dipicu untuk HP / Layar Login...");
+                                this.isSystemUpdating = true; // Kunci sistem
+                                
+                                // Gembok numpad PIN saat itu juga
+                                document.querySelectorAll('#pin-numpad-container button').forEach(b => {
+                                    b.disabled = true;
+                                    b.classList.add('opacity-40', 'cursor-not-allowed');
+                                });
+                                
+                                const statusEl = document.getElementById('login-status');
+                                if (statusEl) {
+                                    statusEl.innerText = "⚡ MEMPERBARUI SISTEM KE VERSI BARU...";
+                                    statusEl.className = "text-xs font-black text-rose-500 animate-pulse text-center";
+                                }
+
+                                if ('caches' in window) {
+                                    const names = await caches.keys();
+                                    await Promise.all(names.map(name => caches.delete(name)));
+                                }
+                                newWorker.postMessage({ action: 'skipWaiting' });
+                                localStorage.setItem('aisnack_sys_version', CURRENT_VER);
+                                
+                                setTimeout(() => {
+                                    window.location.replace(window.location.pathname + "?nocache=" + Date.now());
+                                }, 600);
+                                return;
+                            }
+
+                            // Jika di PC dan sedang melayani pelanggan (sudah login), baru munculkan banner
                             const banner = document.getElementById('update-banner');
                             if (banner) {
                                 banner.classList.remove('hidden');
@@ -1051,7 +1100,6 @@ const superApp = {
                 window.location.reload();
             });
         }
-        // ----------------------------------------------
 
         if (new URLSearchParams(window.location.search).get('mode') === 'cfd') { this.initCFD(); return; }
 
@@ -1156,10 +1204,30 @@ const superApp = {
         }
     },
     
-    addPin: function(num) {
-        if (!this.db || !this.db.users) { this.showToast('Sistem sedang memuat data, mohon tunggu sebentar...', 'warning'); return; }
-        if (this.pinBuffer.length < 4) { this.pinBuffer += num; const dot = document.getElementById(`dot-${this.pinBuffer.length}`); if (dot) { dot.classList.replace('border-slate-300', 'bg-brand-500'); dot.classList.replace('border-2', 'border-0'); } }
-        if (this.pinBuffer.length === 4) setTimeout(() => this.processLogin(), 200);
+   addPin: function(num) {
+        // 🛑 SATPAM 1: Tolak ketikan jika aplikasi sedang proses update / bersiap reload
+        if (this.isSystemUpdating) {
+            this.showToast('⚡ Sistem sedang menginstal pembaruan, mohon tunggu...', 'warning');
+            return;
+        }
+
+        if (!this.db || !this.db.users) { 
+            this.showToast('Sistem sedang memuat data, mohon tunggu sebentar...', 'warning'); 
+            return; 
+        }
+        
+        if (this.pinBuffer.length < 4) { 
+            this.pinBuffer += num; 
+            const dot = document.getElementById(`dot-${this.pinBuffer.length}`); 
+            if (dot) { 
+                dot.classList.replace('border-slate-300', 'bg-brand-500'); 
+                dot.classList.replace('border-2', 'border-0'); 
+            } 
+        }
+        
+        if (this.pinBuffer.length === 4) {
+            setTimeout(() => this.processLogin(), 200);
+        }
     },
     delPin: function() {
         if (this.pinBuffer.length > 0) { const dot = document.getElementById(`dot-${this.pinBuffer.length}`); if (dot) { dot.classList.replace('bg-brand-500', 'border-slate-300'); dot.classList.replace('border-0', 'border-2'); } this.pinBuffer = this.pinBuffer.slice(0, -1); }

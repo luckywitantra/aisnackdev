@@ -131,3 +131,76 @@ body {
 /* Cetak Struk & PDF Tetap Wajib Putih */
 .dark #receipt-canvas, .dark .pdf-container { background-color: white !important; color: black !important; }
 .dark #receipt-canvas * { color: black !important; }
+
+/* ========================================================================== */
+/* 🛡️ ULTIMATE DARK MODE PATCH (MENGATASI SEMUA BENTROK DI INDEX.HTML)      */
+/* ========================================================================== */
+
+/* 1. Menjinakkan Hardcode bg-[#f4f7f9] & Elemen Transparan (white/60, dll) */
+.dark .bg-\[\#f4f7f9\],
+.dark .bg-slate-50,
+.dark .bg-slate-100 {
+    background-color: #0b0f19 !important;
+    border-color: #1e293b !important;
+}
+
+.dark .bg-white\/60,
+.dark .bg-white\/90,
+.dark .bg-white\/95,
+.dark .bg-slate-50\/90,
+.dark .bg-slate-50\/95,
+.dark .bg-slate-50\/80,
+.dark .bg-slate-100\/90,
+.dark .bg-slate-100\/50 {
+    background-color: rgba(21, 28, 47, 0.85) !important;
+    border-color: #222f4e !important;
+    color: #f1f5f9 !important;
+}
+
+/* 2. Menjinakkan Kartu KPI Gradasi Pastel agar Tidak Menyilaukan di Dark Mode */
+.dark [class*="from-blue-50"],
+.dark [class*="from-emerald-50"],
+.dark [class*="from-cyan-50"],
+.dark [class*="from-purple-50"],
+.dark [class*="from-amber-50"],
+.dark [class*="from-rose-50"],
+.dark [class*="from-indigo-50"] {
+    background-image: none !important;
+    background-color: #151c2f !important;
+    border-color: #222f4e !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* 3. Memastikan Semua Teks di Dalam Tabel & Tombol Terbaca Jelas */
+.dark thead, .dark th {
+    background-color: #111827 !important;
+    color: #94a3b8 !important;
+    border-color: #222f4e !important;
+}
+.dark tbody tr {
+    border-color: #1e293b !important;
+}
+.dark tbody tr:hover td {
+    background-color: rgba(30, 41, 59, 0.6) !important;
+}
+
+/* 4. Menyelamatkan Container Tab (Pill Tabs Navigation) */
+.dark .bg-slate-100\/50, .dark .bg-slate-100\/90 {
+    background-color: #0f172a !important;
+    border-color: #1e293b !important;
+}
+.dark button.bg-white {
+    background-color: #1e293b !important;
+    color: #f8fafc !important;
+    border-color: #334155 !important;
+}
+
+/* 5. PENGECUALIAN MUTLAK: Area Kertas Struk & PDF WAJIB PUTIH! */
+.dark #receipt-canvas,
+.dark #receipt-canvas *,
+.dark #detail-struk-body,
+.dark .pdf-container,
+.dark .pdf-container * {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+}

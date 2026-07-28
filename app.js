@@ -1215,9 +1215,9 @@ const superApp = {
                 // Kurangi menjadi 2x percobaan agar kasir tidak lama menunggu jika sinyal jelek
                 for (let i = 0; i < 2; i++) {
                     try { 
-                        // ⏰ Pasang bom waktu 8 detik! Jika Google lambat/down, langsung putus.
+                        // ⏰ Pasang bom waktu 15 detik! Jika Google lambat/down, langsung putus.
                         const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 8000);
+                        const timeoutId = setTimeout(() => controller.abort(), 15000);
 
                         const res = await fetch(API_URL + "?ts=" + new Date().getTime() + "&history=30", { 
                             redirect: 'follow',

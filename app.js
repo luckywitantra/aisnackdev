@@ -616,13 +616,47 @@ const superApp = {
     },
     
    // =========================================================================
-    // 🚀 1. PENARIK DATA LATAR BELAKANG (DIBATASI 90 HARI TANPA PEMUTUS PAKSA)
+    // 🧠 ENGINE PENGGABUNG DATA (SMART MERGE - MELINDUNGI RIWAYAT 90 HARI)
+    // =========================================================================
+    mergeDatabase: function(oldDb, newDb) {
+        if (!oldDb || !oldDb.masterProduk) return newDb;
+        if (!newDb || !newDb.masterProduk) return oldDb;
+
+        let merged = { ...oldDb };
+
+        // 1. MASTER DATA (Wajib Timpa 100% agar Stok, Harga, & Pengaturan selalu REAL-TIME)
+        merged.status = newDb.status;
+        merged.masterProduk = newDb.masterProduk || oldDb.masterProduk;
+        merged.outlets = newDb.outlets || oldDb.outlets;
+        merged.hargaStokOutlet = newDb.hargaStokOutlet || oldDb.hargaStokOutlet;
+        merged.users = newDb.users || oldDb.users;
+        merged.pengaturan = newDb.pengaturan || oldDb.pengaturan;
+
+        // Helper: Gabungkan Array berdasarkan ID unik tanpa duplikasi (Data baru menimpa data lama)
+        const mergeArrayById = (oldArr = [], newArr = [], idKey) => {
+            let map = new Map();
+            oldArr.forEach(item => { if (item[idKey]) map.set(item[idKey], item); });
+            newArr.forEach(item => { if (item[idKey]) map.set(item[idKey], item); });
+            return Array.from(map.values());
+        };
+
+        // 2. DATA RIWAYAT (Gabungan Pintar: Laporan baru diperbarui, Laporan lawas tetap dipertahankan!)
+        merged.laporanHarian = mergeArrayById(oldDb.laporanHarian, newDb.laporanHarian, 'ID_Laporan');
+        merged.transactions = mergeArrayById(oldDb.transactions, newDb.transactions, 'ID_TRX');
+        merged.shifts = mergeArrayById(oldDb.shifts, newDb.shifts, 'ID_Shift');
+        merged.kasKeluar = mergeArrayById(oldDb.kasKeluar, newDb.kasKeluar, 'ID_Kas_Keluar');
+        merged.riwayatOpname = mergeArrayById(oldDb.riwayatOpname, newDb.riwayatOpname, 'ID_Opname');
+        merged.mutasi = mergeArrayById(oldDb.mutasi, newDb.mutasi, 'ID_Mutasi');
+
+        return merged;
+    },
+
+    // =========================================================================
+    // 🚀 1. PENARIK DATA LATAR BELAKANG (DIBATASI 90 HARI & SMART MERGE)
     // =========================================================================
     pullBackgroundData: async function() {
         console.log("Memulai sinkronisasi data latar belakang...");
         try {
-            // 🚀 SINKRONISASI: Dihilangkan AbortController agar proses belakang layar
-            // bisa berjalan santai mengunduh 90 hari tanpa takut diputus paksa.
             const res = await fetch(API_URL + "?ts=" + new Date().getTime() + "&history=90", { 
                 method: 'GET',
                 redirect: 'follow',
@@ -632,8 +666,9 @@ const superApp = {
             const data = await res.json();
             
             if (data && data.status === 'sukses') {
-                this.db = data;
-                localStorage.setItem('aisnack_db_cache', JSON.stringify(data));
+                // 🚀 SMART MERGE: Gabungkan data 90 hari tanpa merusak editan real-time kasir!
+                this.db = typeof this.mergeDatabase === 'function' ? this.mergeDatabase(this.db, data) : data;
+                localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
                 
                 if (typeof this.updatePendingNotifications === 'function') this.updatePendingNotifications();
                 
@@ -662,12 +697,11 @@ const superApp = {
         let data = null;
 
         try {
-            // 🚀 PERBAIKAN KRITIS: Menggunakan sistem 3x percobaan TANPA AbortController!
-            // Menjamin koneksi tidak diputus sepihak oleh HP sebelum server Google selesai menjawab.
             for (let i = 0; i < 3; i++) {
                 try {
-                    // 🚀 SINKRONISASI: Disamakan menjadi history=31 agar cepat (< 2 detik) & konsisten dengan init!
-                    const res = await fetch(API_URL + "?ts=" + new Date().getTime() + "&history=31", { 
+                    // 🚀 DIET PAYLOAD: Tarik 14 hari saja agar melesat kilat (< 1,5 detik)!
+                    // Jangan khawatir, data hari ke-15 s/d 90 TIDAK AKAN HILANG karena dilindungi Smart Merge.
+                    const res = await fetch(API_URL + "?ts=" + new Date().getTime() + "&history=14", { 
                         method: 'GET',
                         redirect: 'follow',
                         cache: 'no-store'
@@ -710,9 +744,11 @@ const superApp = {
                 }
             }
             
-            // Simpan database ke memori (Timpa cache lama dengan data terbaru dari server)
-            this.db = data; 
-            localStorage.setItem('aisnack_db_cache', JSON.stringify(data));
+            // =================================================================
+            // 🚀 PERUBAHAN KRITIS: Gunakan Smart Merge agar riwayat lawas utuh!
+            // =================================================================
+            this.db = typeof this.mergeDatabase === 'function' ? this.mergeDatabase(this.db, data) : data; 
+            localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
 
             // JEMBATAN PENGATURAN PERSONALISASI
             let configs = [
@@ -735,7 +771,7 @@ const superApp = {
             if (typeof this.renderReport === 'function') this.renderReport();
             if (typeof this.renderLaporanHarianHistory === 'function') this.renderLaporanHarianHistory();
             
-            if (!silent) this.showToast("⚡ Database berhasil disinkronkan! (31 Hari Terakhir)"); 
+            if (!silent) this.showToast("⚡ Database & Stok terbaru berhasil disinkronkan!", "success"); 
             
         } catch (e) { 
             console.warn("Fetch Error pullFreshData:", e.message);
@@ -748,22 +784,21 @@ const superApp = {
         }
     },
 
-   // =========================================================================
+    // =========================================================================
     // 🚀 ENGINE KHUSUS ARSIP LAWAS (DENGAN POP-UP KONFIRMASI CANTIK)
     // =========================================================================
     pullDeepArchiveData: async function() {
         if (this.isProcessing) return;
         
         // 🚀 PANGGIL POP-UP MODERN KITA DENGAN PROMISE (AWAIT)
-        const confirmed = await this.customConfirm({
+        const confirmed = typeof this.customConfirm === 'function' ? await this.customConfirm({
             title: "Unduh Arsip Tahunan?",
             message: "Proses ini akan menarik <b class='text-amber-600 dark:text-amber-400'>seluruh riwayat transaksi & pembukuan</b> dari hari pertama toko buka.<br><br>⏳ Waktu unduh sekitar <b>15–30 detik</b> tergantung jumlah data tahunan Anda.",
             icon: "fa-clock-rotate-left",
             theme: "amber",
             btnText: "Ya, Unduh Semua"
-        });
+        }) : confirm("Unduh seluruh arsip transaksi dari hari pertama buka? (Waktu proses 15-30 detik)");
 
-        // Jika user klik "Batal" atau klik di luar kotak, hentikan fungsi
         if (!confirmed) return;
 
         this.setLoading(true, "Mengunduh Seluruh Arsip Tahunan (Mohon Tunggu)...");
@@ -779,6 +814,7 @@ const superApp = {
             const data = await res.json();
             
             if (data && data.status === 'sukses') {
+                // Khusus arsip tahunan, kita timpa total karena ini adalah data 100% dari hari pertama
                 this.db = data;
                 localStorage.setItem('aisnack_db_cache', JSON.stringify(data));
                 

@@ -1024,7 +1024,7 @@ const superApp = {
         // 🚀 0. AUTO-PURGE CACHE ENGINE (ANTI-CACHE & GEMBOK INSTAN HP)
         // =========================================================================
         // 🛑 ATURAN EMAS: Setiap kali Anda update kodingan penting, UBAH TEKS VERSI INI!
-        const CURRENT_VER = "v566"; 
+        const CURRENT_VER = "v567"; 
         const savedVer = localStorage.getItem('aisnack_sys_version');
         
         // JIKA VERSI BEDA: Langsung kunci tombol PIN di detik ke-0!
@@ -5323,7 +5323,7 @@ refreshData: function() {
         }
     },
     
-    // PENAMBAHAN SISTEM NOMOR ANTRIAN
+    // PENAMBAHAN SISTEM NOMOR ANTRIAN (OPTIMISTIC UI - INSTANT CHECKOUT)
     executeCheckout: async function() {
         // 1. GEMBOK ANTI DOUBLE-CLICK & KERANJANG KOSONG
         if (this.isProcessing) return; 
@@ -5335,24 +5335,22 @@ refreshData: function() {
 
         this.isProcessing = true;
 
-        // Kunci tombol secara visual agar tidak bisa ditekan dua kali
+        // Kunci tombol secara visual (Teks diganti jadi "Memproses..." karena tidak ada lagi ritual "Cek Server")
         let btnPay = document.getElementById('btn-execute-pay');
         let originalBtnHtml = '';
         if (btnPay) {
             originalBtnHtml = btnPay.innerHTML;
             btnPay.disabled = true;
-            btnPay.innerHTML = '<i class="fas fa-spinner fa-spin text-lg"></i> Cek Server...';
+            btnPay.innerHTML = '<i class="fas fa-spinner fa-spin text-lg"></i> Memproses...';
             btnPay.classList.add('opacity-70', 'cursor-not-allowed');
         }
         
         // ======================================================================
-        // 🚀 SINKRONISASI KILAT SEBELUM BAYAR (Cegah Antrian & Stok Bentrok)
+        // 🚀 SINKRONISASI KILAT DIHAPUS DARI SINI AGAR TRANSAKSI INSTAN (0 DETIK)!
+        // Kita percaya sepenuhnya pada data stok yang ada di RAM lokal saat ini.
         // ======================================================================
-        if (this.isOnline && typeof this.refreshStokOnly === 'function') {
-            await this.refreshStokOnly(); // Tarik data terbaru diam-diam
-        }
 
-        // 🚀 VALIDASI STOK TERAKHIR (Cegah stok minus karena keduluan device lain)
+        // 🚀 VALIDASI STOK TERAKHIR (Dilakukan secara instan di memori lokal)
         let stokAman = true;
         let barangHabis = '';
         
@@ -5371,7 +5369,7 @@ refreshData: function() {
             }
         }
 
-        // Jika keduluan dibeli kasir PC, tolak transaksi di HP!
+        // Jika stok lokal tidak cukup, tolak transaksi!
         if (!stokAman) {
             this.isProcessing = false;
             if (btnPay) {
@@ -5379,7 +5377,7 @@ refreshData: function() {
                 btnPay.innerHTML = originalBtnHtml;
                 btnPay.classList.remove('opacity-70', 'cursor-not-allowed');
             }
-            this.showToast(`Gagal! Stok ${barangHabis} baru saja dihabiskan device lain.`, "error");
+            this.showToast(`Gagal! Stok ${barangHabis} tidak mencukupi (Sisa lokal kurang).`, "error");
             return;
         }
         // ======================================================================
@@ -5387,7 +5385,7 @@ refreshData: function() {
         let d = new Date(); let pad = (n) => n < 10 ? '0' + n : n;
         let todayStrLocal = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
         
-        // Nomor Antrean dijamin urut karena database memori baru saja di-refresh
+        // Nomor Antrean dijamin urut berdasarkan data lokal
         let countToday = 0;
         (this.db.transactions || []).forEach(t => {
             let tglTrx = typeof this.cleanDateOnly === 'function' ? this.cleanDateOnly(t.Tanggal) : t.Tanggal;
@@ -5403,7 +5401,7 @@ refreshData: function() {
         
         const payload = { action: 'checkout', trx_id: trxID, outlet: this.outlet, kasir: this.currentUser.Username, metode_bayar: this.payMethod, total: this.payTotal, tunai: this.payCash, kembali: this.payChange, items: this.cart, id_shift: this.activeShiftId, tim_operasional: this.activeStaffTeam, antrian: noAntrian, status_cetak: isPrintSuccess ? 'Sudah' : 'Belum' };
 
-        // 1. UPDATE MEMORI LOKAL DULUAN
+        // 1. UPDATE MEMORI LOKAL SECARA INSTAN
         if (!this.db.transactions) this.db.transactions = [];
         this.db.transactions.push({ 
             ID_TRX: trxID, Tanggal: todayStrLocal, Waktu: `${pad(d.getHours())}.${pad(d.getMinutes())}.${pad(d.getSeconds())}`, 
@@ -5449,13 +5447,20 @@ refreshData: function() {
             }
         }, 500);
 
-        // 4. SINKRONISASI SERVER DI LATAR BELAKANG
+        // ======================================================================
+        // 4. 🚀 SINKRONISASI SERVER DI LATAR BELAKANG (NON-BLOCKING)
+        // ======================================================================
+        // Kasir sudah bisa melayani pelanggan berikutnya saat kode di bawah ini bekerja!
         this.apiPost(payload).then(res => {
             if (res && res.status === 'sukses' && !res.is_offline) {
                 if (isPrintSuccess) {
                     this.laporStrukDicetak(trxID);
                 }
-                // Hapus fetch manual di sini karena refreshStokOnly sudah menanganinya di awal!
+                // 🚀 TARIK STOK TERBARU DI LATAR BELAKANG SETELAH TRANSAKSI BERHASIL
+                // Agar stok di device ini tetap akurat tanpa mengorbankan kecepatan checkout
+                if (typeof this.refreshStokOnly === 'function') {
+                    this.refreshStokOnly(); 
+                }
             } else if (res && res.status !== 'sukses' && !res.is_offline) {
                let isAlreadyQueued = this.offlineQueue.some(q => q.trx_id === payload.trx_id);
                if (!isAlreadyQueued) {

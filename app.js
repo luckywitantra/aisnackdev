@@ -1024,7 +1024,7 @@ const superApp = {
         // 🚀 0. AUTO-PURGE CACHE ENGINE (ANTI-CACHE & GEMBOK INSTAN HP)
         // =========================================================================
         // 🛑 ATURAN EMAS: Setiap kali Anda update kodingan penting, UBAH TEKS VERSI INI!
-        const CURRENT_VER = "v567"; 
+        const CURRENT_VER = "v568"; 
         const savedVer = localStorage.getItem('aisnack_sys_version');
         
         // JIKA VERSI BEDA: Langsung kunci tombol PIN di detik ke-0!
@@ -5385,13 +5385,28 @@ refreshData: function() {
         let d = new Date(); let pad = (n) => n < 10 ? '0' + n : n;
         let todayStrLocal = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
         
-        // Nomor Antrean dijamin urut berdasarkan data lokal
+        // ======================================================================
+        // 🚀 1. LOCAL QUEUE TRACKER (CEGAH DOUBLE ANTREAN DI DEVICE YANG SAMA)
+        // ======================================================================
         let countToday = 0;
         (this.db.transactions || []).forEach(t => {
             let tglTrx = typeof this.cleanDateOnly === 'function' ? this.cleanDateOnly(t.Tanggal) : t.Tanggal;
-            if (t.Outlet === this.outlet && tglTrx === todayStrLocal) { countToday++; }
+            if (t.Outlet === this.outlet && tglTrx === todayStrLocal) { 
+                let num = Number(t.Antrian || 0);
+                if (num > countToday) countToday = num; // Cari nomor antrean tertinggi hari ini
+            }
         });
-        let noAntrian = countToday + 1;
+
+        // Ambil juga memori nomor antrean terakhir yang pernah dicetak HP ini hari ini
+        let queueKey = `aisnack_last_queue_${this.outlet}_${todayStrLocal}`;
+        let lastSavedQueue = Number(localStorage.getItem(queueKey) || 0);
+
+        // KUNCI AMAN: Antrean baru ADALAH angka tertinggi di antara (Array DB vs Memori HP) + 1
+        let noAntrian = Math.max(countToday, lastSavedQueue) + 1;
+        
+        // Simpan langsung nomor baru ini ke memori HP agar tidak bisa mundur lagi hari ini
+        localStorage.setItem(queueKey, noAntrian);
+        // ======================================================================
         
         // ID Resi Dijamin Unik
         let kasirPrefix = this.currentUser ? this.currentUser.Username.substring(0,3).toUpperCase() : 'KSR';

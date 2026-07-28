@@ -3191,7 +3191,7 @@ selectOutlet: function(id) {
         if (activeView && activeView.id === 'view-laporan-harian') {
             this.initLaporanHarian(); 
         }
-    }
+    },
 
     // =========================================================
     // 🚀 RESET FILTER DASHBOARD KE BULAN BERJALAN

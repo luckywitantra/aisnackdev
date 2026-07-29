@@ -306,9 +306,73 @@ const superApp = {
         return new Date(0);
     },
 
-    // STARTUP & LOGIN
+    // =========================================================================
+    // 🚀 RADAR SILUMAN: CEK UPDATE OTOMATIS SAAT APLIKASI DIBUKA
+    // =========================================================================
+    autoCheckUpdateOnStart: async function() {
+        console.log("📡 Memeriksa versi aplikasi terbaru di latar belakang...");
+        try {
+            // Tarik data sangat ringan (history=1 hari saja) agar server merespons kilat (< 1 detik)
+            const res = await fetch(API_URL + "?ts=" + new Date().getTime() + "&history=1", { 
+                method: 'GET',
+                cache: 'no-store'
+            });
+            
+            const data = await res.json();
+            
+            if (data && data.status === 'sukses') {
+                let serverVersion = (data.pengaturan || []).find(x => x.Pengaturan === 'Versi_Aplikasi');
+                if (serverVersion) {
+                    let localVersion = localStorage.getItem('app_version');
+                    
+                    if (!localVersion) {
+                        localStorage.setItem('app_version', serverVersion.Nilai);
+                    } 
+                    else if (localVersion !== serverVersion.Nilai) {
+                        console.log(`🚀 Versi baru terdeteksi! (Lokal: ${localVersion} -> Server: ${serverVersion.Nilai})`);
+                        
+                        // 1. Kunci versi baru di memori
+                        localStorage.setItem('app_version', serverVersion.Nilai);
+                        
+                        // 2. Notifikasi (opsional, jika toast sudah ada)
+                        if (typeof this.showToast === 'function') {
+                            this.showToast("Pembaruan Sistem Ditemukan. Memuat ulang...", "success");
+                        }
+                        
+                        // 3. BAKAR CACHE LAWAS AGAR TIDAK BENTROK
+                        if ('caches' in window) {
+                            const cacheNames = await caches.keys();
+                            await Promise.all(cacheNames.map(name => caches.delete(name)));
+                        }
+
+                        // 4. CABUT PAKSA SERVICE WORKER LAWAS
+                        if ('serviceWorker' in navigator) {
+                            const regs = await navigator.serviceWorker.getRegistrations();
+                            for(let reg of regs) { await reg.unregister(); }
+                        }
+                        
+                        // 5. Muat ulang halaman secara paksa setelah setengah detik
+                        setTimeout(() => {
+                            window.location.reload(true);
+                        }, 500);
+                    } else {
+                        console.log("✅ Aplikasi sudah menggunakan versi paling mutakhir.");
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn("📡 Cek update latar belakang dilewati (Offline/Gangguan):", e.message);
+        }
+    },
+
+    // =========================================================================
+    // STARTUP & LOGIN (INIT)
+    // =========================================================================
     init: async function() {
-        // --- 🚀 RADAR UPDATE APLIKASI (SERVICE WORKER) ---
+        // 🚀 JALANKAN RADAR UPDATE SILUMAN SEBELUM KASIR LOGIN
+        this.autoCheckUpdateOnStart();
+
+        // --- 🚀 SERVICE WORKER REGISTRATION ---
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js').then(registration => {
                 registration.addEventListener('updatefound', () => {
@@ -378,11 +442,10 @@ const superApp = {
             }
 
             // =====================================================================
-            // 🚀 ENGINE PENARIK DATA STABIL (ADAPTASE DARI KODE LAWAS YANG KUAT)
+            // 🚀 ENGINE PENARIK DATA STABIL 
             // =====================================================================
             let performFetch = async () => {
                 let data = null;
-                // Menggunakan 3x percobaan tanpa AbortController agar tidak diputus paksa
                 for (let i = 0; i < 3; i++) {
                     try { 
                         const res = await fetch(API_URL + "?ts=" + new Date().getTime() + "&history=31", { 
@@ -423,15 +486,14 @@ const superApp = {
                     logStat.className = 'text-[10px] text-green-500 font-bold uppercase tracking-widest text-center'; 
                 }
 
-                // 🚀 FITUR BARU: Pembaruan antarmuka otomatis jika kasir sudah login terlebih dahulu
+                // 🚀 FITUR BARU: Pembaruan antarmuka otomatis
                 if (this.currentUser) {
                     this.refreshData();
                     this.showToast("⚡ Database otomatis diperbarui dari server!", "success");
                 }
 
                 // =====================================================================
-                // 🚀 INJECT PENARIK DATA LATAR BELAKANG (PULL BACKGROUND DATA)
-                // Beri jeda 3 detik agar HP kasir tidak lag saat baru membuka aplikasi
+                // 🚀 INJECT PENARIK DATA LATAR BELAKANG
                 // =====================================================================
                 setTimeout(() => {
                     if (typeof this.pullBackgroundData === 'function') {
@@ -468,6 +530,8 @@ const superApp = {
             }
         }
     },
+
+    
     
    addPin: function(num) {
         // 🛑 SATPAM 1: Tolak ketikan jika aplikasi sedang proses update / bersiap reload
@@ -714,7 +778,7 @@ const superApp = {
         }
     },
 
-  // =========================================================================
+    // =========================================================================
     // 🚀 2. TARIK DATA MANUAL (STABILITAS ANTI-GAGAL + AUTO-RETRY 3X)
     // =========================================================================
     pullFreshData: async function(silent = false) {
@@ -726,12 +790,10 @@ const superApp = {
         let data = null;
 
         try {
-            // 🚀 PERBAIKAN KRITIS: Menggunakan sistem 3x percobaan TANPA AbortController!
-            // Menjamin koneksi tidak diputus sepihak oleh HP sebelum server Google selesai menjawab.
+            // 🚀 PERBAIKAN KRITIS: Menggunakan sistem 3x percobaan TANPA AbortController
             for (let i = 0; i < 3; i++) {
                 try {
-                    // 🚀 DIET PAYLOAD: Tarik 14 hari saja agar melesat kilat (< 1,5 detik)!
-                    // Jangan khawatir, data hari ke-15 s/d 90 TIDAK AKAN HILANG karena dilindungi Smart Merge.
+                    // DIET PAYLOAD: 14 hari
                     const res = await fetch(API_URL + "?ts=" + new Date().getTime() + "&history=14", { 
                         method: 'GET',
                         redirect: 'follow',
@@ -753,7 +815,9 @@ const superApp = {
                 throw new Error(data ? data.pesan : "Gagal mengunduh dari server");
             }
                 
-            // --- RADAR PENDETEKSI UPDATE VERSI ---
+            // =================================================================
+            // --- RADAR PENDETEKSI UPDATE VERSI (TERMINATOR CACHE) ---
+            // =================================================================
             let serverVersion = (data.pengaturan || []).find(x => x.Pengaturan === 'Versi_Aplikasi');
             if (serverVersion) {
                 let localVersion = localStorage.getItem('app_version');
@@ -762,21 +826,25 @@ const superApp = {
                     localStorage.setItem('app_version', serverVersion.Nilai);
                 } 
                 else if (localVersion !== serverVersion.Nilai) {
-                    console.log("Versi baru ditemukan, memuat ulang...");
+                    console.log("🚀 Update manual terdeteksi! Membongkar paksa cache...");
                     localStorage.setItem('app_version', serverVersion.Nilai);
                     
+                    if ('caches' in window) {
+                        const cacheNames = await caches.keys();
+                        await Promise.all(cacheNames.map(name => caches.delete(name)));
+                    }
                     if ('serviceWorker' in navigator) {
                         const regs = await navigator.serviceWorker.getRegistrations();
-                        for(let reg of regs) { reg.update(); }
+                        for(let reg of regs) { await reg.unregister(); }
                     }
                     
-                    window.location.reload(true);
+                    setTimeout(() => { window.location.reload(true); }, 500);
                     return; 
                 }
             }
             
             // =================================================================
-            // 🚀 PERUBAHAN KRITIS: Strict Smart Merge agar riwayat lawas utuh!
+            // 🚀 STRICT SMART MERGE 
             // =================================================================
             if (typeof this.mergeDatabase === 'function') {
                 this.db = this.mergeDatabase(this.db, data);
@@ -802,7 +870,6 @@ const superApp = {
                 }
             });
             
-            // Refresh seluruh antarmuka agar angka editan dan tombol otorisasi langsung muncul!
             if (this.cart.length === 0) this.refreshData(); 
             if (typeof this.renderReport === 'function') this.renderReport();
             if (typeof this.renderLaporanHarianHistory === 'function') this.renderLaporanHarianHistory();
@@ -819,6 +886,8 @@ const superApp = {
             if (!silent) this.setLoading(false);
         }
     },
+
+   
 
     // =========================================================================
     // 🚀 ENGINE KHUSUS ARSIP LAWAS (DENGAN POP-UP KONFIRMASI CANTIK)

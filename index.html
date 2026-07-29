@@ -846,9 +846,13 @@
 </div>
 
 
+<!-- ========================================================================= -->
+<!-- 🚀 VIEW: LAPORAN HARIAN AI-CHA -->
+<!-- ========================================================================= -->
 <div id="view-laporan-harian" class="app-view hidden flex-col h-full pb-28 lg:pb-6 transition-all duration-300">
     <div class="bg-slate-50 rounded-[2rem] lg:rounded-[2.5rem] shadow-sm border border-slate-200/60 flex flex-col h-full min-h-0 overflow-hidden relative">
 
+        <!-- 1. BAR FILTER CABANG (KHUSUS OWNER) -->
         <div id="lapharian-owner-outlet-bar" class="hidden bg-slate-900 px-4 py-2 md:px-8 shrink-0 flex items-center justify-between border-b border-slate-800 z-30">
             <div class="flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -862,6 +866,7 @@
             </div>
         </div>
       
+        <!-- 2. HEADER & TAB MOBILE -->
         <div class="bg-white py-3 lg:py-4 px-4 lg:px-8 rounded-b-[1.5rem] lg:rounded-b-[1.75rem] shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] relative z-20 shrink-0 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2.5">
             <div class="flex items-center gap-2.5">
                 <div class="w-9 h-9 lg:w-11 lg:h-11 bg-gradient-to-br from-rose-500 via-red-500 to-amber-500 rounded-xl flex items-center justify-center text-white text-base lg:text-lg shadow-md shadow-rose-500/20 shrink-0">
@@ -889,138 +894,133 @@
             </div>
         </div>
 
+        <!-- 3. AREA KONTEN UTAMA (SCROLLABLE) -->
         <div class="flex-1 overflow-y-auto custom-scroll p-3 lg:p-6 pt-3 lg:pt-5 relative z-10 w-full flex flex-col min-h-0">
             
-          <div id="lapharian-executive-dashboard" class="hidden mb-6 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 p-5 lg:p-6 rounded-[1.75rem] lg:rounded-[2rem] text-white shadow-xl relative overflow-hidden border border-slate-700/60 w-full shrink-0">
-    <!-- Efek Cahaya Latar (Glow) -->
-    <div class="absolute -right-16 -top-16 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
-    <div class="absolute right-1/3 -bottom-16 w-48 h-48 bg-rose-500/15 rounded-full blur-3xl pointer-events-none"></div>
+            <!-- ================= DASHBOARD EKSEKUTIF ================= -->
+            <div id="lapharian-executive-dashboard" class="hidden mb-6 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 p-5 lg:p-6 rounded-[1.75rem] lg:rounded-[2rem] text-white shadow-xl relative overflow-hidden border border-slate-700/60 w-full shrink-0">
+                <!-- Efek Cahaya Latar (Glow) -->
+                <div class="absolute -right-16 -top-16 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div class="absolute right-1/3 -bottom-16 w-48 h-48 bg-rose-500/15 rounded-full blur-3xl pointer-events-none"></div>
 
-    <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center pb-4 mb-4 border-b border-slate-700/80 gap-4 relative z-10">
-        <!-- Judul & Badge Eksekutif -->
-        <div>
-            <span class="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-3 py-1 rounded-full text-[9px] lg:text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 w-max">
-                <span class="w-2 h-2 rounded-full bg-indigo-400 animate-ping"></span> Analisis Konsolidasi Eksekutif
-            </span>
-            <h3 class="font-black text-lg lg:text-2xl mt-1.5 text-white tracking-tight" id="exec-dash-title">Performa Seluruh Outlet</h3>
-        </div>
-        
-        <!-- Filter Tanggal & Tombol Laporan Akuntansi -->
-        <div class="flex flex-wrap items-center justify-end gap-2 bg-slate-800/90 p-1.5 rounded-2xl border border-slate-700 w-full xl:w-auto">
-            <!-- Pilihan Tanggal -->
-            <div class="flex items-center gap-1 text-xs font-bold text-slate-300 px-2">
-                <i class="fas fa-calendar-day text-rose-400"></i>
-                <span class="hidden sm:inline">Periode:</span>
-            </div>
-            <input type="date" id="exec-filter-start" onchange="superApp.renderExecutiveDashboard()" class="bg-slate-900 border border-slate-700 text-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold outline-none focus:border-rose-500 flex-1 sm:flex-initial cursor-pointer">
-            <span class="text-slate-400 text-xs font-black">s/d</span>
-            <input type="date" id="exec-filter-end" onchange="superApp.renderExecutiveDashboard()" class="bg-slate-900 border border-slate-700 text-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold outline-none focus:border-rose-500 flex-1 sm:flex-initial cursor-pointer">
-            
-            <button type="button" onclick="superApp.resetExecDateRange()" class="bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white px-2.5 py-1.5 rounded-xl text-xs font-black transition active:scale-95 shrink-0" title="Kembalikan ke bulan ini">
-                <i class="fas fa-rotate-left mr-1"></i>Bulan Ini
-            </button>
-
-            <!-- Garis Pemisah Visual -->
-            <div class="hidden sm:block w-px h-6 bg-slate-700 mx-0.5"></div>
-
-            <!-- 🚀 1. TOMBOL LAPORAN WA (EKSEKUTIF) -->
-            <button type="button" onclick="superApp.generateLaporanAichaWA()" 
-                class="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white px-3 py-1.5 rounded-xl text-xs font-black shadow-md shadow-emerald-500/20 flex items-center gap-1.5 transition active:scale-95 shrink-0" 
-                title="Salin ringkasan audit eksekutif & buka di WhatsApp">
-                <i class="fab fa-whatsapp text-sm"></i>
-                <span>Laporan WA</span>
-            </button>
-
-            <!-- 🚀 2. TOMBOL CETAK AUDIT PDF (STANDAR AKUNTAN PUBLIK) -->
-            <button type="button" onclick="superApp.generateLaporanAichaPDF()" 
-                class="bg-gradient-to-r from-slate-950 to-slate-900 hover:bg-black text-rose-400 hover:text-rose-300 border border-slate-700/80 px-3 py-1.5 rounded-xl text-xs font-black shadow-md flex items-center gap-1.5 transition active:scale-95 shrink-0" 
-                title="Cetak dokumen audit resmi berstandar akuntansi">
-                <i class="fas fa-file-pdf text-sm"></i>
-                <span>Audit PDF</span>
-            </button>
-        </div>
-    </div>
-</div>
-
-                <div class="bg-slate-800/70 backdrop-blur-md p-4 rounded-2xl border border-slate-700/80 mb-4 relative z-10">
-                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2.5">
-                        <div class="flex items-center gap-2">
-                            <span class="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm"></span>
-                            <span class="text-xs font-black text-slate-200 uppercase tracking-wider">Akumulasi Omset Periode Terpilih</span>
-                        </div>
-                        <div class="flex items-center gap-3 text-xs">
-                            <div>Total Tercapai: <span class="font-black text-rose-400 text-sm md:text-base" id="accum-net-sales">Rp 0</span></div>
-                            <div class="border-l border-slate-700 pl-3">Target: <span class="font-black text-amber-400 text-sm md:text-base cursor-pointer underline decoration-dashed" onclick="superApp.setTargetBulanan()" id="accum-target" title="Klik untuk ubah target">Rp 180.000.000</span></div>
-                        </div>
-                    </div>
-                    <div class="w-full bg-slate-900 rounded-full h-3 overflow-hidden p-0.5 border border-slate-700">
-                        <div id="accum-progress-bar" class="bg-gradient-to-r from-amber-500 via-rose-500 to-emerald-400 h-full rounded-full transition-all duration-700 w-0"></div>
-                    </div>
-                    <div class="flex justify-between text-[10px] font-extrabold text-slate-400 mt-1.5">
-                        <span id="accum-percent">Progress: 0%</span>
-                        <span id="accum-remaining">Kurang: Rp 0</span>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 lg:gap-3.5 relative z-10 mb-5">
-                    <div class="bg-slate-800/50 backdrop-blur-md p-3 lg:p-3.5 rounded-2xl border border-slate-700/60">
-                        <span class="text-[9px] lg:text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block">Net Sales Bersih</span>
-                        <span class="font-black text-base lg:text-xl text-rose-400 mt-0.5 block truncate" id="exec-total-sales">Rp 0</span>
-                    </div>
-                    <div class="bg-slate-800/50 backdrop-blur-md p-3 lg:p-3.5 rounded-2xl border border-slate-700/60">
-                        <span class="text-[9px] lg:text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block">Total Cash Laci</span>
-                        <span class="font-black text-base lg:text-xl text-emerald-400 mt-0.5 block truncate" id="exec-total-cash">Rp 0</span>
-                    </div>
-                    <div class="bg-slate-800/50 backdrop-blur-md p-3 lg:p-3.5 rounded-2xl border border-slate-700/60">
-                        <span class="text-[9px] lg:text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block">Total Masuk QRIS</span>
-                        <span class="font-black text-base lg:text-xl text-blue-400 mt-0.5 block truncate" id="exec-total-qris">Rp 0</span>
-                    </div>
-                    <div class="bg-slate-800/50 backdrop-blur-md p-3 lg:p-3.5 rounded-2xl border border-slate-700/60">
-                        <span class="text-[9px] lg:text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block">Total Biaya Operasional</span>
-                        <span class="font-black text-base lg:text-xl text-amber-400 mt-0.5 block truncate" id="exec-total-expense">Rp 0</span>
-                    </div>
-                </div>
-
-                <div class="relative z-10 mb-4">
-                    <div class="flex justify-between items-center mb-2.5">
-                        <h4 class="font-black text-xs lg:text-sm text-slate-300 flex items-center gap-2">
-                            <i class="fas fa-store text-indigo-400"></i> Performa Per Outlet <span class="text-[10px] text-slate-400 font-normal">(Klik kartu untuk lihat analisis mendalam)</span>
-                        </h4>
-                    </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" id="exec-outlet-cards-grid"></div>
-                </div>
-
-                <div class="bg-slate-900/60 rounded-2xl border border-slate-700/50 relative z-10 overflow-hidden transition-all">
-                    <button type="button" onclick="superApp.toggleExecExpenseBreakdown()" class="w-full p-3 text-left flex justify-between items-center hover:bg-slate-800/50 transition">
-                        <span class="font-black text-xs lg:text-sm text-amber-400 flex items-center gap-2">
-                            <i class="fas fa-receipt"></i> Breakdown Pengeluaran Gabungan Per Item
+                <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center pb-4 mb-4 border-b border-slate-700/80 gap-4 relative z-10">
+                    <!-- Judul & Badge Eksekutif -->
+                    <div>
+                        <span class="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-3 py-1 rounded-full text-[9px] lg:text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 w-max">
+                            <span class="w-2 h-2 rounded-full bg-indigo-400 animate-ping"></span> Analisis Konsolidasi Eksekutif
                         </span>
-                        <span id="btn-toggle-exp-text" class="text-[10px] font-black bg-amber-400/20 text-amber-300 border border-amber-400/30 px-3 py-1 rounded-xl flex items-center gap-1.5">
-                            <span>Lihat Rincian</span> <i class="fas fa-chevron-down transition-transform duration-300" id="icon-toggle-exp"></i>
-                        </span>
-                    </button>
-                    <div id="exec-expense-dropdown-box" class="hidden p-4 pt-4 border-t border-slate-800 flex-col gap-3">
-    <!-- Kontrol Pencarian & Pengurutan -->
-    <div class="flex items-center gap-2 shrink-0">
-        <div class="relative flex-1">
-            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]"></i>
-            <input type="text" id="exec-expense-search" oninput="superApp.renderExecExpenseList()" placeholder="Cari item pengeluaran..." class="w-full bg-slate-900 border border-slate-700 text-slate-200 text-[11px] font-bold rounded-xl pl-8 pr-3 py-2 outline-none focus:border-amber-500 transition-colors shadow-inner">
-        </div>
-        <select id="exec-expense-sort" onchange="superApp.renderExecExpenseList()" class="bg-slate-900 border border-slate-700 text-slate-200 text-[11px] font-bold rounded-xl px-3 py-2 outline-none focus:border-amber-500 cursor-pointer shadow-sm">
-            <option value="nominal">💵 Nominal Tertinggi</option>
-            <option value="az">🔤 Abjad A - Z</option>
-        </select>
-    </div>
-    <!-- Area Daftar Item -->
-    <div id="exec-expense-list" class="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-60 overflow-y-auto custom-scroll pr-1"></div>
-</div>
+                        <h3 class="font-black text-lg lg:text-2xl mt-1.5 text-white tracking-tight" id="exec-dash-title">Performa Seluruh Outlet</h3>
+                    </div>
+                    
+                    <!-- Filter Tanggal & Tombol Laporan Akuntansi -->
+                    <div class="flex flex-wrap items-center justify-end gap-2 bg-slate-800/90 p-1.5 rounded-2xl border border-slate-700 w-full xl:w-auto">
+                        <div class="flex items-center gap-1 text-xs font-bold text-slate-300 px-2">
+                            <i class="fas fa-calendar-day text-rose-400"></i>
+                            <span class="hidden sm:inline">Periode:</span>
+                        </div>
+                        <input type="date" id="exec-filter-start" onchange="superApp.renderExecutiveDashboard()" class="bg-slate-900 border border-slate-700 text-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold outline-none focus:border-rose-500 flex-1 sm:flex-initial cursor-pointer">
+                        <span class="text-slate-400 text-xs font-black">s/d</span>
+                        <input type="date" id="exec-filter-end" onchange="superApp.renderExecutiveDashboard()" class="bg-slate-900 border border-slate-700 text-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold outline-none focus:border-rose-500 flex-1 sm:flex-initial cursor-pointer">
+                        
+                        <button type="button" onclick="superApp.resetExecDateRange()" class="bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white px-2.5 py-1.5 rounded-xl text-xs font-black transition active:scale-95 shrink-0" title="Kembalikan ke bulan ini">
+                            <i class="fas fa-rotate-left mr-1"></i>Bulan Ini
+                        </button>
+
+                        <div class="hidden sm:block w-px h-6 bg-slate-700 mx-0.5"></div>
+
+                        <!-- Tombol WA & PDF -->
+                        <button type="button" onclick="superApp.generateLaporanAichaWA()" class="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white px-3 py-1.5 rounded-xl text-xs font-black shadow-md shadow-emerald-500/20 flex items-center gap-1.5 transition active:scale-95 shrink-0" title="Salin ringkasan audit eksekutif & buka di WhatsApp">
+                            <i class="fab fa-whatsapp text-sm"></i> <span>Laporan WA</span>
+                        </button>
+
+                        <button type="button" onclick="superApp.generateLaporanAichaPDF()" class="bg-gradient-to-r from-slate-950 to-slate-900 hover:bg-black text-rose-400 hover:text-rose-300 border border-slate-700/80 px-3 py-1.5 rounded-xl text-xs font-black shadow-md flex items-center gap-1.5 transition active:scale-95 shrink-0" title="Cetak dokumen audit resmi berstandar akuntansi">
+                            <i class="fas fa-file-pdf text-sm"></i> <span>Audit PDF</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
+            <!-- ================= AKUMULASI OMSET ================= -->
+            <div class="bg-slate-800/70 backdrop-blur-md p-4 rounded-2xl border border-slate-700/80 mb-4 relative z-10">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2.5">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm"></span>
+                        <span class="text-xs font-black text-slate-200 uppercase tracking-wider">Akumulasi Omset Periode Terpilih</span>
+                    </div>
+                    <div class="flex items-center gap-3 text-xs">
+                        <div>Total Tercapai: <span class="font-black text-rose-400 text-sm md:text-base" id="accum-net-sales">Rp 0</span></div>
+                        <div class="border-l border-slate-700 pl-3">Target: <span class="font-black text-amber-400 text-sm md:text-base cursor-pointer underline decoration-dashed" onclick="superApp.setTargetBulanan()" id="accum-target" title="Klik untuk ubah target">Rp 180.000.000</span></div>
+                    </div>
+                </div>
+                <div class="w-full bg-slate-900 rounded-full h-3 overflow-hidden p-0.5 border border-slate-700">
+                    <div id="accum-progress-bar" class="bg-gradient-to-r from-amber-500 via-rose-500 to-emerald-400 h-full rounded-full transition-all duration-700 w-0"></div>
+                </div>
+                <div class="flex justify-between text-[10px] font-extrabold text-slate-400 mt-1.5">
+                    <span id="accum-percent">Progress: 0%</span>
+                    <span id="accum-remaining">Kurang: Rp 0</span>
+                </div>
+            </div>
+
+            <!-- ================= KARTU SUMMARY ================= -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 lg:gap-3.5 relative z-10 mb-5">
+                <div class="bg-slate-800/50 backdrop-blur-md p-3 lg:p-3.5 rounded-2xl border border-slate-700/60">
+                    <span class="text-[9px] lg:text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block">Net Sales Bersih</span>
+                    <span class="font-black text-base lg:text-xl text-rose-400 mt-0.5 block truncate" id="exec-total-sales">Rp 0</span>
+                </div>
+                <div class="bg-slate-800/50 backdrop-blur-md p-3 lg:p-3.5 rounded-2xl border border-slate-700/60">
+                    <span class="text-[9px] lg:text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block">Total Cash Laci</span>
+                    <span class="font-black text-base lg:text-xl text-emerald-400 mt-0.5 block truncate" id="exec-total-cash">Rp 0</span>
+                </div>
+                <div class="bg-slate-800/50 backdrop-blur-md p-3 lg:p-3.5 rounded-2xl border border-slate-700/60">
+                    <span class="text-[9px] lg:text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block">Total Masuk QRIS</span>
+                    <span class="font-black text-base lg:text-xl text-blue-400 mt-0.5 block truncate" id="exec-total-qris">Rp 0</span>
+                </div>
+                <div class="bg-slate-800/50 backdrop-blur-md p-3 lg:p-3.5 rounded-2xl border border-slate-700/60">
+                    <span class="text-[9px] lg:text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block">Total Biaya Operasional</span>
+                    <span class="font-black text-base lg:text-xl text-amber-400 mt-0.5 block truncate" id="exec-total-expense">Rp 0</span>
+                </div>
+            </div>
+
+            <!-- ================= PERFORMA PER OUTLET ================= -->
+            <div class="relative z-10 mb-4">
+                <div class="flex justify-between items-center mb-2.5">
+                    <h4 class="font-black text-xs lg:text-sm text-slate-300 flex items-center gap-2">
+                        <i class="fas fa-store text-indigo-400"></i> Performa Per Outlet <span class="text-[10px] text-slate-400 font-normal">(Klik kartu untuk lihat analisis mendalam)</span>
+                    </h4>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" id="exec-outlet-cards-grid"></div>
+            </div>
+
+            <!-- ================= BREAKDOWN PENGELUARAN ================= -->
+            <div class="bg-slate-900/60 rounded-2xl border border-slate-700/50 relative z-10 overflow-hidden transition-all mb-4">
+                <button type="button" onclick="superApp.toggleExecExpenseBreakdown()" class="w-full p-3 text-left flex justify-between items-center hover:bg-slate-800/50 transition">
+                    <span class="font-black text-xs lg:text-sm text-amber-400 flex items-center gap-2">
+                        <i class="fas fa-receipt"></i> Breakdown Pengeluaran Gabungan Per Item
+                    </span>
+                    <span id="btn-toggle-exp-text" class="text-[10px] font-black bg-amber-400/20 text-amber-300 border border-amber-400/30 px-3 py-1 rounded-xl flex items-center gap-1.5">
+                        <span>Lihat Rincian</span> <i class="fas fa-chevron-down transition-transform duration-300" id="icon-toggle-exp"></i>
+                    </span>
+                </button>
+                <div id="exec-expense-dropdown-box" class="hidden p-4 pt-4 border-t border-slate-800 flex-col gap-3">
+                    <div class="flex items-center gap-2 shrink-0">
+                        <div class="relative flex-1">
+                            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]"></i>
+                            <input type="text" id="exec-expense-search" oninput="superApp.renderExecExpenseList()" placeholder="Cari item pengeluaran..." class="w-full bg-slate-900 border border-slate-700 text-slate-200 text-[11px] font-bold rounded-xl pl-8 pr-3 py-2 outline-none focus:border-amber-500 transition-colors shadow-inner">
+                        </div>
+                        <select id="exec-expense-sort" onchange="superApp.renderExecExpenseList()" class="bg-slate-900 border border-slate-700 text-slate-200 text-[11px] font-bold rounded-xl px-3 py-2 outline-none focus:border-amber-500 cursor-pointer shadow-sm">
+                            <option value="nominal">💵 Nominal Tertinggi</option>
+                            <option value="az">🔤 Abjad A - Z</option>
+                        </select>
+                    </div>
+                    <div id="exec-expense-list" class="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-60 overflow-y-auto custom-scroll pr-1"></div>
+                </div>
+            </div>
+
+            <!-- ================= SPLIT LAYOUT: FORM & RIWAYAT ================= -->
             <div class="flex flex-col lg:flex-row gap-4 lg:gap-6 w-full items-stretch">
                 
+                <!-- KIRI: FORM INPUT -->
                 <div id="lapharian-sec-input" class="w-full lg:w-[450px] xl:w-[500px] bg-white p-4 lg:p-6 rounded-[1.5rem] lg:rounded-[2rem] shadow-sm border border-slate-100 flex flex-col shrink-0 relative">
-                    
                     <div class="flex justify-between items-start pb-3 mb-3 border-b border-slate-100 shrink-0">
                         <div>
                             <div class="flex items-center gap-2">
@@ -1029,7 +1029,6 @@
                                     <i class="fas fa-xmark mr-1"></i>Batal Edit
                                 </button>
                             </div>
-
                             <div class="flex items-center gap-2 mt-1 relative">
                                 <span id="daily-form-date" class="text-xs font-black text-slate-700 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg transition cursor-pointer border border-slate-200/80 flex items-center gap-1.5" onclick="superApp.openInputDatepickerModal()">
                                     <i class="fas fa-calendar-day text-rose-500"></i> <span>Senin, 06-07-2026</span> <i class="fas fa-chevron-down text-[9px] text-slate-400 ml-1"></i>
@@ -1037,7 +1036,6 @@
                                 <input type="date" id="hidden-date-picker" class="hidden" onchange="superApp.applyBackdate(this.value)">
                             </div>
                         </div>
-
                         <button type="button" onclick="superApp.resetDailyForm()" class="text-xs font-bold text-slate-400 hover:text-rose-500 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100">
                             <i class="fas fa-rotate-left mr-1"></i> Reset
                         </button>
@@ -1087,6 +1085,7 @@
                     </button>
                 </div>
 
+                <!-- KANAN: TABEL RIWAYAT & KALENDER -->
                 <div id="lapharian-sec-riwayat" class="hidden lg:flex flex-1 flex-col gap-4 min-w-0 w-full transition-all">
                     
                     <div class="bg-white rounded-[1.5rem] lg:rounded-[1.75rem] p-4 lg:p-5 shadow-sm border border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shrink-0">
@@ -1108,25 +1107,25 @@
                     <div class="bg-white p-4 lg:p-6 rounded-[1.5rem] lg:rounded-[1.75rem] shadow-sm border border-slate-100 flex-1 flex flex-col min-h-[420px] relative overflow-hidden">
                         
                         <div class="flex justify-between items-center pb-3 border-b border-slate-100 shrink-0">
-                          <!-- BANNER NOTIFIKASI PENDING REVISI (Disembunyikan secara default) -->
-<div id="alert-pending-revisi" class="hidden mb-4 mt-2 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-inner relative overflow-hidden group">
-    <div class="absolute -right-4 -top-4 w-16 h-16 bg-amber-500/10 rounded-full blur-xl group-hover:scale-150 transition-transform"></div>
-    <div class="flex items-center gap-3 relative z-10">
-        <div class="w-10 h-10 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center shrink-0">
-            <i class="fas fa-bell animate-wiggle"></i>
-        </div>
-        <div>
-            <h4 class="font-black text-amber-800 text-sm">Terdapat Revisi Laporan Pending!</h4>
-            <p class="text-xs font-bold text-amber-600/80">Staf mengajukan perubahan data. Menunggu persetujuan Anda.</p>
-        </div>
-    </div>
-    <button type="button" onclick="superApp.openApprovalModal()" class="w-full sm:w-auto relative z-10 bg-amber-500 hover:bg-amber-600 text-white px-5 py-2.5 rounded-xl text-xs font-black shadow-md shadow-amber-500/20 transition-all active:scale-95 flex items-center justify-center gap-2">
-        Tinjau Sekarang <i class="fas fa-arrow-right"></i>
-    </button>
-</div>
+                            <!-- NOTIFIKASI PENDING REVISI -->
+                            <div id="alert-pending-revisi" class="hidden mb-4 mt-2 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-inner relative overflow-hidden group">
+                                <div class="absolute -right-4 -top-4 w-16 h-16 bg-amber-500/10 rounded-full blur-xl group-hover:scale-150 transition-transform"></div>
+                                <div class="flex items-center gap-3 relative z-10">
+                                    <div class="w-10 h-10 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center shrink-0">
+                                        <i class="fas fa-bell animate-wiggle"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-black text-amber-800 text-sm">Terdapat Revisi Laporan Pending!</h4>
+                                        <p class="text-xs font-bold text-amber-600/80">Staf mengajukan perubahan data. Menunggu persetujuan Anda.</p>
+                                    </div>
+                                </div>
+                                <button type="button" onclick="superApp.openApprovalModal()" class="w-full sm:w-auto relative z-10 bg-amber-500 hover:bg-amber-600 text-white px-5 py-2.5 rounded-xl text-xs font-black shadow-md shadow-amber-500/20 transition-all active:scale-95 flex items-center justify-center gap-2">
+                                    Tinjau Sekarang <i class="fas fa-arrow-right"></i>
+                                </button>
+                            </div>
+
                             <h4 class="font-black text-sm lg:text-base text-slate-800 flex items-center gap-2">
-                                <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
-                                Riwayat Laporan
+                                <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span> Riwayat Laporan
                             </h4>
                             <span class="bg-rose-50 text-rose-600 border border-rose-200 px-3 py-1 rounded-xl text-xs font-black" id="laporan-harian-count">0 Laporan</span>
                         </div>
@@ -1146,6 +1145,7 @@
                             </div>
                         </div>
 
+                        <!-- TABEL DESKTOP -->
                         <div class="hidden md:block flex-1 overflow-y-auto custom-scroll pr-1">
                             <table class="w-full text-left whitespace-nowrap text-xs border-collapse">
                                 <thead class="bg-slate-50/95 backdrop-blur-md text-slate-400 border-b border-slate-100 font-black text-[10px] uppercase sticky top-0 z-10">
@@ -1161,15 +1161,16 @@
                             </table>
                         </div>
 
+                        <!-- LIST MOBILE -->
                         <div class="md:hidden flex-1 overflow-y-auto custom-scroll space-y-2.5 pt-1 pb-24 min-h-[40vh]" id="laporan-harian-mobile"></div>
                     </div>
-
                 </div>
 
-            </div>
+            </div> <!-- End Split Layout -->
+        </div> <!-- End Scroll Content Area -->
 
-        </div>
-
+        <!-- ================= MODALS ================= -->
+        <!-- MODAL: DATEPICKER INPUT -->
         <div id="modal-datepicker-input" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4 animate-fade-in">
             <div class="bg-white rounded-[2rem] shadow-2xl border border-slate-100 w-full max-w-sm overflow-hidden flex flex-col">
                 <div class="bg-gradient-to-r from-rose-500 to-red-600 p-4 text-white flex items-center justify-between shrink-0">
@@ -1190,6 +1191,7 @@
             </div>
         </div>
 
+        <!-- MODAL: KALENDER LAPORAN -->
         <div id="modal-kalender-laporan" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4 animate-fade-in">
             <div class="bg-white rounded-[2rem] shadow-2xl border border-slate-100 w-full max-w-lg overflow-hidden flex flex-col">
                 <div class="bg-slate-900 p-5 text-white flex items-center justify-between shrink-0">
@@ -1227,6 +1229,12 @@
                 </div>
             </div>
         </div>
+
+    </div>
+</div>
+
+
+      
 
         <div id="modal-detail-outlet-eksekutif" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/75 backdrop-blur-md p-4 animate-fade-in">
             <div class="bg-slate-900 text-white rounded-[2rem] shadow-2xl border border-slate-700 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -2957,7 +2965,7 @@
 
   
 <!-- 1. PANGGIL APP.JS TERLEBIH DAHULU -->
-  <script src="app.js?v=598"></script>
+  <script src="app.js?v=599"></script>
   
 
   <!-- 2. BARU JALANKAN SCRIPT INLINE ANDA -->

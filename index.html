@@ -891,31 +891,56 @@
 
         <div class="flex-1 overflow-y-auto custom-scroll p-3 lg:p-6 pt-3 lg:pt-5 relative z-10 w-full flex flex-col min-h-0">
             
-            <div id="lapharian-executive-dashboard" class="hidden mb-6 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 p-5 lg:p-6 rounded-[1.75rem] lg:rounded-[2rem] text-white shadow-xl relative overflow-hidden border border-slate-700/60 w-full shrink-0">
-                <div class="absolute -right-16 -top-16 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
-                <div class="absolute right-1/3 -bottom-16 w-48 h-48 bg-rose-500/15 rounded-full blur-3xl pointer-events-none"></div>
+          <div id="lapharian-executive-dashboard" class="hidden mb-6 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 p-5 lg:p-6 rounded-[1.75rem] lg:rounded-[2rem] text-white shadow-xl relative overflow-hidden border border-slate-700/60 w-full shrink-0">
+    <!-- Efek Cahaya Latar (Glow) -->
+    <div class="absolute -right-16 -top-16 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute right-1/3 -bottom-16 w-48 h-48 bg-rose-500/15 rounded-full blur-3xl pointer-events-none"></div>
 
-                <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center pb-4 mb-4 border-b border-slate-700/80 gap-3 relative z-10">
-                    <div>
-                        <span class="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-3 py-1 rounded-full text-[9px] lg:text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 w-max">
-                            <span class="w-2 h-2 rounded-full bg-indigo-400 animate-ping"></span> Analisis Konsolidasi Eksekutif
-                        </span>
-                        <h3 class="font-black text-lg lg:text-2xl mt-1.5 text-white tracking-tight" id="exec-dash-title">Performa Seluruh Outlet</h3>
-                    </div>
-                    
-                    <div class="flex flex-wrap items-center gap-2 bg-slate-800/90 p-1.5 rounded-2xl border border-slate-700 w-full xl:w-auto">
-                        <div class="flex items-center gap-1 text-xs font-bold text-slate-300 px-2">
-                            <i class="fas fa-calendar-day text-rose-400"></i>
-                            <span class="hidden sm:inline">Periode:</span>
-                        </div>
-                        <input type="date" id="exec-filter-start" onchange="superApp.renderExecutiveDashboard()" class="bg-slate-900 border border-slate-700 text-slate-200 rounded-xl px-2.5 py-1 text-xs font-bold outline-none focus:border-rose-500 flex-1 sm:flex-initial cursor-pointer">
-                        <span class="text-slate-400 text-xs font-black">s/d</span>
-                        <input type="date" id="exec-filter-end" onchange="superApp.renderExecutiveDashboard()" class="bg-slate-900 border border-slate-700 text-slate-200 rounded-xl px-2.5 py-1 text-xs font-bold outline-none focus:border-rose-500 flex-1 sm:flex-initial cursor-pointer">
-                        <button type="button" onclick="superApp.resetExecDateRange()" class="bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white px-2.5 py-1 rounded-xl text-xs font-black transition active:scale-95 shrink-0">
-                            <i class="fas fa-rotate-left mr-1"></i>Bulan Ini
-                        </button>
-                    </div>
-                </div>
+    <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center pb-4 mb-4 border-b border-slate-700/80 gap-4 relative z-10">
+        <!-- Judul & Badge Eksekutif -->
+        <div>
+            <span class="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-3 py-1 rounded-full text-[9px] lg:text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 w-max">
+                <span class="w-2 h-2 rounded-full bg-indigo-400 animate-ping"></span> Analisis Konsolidasi Eksekutif
+            </span>
+            <h3 class="font-black text-lg lg:text-2xl mt-1.5 text-white tracking-tight" id="exec-dash-title">Performa Seluruh Outlet</h3>
+        </div>
+        
+        <!-- Filter Tanggal & Tombol Laporan Akuntansi -->
+        <div class="flex flex-wrap items-center justify-end gap-2 bg-slate-800/90 p-1.5 rounded-2xl border border-slate-700 w-full xl:w-auto">
+            <!-- Pilihan Tanggal -->
+            <div class="flex items-center gap-1 text-xs font-bold text-slate-300 px-2">
+                <i class="fas fa-calendar-day text-rose-400"></i>
+                <span class="hidden sm:inline">Periode:</span>
+            </div>
+            <input type="date" id="exec-filter-start" onchange="superApp.renderExecutiveDashboard()" class="bg-slate-900 border border-slate-700 text-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold outline-none focus:border-rose-500 flex-1 sm:flex-initial cursor-pointer">
+            <span class="text-slate-400 text-xs font-black">s/d</span>
+            <input type="date" id="exec-filter-end" onchange="superApp.renderExecutiveDashboard()" class="bg-slate-900 border border-slate-700 text-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold outline-none focus:border-rose-500 flex-1 sm:flex-initial cursor-pointer">
+            
+            <button type="button" onclick="superApp.resetExecDateRange()" class="bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white px-2.5 py-1.5 rounded-xl text-xs font-black transition active:scale-95 shrink-0" title="Kembalikan ke bulan ini">
+                <i class="fas fa-rotate-left mr-1"></i>Bulan Ini
+            </button>
+
+            <!-- Garis Pemisah Visual -->
+            <div class="hidden sm:block w-px h-6 bg-slate-700 mx-0.5"></div>
+
+            <!-- 🚀 1. TOMBOL LAPORAN WA (EKSEKUTIF) -->
+            <button type="button" onclick="superApp.generateLaporanAichaWA()" 
+                class="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white px-3 py-1.5 rounded-xl text-xs font-black shadow-md shadow-emerald-500/20 flex items-center gap-1.5 transition active:scale-95 shrink-0" 
+                title="Salin ringkasan audit eksekutif & buka di WhatsApp">
+                <i class="fab fa-whatsapp text-sm"></i>
+                <span>Laporan WA</span>
+            </button>
+
+            <!-- 🚀 2. TOMBOL CETAK AUDIT PDF (STANDAR AKUNTAN PUBLIK) -->
+            <button type="button" onclick="superApp.generateLaporanAichaPDF()" 
+                class="bg-gradient-to-r from-slate-950 to-slate-900 hover:bg-black text-rose-400 hover:text-rose-300 border border-slate-700/80 px-3 py-1.5 rounded-xl text-xs font-black shadow-md flex items-center gap-1.5 transition active:scale-95 shrink-0" 
+                title="Cetak dokumen audit resmi berstandar akuntansi">
+                <i class="fas fa-file-pdf text-sm"></i>
+                <span>Audit PDF</span>
+            </button>
+        </div>
+    </div>
+</div>
 
                 <div class="bg-slate-800/70 backdrop-blur-md p-4 rounded-2xl border border-slate-700/80 mb-4 relative z-10">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2.5">

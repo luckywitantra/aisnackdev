@@ -582,9 +582,7 @@ const superApp = {
             this.delPin();
         }
     },
-    clearPin: function() {
-        this.pinBuffer = ''; for (let i = 1; i <= 4; i++) { const dot = document.getElementById(`dot-${i}`); if (dot) { dot.classList.replace('bg-brand-500', 'border-slate-300'); dot.classList.replace('border-0', 'border-2'); } }
-    },
+    
     processLogin: function() {
         if (this.isProcessing) return; this.isProcessing = true;
         if (!this.db || !this.db.users) { 

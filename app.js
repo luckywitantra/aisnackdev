@@ -4090,8 +4090,8 @@ selectOutlet: function(id) {
     // 🏛️ 1. ENGINE AUDIT KONSOLIDASI LAPORAN HARIAN AI-CHA (CPA GRADE)
     // =========================================================================
     getLaporanAichaConsolidatedData: function() {
-        const startInput = document.getElementById('filter-lap-start');
-        const endInput = document.getElementById('filter-lap-end');
+        const startInput = document.getElementById('exec-filter-start');
+        const endInput = document.getElementById('exec-filter-end');
         
         let now = new Date();
         let pad = n => String(n).padStart(2, '0');

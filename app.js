@@ -521,6 +521,16 @@ const superApp = {
             this.userRole = roleStr.includes('owner') ? 'owner' : (roleStr.includes('admin') ? 'admin' : 'kasir');
             
             // =====================================================================
+            // 🔒 GEMBOK UI: KONTROL TAMPILAN STATISTIK EKSKLUSIF OWNER
+            // =====================================================================
+            const ownerExclusiveStats = document.getElementById('owner-exclusive-stats');
+            if (ownerExclusiveStats) {
+                ownerExclusiveStats.className = (this.userRole === 'owner' || this.userRole === 'admin') 
+                    ? "flex flex-col gap-5 mb-6 transition-all duration-500" 
+                    : "hidden";
+            }
+            
+            // =====================================================================
             // 🚀 NORMALISASI MUTLAK: BERSIHKAN TEKS CABANG DARI AWALAN "AI-SNACK"
             // =====================================================================
             let cleanUserOutlet = String(user.Outlet || 'Penajam').replace(/^Ai\-Snack\s+/i, '').trim();

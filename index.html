@@ -177,73 +177,72 @@
 </div>
 
 <!-- ========================================================================= -->
-<!-- 🔐 VIEW: PIN LOGIN SCREEN (ULTRA-PREMIUM GLASSMORPHISM DESIGN)          -->
+<!-- 🔐 VIEW: LOGIN SCREEN (ULTRA-PREMIUM GLASSMORPHISM) -->
 <!-- ========================================================================= -->
-<div id="login-screen" class="fixed inset-0 w-screen h-screen bg-slate-50 dark:bg-[#0B0F19] z-[9999] flex flex-col items-center justify-center p-4 overflow-hidden select-none transition-colors duration-500">
+<div id="login-screen" class="fixed inset-0 w-screen h-screen bg-slate-100 dark:bg-[#0b0f19] z-[9999] flex flex-col items-center justify-center p-4 overflow-hidden select-none transition-colors duration-500">
     
-    <!-- 🌌 Animated Ambient Background (Orbs) -->
-    <div class="absolute -top-[20%] -left-[10%] w-[70vw] max-w-[500px] h-[70vw] max-h-[500px] bg-brand-500/20 dark:bg-brand-500/15 rounded-full blur-[80px] md:blur-[120px] animate-pulse-slow pointer-events-none mix-blend-multiply dark:mix-blend-screen"></div>
-    <div class="absolute -bottom-[20%] -right-[10%] w-[70vw] max-w-[500px] h-[70vw] max-h-[500px] bg-indigo-600/20 dark:bg-purple-600/15 rounded-full blur-[80px] md:blur-[120px] animate-pulse-slow pointer-events-none mix-blend-multiply dark:mix-blend-screen" style="animation-delay: 2s;"></div>
+    <!-- 🌌 Ambient Glow Orbs (Animasi Nadi Perlahan) -->
+    <div class="absolute -top-20 -left-20 w-80 h-80 bg-brand-500/20 dark:bg-brand-500/30 rounded-full blur-[100px] pointer-events-none animate-pulse-slow"></div>
+    <div class="absolute -bottom-20 -right-20 w-80 h-80 bg-indigo-600/20 dark:bg-indigo-600/30 rounded-full blur-[100px] pointer-events-none animate-pulse-slow" style="animation-delay: 1.5s;"></div>
 
-    <!-- 🪟 Main Glass Card -->
-    <div class="bg-white/70 dark:bg-white/5 backdrop-blur-2xl rounded-[2.5rem] w-full max-w-[380px] p-7 md:p-9 shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/60 dark:border-white/10 flex flex-col items-center relative z-10 transition-all duration-300">
+    <!-- 💎 Premium Glass Card -->
+    <div class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl rounded-[2.5rem] w-full max-w-[360px] md:max-w-[380px] p-8 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] flex flex-col items-center border border-white/60 dark:border-slate-700/50 relative z-10 transition-all duration-500">
         
-        <!-- ✨ Floating Logo Box -->
-        <div class="w-20 h-20 md:w-24 md:h-24 bg-gradient-to-br from-brand-400 via-orange-500 to-brand-600 rounded-[1.5rem] md:rounded-[1.8rem] flex items-center justify-center shadow-[0_10px_25px_rgba(249,115,22,0.4)] dark:shadow-[0_10px_30px_rgba(249,115,22,0.3)] mb-6 p-4 relative group animate-float border border-white/20">
-            <div class="absolute inset-0 bg-white/20 rounded-[1.5rem] md:rounded-[1.8rem] opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-            <img src="https://cdn-icons-png.flaticon.com/512/3081/3081308.png" class="app-logo-img w-full h-full object-contain filter drop-shadow-xl transform group-hover:scale-105 transition-transform duration-300">
+        <!-- 🚀 Floating Logo Box -->
+        <div class="w-24 h-24 bg-gradient-to-br from-brand-400 via-orange-500 to-rose-600 rounded-[1.75rem] flex items-center justify-center shadow-[0_10px_25px_rgba(249,115,22,0.3)] dark:shadow-[0_10px_30px_rgba(249,115,22,0.4)] mb-6 p-4 relative group animate-float border-2 border-white/20">
+            <div class="absolute inset-0 bg-white/20 rounded-[1.6rem] opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <img src="https://cdn-icons-png.flaticon.com/512/3081/3081308.png" class="app-logo-img w-full h-full object-contain filter drop-shadow-xl transform group-hover:scale-110 transition-transform duration-300">
         </div>
 
-        <!-- 📝 Typography -->
-        <h2 class="text-2xl md:text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-500 dark:from-white dark:to-slate-300 tracking-tight leading-none mb-1.5">Otorisasi Sistem</h2>
-        <p class="text-[10px] md:text-xs font-black text-slate-400 dark:text-slate-500 mb-8 uppercase tracking-[0.2em]">Masukkan PIN Akses</p>
+        <!-- 📝 Typography Text Gradient -->
+        <h2 class="text-2xl md:text-3xl font-black tracking-tight leading-none mb-2 bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600 dark:from-white dark:to-slate-300">Masuk Sistem</h2>
+        <p class="text-[10px] md:text-xs font-black text-slate-400 dark:text-slate-500 mb-8 uppercase tracking-widest flex items-center gap-1.5">
+            <i class="fas fa-lock text-brand-500"></i> Masukkan PIN Otorisasi
+        </p>
         
-        <!-- 🟢 PIN Indicators (Dots) -->
+        <!-- 🔢 Numpad Container -->
         <div id="pin-numpad-container" class="w-full transition-all duration-300">
             
-            <div class="flex gap-4 md:gap-5 mb-8 justify-center items-center h-6">
-                <!-- Dot Base Style: Hollow/Muted until filled by JS -->
-                <div class="w-4 h-4 md:w-4.5 md:h-4.5 rounded-full bg-slate-200/50 dark:bg-slate-800/50 border-2 border-slate-300/80 dark:border-slate-600/50 pin-dot transition-all duration-300 shadow-inner" id="dot-1"></div>
-                <div class="w-4 h-4 md:w-4.5 md:h-4.5 rounded-full bg-slate-200/50 dark:bg-slate-800/50 border-2 border-slate-300/80 dark:border-slate-600/50 pin-dot transition-all duration-300 shadow-inner" id="dot-2"></div>
-                <div class="w-4 h-4 md:w-4.5 md:h-4.5 rounded-full bg-slate-200/50 dark:bg-slate-800/50 border-2 border-slate-300/80 dark:border-slate-600/50 pin-dot transition-all duration-300 shadow-inner" id="dot-3"></div>
-                <div class="w-4 h-4 md:w-4.5 md:h-4.5 rounded-full bg-slate-200/50 dark:bg-slate-800/50 border-2 border-slate-300/80 dark:border-slate-600/50 pin-dot transition-all duration-300 shadow-inner" id="dot-4"></div>
+            <!-- Indikator Titik PIN -->
+            <div class="flex gap-4 mb-8 justify-center items-center">
+                <div class="w-4 h-4 rounded-full bg-slate-200 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 pin-dot transition-all duration-300 shadow-inner" id="dot-1"></div>
+                <div class="w-4 h-4 rounded-full bg-slate-200 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 pin-dot transition-all duration-300 shadow-inner" id="dot-2"></div>
+                <div class="w-4 h-4 rounded-full bg-slate-200 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 pin-dot transition-all duration-300 shadow-inner" id="dot-3"></div>
+                <div class="w-4 h-4 rounded-full bg-slate-200 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 pin-dot transition-all duration-300 shadow-inner" id="dot-4"></div>
             </div>
 
-            <!-- 🔢 Tactile Numpad Grid -->
-            <div class="grid grid-cols-3 gap-3 md:gap-4 w-full mb-6">
-                <!-- Baris 1 -->
-                <button type="button" class="h-14 md:h-16 rounded-[1.25rem] bg-white/60 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 border border-slate-200/60 dark:border-white/5 shadow-sm dark:shadow-md backdrop-blur-md active:scale-[0.92] text-xl md:text-2xl font-black text-slate-800 dark:text-white transition-all flex items-center justify-center hover:border-brand-300 dark:hover:border-brand-500/50 hover:text-brand-600 dark:hover:text-brand-400 touch-manipulation" onclick="superApp.addPin('1')">1</button>
-                <button type="button" class="h-14 md:h-16 rounded-[1.25rem] bg-white/60 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 border border-slate-200/60 dark:border-white/5 shadow-sm dark:shadow-md backdrop-blur-md active:scale-[0.92] text-xl md:text-2xl font-black text-slate-800 dark:text-white transition-all flex items-center justify-center hover:border-brand-300 dark:hover:border-brand-500/50 hover:text-brand-600 dark:hover:text-brand-400 touch-manipulation" onclick="superApp.addPin('2')">2</button>
-                <button type="button" class="h-14 md:h-16 rounded-[1.25rem] bg-white/60 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 border border-slate-200/60 dark:border-white/5 shadow-sm dark:shadow-md backdrop-blur-md active:scale-[0.92] text-xl md:text-2xl font-black text-slate-800 dark:text-white transition-all flex items-center justify-center hover:border-brand-300 dark:hover:border-brand-500/50 hover:text-brand-600 dark:hover:text-brand-400 touch-manipulation" onclick="superApp.addPin('3')">3</button>
+            <!-- Grid 3D Interactive Buttons (Menggunakan class .numpad-btn dari CSS) -->
+            <div class="grid grid-cols-3 gap-3 md:gap-4 w-full mb-5">
+                <button type="button" class="numpad-btn" onclick="superApp.addPin('1')">1</button>
+                <button type="button" class="numpad-btn" onclick="superApp.addPin('2')">2</button>
+                <button type="button" class="numpad-btn" onclick="superApp.addPin('3')">3</button>
                 
-                <!-- Baris 2 -->
-                <button type="button" class="h-14 md:h-16 rounded-[1.25rem] bg-white/60 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 border border-slate-200/60 dark:border-white/5 shadow-sm dark:shadow-md backdrop-blur-md active:scale-[0.92] text-xl md:text-2xl font-black text-slate-800 dark:text-white transition-all flex items-center justify-center hover:border-brand-300 dark:hover:border-brand-500/50 hover:text-brand-600 dark:hover:text-brand-400 touch-manipulation" onclick="superApp.addPin('4')">4</button>
-                <button type="button" class="h-14 md:h-16 rounded-[1.25rem] bg-white/60 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 border border-slate-200/60 dark:border-white/5 shadow-sm dark:shadow-md backdrop-blur-md active:scale-[0.92] text-xl md:text-2xl font-black text-slate-800 dark:text-white transition-all flex items-center justify-center hover:border-brand-300 dark:hover:border-brand-500/50 hover:text-brand-600 dark:hover:text-brand-400 touch-manipulation" onclick="superApp.addPin('5')">5</button>
-                <button type="button" class="h-14 md:h-16 rounded-[1.25rem] bg-white/60 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 border border-slate-200/60 dark:border-white/5 shadow-sm dark:shadow-md backdrop-blur-md active:scale-[0.92] text-xl md:text-2xl font-black text-slate-800 dark:text-white transition-all flex items-center justify-center hover:border-brand-300 dark:hover:border-brand-500/50 hover:text-brand-600 dark:hover:text-brand-400 touch-manipulation" onclick="superApp.addPin('6')">6</button>
+                <button type="button" class="numpad-btn" onclick="superApp.addPin('4')">4</button>
+                <button type="button" class="numpad-btn" onclick="superApp.addPin('5')">5</button>
+                <button type="button" class="numpad-btn" onclick="superApp.addPin('6')">6</button>
                 
-                <!-- Baris 3 -->
-                <button type="button" class="h-14 md:h-16 rounded-[1.25rem] bg-white/60 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 border border-slate-200/60 dark:border-white/5 shadow-sm dark:shadow-md backdrop-blur-md active:scale-[0.92] text-xl md:text-2xl font-black text-slate-800 dark:text-white transition-all flex items-center justify-center hover:border-brand-300 dark:hover:border-brand-500/50 hover:text-brand-600 dark:hover:text-brand-400 touch-manipulation" onclick="superApp.addPin('7')">7</button>
-                <button type="button" class="h-14 md:h-16 rounded-[1.25rem] bg-white/60 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 border border-slate-200/60 dark:border-white/5 shadow-sm dark:shadow-md backdrop-blur-md active:scale-[0.92] text-xl md:text-2xl font-black text-slate-800 dark:text-white transition-all flex items-center justify-center hover:border-brand-300 dark:hover:border-brand-500/50 hover:text-brand-600 dark:hover:text-brand-400 touch-manipulation" onclick="superApp.addPin('8')">8</button>
-                <button type="button" class="h-14 md:h-16 rounded-[1.25rem] bg-white/60 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 border border-slate-200/60 dark:border-white/5 shadow-sm dark:shadow-md backdrop-blur-md active:scale-[0.92] text-xl md:text-2xl font-black text-slate-800 dark:text-white transition-all flex items-center justify-center hover:border-brand-300 dark:hover:border-brand-500/50 hover:text-brand-600 dark:hover:text-brand-400 touch-manipulation" onclick="superApp.addPin('9')">9</button>
+                <button type="button" class="numpad-btn" onclick="superApp.addPin('7')">7</button>
+                <button type="button" class="numpad-btn" onclick="superApp.addPin('8')">8</button>
+                <button type="button" class="numpad-btn" onclick="superApp.addPin('9')">9</button>
                 
-                <!-- Baris Bawah (Aksi) -->
-                <button type="button" class="h-14 md:h-16 rounded-[1.25rem] bg-transparent hover:bg-slate-200/50 dark:hover:bg-slate-800/50 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all active:scale-90 flex items-center justify-center text-lg md:text-xl touch-manipulation border border-transparent" onclick="superApp.clearPin()" title="Bersihkan">
+                <!-- Tombol Silang (Clear) -->
+                <button type="button" class="h-14 md:h-[60px] rounded-2xl bg-transparent hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-all active:scale-90 flex items-center justify-center text-xl touch-manipulation" onclick="superApp.clearPin()" title="Bersihkan">
                     <i class="fas fa-times"></i>
                 </button>
                 
-                <button type="button" class="h-14 md:h-16 rounded-[1.25rem] bg-white/60 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 border border-slate-200/60 dark:border-white/5 shadow-sm dark:shadow-md backdrop-blur-md active:scale-[0.92] text-xl md:text-2xl font-black text-slate-800 dark:text-white transition-all flex items-center justify-center hover:border-brand-300 dark:hover:border-brand-500/50 hover:text-brand-600 dark:hover:text-brand-400 touch-manipulation" onclick="superApp.addPin('0')">0</button>
+                <button type="button" class="numpad-btn" onclick="superApp.addPin('0')">0</button>
                 
-                <button type="button" class="h-14 md:h-16 rounded-[1.25rem] bg-transparent hover:bg-rose-50 dark:hover:bg-rose-500/10 text-rose-400 hover:text-rose-600 dark:hover:text-rose-400 transition-all active:scale-90 flex items-center justify-center text-lg md:text-xl touch-manipulation border border-transparent hover:border-rose-200 dark:hover:border-rose-500/30" onclick="superApp.delPin()" title="Hapus 1 Angka">
+                <!-- Tombol Hapus (Backspace) -->
+                <button type="button" class="h-14 md:h-[60px] rounded-2xl bg-transparent hover:bg-rose-50 dark:hover:bg-rose-500/10 text-rose-400 hover:text-rose-500 dark:hover:text-rose-400 transition-all active:scale-90 flex items-center justify-center text-xl touch-manipulation" onclick="superApp.delPin()" title="Hapus 1 Angka">
                     <i class="fas fa-delete-left"></i>
                 </button>
             </div>
-
         </div>
         
-        <!-- Status Indikator -->
-        <div class="mt-2 flex items-center justify-center gap-2 bg-slate-100/50 dark:bg-slate-800/50 px-4 py-2 rounded-full border border-slate-200/50 dark:border-slate-700/50 backdrop-blur-sm">
-            <span class="w-1.5 h-1.5 rounded-full bg-brand-500 animate-ping"></span>
-            <p class="text-[9px] md:text-[10px] text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-widest text-center" id="login-status">Memuat Database...</p>
+        <!-- Status Koneksi PWA -->
+        <div class="mt-3 flex items-center justify-center gap-2 bg-slate-50 dark:bg-slate-800/50 px-4 py-1.5 rounded-full border border-slate-200 dark:border-slate-700/50">
+            <span class="w-2 h-2 rounded-full bg-brand-500 animate-pulse shadow-[0_0_8px_rgba(249,115,22,0.8)]"></span>
+            <p class="text-[9px] md:text-[10px] text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-widest text-center" id="login-status">Memuat Database Sistem...</p>
         </div>
 
     </div>
@@ -2948,7 +2947,7 @@
 
   
 <!-- 1. PANGGIL APP.JS TERLEBIH DAHULU -->
-  <script src="app.js?v=610"></script>
+  <script src="app.js?v=611"></script>
   
 
   <!-- 2. BARU JALANKAN SCRIPT INLINE ANDA -->

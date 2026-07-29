@@ -940,81 +940,112 @@
                 </div>
             </div>
 
-            <!-- ================= AKUMULASI OMSET ================= -->
-            <div class="bg-slate-800/70 backdrop-blur-md p-4 rounded-2xl border border-slate-700/80 mb-4 relative z-10">
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2.5">
-                    <div class="flex items-center gap-2">
-                        <span class="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm"></span>
-                        <span class="text-xs font-black text-slate-200 uppercase tracking-wider">Akumulasi Omset Periode Terpilih</span>
-                    </div>
-                    <div class="flex items-center gap-3 text-xs">
-                        <div>Total Tercapai: <span class="font-black text-rose-400 text-sm md:text-base" id="accum-net-sales">Rp 0</span></div>
-                        <div class="border-l border-slate-700 pl-3">Target: <span class="font-black text-amber-400 text-sm md:text-base cursor-pointer underline decoration-dashed" onclick="superApp.setTargetBulanan()" id="accum-target" title="Klik untuk ubah target">Rp 180.000.000</span></div>
-                    </div>
-                </div>
-                <div class="w-full bg-slate-900 rounded-full h-3 overflow-hidden p-0.5 border border-slate-700">
-                    <div id="accum-progress-bar" class="bg-gradient-to-r from-amber-500 via-rose-500 to-emerald-400 h-full rounded-full transition-all duration-700 w-0"></div>
-                </div>
-                <div class="flex justify-between text-[10px] font-extrabold text-slate-400 mt-1.5">
-                    <span id="accum-percent">Progress: 0%</span>
-                    <span id="accum-remaining">Kurang: Rp 0</span>
-                </div>
-            </div>
+           <!-- ================= STATISTIK EKSKLUSIF (HANYA OWNER) ================= -->
+            <div id="owner-exclusive-stats" class="hidden flex-col gap-5 mb-6 transition-all duration-500">
+                
+                <!-- 1. AKUMULASI OMSET (Premium Glow Design) -->
+                <div class="relative overflow-hidden bg-white dark:bg-slate-900/80 backdrop-blur-xl p-5 lg:p-6 rounded-[1.5rem] lg:rounded-[2rem] border border-slate-200 dark:border-slate-700/80 shadow-xl shadow-slate-200/50 dark:shadow-none group transition-all z-10">
+                    <!-- Efek Cahaya (Glow Latar) -->
+                    <div class="absolute -right-10 -top-10 w-48 h-48 bg-rose-500/10 dark:bg-rose-500/20 rounded-full blur-3xl pointer-events-none group-hover:bg-rose-500/20 transition-all duration-700"></div>
+                    <div class="absolute left-1/4 -bottom-10 w-32 h-32 bg-indigo-500/10 dark:bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
 
-            <!-- ================= KARTU SUMMARY ================= -->
-            <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 lg:gap-3.5 relative z-10 mb-5">
-                <div class="bg-slate-800/50 backdrop-blur-md p-3 lg:p-3.5 rounded-2xl border border-slate-700/60">
-                    <span class="text-[9px] lg:text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block">Net Sales Bersih</span>
-                    <span class="font-black text-base lg:text-xl text-rose-400 mt-0.5 block truncate" id="exec-total-sales">Rp 0</span>
-                </div>
-                <div class="bg-slate-800/50 backdrop-blur-md p-3 lg:p-3.5 rounded-2xl border border-slate-700/60">
-                    <span class="text-[9px] lg:text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block">Total Cash Laci</span>
-                    <span class="font-black text-base lg:text-xl text-emerald-400 mt-0.5 block truncate" id="exec-total-cash">Rp 0</span>
-                </div>
-                <div class="bg-slate-800/50 backdrop-blur-md p-3 lg:p-3.5 rounded-2xl border border-slate-700/60">
-                    <span class="text-[9px] lg:text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block">Total Masuk QRIS</span>
-                    <span class="font-black text-base lg:text-xl text-blue-400 mt-0.5 block truncate" id="exec-total-qris">Rp 0</span>
-                </div>
-                <div class="bg-slate-800/50 backdrop-blur-md p-3 lg:p-3.5 rounded-2xl border border-slate-700/60">
-                    <span class="text-[9px] lg:text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block">Total Biaya Operasional</span>
-                    <span class="font-black text-base lg:text-xl text-amber-400 mt-0.5 block truncate" id="exec-total-expense">Rp 0</span>
-                </div>
-            </div>
-
-            <!-- ================= PERFORMA PER OUTLET ================= -->
-            <div class="relative z-10 mb-4">
-                <div class="flex justify-between items-center mb-2.5">
-                    <h4 class="font-black text-xs lg:text-sm text-slate-300 flex items-center gap-2">
-                        <i class="fas fa-store text-indigo-400"></i> Performa Per Outlet <span class="text-[10px] text-slate-400 font-normal">(Klik kartu untuk lihat analisis mendalam)</span>
-                    </h4>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" id="exec-outlet-cards-grid"></div>
-            </div>
-
-            <!-- ================= BREAKDOWN PENGELUARAN ================= -->
-            <div class="bg-slate-900/60 rounded-2xl border border-slate-700/50 relative z-10 overflow-hidden transition-all mb-4">
-                <button type="button" onclick="superApp.toggleExecExpenseBreakdown()" class="w-full p-3 text-left flex justify-between items-center hover:bg-slate-800/50 transition">
-                    <span class="font-black text-xs lg:text-sm text-amber-400 flex items-center gap-2">
-                        <i class="fas fa-receipt"></i> Breakdown Pengeluaran Gabungan Per Item
-                    </span>
-                    <span id="btn-toggle-exp-text" class="text-[10px] font-black bg-amber-400/20 text-amber-300 border border-amber-400/30 px-3 py-1 rounded-xl flex items-center gap-1.5">
-                        <span>Lihat Rincian</span> <i class="fas fa-chevron-down transition-transform duration-300" id="icon-toggle-exp"></i>
-                    </span>
-                </button>
-                <div id="exec-expense-dropdown-box" class="hidden p-4 pt-4 border-t border-slate-800 flex-col gap-3">
-                    <div class="flex items-center gap-2 shrink-0">
-                        <div class="relative flex-1">
-                            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]"></i>
-                            <input type="text" id="exec-expense-search" oninput="superApp.renderExecExpenseList()" placeholder="Cari item pengeluaran..." class="w-full bg-slate-900 border border-slate-700 text-slate-200 text-[11px] font-bold rounded-xl pl-8 pr-3 py-2 outline-none focus:border-amber-500 transition-colors shadow-inner">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 relative z-10">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-3 h-3 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)] animate-pulse"></span>
+                            <span class="text-xs lg:text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-widest">Akumulasi Omset Periode Terpilih</span>
                         </div>
-                        <select id="exec-expense-sort" onchange="superApp.renderExecExpenseList()" class="bg-slate-900 border border-slate-700 text-slate-200 text-[11px] font-bold rounded-xl px-3 py-2 outline-none focus:border-amber-500 cursor-pointer shadow-sm">
-                            <option value="nominal">💵 Nominal Tertinggi</option>
-                            <option value="az">🔤 Abjad A - Z</option>
-                        </select>
+                        <div class="flex flex-wrap items-center gap-3 lg:gap-4 text-xs bg-slate-50 dark:bg-slate-800/80 px-4 py-2 rounded-xl border border-slate-100 dark:border-slate-700">
+                            <div class="text-slate-500 dark:text-slate-400 font-bold">Total: <span class="font-black text-rose-500 dark:text-rose-400 text-sm md:text-base ml-1" id="accum-net-sales">Rp 0</span></div>
+                            <div class="hidden sm:block w-px h-5 bg-slate-300 dark:bg-slate-600"></div>
+                            <div class="text-slate-500 dark:text-slate-400 font-bold">Target: <span class="font-black text-amber-500 dark:text-amber-400 text-sm md:text-base cursor-pointer underline decoration-dashed underline-offset-4 ml-1 hover:text-amber-600 transition-colors" onclick="superApp.setTargetBulanan()" id="accum-target" title="Klik untuk ubah target">Rp 180.000.000</span></div>
+                        </div>
                     </div>
-                    <div id="exec-expense-list" class="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-60 overflow-y-auto custom-scroll pr-1"></div>
+                    
+                    <div class="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-4 overflow-hidden p-0.5 border border-slate-200 dark:border-slate-700 relative z-10 shadow-inner">
+                        <div id="accum-progress-bar" class="bg-gradient-to-r from-amber-400 via-rose-500 to-indigo-500 h-full rounded-full transition-all duration-1000 ease-out w-0 shadow-[0_0_10px_rgba(244,63,94,0.5)]"></div>
+                    </div>
+                    
+                    <div class="flex justify-between text-[11px] font-extrabold text-slate-500 dark:text-slate-400 mt-2.5 relative z-10 px-1">
+                        <span id="accum-percent" class="text-indigo-600 dark:text-indigo-400 flex items-center gap-1"><i class="fas fa-chart-pie"></i> Progress: 0%</span>
+                        <span id="accum-remaining" class="flex items-center gap-1"><i class="fas fa-bullseye"></i> Kurang: Rp 0</span>
+                    </div>
                 </div>
+
+                <!-- 2. KARTU SUMMARY (Hover Animation & Gradient Icons) -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 relative z-10">
+                    <div class="bg-white dark:bg-slate-900/80 backdrop-blur-xl p-4 lg:p-5 rounded-[1.5rem] border border-slate-200 dark:border-slate-700/60 shadow-lg shadow-slate-200/40 dark:shadow-none hover:-translate-y-1 hover:shadow-xl hover:border-rose-300 dark:hover:border-rose-500/50 transition-all duration-300 group cursor-default">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-[10px] lg:text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-widest group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-colors">Net Sales Bersih</span>
+                            <div class="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-500/10 flex items-center justify-center text-rose-500 group-hover:scale-110 transition-transform"><i class="fas fa-chart-line text-sm"></i></div>
+                        </div>
+                        <span class="font-black text-lg lg:text-2xl text-slate-800 dark:text-white mt-1 block truncate group-hover:text-rose-500 dark:group-hover:text-rose-400 transition-colors" id="exec-total-sales">Rp 0</span>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-slate-900/80 backdrop-blur-xl p-4 lg:p-5 rounded-[1.5rem] border border-slate-200 dark:border-slate-700/60 shadow-lg shadow-slate-200/40 dark:shadow-none hover:-translate-y-1 hover:shadow-xl hover:border-emerald-300 dark:hover:border-emerald-500/50 transition-all duration-300 group cursor-default">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-[10px] lg:text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-widest group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-colors">Total Cash Laci</span>
+                            <div class="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform"><i class="fas fa-money-bill-wave text-sm"></i></div>
+                        </div>
+                        <span class="font-black text-lg lg:text-2xl text-slate-800 dark:text-white mt-1 block truncate group-hover:text-emerald-500 dark:group-hover:text-emerald-400 transition-colors" id="exec-total-cash">Rp 0</span>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-slate-900/80 backdrop-blur-xl p-4 lg:p-5 rounded-[1.5rem] border border-slate-200 dark:border-slate-700/60 shadow-lg shadow-slate-200/40 dark:shadow-none hover:-translate-y-1 hover:shadow-xl hover:border-blue-300 dark:hover:border-blue-500/50 transition-all duration-300 group cursor-default">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-[10px] lg:text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-widest group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-colors">Total Masuk QRIS</span>
+                            <div class="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform"><i class="fas fa-qrcode text-sm"></i></div>
+                        </div>
+                        <span class="font-black text-lg lg:text-2xl text-slate-800 dark:text-white mt-1 block truncate group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors" id="exec-total-qris">Rp 0</span>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-slate-900/80 backdrop-blur-xl p-4 lg:p-5 rounded-[1.5rem] border border-slate-200 dark:border-slate-700/60 shadow-lg shadow-slate-200/40 dark:shadow-none hover:-translate-y-1 hover:shadow-xl hover:border-amber-300 dark:hover:border-amber-500/50 transition-all duration-300 group cursor-default">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-[10px] lg:text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-widest group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-colors">Total OPEX (Biaya)</span>
+                            <div class="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform"><i class="fas fa-file-invoice text-sm"></i></div>
+                        </div>
+                        <span class="font-black text-lg lg:text-2xl text-slate-800 dark:text-white mt-1 block truncate group-hover:text-amber-500 dark:group-hover:text-amber-400 transition-colors" id="exec-total-expense">Rp 0</span>
+                    </div>
+                </div>
+
+                <!-- 3. PERFORMA PER OUTLET -->
+                <div class="relative z-10 mt-1">
+                    <div class="flex justify-between items-center mb-3">
+                        <h4 class="font-black text-sm lg:text-base text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center"><i class="fas fa-store"></i></div>
+                            Performa Per Outlet 
+                            <span class="text-[10px] lg:text-xs text-slate-500 dark:text-slate-400 font-bold ml-1 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700 hidden sm:inline">Klik kartu untuk analisis</span>
+                        </h4>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4" id="exec-outlet-cards-grid"></div>
+                </div>
+
+                <!-- 4. BREAKDOWN PENGELUARAN -->
+                <div class="bg-white dark:bg-slate-900/80 backdrop-blur-xl rounded-[1.5rem] border border-slate-200 dark:border-slate-700/60 shadow-lg shadow-slate-200/40 dark:shadow-none relative z-10 overflow-hidden transition-all">
+                    <button type="button" onclick="superApp.toggleExecExpenseBreakdown()" class="w-full p-4 text-left flex justify-between items-center hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+                        <span class="font-black text-xs lg:text-sm text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-500/20 text-amber-500 flex items-center justify-center"><i class="fas fa-receipt"></i></div>
+                            Rincian Seluruh Pengeluaran Operasional
+                        </span>
+                        <span id="btn-toggle-exp-text" class="text-[10px] font-black bg-amber-100 dark:bg-amber-400/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-400/30 px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-colors">
+                            <span>Buka Rincian</span> <i class="fas fa-chevron-down transition-transform duration-300" id="icon-toggle-exp"></i>
+                        </span>
+                    </button>
+                    <div id="exec-expense-dropdown-box" class="hidden p-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex-col gap-4 bg-slate-50/50 dark:bg-transparent">
+                        <div class="flex flex-col sm:flex-row items-center gap-2 shrink-0">
+                            <div class="relative w-full sm:flex-1">
+                                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[11px]"></i>
+                                <input type="text" id="exec-expense-search" oninput="superApp.renderExecExpenseList()" placeholder="Cari deskripsi pengeluaran..." class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-xl pl-9 pr-3 py-2.5 outline-none focus:border-amber-500 transition-colors shadow-sm">
+                            </div>
+                            <select id="exec-expense-sort" onchange="superApp.renderExecExpenseList()" class="w-full sm:w-auto bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-xl px-3 py-2.5 outline-none focus:border-amber-500 cursor-pointer shadow-sm">
+                                <option value="nominal">💵 Nominal Tertinggi</option>
+                                <option value="az">🔤 Abjad A - Z</option>
+                            </select>
+                        </div>
+                        <div id="exec-expense-list" class="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-72 overflow-y-auto custom-scroll pr-1"></div>
+                    </div>
+                </div>
+
             </div>
+            <!-- ================= END STATISTIK EKSKLUSIF ================= -->
 
             <!-- ================= SPLIT LAYOUT: FORM & RIWAYAT ================= -->
             <div class="flex flex-col lg:flex-row gap-4 lg:gap-6 w-full items-stretch">
@@ -2965,7 +2996,7 @@
 
   
 <!-- 1. PANGGIL APP.JS TERLEBIH DAHULU -->
-  <script src="app.js?v=599"></script>
+  <script src="app.js?v=600"></script>
   
 
   <!-- 2. BARU JALANKAN SCRIPT INLINE ANDA -->

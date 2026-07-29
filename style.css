@@ -236,3 +236,11 @@ body {
     background-color: #ffffff !important;
     color: #000000 !important;
 }
+
+/* Efek saat PIN terisi */
+.pin-filled {
+    background-color: #E5202B !important; /* Warna merah Ai-Snack */
+    border-color: #E5202B !important;
+    transform: scale(1.15); /* Efek membesar (pop) */
+    box-shadow: 0 0 10px rgba(229, 32, 43, 0.4);
+}

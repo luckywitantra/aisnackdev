@@ -253,136 +253,142 @@
   
   <div id="mobile-overlay" class="fixed inset-0 bg-slate-900/50 z-40 hidden lg:hidden backdrop-blur-sm transition-opacity" onclick="superApp.toggleSidebar()"></div>
 
-  <aside id="sidebar" class="fixed lg:static top-0 left-0 h-[100dvh] w-[280px] bg-white/95 backdrop-blur-xl border-r border-slate-200/60 flex flex-col pt-6 z-50 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 shadow-[4px_0_24px_rgba(0,0,0,0.03)] lg:shadow-none shrink-0">
+ <!-- ========================================================================= -->
+<!-- 📌 SIDEBAR: AI-SNACK PLAYFUL BRANDING                                     -->
+<!-- ========================================================================= -->
+<aside id="sidebar" class="fixed lg:static top-0 left-0 h-[100dvh] w-[280px] bg-white/95 backdrop-blur-xl border-r border-slate-100 flex flex-col pt-6 z-50 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 shadow-[10px_0_30px_rgba(0,0,0,0.05)] lg:shadow-none shrink-0 overflow-hidden">
     
-    <div class="px-4 mb-6 shrink-0 relative">
-    <div class="bg-slate-50/90 hover:bg-slate-100/80 border border-slate-200/70 p-2.5 rounded-[1.35rem] transition-all duration-300 flex items-center justify-between gap-3 shadow-2xs">
-        
-        <div class="flex items-center gap-3 min-w-0 flex-1">
-            <div class="w-11 h-11 bg-gradient-to-br from-brand-500 via-orange-500 to-amber-500 rounded-2xl flex items-center justify-center p-1.5 shadow-md shadow-brand-500/25 relative group shrink-0 transition-transform duration-300 hover:scale-105 cursor-pointer">
-                <div class="absolute inset-0 bg-white/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <img src="https://cdn-icons-png.flaticon.com/512/3081/3081308.png" class="app-logo-img w-full h-full object-contain filter drop-shadow-xs group-hover:scale-110 transition-transform duration-300">
-            </div>
+    <!-- ✨ Bagian Atas: Profil Pengguna & Logo -->
+    <div class="px-4 mb-6 shrink-0 relative z-10">
+        <div class="bg-gradient-to-r from-[#FFF5D1] to-[#FFD874] border border-[#FFB800]/20 p-2.5 rounded-[1.35rem] transition-all duration-300 flex items-center justify-between gap-3 shadow-sm hover:shadow-md">
             
-            <div class="flex flex-col min-w-0 flex-1">
-                <span class="font-black text-sm text-slate-800 tracking-tight leading-snug truncate block w-full" id="shift-user-name" title="Ai-Snack">
-                    Ai-Snack
-                </span>
-                <div class="flex items-center gap-1.5 mt-0.5">
-                    <span class="inline-flex items-center px-2 py-0.5 bg-white border border-slate-200/80 rounded-md text-[9px] font-black text-brand-600 uppercase tracking-widest shadow-2xs leading-none" id="sb-role">
-                        Kasir
+            <div class="flex items-center gap-3 min-w-0 flex-1">
+                <!-- Bingkai Logo -->
+                <div class="w-12 h-12 bg-white rounded-[1.2rem] flex items-center justify-center p-1.5 shadow-[0_4px_10px_rgba(255,184,0,0.3)] border-2 border-white relative group shrink-0 transition-transform duration-300 hover:scale-105 cursor-pointer">
+                    <!-- Ingat untuk selalu menyematkan class app-logo-img agar update otomatis jalan -->
+                    <img src="https://cdn-icons-png.flaticon.com/512/3081/3081308.png" class="app-logo-img w-full h-full object-contain filter drop-shadow-sm group-hover:scale-110 transition-transform duration-300">
+                </div>
+                
+                <div class="flex flex-col min-w-0 flex-1">
+                    <span class="font-black text-sm text-[#4A3B32] tracking-tight leading-snug truncate block w-full drop-shadow-sm" id="shift-user-name" title="Ai-Snack">
+                        Ai-Snack
                     </span>
+                    <div class="flex items-center gap-1.5 mt-0.5">
+                        <span class="inline-flex items-center px-2 py-0.5 bg-white/90 border border-white/50 rounded-md text-[9px] font-black text-[#E5202B] uppercase tracking-widest shadow-sm leading-none" id="sb-role">
+                            Kasir
+                        </span>
+                    </div>
                 </div>
             </div>
-        </div>
-        
-        <div class="flex items-center gap-1.5 shrink-0 border-l border-slate-200/60 pl-2">
-            <button onclick="superApp.logout()" class="w-8 h-8 rounded-xl bg-white border border-slate-200/80 text-slate-400 hover:bg-rose-500 hover:text-white hover:border-rose-500 hover:shadow-md hover:shadow-rose-500/20 transition-all active:scale-90 flex items-center justify-center group" title="Keluar Akun">
-                <i class="fas fa-power-off text-xs group-hover:rotate-90 transition-transform duration-300"></i>
-            </button>
             
-            <button class="lg:hidden w-8 h-8 flex items-center justify-center bg-white border border-slate-200/80 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all active:scale-90" onclick="superApp.toggleSidebar()" title="Tutup Menu">
-                <i class="fas fa-times text-xs"></i>
-            </button>
-        </div>
+            <div class="flex items-center gap-1.5 shrink-0 pl-2 border-l border-[#FFB800]/30">
+                <!-- Tombol Keluar (Merah) -->
+                <button onclick="superApp.logout()" class="w-8 h-8 rounded-xl bg-white/80 border border-white text-slate-500 hover:bg-[#E5202B] hover:text-white hover:border-[#E5202B] shadow-sm hover:shadow-lg hover:shadow-[#E5202B]/30 transition-all active:scale-90 flex items-center justify-center group" title="Keluar Akun">
+                    <i class="fas fa-power-off text-xs group-hover:rotate-90 transition-transform duration-300"></i>
+                </button>
+                
+                <!-- Tombol Tutup Sidebar Mobile -->
+                <button class="lg:hidden w-8 h-8 flex items-center justify-center bg-white/80 border border-white text-slate-500 hover:text-[#E5202B] hover:bg-rose-50 shadow-sm rounded-xl transition-all active:scale-90" onclick="superApp.toggleSidebar()" title="Tutup Menu">
+                    <i class="fas fa-times text-xs"></i>
+                </button>
+            </div>
 
+        </div>
     </div>
-</div>
 
     <div id="header-initial" class="hidden"></div>
     
-    <nav class="flex-1 overflow-y-auto custom-scroll px-4 flex flex-col gap-1 py-2">
+    <!-- 🧭 Menu Navigasi Tengah -->
+    <nav class="flex-1 overflow-y-auto custom-scroll px-4 flex flex-col gap-1.5 py-2 relative z-10">
         
-        <div class="flex items-center gap-3 px-3 mt-2 mb-2 shrink-0">
-            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Operasional</p>
-            <div class="h-px bg-slate-100 flex-1"></div>
+        <div class="flex items-center gap-3 px-3 mt-1 mb-2 shrink-0">
+            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Menu Operasional</p>
+            <div class="h-[1.5px] bg-slate-100 flex-1 rounded-full"></div>
         </div>
 
-        <button onclick="superApp.switchMenu('pos')" id="nav-pos" class="nav-btn nav-active bg-slate-50 text-brand-500 w-full flex items-center px-4 py-3.5 rounded-2xl transition-all duration-300 group shrink-0">
-            <div class="w-7 flex justify-center"><i class="fas fa-cash-register group-hover:scale-110 transition-transform duration-300 text-lg"></i></div>
-            <span class="font-extrabold text-sm ml-3 group-hover:translate-x-1 transition-transform duration-300">Mesin Kasir (POS)</span>
+        <button onclick="superApp.switchMenu('pos')" id="nav-pos" class="nav-btn nav-active bg-[#FFF5D1] text-[#E5202B] w-full flex items-center px-4 py-3.5 rounded-[1.25rem] transition-all duration-300 group shrink-0 border border-[#FFD874]/50">
+            <div class="w-8 flex justify-center"><i class="fas fa-cash-register group-hover:scale-110 transition-transform duration-300 text-lg"></i></div>
+            <span class="font-black text-sm ml-3 group-hover:translate-x-1 transition-transform duration-300">Mesin Kasir (POS)</span>
         </button>
         
-        <button onclick="superApp.openKasKeluar()" class="w-full flex items-center px-4 py-3.5 rounded-2xl text-rose-500 hover:bg-rose-50 transition-all duration-300 group shrink-0">
-            <div class="w-7 flex justify-center"><i class="fas fa-money-bill-transfer group-hover:scale-110 transition-transform duration-300 text-lg"></i></div>
+        <button onclick="superApp.openKasKeluar()" class="w-full flex items-center px-4 py-3.5 rounded-[1.25rem] text-slate-500 hover:bg-rose-50 hover:text-rose-500 transition-all duration-300 group shrink-0 border border-transparent">
+            <div class="w-8 flex justify-center"><i class="fas fa-money-bill-transfer group-hover:scale-110 transition-transform duration-300 text-lg"></i></div>
             <span class="font-extrabold text-sm ml-3 group-hover:translate-x-1 transition-transform duration-300">Input Kas Keluar</span>
         </button>
         
-        <button onclick="superApp.switchMenu('terima')" id="nav-terima" class="nav-btn w-full flex items-center px-4 py-3.5 rounded-2xl text-slate-500 hover:bg-slate-50 transition-all duration-300 group shrink-0">
-            <div class="w-7 flex justify-center"><i class="fas fa-truck-ramp-box group-hover:scale-110 transition-transform duration-300 text-lg"></i></div>
+        <button onclick="superApp.switchMenu('terima')" id="nav-terima" class="nav-btn w-full flex items-center px-4 py-3.5 rounded-[1.25rem] text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-all duration-300 group shrink-0 border border-transparent">
+            <div class="w-8 flex justify-center"><i class="fas fa-truck-ramp-box group-hover:scale-110 transition-transform duration-300 text-lg text-emerald-500"></i></div>
             <span class="font-extrabold text-sm ml-3 group-hover:translate-x-1 transition-transform duration-300">Terima Barang</span>
-            <span id="badge-terima" class="hidden ml-auto bg-amber-100 text-amber-600 px-2 py-0.5 rounded-lg text-[10px] font-black shadow-sm border border-amber-200/60">0</span>
+            <span id="badge-terima" class="hidden ml-auto bg-[#FFF5D1] text-[#FFB800] px-2 py-0.5 rounded-lg text-[10px] font-black shadow-sm border border-[#FFD874]">0</span>
         </button>
         
-        <button onclick="superApp.switchMenu('opname')" id="nav-opname" class="nav-btn w-full flex items-center px-4 py-3.5 rounded-2xl text-slate-500 hover:bg-slate-50 transition-all duration-300 group shrink-0">
-            <div class="w-7 flex justify-center"><i class="fas fa-clipboard-check group-hover:scale-110 transition-transform duration-300 text-lg"></i></div>
+        <button onclick="superApp.switchMenu('opname')" id="nav-opname" class="nav-btn w-full flex items-center px-4 py-3.5 rounded-[1.25rem] text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-all duration-300 group shrink-0 border border-transparent">
+            <div class="w-8 flex justify-center"><i class="fas fa-clipboard-check group-hover:scale-110 transition-transform duration-300 text-lg text-purple-500"></i></div>
             <span class="font-extrabold text-sm ml-3 group-hover:translate-x-1 transition-transform duration-300">Opname Fisik</span>
-            <span id="badge-opname" class="hidden ml-auto bg-amber-100 text-amber-600 px-2 py-0.5 rounded-lg text-[10px] font-black shadow-sm border border-amber-200/60">0</span>
+            <span id="badge-opname" class="hidden ml-auto bg-[#FFF5D1] text-[#FFB800] px-2 py-0.5 rounded-lg text-[10px] font-black shadow-sm border border-[#FFD874]">0</span>
         </button>
         
-        <button onclick="superApp.switchMenu('report')" id="nav-report" class="nav-btn w-full flex items-center px-4 py-3.5 rounded-2xl text-slate-500 hover:bg-slate-50 transition-all duration-300 group shrink-0">
-            <div class="w-7 flex justify-center"><i class="fas fa-chart-pie group-hover:scale-110 transition-transform duration-300 text-lg"></i></div>
+        <button onclick="superApp.switchMenu('report')" id="nav-report" class="nav-btn w-full flex items-center px-4 py-3.5 rounded-[1.25rem] text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-all duration-300 group shrink-0 border border-transparent">
+            <div class="w-8 flex justify-center"><i class="fas fa-chart-pie group-hover:scale-110 transition-transform duration-300 text-lg text-blue-500"></i></div>
             <span class="font-extrabold text-sm ml-3 group-hover:translate-x-1 transition-transform duration-300">Riwayat & Rekap</span>
         </button>
 
-        <button onclick="superApp.switchMenu('laporan-harian')" id="nav-laporan-harian" class="nav-btn w-full flex items-center px-4 py-3.5 rounded-2xl text-slate-500 hover:bg-slate-50 transition-all duration-300 group">
-                <div class="w-7 flex justify-center"><i class="fas fa-file-invoice-dollar group-hover:scale-110 transition-transform duration-300 text-lg"></i></div>
-                <span class="font-extrabold text-sm ml-3 group-hover:translate-x-1 transition-transform duration-300">Laporan Ai-CHA</span>
+        <button onclick="superApp.switchMenu('laporan-harian')" id="nav-laporan-harian" class="nav-btn w-full flex items-center px-4 py-3.5 rounded-[1.25rem] text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-all duration-300 group border border-transparent">
+            <div class="w-8 flex justify-center"><i class="fas fa-file-invoice-dollar group-hover:scale-110 transition-transform duration-300 text-lg text-amber-500"></i></div>
+            <span class="font-extrabold text-sm ml-3 group-hover:translate-x-1 transition-transform duration-300">Laporan Ai-CHA</span>
         </button>
         
-        <div id="admin-menus" class="hidden flex-col gap-1 shrink-0">
-            <div class="flex items-center gap-3 px-3 mt-6 mb-2 shrink-0">
-                <i class="fas fa-lock text-[9px] text-slate-300"></i>
-                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Akses Manajer</p>
-                <div class="h-px bg-slate-100 flex-1"></div>
+        <!-- 🔐 Area Khusus Manajer/Owner -->
+        <div id="admin-menus" class="hidden flex-col gap-1.5 shrink-0">
+            <div class="flex items-center gap-3 px-3 mt-4 mb-2 shrink-0">
+                <div class="w-5 h-5 rounded-md bg-[#FFF5D1] text-[#FFB800] flex items-center justify-center"><i class="fas fa-shield-halved text-[10px]"></i></div>
+                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Akses Pimpinan</p>
+                <div class="h-[1.5px] bg-slate-100 flex-1 rounded-full"></div>
             </div>
             
-            <button onclick="superApp.switchMenu('audit')" id="nav-audit" class="nav-btn w-full flex items-center px-4 py-3.5 rounded-2xl text-slate-500 hover:bg-slate-50 transition-all duration-300 group">
-                <div class="w-7 flex justify-center"><i class="fas fa-user-check group-hover:scale-110 transition-transform duration-300 text-lg"></i></div>
-                <span class="font-extrabold text-sm ml-3 group-hover:translate-x-1 transition-transform duration-300">Audit & Approval</span>
-                <span id="badge-audit" class="hidden ml-auto bg-rose-500 text-white px-2 py-0.5 rounded-lg text-[10px] font-black shadow-[0_0_10px_rgba(225,29,72,0.5)] animate-pulse border border-rose-400">0</span>
+            <button onclick="superApp.switchMenu('audit')" id="nav-audit" class="nav-btn w-full flex items-center px-4 py-3.5 rounded-[1.25rem] text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-all duration-300 group border border-transparent">
+                <div class="w-8 flex justify-center"><i class="fas fa-user-check group-hover:scale-110 transition-transform duration-300 text-lg text-rose-500"></i></div>
+                <span class="font-extrabold text-sm ml-3 group-hover:translate-x-1 transition-transform duration-300">Audit & Persetujuan</span>
+                <span id="badge-audit" class="hidden ml-auto bg-[#E5202B] text-white px-2 py-0.5 rounded-lg text-[10px] font-black shadow-[0_0_10px_rgba(229,32,43,0.5)] animate-pulse border border-[#E5202B]/80">0</span>
             </button>
             
-            <button onclick="superApp.switchMenu('ai')" id="nav-ai" class="nav-btn w-full flex items-center px-4 py-3.5 rounded-2xl text-slate-500 hover:bg-slate-50 transition-all duration-300 group">
-                <div class="w-7 flex justify-center"><i class="fas fa-robot group-hover:scale-110 transition-transform duration-300 text-lg"></i></div>
-                <span class="font-extrabold text-sm ml-3 group-hover:translate-x-1 transition-transform duration-300 text-transparent bg-clip-text bg-gradient-to-r from-slate-500 to-slate-500 group-hover:from-pink-500 group-hover:to-orange-500">CFO Dashboard</span>
+            <button onclick="superApp.switchMenu('ai')" id="nav-ai" class="nav-btn w-full flex items-center px-4 py-3.5 rounded-[1.25rem] text-slate-500 hover:bg-slate-50 transition-all duration-300 group border border-transparent">
+                <div class="w-8 flex justify-center"><i class="fas fa-robot group-hover:scale-110 transition-transform duration-300 text-lg text-indigo-500"></i></div>
+                <span class="font-extrabold text-sm ml-3 group-hover:translate-x-1 transition-transform duration-300 text-transparent bg-clip-text bg-gradient-to-r from-slate-500 to-slate-500 group-hover:from-indigo-500 group-hover:to-purple-500">CFO Dashboard</span>
             </button>
             
-            <button onclick="superApp.switchMenu('gudang')" id="nav-gudang" class="nav-btn w-full flex items-center px-4 py-3.5 rounded-2xl text-slate-500 hover:bg-slate-50 transition-all duration-300 group">
-                <div class="w-7 flex justify-center"><i class="fas fa-warehouse group-hover:scale-110 transition-transform duration-300 text-lg"></i></div>
+            <button onclick="superApp.switchMenu('gudang')" id="nav-gudang" class="nav-btn w-full flex items-center px-4 py-3.5 rounded-[1.25rem] text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-all duration-300 group border border-transparent">
+                <div class="w-8 flex justify-center"><i class="fas fa-warehouse group-hover:scale-110 transition-transform duration-300 text-lg text-orange-500"></i></div>
                 <span class="font-extrabold text-sm ml-3 group-hover:translate-x-1 transition-transform duration-300">Gudang & Master</span>
             </button>
 
-            <!-- 🚀 TAMBAHAN MENU BARU: MANAJEMEN PENGGUNA -->
-            <button onclick="superApp.switchMenu('user')" id="nav-user" class="nav-btn w-full flex items-center px-4 py-3.5 rounded-2xl text-slate-500 hover:bg-slate-50 transition-all duration-300 group">
-                <div class="w-7 flex justify-center"><i class="fas fa-users-gear group-hover:scale-110 transition-transform duration-300 text-lg"></i></div>
-                <span class="font-extrabold text-sm ml-3 group-hover:translate-x-1 transition-transform duration-300">Manajemen User</span>
-            </button>
-            
-            <button onclick="superApp.switchMenu('staf')" id="nav-staf" class="nav-btn w-full flex items-center px-4 py-3.5 rounded-2xl text-slate-500 hover:bg-slate-50 transition-all duration-300 group">
-                <div class="w-7 flex justify-center"><i class="fas fa-users-gear group-hover:scale-110 transition-transform duration-300 text-lg"></i></div>
-                <span class="font-extrabold text-sm ml-3 group-hover:translate-x-1 transition-transform duration-300">Kinerja Staf</span>
+            <button onclick="superApp.switchMenu('user')" id="nav-user" class="nav-btn w-full flex items-center px-4 py-3.5 rounded-[1.25rem] text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-all duration-300 group border border-transparent">
+                <div class="w-8 flex justify-center"><i class="fas fa-users-gear group-hover:scale-110 transition-transform duration-300 text-lg text-teal-500"></i></div>
+                <span class="font-extrabold text-sm ml-3 group-hover:translate-x-1 transition-transform duration-300">Manajemen Staf</span>
             </button>
         </div>
     </nav>
 
-    <div class="px-4 py-4 border-t border-slate-200/60 flex flex-col gap-2.5 shrink-0 bg-slate-50/50 backdrop-blur-md z-10 pb-28 lg:pb-5 relative mt-auto">
-    <button onclick="superApp.promptTutupShift()" class="w-full py-3.5 px-4 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 hover:from-rose-600 hover:to-red-600 text-white font-black rounded-2xl shadow-[0_8px_20px_-4px_rgba(0,0,0,0.25)] hover:shadow-rose-500/25 transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] text-xs md:text-sm flex justify-between items-center group border border-slate-700/80 hover:border-rose-500">
+    <!-- 🚪 Tombol Bawah: Tutup Shift -->
+    <div class="px-4 py-5 border-t border-slate-100 flex flex-col gap-2.5 shrink-0 bg-white relative mt-auto z-10">
         
-        <div class="flex items-center gap-2.5">
-            <div class="w-7 h-7 rounded-xl bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition-colors">
-                <i class="fas fa-store-slash text-slate-300 group-hover:text-white transition-colors text-xs"></i>
+        <button onclick="superApp.promptTutupShift()" class="w-full py-3.5 px-4 bg-slate-900 hover:bg-[#E5202B] text-white font-black rounded-[1.25rem] shadow-[0_8px_20px_-4px_rgba(0,0,0,0.15)] hover:shadow-[#E5202B]/30 transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] text-xs md:text-sm flex justify-between items-center group border-2 border-slate-800 hover:border-[#E5202B]">
+            
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-[0.8rem] bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition-colors">
+                    <i class="fas fa-store-slash text-slate-300 group-hover:text-white transition-colors text-xs"></i>
+                </div>
+                <span class="tracking-wide group-hover:tracking-widest transition-all">Tutup Toko</span>
             </div>
-            <span class="tracking-wide">Tutup Shift Harian</span>
-        </div>
 
-        <div class="flex items-center gap-1.5 bg-slate-800/80 group-hover:bg-rose-700/80 px-2.5 py-1 rounded-lg border border-white/10 transition-colors">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 group-hover:bg-white animate-pulse"></span>
-            <span class="text-[9px] font-extrabold uppercase tracking-widest text-slate-300 group-hover:text-white">Aktif</span>
-        </div>
+            <div class="flex items-center gap-1.5 bg-emerald-500/20 px-2.5 py-1.5 rounded-lg border border-emerald-500/30 group-hover:bg-white/20 group-hover:border-white/30 transition-colors">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 group-hover:bg-white animate-pulse"></span>
+                <span class="text-[9px] font-black uppercase tracking-widest text-emerald-400 group-hover:text-white">Aktif</span>
+            </div>
 
-    </button>
-</div>
+        </button>
+    </div>
+    
 </aside>
 
   <main id="main-app" class="flex-1 flex flex-col h-[100dvh] relative overflow-hidden hidden min-w-0">
@@ -2950,7 +2956,7 @@
 
   
 <!-- 1. PANGGIL APP.JS TERLEBIH DAHULU -->
-  <script src="app.js?v=615"></script>
+  <script src="app.js?v=616"></script>
   
 
   <!-- 2. BARU JALANKAN SCRIPT INLINE ANDA -->

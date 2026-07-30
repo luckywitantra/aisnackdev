@@ -1195,6 +1195,34 @@ const superApp = {
         }
     },
 
+    // ==============================================================================
+    // 🌓 FUNGSI TEMA TERANG & GELAP (DARK MODE)
+    // ==============================================================================
+    toggleTheme: function() {
+        const htmlDoc = document.documentElement;
+        
+        // Cek apakah saat ini sedang mode dark
+        if (htmlDoc.classList.contains('dark')) {
+            htmlDoc.classList.remove('dark');
+            localStorage.setItem('aisnack_theme', 'light');
+            this.showToast("Beralih ke Tema Terang 🌞", "info");
+        } else {
+            htmlDoc.classList.add('dark');
+            localStorage.setItem('aisnack_theme', 'dark');
+            this.showToast("Beralih ke Tema Gelap 🌙", "info");
+        }
+    },
+    
+    // Panggil fungsi ini di dalam superApp.init() agar saat refresh tema tidak hilang
+    loadSavedTheme: function() {
+        if (localStorage.getItem('aisnack_theme') === 'dark' || 
+            (!localStorage.getItem('aisnack_theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    }
+
     
     // =========================================================
     // 🚀 ENGINE: API POST (XHR ANTI-GANTUNG & ANTI-CRASH DI HP)

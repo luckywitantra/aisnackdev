@@ -1704,49 +1704,31 @@ const superApp = {
     // =========================================================
     // 🚀 LOGOUT AMAN & KEMBALI KE LAYAR PIN
     // =========================================================
-    logout: function() {
-        // 1. Bersihkan seluruh memori sesi aktif di objek aplikasi
-        this.currentUser = null;
-        this.userRole = null;
-        this.outlet = null;
-        this.cart = [];
-        this.dailyExpensesList = [];
-
-        // 2. Hapus jejak sesi dari LocalStorage browser
+   logout: function() {
+        // 1. Bersihkan seluruh jejak sesi dari LocalStorage browser 
+        // (Ini sangat penting agar saat refresh, sistem tidak auto-login kembali)
         localStorage.removeItem('aicha_current_user');
         localStorage.removeItem('aisnack_current_user');
         localStorage.removeItem('aicha_active_outlet');
         localStorage.removeItem('aisnack_active_outlet');
 
-        // 🚀 3. BALIKKAN TAMPILAN LAYAR PERSIS SEPERTI SEBELUM LOGIN
-        const sbar = document.getElementById('sidebar'); 
-        if (sbar) sbar.classList.add('hidden');
-        
-        const mainApp = document.getElementById('main-app'); 
-        if (mainApp) mainApp.classList.add('hidden');
+        // Opsional: Bersihkan memori di objek aplikasi (jika dibutuhkan oleh proses lain sebelum refresh)
+        this.currentUser = null;
+        this.userRole = null;
+        this.outlet = null;
+        this.cart = [];
 
-        // Sembunyikan juga semua sub-view yang mungkin sedang terbuka
-        document.querySelectorAll('.app-view').forEach(v => v.classList.add('hidden'));
-
-        // Munculkan kembali layar PIN utama
-        const loginScreen = document.getElementById('login-screen'); 
-        if (loginScreen) {
-            loginScreen.classList.remove('hidden');
-        } else {
-            // Fallback keamanan jika ID di HTML Anda bernama view-login
-            const viewLogin = document.getElementById('view-login');
-            if (viewLogin) viewLogin.classList.remove('hidden');
+        // 2. Beritahu kasir bahwa sistem sedang diperbarui
+        if (typeof this.showToast === 'function') {
+            this.showToast("Berhasil keluar. Memperbarui sistem...", "info");
         }
 
-        // 4. Bersihkan sisa ketikan bulatan PIN sebelumnya
-        if (typeof this.clearPin === 'function') {
-            this.clearPin();
-        } else {
-            this.pinBuffer = '';
-            document.querySelectorAll('.pin-dot').forEach(dot => dot.classList.remove('active'));
-        }
-
-        this.showToast("Berhasil keluar. Silakan masukkan PIN kembali.", "info");
+        // 3. 🚀 REFRESH HALAMAN SECARA PAKSA
+        // Kita beri jeda 1 detik (1000ms) agar pesan Toast sempat terbaca oleh kasir
+        setTimeout(() => {
+            // Perintah ini akan memuat ulang seluruh file HTML, CSS, dan Javascript dari server/cache terbaru
+            window.location.reload(true); 
+        }, 1000);
     },
 
    // ==========================================

@@ -8801,59 +8801,94 @@ openDetailStokOpname: function(sku) {
         this.openModal('modal-bom-detail');
     },
     
-    exportPDF: function() {
-        this.showToast("Mempersiapkan PDF Laporan...");
+   exportPDF: function() {
+        this.showToast("Mempersiapkan PDF Laporan, mohon tunggu sebentar...", "info");
         const element = document.getElementById('pdf-export-area'); 
         if(!element) return;
-        
-        // 1. Simpan bentuk desain aslinya
-        const originalStyle = element.getAttribute('style') || '';
-        
-        // 2. Buka semua tab agar terbaca oleh mesin PDF (Termasuk tab BOM)
+
+        // Buka semua tab agar terbaca oleh mesin PDF
         const rct = document.getElementById('report-content-trx'); if(rct) rct.classList.remove('hidden'); 
         const rcr = document.getElementById('report-content-rekap'); if(rcr) rcr.classList.remove('hidden');
         const rck = document.getElementById('report-content-kas'); if(rck) rck.classList.remove('hidden');
         const rcs = document.getElementById('report-content-selisih'); if(rcs) rcs.classList.remove('hidden');
-        const rcb = document.getElementById('report-content-bom'); if(rcb) rcb.classList.remove('hidden');
-        
-        // 3. 🚀 ANTI-BLANK: Hapus batasan scroll dan tinggi secara paksa pada tabel
-        element.style.height = 'max-content';
-        element.style.overflow = 'visible';
-        
-        const scrollables = element.querySelectorAll('.overflow-y-auto, .overflow-x-auto, .custom-scroll');
-        scrollables.forEach(el => {
-            // Ingat style asli elemen ini
-            el.setAttribute('data-orig-style', el.getAttribute('style') || '');
-            // Tarik elemen agar memanjang ke bawah sesuai isinya
-            el.style.overflow = 'visible';
-            el.style.maxHeight = 'none';
-            el.style.height = 'auto';
-        });
 
-        // 4. Beri jeda 0.5 detik agar browser selesai "menggambar ulang" layar yang panjang
+        // 🚀 SOLUSI ERROR GRADIENT & STYLING AI-SNACK: 
+        const style = document.createElement('style');
+        style.id = 'pdf-print-style';
+        style.innerHTML = `
+            .pdf-container { 
+                height: auto !important; 
+                max-height: none !important; 
+                overflow: visible !important; 
+                background-color: #ffffff !important;
+                padding: 15px !important;
+                color: #4A3B32 !important;
+            }
+            /* Paksa semua elemen di dalamnya membentang, matikan scroll, shadow, dan GRADIENT */
+            .pdf-container * { 
+                overflow: visible !important; 
+                height: auto !important; 
+                max-height: none !important; 
+                box-shadow: none !important;
+                
+                /* MEMATIKAN GRADIENT (Penyebab utama error addColorStop html2canvas) */
+                background-image: none !important; 
+                -webkit-background-clip: initial !important;
+                background-clip: initial !important;
+                -webkit-text-fill-color: initial !important;
+            }
+            /* Hapus elemen yang tidak perlu ada di PDF */
+            .pdf-container button, .pdf-container .hide-on-pdf { display: none !important; }
+            
+            /* Ai-Snack Theme Injection */
+            .pdf-container h2, .pdf-container h3 { color: #E5202B !important; font-weight: 900 !important; border-bottom: 2px solid #FFD874 !important; padding-bottom: 5px !important; margin-top: 20px !important; }
+            .pdf-container h4 { color: #A87B00 !important; font-weight: 900 !important; }
+            .pdf-container table { width: 100% !important; border-collapse: collapse !important; margin-bottom: 15px !important; border-radius: 10px !important; overflow: hidden !important; background-color: #ffffff !important;}
+            .pdf-container th { background-color: #E5202B !important; color: white !important; padding: 12px !important; font-size: 11px !important; text-transform: uppercase !important; }
+            .pdf-container td { border-bottom: 1px solid #FFD874 !important; padding: 10px !important; font-size: 11px !important; font-weight: bold !important; color: #4A3B32 !important; }
+            .pdf-container tr:nth-child(even) { background-color: #FFF5D1 !important; }
+            
+            /* Pastikan teks yang tadinya transparent karena efek gradient kembali solid */
+            .pdf-container .text-transparent { color: #4A3B32 !important; }
+            
+            /* Hapus background bawaan elemen yang mengganggu */
+            .pdf-container .bg-slate-50, .pdf-container .bg-white, .pdf-container .bg-slate-900 { background-color: transparent !important; border: none !important; }
+        `;
+        document.head.appendChild(style);
+
+        // Tambahkan class penanda
+        element.classList.add('pdf-container'); 
+
+        // Beri jeda 800ms agar browser merender penghapusan gradient sebelum dipotret
         setTimeout(() => {
             const opt = { 
-                margin: 0.3, 
-                filename: `Laporan_Ai_Snack_${new Date().getTime()}.pdf`, 
-                image: { type: 'jpeg', quality: 0.98 }, 
-                html2canvas: { scale: 2, useCORS: true, windowWidth: element.scrollWidth }, 
+                margin: 0.4, 
+                filename: `Laporan_Terpadu_AiSnack_${new Date().getTime()}.pdf`, 
+                image: { type: 'jpeg', quality: 1 }, 
+                html2canvas: { scale: 2, useCORS: true, logging: false, scrollY: 0 }, 
                 jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' } 
             };
             
             html2pdf().set(opt).from(element).save().then(() => { 
-                // 5. KEMBALIKAN KE KONDISI NORMAL (UI KASIR)
-                element.setAttribute('style', originalStyle);
-                scrollables.forEach(el => {
-                    el.setAttribute('style', el.getAttribute('data-orig-style') || '');
-                    el.removeAttribute('data-orig-style');
-                });
+                // ==== BERSIHKAN KEMBALI SETELAH SUKSES ====
+                element.classList.remove('pdf-container'); 
+                const printStyle = document.getElementById('pdf-print-style');
+                if (printStyle) printStyle.remove();
                 
-                this.toggleReportTab('trx'); // Sembunyikan tab lain kembali
-                this.showToast("PDF Laporan Berhasil Diunduh!", "success"); 
+                this.toggleReportTab('trx'); // Kembalikan ke tab utama (transaksi)
+                this.showToast("🎉 Laporan PDF Berhasil Diunduh!", "success"); 
+                
+            }).catch(err => {
+                console.error("PDF Export Error: ", err);
+                element.classList.remove('pdf-container');
+                const printStyle = document.getElementById('pdf-print-style');
+                if (printStyle) printStyle.remove();
+                
+                this.showToast("Gagal mencetak PDF. Terjadi masalah perenderan gambar.", "error");
             });
-        }, 500); // 500ms delay sangat krusial
+            
+        }, 800); 
     },
-
     // ==========================================
     // EKSPOR CFO DASHBOARD (PDF & WHATSAPP)
     // ==========================================

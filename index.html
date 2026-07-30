@@ -1899,97 +1899,107 @@
     </div>
 </div>
 
-   <!-- ========================================================= -->
-<!-- VIEW: MANAJEMEN PENGGUNA & OTORISASI (ULTRA-MODERN UI)    -->
-<!-- ========================================================= -->
-<div id="view-user" class="app-view hidden flex-col h-full pb-28 md:pb-6 transition-all duration-300">
-    <div class="bg-slate-50 rounded-[2rem] md:rounded-[2.5rem] shadow-sm border border-slate-200/60 flex flex-col h-full min-h-0 overflow-hidden relative">
+<!-- ========================================================================= -->
+<!-- 👥 VIEW: MANAJEMEN PENGGUNA (AI-SNACK PLAYFUL BRANDING)                 -->
+<!-- ========================================================================= -->
+<div id="view-user" class="app-view hidden flex-col h-full pb-28 md:pb-6 transition-all duration-300 relative">
+    <div class="bg-white/95 backdrop-blur-md p-4 md:p-6 lg:p-8 rounded-[2rem] md:rounded-[2.5rem] shadow-[0_10px_40px_rgba(0,0,0,0.04)] border border-slate-100 flex flex-col h-full min-h-0 relative overflow-hidden group">
         
-        <!-- HEADER & FILTER BAR TERPADU -->
-        <div class="bg-white pt-4 md:pt-7 pb-4 rounded-b-[1.75rem] md:rounded-b-[2rem] shadow-[0_8px_30px_-10px_rgba(0,0,0,0.06)] relative z-20 shrink-0 px-4 md:px-8">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div class="flex items-center gap-3 md:gap-4">
-                    <div class="w-11 h-11 md:w-14 md:h-14 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-600 rounded-xl md:rounded-[1.35rem] flex items-center justify-center text-white text-lg md:text-2xl shadow-md shadow-purple-500/25 shrink-0">
-                        <i class="fas fa-users-gear"></i>
-                    </div>
-                    <div>
-                        <h2 class="font-black text-lg md:text-3xl text-slate-800 tracking-tight leading-none">Manajemen Pengguna</h2>
-                        <p class="hidden md:block text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">Atur Hak Akses Staf, PIN Kasir, & Penempatan Cabang</p>
-                    </div>
-                </div>
+        <!-- 🌟 Watermark Latar Belakang -->
+        <div class="absolute top-0 right-0 -mt-10 -mr-10 text-[14rem] text-[#FFF5D1]/60 pointer-events-none hidden md:block transform group-hover:scale-110 group-hover:rotate-6 transition-transform duration-700 z-0">
+            <i class="fas fa-users-gear"></i>
+        </div>
 
-                <!-- Tombol Tambah Khusus PC -->
-                <button onclick="superApp.openCrudUser('add')" class="hidden md:flex bg-slate-900 hover:bg-slate-800 text-white px-5 py-3 rounded-2xl text-xs md:text-sm font-black shadow-md transition active:scale-95 items-center gap-2 shrink-0 border border-slate-800">
-                    <i class="fas fa-user-plus text-purple-400"></i> Tambah User Baru
-                </button>
+        <!-- 🏷️ HEADER & FILTER BAR TERPADU -->
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 md:mb-6 border-b border-slate-100 pb-4 md:pb-6 gap-4 shrink-0 relative z-10 w-full">
+            <div class="flex items-center gap-3 md:gap-4 w-full md:w-auto">
+                <!-- Ikon Utama Merah Menyala -->
+                <div class="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-[#E5202B] to-[#CC1A24] rounded-[1.2rem] md:rounded-[1.5rem] flex items-center justify-center text-white text-xl md:text-3xl shadow-[0_8px_20px_rgba(229,32,43,0.3)] shrink-0 transform transition-transform group-hover:scale-105 border border-[#CC1A24]">
+                    <i class="fas fa-users-gear drop-shadow-md"></i>
+                </div>
+                <div class="flex-1">
+                    <h2 class="font-black text-xl md:text-3xl text-[#4A3B32] tracking-tight leading-none">Manajemen Pengguna</h2>
+                    <p class="text-[9px] md:text-xs font-bold text-[#E5202B] mt-1.5 uppercase tracking-widest leading-none">Hak Akses, PIN & Cabang</p>
+                </div>
+            </div>
+
+            <!-- Tombol Tambah Khusus PC -->
+            <button onclick="superApp.openCrudUser('add')" class="hidden md:flex bg-[#E5202B] hover:bg-[#CC1A24] text-white px-5 py-3.5 rounded-[1.25rem] text-xs md:text-sm font-black shadow-[0_8px_20px_rgba(229,32,43,0.3)] hover:shadow-[0_10px_25px_rgba(229,32,43,0.4)] transition-all active:scale-95 items-center gap-2.5 shrink-0 border border-[#CC1A24]">
+                <i class="fas fa-user-plus text-[#FFD874] text-lg"></i> Tambah User Baru
+            </button>
+        </div>
+        
+        <!-- 🔎 BAR PENCARIAN & FILTER CABANG -->
+        <div class="mb-5 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 relative z-10 shrink-0">
+            <div class="relative flex-1 sm:max-w-xs group/search">
+                <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs md:text-sm group-focus-within/search:text-[#FFB800] transition-colors"></i>
+                <input type="text" id="user-search-input" onkeyup="superApp.renderUserManagement()" placeholder="Cari nama atau username..." class="w-full bg-slate-50 border-2 border-slate-100 focus:border-[#FFB800] rounded-[1.25rem] pl-10 pr-4 py-2.5 md:py-3 text-xs md:text-sm font-bold text-[#4A3B32] outline-none transition-all shadow-sm">
             </div>
             
-            <!-- BAR PENCARIAN & FILTER CABANG -->
-            <div class="mt-4 pt-3 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2.5">
-                <div class="relative flex-1 sm:max-w-xs">
-                    <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs md:text-sm"></i>
-                    <input type="text" id="user-search-input" onkeyup="superApp.renderUserManagement()" placeholder="Cari nama atau username..." class="w-full bg-slate-50 border border-slate-200 focus:border-purple-500 rounded-xl md:rounded-2xl pl-9.5 pr-4 py-2 md:py-2.5 text-xs md:text-sm font-bold text-slate-700 outline-none transition-all shadow-inner">
-                </div>
-                
-                <div class="flex items-center gap-2">
-                    <select id="user-outlet-filter" onchange="superApp.renderUserManagement()" class="w-full sm:w-auto bg-slate-50 border border-slate-200 rounded-xl md:rounded-2xl px-3.5 py-2 md:py-2.5 font-black text-xs md:text-sm outline-none text-slate-700 cursor-pointer focus:border-purple-500 transition shadow-2xs">
-                        <option value="Semua">Semua Cabang</option>
-                    </select>
-                </div>
+            <div class="flex items-center gap-2">
+                <select id="user-outlet-filter" onchange="superApp.renderUserManagement()" class="w-full sm:w-auto bg-slate-50 border-2 border-slate-100 focus:border-[#FFB800] rounded-[1.25rem] px-4 py-2.5 md:py-3 font-black text-xs md:text-sm outline-none text-[#4A3B32] cursor-pointer transition shadow-sm">
+                    <option value="Semua">Semua Cabang</option>
+                </select>
             </div>
         </div>
 
-        <!-- AREA KONTEN UTAMA -->
-        <div class="flex-1 overflow-y-auto custom-scroll p-3 md:p-8 pt-4 md:pt-5 relative z-10 w-full flex flex-col min-h-0">
+        <!-- 🖥️ AREA KONTEN UTAMA -->
+        <div class="flex-1 overflow-y-auto custom-scroll relative z-10 w-full flex flex-col min-h-0 pr-1 md:pr-2">
             
-            <!-- 3 KARTU RINGKASAN KPI -->
+            <!-- 📊 3 KARTU RINGKASAN KPI -->
             <div class="grid grid-cols-3 gap-2.5 md:gap-4 shrink-0 mb-4 md:mb-5">
-                <div class="bg-gradient-to-br from-purple-50 to-indigo-50/60 rounded-2xl md:rounded-3xl p-3.5 md:p-5 border border-purple-100/80 flex flex-col justify-center relative overflow-hidden shadow-2xs">
-                    <i class="fas fa-users absolute -right-3 -bottom-3 text-4xl md:text-6xl text-purple-500/10"></i>
-                    <p class="text-[8px] md:text-[10px] font-black text-purple-600 uppercase tracking-widest mb-0.5">Total User</p>
-                    <h4 class="font-black text-xl md:text-3xl text-purple-700" id="usr-tot-all">0</h4>
+                <!-- Total User (Emas Ai-Snack) -->
+                <div class="bg-gradient-to-br from-[#FFF5D1] to-[#FFD874]/50 rounded-[1.25rem] md:rounded-[1.5rem] p-3.5 md:p-5 border border-[#FFB800]/30 flex flex-col justify-center relative overflow-hidden shadow-sm group/card hover:-translate-y-0.5 transition-transform">
+                    <i class="fas fa-users absolute -right-2 -bottom-2 text-4xl md:text-6xl text-white/60 group-hover/card:scale-110 transition-transform"></i>
+                    <p class="text-[8px] md:text-[10px] font-black text-[#A87B00] uppercase tracking-widest mb-0.5 relative z-10">Total User</p>
+                    <h4 class="font-black text-xl md:text-3xl text-[#4A3B32] relative z-10" id="usr-tot-all">0</h4>
                 </div>
-                <div class="bg-gradient-to-br from-emerald-50 to-teal-50/60 rounded-2xl md:rounded-3xl p-3.5 md:p-5 border border-emerald-100/80 flex flex-col justify-center relative overflow-hidden shadow-2xs">
-                    <i class="fas fa-cash-register absolute -right-3 -bottom-3 text-4xl md:text-6xl text-emerald-500/10"></i>
-                    <p class="text-[8px] md:text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-0.5">Kasir Toko</p>
-                    <h4 class="font-black text-xl md:text-3xl text-emerald-700" id="usr-tot-kasir">0</h4>
+                <!-- Kasir Toko (Merah Lembut) -->
+                <div class="bg-gradient-to-br from-rose-50 to-rose-100/50 rounded-[1.25rem] md:rounded-[1.5rem] p-3.5 md:p-5 border border-rose-200/50 flex flex-col justify-center relative overflow-hidden shadow-sm group/card hover:-translate-y-0.5 transition-transform">
+                    <i class="fas fa-cash-register absolute -right-2 -bottom-2 text-4xl md:text-6xl text-white/70 group-hover/card:scale-110 transition-transform"></i>
+                    <p class="text-[8px] md:text-[10px] font-black text-rose-600 uppercase tracking-widest mb-0.5 relative z-10">Kasir Toko</p>
+                    <h4 class="font-black text-xl md:text-3xl text-rose-800 relative z-10" id="usr-tot-kasir">0</h4>
                 </div>
-                <div class="bg-gradient-to-br from-amber-50 to-orange-50/60 rounded-2xl md:rounded-3xl p-3.5 md:p-5 border border-amber-100/80 flex flex-col justify-center relative overflow-hidden shadow-2xs">
-                    <i class="fas fa-user-tie absolute -right-3 -bottom-3 text-4xl md:text-6xl text-amber-500/10"></i>
-                    <p class="text-[8px] md:text-[10px] font-black text-amber-600 uppercase tracking-widest mb-0.5">Manajer / Admin</p>
-                    <h4 class="font-black text-xl md:text-3xl text-amber-700" id="usr-tot-admin">0</h4>
+                <!-- Manajer (Hijau Lembut) -->
+                <div class="bg-gradient-to-br from-emerald-50 to-teal-50/80 rounded-[1.25rem] md:rounded-[1.5rem] p-3.5 md:p-5 border border-emerald-100 flex flex-col justify-center relative overflow-hidden shadow-sm group/card hover:-translate-y-0.5 transition-transform">
+                    <i class="fas fa-user-tie absolute -right-2 -bottom-2 text-4xl md:text-6xl text-white/70 group-hover/card:scale-110 transition-transform"></i>
+                    <p class="text-[8px] md:text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-0.5 relative z-10">Manajer / Admin</p>
+                    <h4 class="font-black text-xl md:text-3xl text-emerald-800 relative z-10" id="usr-tot-admin">0</h4>
                 </div>
             </div>
 
-            <!-- TABEL DESKTOP (PC & Tablet) -->
-            <div class="hidden md:block bg-white p-5 md:p-7 rounded-[2rem] shadow-sm border border-slate-100 flex-1 overflow-x-auto overflow-y-auto custom-scroll">
-                <table class="w-full text-left whitespace-nowrap text-sm border-collapse">
-                    <thead class="bg-slate-50/90 backdrop-blur-md text-slate-400 border-b border-slate-100 font-black text-[10px] uppercase tracking-wider sticky top-0 z-20">
-                        <tr>
-                            <th class="py-3.5 px-5">Nama Lengkap / Username</th>
-                            <th class="py-3.5 px-5">Penempatan Outlet</th>
-                            <th class="py-3.5 px-5 text-center">PIN Akses</th>
-                            <th class="py-3.5 px-5 text-center">Hak Akses (Role)</th>
-                            <th class="py-3.5 px-5 text-center w-[140px]">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody id="user-mgt-tbody" class="divide-y divide-slate-50 font-bold text-slate-700"></tbody>
-                </table>
+            <!-- 📋 TABEL DESKTOP (PC & Tablet) -->
+            <div class="hidden md:block bg-white rounded-[1.5rem] shadow-[0_5px_20px_rgba(0,0,0,0.02)] border border-slate-100 flex-1 overflow-hidden relative">
+                <div class="overflow-x-auto overflow-y-auto custom-scroll h-full">
+                    <table class="w-full text-left whitespace-nowrap text-sm border-collapse">
+                        <thead class="bg-slate-50/90 backdrop-blur-md text-slate-500 border-b border-slate-100 font-black text-[10px] uppercase tracking-widest sticky top-0 z-20 shadow-sm">
+                            <tr>
+                                <th class="py-4 px-5 rounded-tl-xl">Nama Lengkap / Username</th>
+                                <th class="py-4 px-5">Penempatan Outlet</th>
+                                <th class="py-4 px-5 text-center">PIN Akses</th>
+                                <th class="py-4 px-5 text-center">Hak Akses (Role)</th>
+                                <th class="py-4 px-5 text-center w-[140px] rounded-tr-xl">Aksi</th>
+                            </tr>
+                        </thead>
+                        <!-- Zebra Striping Ai-Snack -->
+                        <tbody id="user-mgt-tbody" class="divide-y divide-slate-100 font-bold text-[#4A3B32] [&>tr:nth-child(even)]:bg-[#FFF5D1]/30 [&>tr:hover]:bg-[#FFF5D1]/60 transition-colors"></tbody>
+                    </table>
+                </div>
             </div>
 
-            <!-- KARTU MOBILE (HP Layar Kecil) -->
-            <div class="md:hidden flex-1 overflow-y-auto custom-scroll content-start space-y-2.5 pb-20" id="user-mgt-mobile"></div>
+            <!-- 📱 KARTU MOBILE (HP Layar Kecil) -->
+            <div class="md:hidden flex-1 overflow-y-auto custom-scroll content-start space-y-3 pb-6" id="user-mgt-mobile"></div>
             
         </div>
     </div>
 
-    <!-- FLOATING ACTION BUTTON (Khusus HP) -->
-    <div class="fixed bottom-[64px] inset-x-0 p-2.5 bg-white/95 backdrop-blur-md border-t border-slate-200/80 shadow-[0_-8px_20px_rgba(0,0,0,0.08)] flex md:hidden z-50">
-        <button onclick="superApp.openCrudUser('add')" class="w-full bg-slate-900 text-white font-black py-3 rounded-xl text-xs flex items-center justify-center gap-2 active:scale-95 shadow-md">
-            <i class="fas fa-user-plus text-purple-400 text-sm"></i> TAMBAH USER BARU
+    <!-- 📱 FLOATING ACTION BUTTON (Khusus HP) -->
+    <div class="fixed bottom-[64px] inset-x-0 p-3 bg-white/95 backdrop-blur-xl border-t border-slate-100 rounded-t-[1.5rem] shadow-[0_-10px_30px_rgba(0,0,0,0.05)] flex md:hidden z-50">
+        <button onclick="superApp.openCrudUser('add')" class="w-full bg-[#E5202B] hover:bg-[#CC1A24] text-white font-black py-3.5 rounded-[1.25rem] text-xs flex items-center justify-center gap-2.5 active:scale-95 shadow-[0_6px_15px_rgba(229,32,43,0.3)] border border-[#CC1A24]">
+            <i class="fas fa-user-plus text-[#FFD874] text-base"></i> TAMBAH USER BARU
         </button>
     </div>
-</div>   
+</div>
       
    <div id="view-gudang" class="app-view hidden flex-col h-full pb-28 md:pb-6 transition-all duration-300">
     <div class="bg-slate-50 rounded-[2rem] md:rounded-[2.5rem] shadow-sm border border-slate-200/60 flex flex-col h-full min-h-0 overflow-hidden relative">
@@ -3149,7 +3159,7 @@
 
   
 <!-- 1. PANGGIL APP.JS TERLEBIH DAHULU -->
-  <script src="app.js?v=624"></script>
+  <script src="app.js?v=625"></script>
   
 
   <!-- 2. BARU JALANKAN SCRIPT INLINE ANDA -->

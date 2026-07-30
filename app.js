@@ -8966,228 +8966,253 @@ openDetailStokOpname: function(sku) {
     },
 
  exportAIPDF: async function() {
-        this.showToast("Mengekstrak Data untuk PDF Profesional...", "warning");
-        this.setLoading(true, "Merender Laporan A4...");
+    this.showToast("Mengekstrak Data untuk PDF Profesional...", "warning");
+    this.setLoading(true, "Merender Laporan A4...");
 
-        try {
-            // 1. AMBIL GRAFIK CHART.JS (Ubah ke Gambar Kualitas Tinggi)
-            const chartCanvas = document.getElementById('aiProfitChart');
-            let chartImgSrc = '';
-            if (chartCanvas) {
-                const ctx = chartCanvas.getContext('2d');
-                ctx.save();
-                ctx.globalCompositeOperation = 'destination-over';
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, chartCanvas.width, chartCanvas.height);
-                chartImgSrc = chartCanvas.toDataURL('image/jpeg', 1.0);
-                ctx.restore();
-            }
+    try {
+        // 1. AMBIL GRAFIK CHART.JS (Ubah ke Gambar Kualitas Tinggi)
+        const chartCanvas = document.getElementById('aiProfitChart');
+        let chartImgSrc = '';
+        if (chartCanvas) {
+            const ctx = chartCanvas.getContext('2d');
+            ctx.save();
+            ctx.globalCompositeOperation = 'destination-over';
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, chartCanvas.width, chartCanvas.height);
+            chartImgSrc = chartCanvas.toDataURL('image/jpeg', 1.0);
+            ctx.restore();
+        }
 
-            // 2. AMBIL METRIK UTAMA DARI DASHBOARD
-            const dStart = document.getElementById('ai-filter-start')?.value || '-';
-            const dEnd = document.getElementById('ai-filter-end')?.value || '-';
-            const outletEl = document.getElementById('ai-filter-outlet');
-            const outletName = outletEl ? outletEl.options[outletEl.selectedIndex].text : 'Semua Cabang';
-            
-            const omset = document.getElementById('ai-tot-omset')?.innerText || 'Rp 0';
-            const struk = document.getElementById('ai-tot-struk')?.innerText || '0';
-            const hpp = document.getElementById('ai-tot-hpp')?.innerText || 'Rp 0';
-            const laba = document.getElementById('ai-tot-laba')?.innerText || 'Rp 0';
-            const margin = document.getElementById('ai-tot-margin')?.innerText || '0%';
-            const insight = document.getElementById('ai-insight-text')?.innerText || '';
+        // 2. AMBIL METRIK UTAMA DARI DASHBOARD
+        const dStart = document.getElementById('ai-filter-start')?.value || '-';
+        const dEnd = document.getElementById('ai-filter-end')?.value || '-';
+        const outletEl = document.getElementById('ai-filter-outlet');
+        const outletName = outletEl ? outletEl.options[outletEl.selectedIndex].text : 'Semua Cabang';
+        
+        const omset = document.getElementById('ai-tot-omset')?.innerText || 'Rp 0';
+        const struk = document.getElementById('ai-tot-struk')?.innerText || '0';
+        const hpp = document.getElementById('ai-tot-hpp')?.innerText || 'Rp 0';
+        const laba = document.getElementById('ai-tot-laba')?.innerText || 'Rp 0';
+        const margin = document.getElementById('ai-tot-margin')?.innerText || '0%';
+        const insight = document.getElementById('ai-insight-text')?.innerText || '';
 
-            // 3. 🚀 EKSTRAKSI JAM SIBUK (Dibangun ulang jadi HTML murni agar anti-pecah di PDF)
-            let hourlyHtml = '';
-            const hourlyRows = document.querySelectorAll('#ai-hourly-chart > div');
-            if (hourlyRows.length > 0 && !hourlyRows[0].innerText.includes('Belum ada')) {
-                hourlyRows.forEach(row => {
-                    const time = row.children[0]?.innerText || '-';
-                    // Ambil persentase lebar bar dari atribut style
-                    const barDiv = row.children[1]?.querySelector('div');
-                    const barWidth = barDiv ? barDiv.style.width : '0%';
-                    const amount = row.children[2]?.innerText || 'Rp 0';
-                    
-                    hourlyHtml += `
-                    <div style="display: flex; align-items: center; margin-bottom: 6px; font-size: 10px;">
-                        <div style="width: 35px; font-weight: bold; color: #64748b;">${time}</div>
-                        <div style="flex: 1; background: #f1f5f9; height: 10px; border-radius: 4px; margin: 0 8px; overflow: hidden;">
-                            <div style="width: ${barWidth}; background: #6366f1; height: 100%; border-radius: 4px;"></div>
-                        </div>
-                        <div style="width: 50px; text-align: right; font-weight: bold; color: #0f172a;">${amount}</div>
-                    </div>`;
-                });
-            } else {
-                hourlyHtml = '<div style="text-align: center; color: #94a3b8; font-size: 10px; padding: 20px;">Tidak ada data jam sibuk</div>';
-            }
-
-            // 4. EKSTRAKSI BERSIH TABEL PRODUK
-            let cleanProductTable = '';
-            const prodRows = document.querySelectorAll('#ai-product-profit-tbody tr');
-            if (prodRows.length > 0 && !prodRows[0].innerText.includes('Tidak ada')) {
-                prodRows.forEach(row => {
-                    const cells = row.querySelectorAll('td');
-                    if(cells.length >= 4) {
-                        cleanProductTable += `
-                        <tr style="page-break-inside: avoid;">
-                            <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; font-weight: bold; color: #1e293b;">${cells[0].innerText}</td>
-                            <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: center; color: #64748b;">${cells[1].innerText}</td>
-                            <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: right; color: #059669; font-weight: bold;">${cells[2].innerText}</td>
-                            <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #0f172a;">${cells[3].innerText}</td>
-                        </tr>`;
-                    }
-                });
-            } else {
-                cleanProductTable = `<tr><td colspan="4" style="text-align: center; padding: 20px; color: #94a3b8;">Belum ada penjualan</td></tr>`;
-            }
-
-            // 5. EKSTRAKSI BERSIH TABEL KOMPARASI CABANG
-            let cleanBranchTable = '';
-            const branchRows = document.querySelectorAll('#ai-comparison-tbody tr');
-            if (branchRows.length > 0 && !branchRows[0].innerText.includes('Tidak ada')) {
-                branchRows.forEach(row => {
-                    const cells = row.querySelectorAll('td');
-                    if(cells.length >= 4) {
-                        const branchRaw = cells[0].innerText.split('\n');
-                        const bName = branchRaw[0]?.trim() || '-';
-                        const bStruk = branchRaw[1]?.trim() || '';
-                        const bOmset = cells[1].innerText.trim();
-                        const bLaba = cells[2].innerText.trim();
-                        const bMetodeRaw = cells[3].innerText.replace(/\n/g, ' ').trim();
-                        const bMetode = bMetodeRaw.split(' ')[0] || '-'; 
-                        
-                        cleanBranchTable += `
-                        <tr style="page-break-inside: avoid;">
-                            <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">
-                                <div style="font-weight: bold; color: #1e293b; font-size: 11px;">${bName}</div>
-                                <div style="font-size: 9px; color: #64748b; margin-top: 2px;">${bStruk}</div>
-                            </td>
-                            <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #475569;">${bOmset}</td>
-                            <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: right; color: #059669; font-weight: bold;">${bLaba}</td>
-                            <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">
-                                <span style="background: #f8fafc; padding: 3px 6px; border-radius: 4px; border: 1px solid #e2e8f0; font-weight: bold; font-size: 9px; color: #0f172a;">Tunai: ${bMetode}</span>
-                            </td>
-                        </tr>`;
-                    }
-                });
-            } else {
-                cleanBranchTable = `<tr><td colspan="4" style="text-align: center; padding: 20px; color: #94a3b8;">Tidak ada komparasi</td></tr>`;
-            }
-
-            // 6. SUSUN TEMPLATE HTML KERTAS A4 MURNI
-            const pdfHtml = `
-                <div style="padding: 30px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1e293b; background: #ffffff;">
-                    
-                    <div style="text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 15px; margin-bottom: 20px;">
-                        <h1 style="margin: 0; color: #0f172a; font-size: 20px; font-weight: 900; text-transform: uppercase; letter-spacing: 1.5px;">Laporan Kinerja Keuangan</h1>
-                        <p style="margin: 6px 0 0 0; color: #64748b; font-size: 10px;">Periode: <b>${dStart} s/d ${dEnd}</b> &nbsp;|&nbsp; Outlet: <b>${outletName}</b> &nbsp;|&nbsp; Dicetak: <b>${new Date().toLocaleString('id-ID')}</b></p>
+        // 3. 🚀 EKSTRAKSI JAM SIBUK (Ditingkatkan: Warna lebih selaras)
+        let hourlyHtml = '';
+        const hourlyRows = document.querySelectorAll('#ai-hourly-chart > div');
+        if (hourlyRows.length > 0 && !hourlyRows[0].innerText.includes('Belum ada')) {
+            hourlyRows.forEach(row => {
+                const time = row.children[0]?.innerText || '-';
+                const barDiv = row.children[1]?.querySelector('div');
+                const barWidth = barDiv ? barDiv.style.width : '0%';
+                const amount = row.children[2]?.innerText || 'Rp 0';
+                
+                hourlyHtml += `
+                <div style="display: flex; align-items: center; margin-bottom: 8px; font-size: 10px;">
+                    <div style="width: 40px; font-weight: 600; color: #475569;">${time}</div>
+                    <div style="flex: 1; background: #e2e8f0; height: 8px; border-radius: 8px; margin: 0 10px; overflow: hidden;">
+                        <div style="width: ${barWidth}; background: linear-gradient(90deg, #4f46e5, #6366f1); height: 100%; border-radius: 8px;"></div>
                     </div>
+                    <div style="width: 60px; text-align: right; font-weight: 700; color: #0f172a;">${amount}</div>
+                </div>`;
+            });
+        } else {
+            hourlyHtml = '<div style="text-align: center; color: #94a3b8; font-size: 10px; padding: 20px;">Tidak ada data jam sibuk</div>';
+        }
 
-                    <div style="background-color: #f8fafc; border-left: 4px solid #4f46e5; padding: 12px 15px; border-radius: 4px; font-size: 11px; line-height: 1.5; margin-bottom: 20px;">
-                        <strong style="color: #4f46e5; font-size: 11px; display: block; margin-bottom: 4px; text-transform: uppercase;">Ringkasan Eksekutif AI</strong>
-                        ${insight}
-                    </div>
+        // 4. EKSTRAKSI BERSIH TABEL PRODUK (Ditingkatkan: Tipografi & Spacing)
+        let cleanProductTable = '';
+        const prodRows = document.querySelectorAll('#ai-product-profit-tbody tr');
+        if (prodRows.length > 0 && !prodRows[0].innerText.includes('Tidak ada')) {
+            prodRows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                if(cells.length >= 4) {
+                    cleanProductTable += `
+                    <tr style="page-break-inside: avoid;">
+                        <td style="padding: 10px 8px; border-bottom: 1px solid #f1f5f9; font-weight: 600; color: #1e293b;">${cells[0].innerText}</td>
+                        <td style="padding: 10px 8px; border-bottom: 1px solid #f1f5f9; text-align: center; color: #64748b;">${cells[1].innerText}</td>
+                        <td style="padding: 10px 8px; border-bottom: 1px solid #f1f5f9; text-align: right; color: #059669; font-weight: 700;">${cells[2].innerText}</td>
+                        <td style="padding: 10px 8px; border-bottom: 1px solid #f1f5f9; text-align: right; font-weight: 700; color: #0f172a;">
+                            <span style="background: #f8fafc; padding: 3px 8px; border-radius: 4px; border: 1px solid #e2e8f0;">${cells[3].innerText}</span>
+                        </td>
+                    </tr>`;
+                }
+            });
+        } else {
+            cleanProductTable = `<tr><td colspan="4" style="text-align: center; padding: 20px; color: #94a3b8;">Belum ada penjualan</td></tr>`;
+        }
 
-                    <table style="width: 100%; border-collapse: separate; border-spacing: 8px 0; margin-bottom: 20px; margin-left: -8px; border: none;">
-                        <tr>
-                            <td style="width: 25%; padding: 12px 8px; border-radius: 6px; border: 1px solid #cbd5e1; text-align: center; background: #ffffff; vertical-align: top;">
-                                <div style="font-size: 8px; text-transform: uppercase; color: #64748b; font-weight: bold; margin-bottom: 6px;">Total Omset Kotor</div>
-                                <div style="font-size: 15px; font-weight: 900; color: #0f172a; margin: 0;">${omset}</div>
-                                <div style="font-size: 8px; color: #94a3b8; margin-top: 4px;">${struk}</div>
-                            </td>
-                            <td style="width: 25%; padding: 12px 8px; border-radius: 6px; border: 1px solid #cbd5e1; text-align: center; background: #ffffff; vertical-align: top;">
-                                <div style="font-size: 8px; text-transform: uppercase; color: #64748b; font-weight: bold; margin-bottom: 6px;">Total Modal (HPP)</div>
-                                <div style="font-size: 15px; font-weight: 900; color: #ef4444; margin: 0;">${hpp}</div>
-                                <div style="font-size: 8px; color: #94a3b8; margin-top: 4px;">Bahan Terjual</div>
-                            </td>
-                            <td style="width: 25%; padding: 12px 8px; border-radius: 6px; border: 1px solid #059669; text-align: center; background: #10b981; vertical-align: top;">
-                                <div style="font-size: 8px; text-transform: uppercase; color: #d1fae5; font-weight: bold; margin-bottom: 6px;">Laba Bersih</div>
-                                <div style="font-size: 15px; font-weight: 900; color: #ffffff; margin: 0;">${laba}</div>
-                                <div style="font-size: 8px; color: #d1fae5; margin-top: 4px;">Profit Aktual</div>
-                            </td>
-                            <td style="width: 25%; padding: 12px 8px; border-radius: 6px; border: 1px solid #cbd5e1; text-align: center; background: #ffffff; vertical-align: top;">
-                                <div style="font-size: 8px; text-transform: uppercase; color: #64748b; font-weight: bold; margin-bottom: 6px;">Margin Profit</div>
-                                <div style="font-size: 15px; font-weight: 900; color: #0f172a; margin: 0;">${margin}</div>
-                                <div style="font-size: 8px; color: #94a3b8; margin-top: 4px;">Rasio Laba</div>
-                            </td>
-                        </tr>
-                    </table>
-
-                    <table style="width: 100%; border-collapse: collapse; border: none; margin-bottom: 25px;">
-                        <tr>
-                            <td style="width: 60%; padding: 0 10px 0 0; vertical-align: top; border: none;">
-                                <div style="font-size: 12px; font-weight: bold; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; margin-bottom: 12px;">📊 Tren Laba Harian</div>
-                                <div style="width: 100%; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; text-align: center; background: #fdfdfd;">
-                                    ${chartImgSrc ? `<img src="${chartImgSrc}" style="max-width: 100%; height: auto; max-height: 160px;" />` : '<div style="font-size:10px; color:#94a3b8;">Grafik Kosong</div>'}
-                                </div>
-                            </td>
-                            <td style="width: 40%; padding: 0 0 0 10px; vertical-align: top; border: none;">
-                                <div style="font-size: 12px; font-weight: bold; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; margin-bottom: 12px;">⏰ Analitik Jam Sibuk</div>
-                                <div style="width: 100%; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; background: #ffffff;">
-                                    ${hourlyHtml}
-                                </div>
-                            </td>
-                        </tr>
-                    </table>
-
-                    <div style="font-size: 12px; font-weight: bold; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; margin: 15px 0 10px 0;">🏆 Peringkat Laba Produk (Top Kontributor)</div>
-                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 10px;">
-                        <thead>
-                            <tr>
-                                <th style="text-align: left; background-color: #f8fafc; color: #475569; font-weight: bold; text-transform: uppercase; padding: 8px; border: 1px solid #cbd5e1;">Nama Produk</th>
-                                <th style="text-align: center; background-color: #f8fafc; color: #475569; font-weight: bold; text-transform: uppercase; padding: 8px; border: 1px solid #cbd5e1;">Kuantitas Terjual</th>
-                                <th style="text-align: right; background-color: #f8fafc; color: #059669; font-weight: bold; text-transform: uppercase; padding: 8px; border: 1px solid #cbd5e1;">Total Laba Bersih</th>
-                                <th style="text-align: right; background-color: #f8fafc; color: #475569; font-weight: bold; text-transform: uppercase; padding: 8px; border: 1px solid #cbd5e1;">Margin</th>
-                            </tr>
-                        </thead>
-                        <tbody>${cleanProductTable}</tbody>
-                    </table>
-
-                    <div style="font-size: 12px; font-weight: bold; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; margin: 15px 0 10px 0;">🏢 Komparasi Performa Antar Cabang</div>
-                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 10px;">
-                        <thead>
-                            <tr>
-                                <th style="text-align: left; background-color: #f8fafc; color: #475569; font-weight: bold; text-transform: uppercase; padding: 8px; border: 1px solid #cbd5e1;">Cabang</th>
-                                <th style="text-align: right; background-color: #f8fafc; color: #475569; font-weight: bold; text-transform: uppercase; padding: 8px; border: 1px solid #cbd5e1;">Omset Kotor</th>
-                                <th style="text-align: right; background-color: #f8fafc; color: #059669; font-weight: bold; text-transform: uppercase; padding: 8px; border: 1px solid #cbd5e1;">Laba Bersih</th>
-                                <th style="text-align: center; background-color: #f8fafc; color: #475569; font-weight: bold; text-transform: uppercase; padding: 8px; border: 1px solid #cbd5e1;">Rasio Pembayaran</th>
-                            </tr>
-                        </thead>
-                        <tbody>${cleanBranchTable}</tbody>
-                    </table>
+        // 5. EKSTRAKSI BERSIH TABEL KOMPARASI CABANG
+        let cleanBranchTable = '';
+        const branchRows = document.querySelectorAll('#ai-comparison-tbody tr');
+        if (branchRows.length > 0 && !branchRows[0].innerText.includes('Tidak ada')) {
+            branchRows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                if(cells.length >= 4) {
+                    const branchRaw = cells[0].innerText.split('\n');
+                    const bName = branchRaw[0]?.trim() || '-';
+                    const bStruk = branchRaw[1]?.trim() || '';
+                    const bOmset = cells[1].innerText.trim();
+                    const bLaba = cells[2].innerText.trim();
+                    const bMetodeRaw = cells[3].innerText.replace(/\n/g, ' ').trim();
+                    const bMetode = bMetodeRaw.split(' ')[0] || '-'; 
                     
-                    <div style="text-align: center; font-size: 8px; color: #94a3b8; margin-top: 30px; font-style: italic;">
-                        Dokumen ini dihasilkan dan diverifikasi secara otomatis oleh Mesin Analitik AI - Sistem POS Ai-Snack.<br>
-                        Data bersifat rahasia dan hanya untuk kalangan internal manajemen.
+                    cleanBranchTable += `
+                    <tr style="page-break-inside: avoid;">
+                        <td style="padding: 10px 8px; border-bottom: 1px solid #f1f5f9;">
+                            <div style="font-weight: 700; color: #1e293b; font-size: 11px;">${bName}</div>
+                            <div style="font-size: 9px; color: #64748b; margin-top: 3px;">${bStruk}</div>
+                        </td>
+                        <td style="padding: 10px 8px; border-bottom: 1px solid #f1f5f9; text-align: right; font-weight: 600; color: #475569;">${bOmset}</td>
+                        <td style="padding: 10px 8px; border-bottom: 1px solid #f1f5f9; text-align: right; color: #059669; font-weight: 700;">${bLaba}</td>
+                        <td style="padding: 10px 8px; border-bottom: 1px solid #f1f5f9; text-align: center;">
+                            <span style="background: #e0e7ff; color: #4f46e5; padding: 4px 8px; border-radius: 6px; font-weight: 700; font-size: 9px;">Tunai: ${bMetode}</span>
+                        </td>
+                    </tr>`;
+                }
+            });
+        } else {
+            cleanBranchTable = `<tr><td colspan="4" style="text-align: center; padding: 20px; color: #94a3b8;">Tidak ada komparasi</td></tr>`;
+        }
+
+        // 6. SUSUN TEMPLATE HTML KERTAS A4 MURNI (Ditingkatkan secara menyeluruh)
+        const pdfHtml = `
+            <div style="padding: 40px; font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1e293b; background: #ffffff;">
+                
+                <!-- HEADER LAPORAN -->
+                <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 25px;">
+                    <div>
+                        <h1 style="margin: 0; color: #0f172a; font-size: 22px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">Laporan Kinerja Keuangan</h1>
+                        <p style="margin: 8px 0 0 0; color: #64748b; font-size: 11px;">Outlet: <b style="color: #0f172a;">${outletName}</b></p>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 11px; color: #64748b; margin-bottom: 4px;">Periode: <b style="color: #0f172a;">${dStart} s/d ${dEnd}</b></div>
+                        <div style="font-size: 9px; color: #94a3b8;">Dicetak: ${new Date().toLocaleString('id-ID')}</div>
                     </div>
                 </div>
-            `;
 
-            // 7. KONFIGURASI MESIN PDF
-            const opt = { 
-                margin: [0.3, 0.3, 0.3, 0.3], // [top, left, bottom, right]
-                filename: `CFO_Laporan_A4_${new Date().getTime()}.pdf`, 
-                image: { type: 'jpeg', quality: 1.0 }, 
-                html2canvas: { 
-                    scale: 2, 
-                    useCORS: true, 
-                    logging: false,
-                    letterRendering: true
-                }, 
-                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' },
-                pagebreak: { mode: ['css', 'legacy'] }
-            };
+                <!-- RINGKASAN AI -->
+                <div style="background-color: #f8fafc; border-left: 4px solid #4f46e5; padding: 15px; border-radius: 0 6px 6px 0; font-size: 11px; line-height: 1.6; margin-bottom: 25px;">
+                    <div style="display: flex; align-items: center; margin-bottom: 6px;">
+                        <span style="background: #4f46e5; color: white; font-size: 9px; padding: 3px 6px; border-radius: 4px; font-weight: bold; margin-right: 8px;">AI INSIGHT</span>
+                        <strong style="color: #1e293b; font-size: 11px; text-transform: uppercase;">Ringkasan Eksekutif</strong>
+                    </div>
+                    <div style="color: #334155;">${insight}</div>
+                </div>
 
-            await html2pdf().set(opt).from(pdfHtml).save();
+                <!-- KARTU METRIK UTAMA -->
+                <table style="width: 100%; border-collapse: separate; border-spacing: 10px 0; margin-bottom: 25px; margin-left: -10px; border: none;">
+                    <tr>
+                        <td style="width: 25%; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: left; background: #ffffff; vertical-align: top;">
+                            <div style="font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: 700; margin-bottom: 8px;">Total Omset Kotor</div>
+                            <div style="font-size: 16px; font-weight: 800; color: #0f172a; margin: 0;">${omset}</div>
+                            <div style="font-size: 9px; color: #4f46e5; font-weight: 600; margin-top: 6px; background: #e0e7ff; display: inline-block; padding: 2px 6px; border-radius: 4px;">${struk}</div>
+                        </td>
+                        <td style="width: 25%; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: left; background: #ffffff; vertical-align: top;">
+                            <div style="font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: 700; margin-bottom: 8px;">Total Modal (HPP)</div>
+                            <div style="font-size: 16px; font-weight: 800; color: #ef4444; margin: 0;">${hpp}</div>
+                            <div style="font-size: 9px; color: #94a3b8; margin-top: 6px;">Bahan Terjual</div>
+                        </td>
+                        <td style="width: 25%; padding: 15px; border-radius: 8px; border: 1px solid #059669; text-align: left; background: #ecfdf5; vertical-align: top;">
+                            <div style="font-size: 9px; text-transform: uppercase; color: #047857; font-weight: 700; margin-bottom: 8px;">Laba Bersih</div>
+                            <div style="font-size: 16px; font-weight: 800; color: #059669; margin: 0;">${laba}</div>
+                            <div style="font-size: 9px; color: #047857; margin-top: 6px;">Profit Aktual</div>
+                        </td>
+                        <td style="width: 25%; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: left; background: #ffffff; vertical-align: top;">
+                            <div style="font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: 700; margin-bottom: 8px;">Margin Profit</div>
+                            <div style="font-size: 16px; font-weight: 800; color: #0f172a; margin: 0;">${margin}</div>
+                            <div style="font-size: 9px; color: #94a3b8; margin-top: 6px;">Rasio Laba</div>
+                        </td>
+                    </tr>
+                </table>
 
-            this.showToast("PDF A4 Berhasil Diunduh!", "success");
+                <!-- GRAFIK & ANALITIK -->
+                <table style="width: 100%; border-collapse: collapse; border: none; margin-bottom: 30px;">
+                    <tr>
+                        <td style="width: 58%; padding: 0 15px 0 0; vertical-align: top; border: none;">
+                            <div style="font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 15px; display: flex; align-items: center;">
+                                <span style="background: #f1f5f9; padding: 4px; border-radius: 4px; margin-right: 8px;">📈</span> Tren Laba Harian
+                            </div>
+                            <div style="width: 100%; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; text-align: center; background: #ffffff;">
+                                ${chartImgSrc ? `<img src="${chartImgSrc}" style="max-width: 100%; height: auto; max-height: 180px;" />` : '<div style="font-size:11px; color:#94a3b8; padding: 40px 0;">Grafik Kosong</div>'}
+                            </div>
+                        </td>
+                        <td style="width: 42%; padding: 0 0 0 15px; vertical-align: top; border: none;">
+                            <div style="font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 15px; display: flex; align-items: center;">
+                                <span style="background: #f1f5f9; padding: 4px; border-radius: 4px; margin-right: 8px;">⏰</span> Analitik Jam Sibuk
+                            </div>
+                            <div style="width: 100%; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; background: #ffffff;">
+                                ${hourlyHtml}
+                            </div>
+                        </td>
+                    </tr>
+                </table>
 
-        } catch (error) {
-            console.error("PDF Export Error:", error);
-            this.showToast("Gagal merender PDF.", "error");
-        } finally {
-            this.setLoading(false);
-        }
-    },
+                <!-- TABEL PRODUK -->
+                <div style="font-size: 13px; font-weight: 800; color: #0f172a; margin: 20px 0 12px 0; display: flex; align-items: center;">
+                    <span style="background: #f1f5f9; padding: 4px; border-radius: 4px; margin-right: 8px;">🏆</span> Peringkat Laba Produk
+                </div>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 10px;">
+                    <thead>
+                        <tr>
+                            <th style="text-align: left; background-color: #f8fafc; color: #475569; font-weight: 800; text-transform: uppercase; padding: 10px 8px; border-bottom: 2px solid #cbd5e1;">Nama Produk</th>
+                            <th style="text-align: center; background-color: #f8fafc; color: #475569; font-weight: 800; text-transform: uppercase; padding: 10px 8px; border-bottom: 2px solid #cbd5e1;">Kuantitas</th>
+                            <th style="text-align: right; background-color: #f8fafc; color: #059669; font-weight: 800; text-transform: uppercase; padding: 10px 8px; border-bottom: 2px solid #cbd5e1;">Laba Bersih</th>
+                            <th style="text-align: right; background-color: #f8fafc; color: #475569; font-weight: 800; text-transform: uppercase; padding: 10px 8px; border-bottom: 2px solid #cbd5e1;">Margin</th>
+                        </tr>
+                    </thead>
+                    <tbody>${cleanProductTable}</tbody>
+                </table>
+
+                <!-- TABEL CABANG -->
+                <div style="font-size: 13px; font-weight: 800; color: #0f172a; margin: 20px 0 12px 0; display: flex; align-items: center;">
+                    <span style="background: #f1f5f9; padding: 4px; border-radius: 4px; margin-right: 8px;">🏢</span> Komparasi Performa Antar Cabang
+                </div>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 10px;">
+                    <thead>
+                        <tr>
+                            <th style="text-align: left; background-color: #f8fafc; color: #475569; font-weight: 800; text-transform: uppercase; padding: 10px 8px; border-bottom: 2px solid #cbd5e1;">Cabang</th>
+                            <th style="text-align: right; background-color: #f8fafc; color: #475569; font-weight: 800; text-transform: uppercase; padding: 10px 8px; border-bottom: 2px solid #cbd5e1;">Omset Kotor</th>
+                            <th style="text-align: right; background-color: #f8fafc; color: #059669; font-weight: 800; text-transform: uppercase; padding: 10px 8px; border-bottom: 2px solid #cbd5e1;">Laba Bersih</th>
+                            <th style="text-align: center; background-color: #f8fafc; color: #475569; font-weight: 800; text-transform: uppercase; padding: 10px 8px; border-bottom: 2px solid #cbd5e1;">Rasio Pembayaran</th>
+                        </tr>
+                    </thead>
+                    <tbody>${cleanBranchTable}</tbody>
+                </table>
+                
+                <!-- FOOTER -->
+                <div style="text-align: center; font-size: 9px; color: #94a3b8; margin-top: 40px; padding-top: 15px; border-top: 1px dashed #cbd5e1;">
+                    Dokumen ini dihasilkan dan diverifikasi secara otomatis oleh <b>Mesin Analitik AI - Sistem POS Ai-Snack</b>.<br>
+                    Data bersifat rahasia dan hanya untuk kalangan internal manajemen.
+                </div>
+            </div>
+        `;
+
+        // 7. KONFIGURASI MESIN PDF
+        const opt = { 
+            margin: [0.3, 0.3, 0.3, 0.3], // [top, left, bottom, right]
+            filename: `CFO_Laporan_A4_${new Date().getTime()}.pdf`, 
+            image: { type: 'jpeg', quality: 1.0 }, 
+            html2canvas: { 
+                scale: 2, 
+                useCORS: true, 
+                logging: false,
+                letterRendering: true
+            }, 
+            jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' },
+            pagebreak: { mode: ['css', 'legacy'] }
+        };
+
+        await html2pdf().set(opt).from(pdfHtml).save();
+
+        this.showToast("PDF A4 Berhasil Diunduh!", "success");
+
+    } catch (error) {
+        console.error("PDF Export Error:", error);
+        this.showToast("Gagal merender PDF.", "error");
+    } finally {
+        this.setLoading(false);
+    }
+},
     
     sendReportToWA: function() {
         // 1. Ambil data rentang tanggal dari filter

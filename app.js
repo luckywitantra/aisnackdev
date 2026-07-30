@@ -1221,7 +1221,7 @@ const superApp = {
         } else {
             document.documentElement.classList.remove('dark');
         }
-    }
+    },
 
     
     // =========================================================

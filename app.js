@@ -4343,7 +4343,7 @@ selectOutlet: function(id) {
     // =========================================================================
     // 🏛️ 3. GENERATOR LAPORAN PDF (PUBLIC ACCOUNTANT GRADE PRINT SHEET)
     // =========================================================================
-    generateLaporanAichaPDF: function() {
+   generateLaporanAichaPDF: function() {
         let data = this.getLaporanAichaConsolidatedData();
         if (data.totalReports === 0) {
             return this.showToast("Tidak ada data laporan pada rentang tanggal terpilih!", "warning");
@@ -4353,76 +4353,117 @@ selectOutlet: function(id) {
         let outLabel = (this.outlet === 'Pusat' || this.outlet === 'Semua' || !this.outlet) ? "KONSOLIDASI SELURUH CABANG" : `CABANG AI-CHA ${this.outlet.toUpperCase()}`;
         let appLogo = localStorage.getItem('app_logo_url') || '';
 
-        // Generate baris tabel outlet
+        // ==========================================================
+        // 1. GENERATE BARIS TABEL OUTLET (PERFORMA KESELURUHAN)
+        // ==========================================================
         let outletRowsHtml = '';
         Object.keys(data.outletBreakdown).forEach(out => {
             let ob = data.outletBreakdown[out];
             let netOut = ob.sales - ob.opex;
             let cirOut = ob.sales > 0 ? ((ob.opex / ob.sales) * 100).toFixed(1) : '0.0';
+            
             outletRowsHtml += `
-                <tr style="border-bottom: 1px solid #e2e8f0;">
-                    <td style="padding: 10px; font-weight: bold; color: #1e293b;">AI-CHA ${out.toUpperCase()}</td>
-                    <td style="padding: 10px; text-align: center;">${ob.count} Hari</td>
-                    <td style="padding: 10px; text-align: right; font-weight: bold;">Rp ${fmt(ob.sales)}</td>
-                    <td style="padding: 10px; text-align: right; color: #475569;">Rp ${fmt(ob.cash)}</td>
-                    <td style="padding: 10px; text-align: right; color: #2563eb;">Rp ${fmt(ob.qris)}</td>
-                    <td style="padding: 10px; text-align: right; color: #dc2626;">Rp ${fmt(ob.opex)}</td>
-                    <td style="padding: 10px; text-align: right; font-weight: 800; color: #059669;">Rp ${fmt(netOut)}</td>
-                    <td style="padding: 10px; text-align: center; font-weight: bold;">${cirOut}%</td>
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 12px; font-weight: 900; color: #4A3B32;">AI-SNACK ${out.toUpperCase()}</td>
+                    <td style="padding: 12px; text-align: center; color: #4A3B32; font-weight: bold;">${ob.count} Hari</td>
+                    <td style="padding: 12px; text-align: right; font-weight: 900; color: #4A3B32;">Rp ${fmt(ob.sales)}</td>
+                    <td style="padding: 12px; text-align: right; color: #E5202B; font-weight: bold;">Rp ${fmt(ob.cash)}</td>
+                    <td style="padding: 12px; text-align: right; color: #D49800; font-weight: bold;">Rp ${fmt(ob.qris)}</td>
+                    <td style="padding: 12px; text-align: right; color: #E5202B; font-weight: bold;">Rp ${fmt(ob.opex)}</td>
+                    <td style="padding: 12px; text-align: right; font-weight: 900; color: #10b981;">Rp ${fmt(netOut)}</td>
+                    <td style="padding: 12px; text-align: center; font-weight: 900; color: #4A3B32; background-color: #FFF5D1;">${cirOut}%</td>
                 </tr>
             `;
         });
 
-        // Generate baris tabel rincian pengeluaran (Maks 30 teratas agar tidak berlebih)
-        let opexRowsHtml = '';
-        let sortedOpex = [...data.expenseItems].sort((a,b) => b.nominal - a.nominal);
-        sortedOpex.forEach(ex => {
-            opexRowsHtml += `
-                <tr style="border-bottom: 1px solid #f1f5f9; font-size: 11px;">
-                    <td style="padding: 8px;">${ex.tanggal}</td>
-                    <td style="padding: 8px; font-weight: bold;">AI-CHA ${ex.outlet.toUpperCase()}</td>
-                    <td style="padding: 8px;">${ex.nama}</td>
-                    <td style="padding: 8px; text-align: right; font-weight: bold; color: #dc2626;">Rp ${fmt(ex.nominal)}</td>
-                </tr>
-            `;
+        // ==========================================================
+        // 2. LOGIKA GROUPING PENGELUARAN (PER CABANG -> PER ITEM)
+        // ==========================================================
+        let groupedOpex = {};
+        
+        // Mengelompokkan data
+        data.expenseItems.forEach(ex => {
+            let out = ex.outlet.toUpperCase();
+            let itemName = (ex.nama || 'Tanpa Nama').trim().toUpperCase();
+            
+            if (!groupedOpex[out]) groupedOpex[out] = {};
+            if (!groupedOpex[out][itemName]) groupedOpex[out][itemName] = 0;
+            
+            groupedOpex[out][itemName] += parseFloat(ex.nominal || 0);
         });
-        if (opexRowsHtml === '') {
-            opexRowsHtml = `<tr><td colspan="4" style="padding: 15px; text-align: center; color: #94a3b8;">Tidak ada pengeluaran operasional tercatat pada periode ini.</td></tr>`;
+
+        // Generate HTML Pengeluaran
+        let opexRowsHtml = '';
+        let sortedOutlets = Object.keys(groupedOpex).sort();
+        
+        if (sortedOutlets.length === 0) {
+            opexRowsHtml = `<tr><td colspan="2" style="padding: 20px; text-align: center; color: #E5202B; font-weight: 900; background-color: #FFF5D1;">TIDAK ADA PENGELUARAN TERCATAT PADA PERIODE INI.</td></tr>`;
+        } else {
+            sortedOutlets.forEach(out => {
+                // Header Cabang (Warna Kuning Ai-Snack)
+                opexRowsHtml += `
+                    <tr style="background-color: #FFF5D1; border-bottom: 2px solid #FFD874;">
+                        <td colspan="2" style="padding: 10px 15px; font-weight: 900; color: #E5202B; text-align: left; font-size: 13px;">
+                            🏠 OUTLET: AI-SNACK ${out}
+                        </td>
+                    </tr>
+                `;
+                
+                // Urutkan item pengeluaran berdasarkan nominal tertinggi
+                let items = Object.keys(groupedOpex[out]).map(k => ({ nama: k, nominal: groupedOpex[out][k] }));
+                items.sort((a,b) => b.nominal - a.nominal);
+                
+                items.forEach(item => {
+                    opexRowsHtml += `
+                        <tr style="border-bottom: 1px solid #f1f5f9; font-size: 11px;">
+                            <td style="padding: 10px 15px 10px 30px; font-weight: bold; color: #4A3B32;">▪ ${item.nama}</td>
+                            <td style="padding: 10px 15px; text-align: right; font-weight: 900; color: #E5202B;">Rp ${fmt(item.nominal)}</td>
+                        </tr>
+                    `;
+                });
+            });
         }
 
-        // Window Print Template Professional
+        // ==========================================================
+        // 3. RENDER WINDOW PRINT (PDF HTML)
+        // ==========================================================
         let printWin = window.open('', '_blank', 'width=1100,height=850');
         printWin.document.write(`
             <!DOCTYPE html>
             <html>
             <head>
-                <title>Laporan Keuangan Ai-Cha - ${data.startDateStr} sd ${data.endDateStr}</title>
+                <title>Laporan Keuangan Ai-Snack - ${data.startDateStr} sd ${data.endDateStr}</title>
                 <style>
                     @page { size: A4; margin: 15mm; }
-                    body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #0f172a; margin: 0; padding: 0; line-height: 1.4; font-size: 12px; }
-                    .header-box { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #0f172a; padding-bottom: 15px; margin-bottom: 20px; }
-                    .logo-img { max-height: 55px; }
-                    .title-area h1 { font-size: 20px; font-weight: 900; margin: 0; letter-spacing: -0.5px; text-transform: uppercase; }
-                    .title-area p { margin: 3px 0 0; color: #64748b; font-size: 11px; }
+                    body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #4A3B32; margin: 0; padding: 0; line-height: 1.4; font-size: 12px; }
                     
-                    .executive-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 25px; }
-                    .kpi-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; }
-                    .kpi-label { font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; margin-bottom: 4px; }
-                    .kpi-value { font-size: 16px; font-weight: 900; color: #0f172a; }
-                    .kpi-sub { font-size: 10px; color: #475569; margin-top: 4px; }
+                    /* Header Styles */
+                    .header-box { display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid #FFB800; padding-bottom: 15px; margin-bottom: 20px; }
+                    .logo-img { max-height: 60px; border-radius: 12px; }
+                    .title-area h1 { font-size: 22px; font-weight: 900; margin: 0; letter-spacing: -0.5px; text-transform: uppercase; color: #E5202B; }
+                    .title-area p { margin: 4px 0 0; font-size: 11px; font-weight: bold; color: #A87B00; }
                     
-                    .section-title { font-size: 13px; font-weight: 900; text-transform: uppercase; margin: 25px 0 10px; padding-bottom: 5px; border-bottom: 2px solid #cbd5e1; color: #1e293b; }
+                    /* Bubbly KPI Cards */
+                    .executive-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 30px; }
+                    .kpi-card { background: #ffffff; border: 2px solid #FFF5D1; border-radius: 20px; padding: 15px; box-shadow: 0 4px 10px rgba(229,32,43,0.05); }
+                    .kpi-label { font-size: 10px; font-weight: 900; color: #A87B00; text-transform: uppercase; margin-bottom: 5px; letter-spacing: 0.5px; }
+                    .kpi-value { font-size: 18px; font-weight: 900; color: #4A3B32; }
+                    .kpi-sub { font-size: 10px; font-weight: bold; color: #64748b; margin-top: 5px; }
                     
-                    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-                    th { background: #0f172a; color: #ffffff; padding: 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border: 1px solid #0f172a; }
-                    td { border: 1px solid #e2e8f0; }
+                    /* Table Styles */
+                    .section-title { font-size: 14px; font-weight: 900; text-transform: uppercase; margin: 30px 0 12px; padding-bottom: 6px; border-bottom: 3px solid #E5202B; color: #4A3B32; display: inline-block; }
+                    table { width: 100%; border-collapse: collapse; margin-bottom: 25px; border-radius: 12px; overflow: hidden; }
+                    th { background: #E5202B; color: #ffffff; padding: 12px; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; border: 1px solid #CC1A24; }
+                    td { border: 1px solid #f1f5f9; }
                     
-                    .footer-sign { display: flex; justify-content: space-between; margin-top: 40px; page-break-inside: avoid; }
-                    .sign-box { width: 200px; text-align: center; }
-                    .sign-line { margin-top: 60px; border-bottom: 1px solid #0f172a; font-weight: bold; }
+                    /* Footer Signatures */
+                    .footer-sign { display: flex; justify-content: space-between; margin-top: 50px; page-break-inside: avoid; }
+                    .sign-box { width: 220px; text-align: center; }
+                    .sign-line { margin-top: 70px; border-bottom: 2px solid #4A3B32; font-weight: 900; padding-bottom: 5px; color: #E5202B; }
                     
-                    .badge-healthy { background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
-                    .badge-warning { background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+                    /* Badges */
+                    .badge-healthy { background: #dcfce7; color: #166534; padding: 3px 8px; border-radius: 6px; font-size: 9px; font-weight: 900; }
+                    .badge-warning { background: #fee2e2; color: #E5202B; padding: 3px 8px; border-radius: 6px; font-size: 9px; font-weight: 900; border: 1px solid #fca5a5;}
                 </style>
             </head>
             <body>
@@ -4430,35 +4471,35 @@ selectOutlet: function(id) {
                 <div class="header-box">
                     <div class="title-area">
                         <h1>FINANCIAL AUDIT & CONSOLIDATION REPORT</h1>
-                        <p><strong>ENTITAS:</strong> AI-CHA TEA & BEVERAGE INDONESIA (${outLabel})</p>
-                        <p><strong>PERIODE AUDIT:</strong> ${data.startDateStr} s/d ${data.endDateStr} | <strong>HARI OPERASIONAL:</strong> ${data.totalReports} Hari</p>
+                        <p><strong>ENTITAS:</strong> AI-CHA (${outLabel})</p>
+                        <p style="color: #4A3B32;"><strong>PERIODE AUDIT:</strong> ${data.startDateStr} s/d ${data.endDateStr} &nbsp;|&nbsp; <strong style="color:#E5202B;">HARI OPERASIONAL:</strong> ${data.totalReports} Hari</p>
                     </div>
                     <div>
-                        ${appLogo ? `<img src="${appLogo}" class="logo-img" />` : `<h2 style="margin:0; color:#dc2626;">AI-CHA</h2>`}
+                        ${appLogo ? `<img src="${appLogo}" class="logo-img" />` : `<h2 style="margin:0; color:#E5202B; font-size: 32px; font-weight: 900;">Ai-Snack</h2>`}
                     </div>
                 </div>
 
                 <!-- 4 KARTU NERACA RINGKAS -->
                 <div class="executive-grid">
-                    <div class="kpi-card" style="border-left: 4px solid #0f172a;">
+                    <div class="kpi-card" style="border-left: 6px solid #FFB800;">
                         <div class="kpi-label">Gross Revenue (Net Sales)</div>
                         <div class="kpi-value">Rp ${fmt(data.totalNetSales)}</div>
-                        <div class="kpi-sub">${fmt(data.totalBill)} Bill | ${fmt(data.totalPcs)} Cups</div>
+                        <div class="kpi-sub">${fmt(data.totalBill)} Bill &nbsp;|&nbsp; ${fmt(data.totalPcs)} Pcs Item</div>
                     </div>
-                    <div class="kpi-card" style="border-left: 4px solid #2563eb;">
-                        <div class="kpi-label">Komposisi Kas (Cash vs QRIS)</div>
-                        <div class="kpi-value">${data.cashPercentage}% / ${data.qrisPercentage}%</div>
-                        <div class="kpi-sub">C: Rp ${fmt(data.totalCash)} | Q: Rp ${fmt(data.totalQris)}</div>
+                    <div class="kpi-card" style="border-left: 6px solid #D49800; background: #FFF5D1;">
+                        <div class="kpi-label" style="color: #E5202B;">Cash vs QRIS</div>
+                        <div class="kpi-value" style="color: #E5202B;">${data.cashPercentage}% / ${data.qrisPercentage}%</div>
+                        <div class="kpi-sub" style="color: #A87B00;">C: Rp ${fmt(data.totalCash)} | Q: Rp ${fmt(data.totalQris)}</div>
                     </div>
-                    <div class="kpi-card" style="border-left: 4px solid #dc2626;">
-                        <div class="kpi-label">Operating Expense (OPEX)</div>
-                        <div class="kpi-value" style="color:#dc2626;">Rp ${fmt(data.totalOpex)}</div>
-                        <div class="kpi-sub">CIR Ratio: <strong>${data.cirPercentage}%</strong> ${data.cirPercentage > 30 ? '<span class="badge-warning">HIGH</span>' : '<span class="badge-healthy">EFFICIENT</span>'}</div>
+                    <div class="kpi-card" style="border-left: 6px solid #E5202B;">
+                        <div class="kpi-label" style="color: #E5202B;">Operating Expense (OPEX)</div>
+                        <div class="kpi-value" style="color:#E5202B;">Rp ${fmt(data.totalOpex)}</div>
+                        <div class="kpi-sub">CIR Ratio: <strong>${data.cirPercentage}%</strong> ${data.cirPercentage > 30 ? '<span class="badge-warning">HIGH OPEX</span>' : '<span class="badge-healthy">EFFICIENT</span>'}</div>
                     </div>
-                    <div class="kpi-card" style="border-left: 4px solid #059669; background: #ecfdf5;">
-                        <div class="kpi-label" style="color:#065f46;">Net Cash Surplus (Laba Kas)</div>
-                        <div class="kpi-value" style="color:#059669;">Rp ${fmt(data.netSurplus)}</div>
-                        <div class="kpi-sub">Avg. Ticket: Rp ${fmt(data.avgTicketValue)} / bill</div>
+                    <div class="kpi-card" style="border-left: 6px solid #10b981; background: #ecfdf5; border-color: #d1fae5;">
+                        <div class="kpi-label" style="color:#059669;">Net Cash Surplus (Laba Kas)</div>
+                        <div class="kpi-value" style="color:#10b981; font-size: 20px;">Rp ${fmt(data.netSurplus)}</div>
+                        <div class="kpi-sub" style="color:#047857;">Avg. Ticket: Rp ${fmt(data.avgTicketValue)} / bill</div>
                     </div>
                 </div>
 
@@ -4468,7 +4509,7 @@ selectOutlet: function(id) {
                     <thead>
                         <tr>
                             <th style="text-align: left;">Nama Outlet</th>
-                            <th>Hari Operasional</th>
+                            <th>Operasional</th>
                             <th style="text-align: right;">Gross Sales</th>
                             <th style="text-align: right;">Kas Tunai</th>
                             <th style="text-align: right;">QRIS / Digital</th>
@@ -4481,28 +4522,26 @@ selectOutlet: function(id) {
                         ${outletRowsHtml}
                     </tbody>
                     <tfoot>
-                        <tr style="background: #f8fafc; font-weight: 900; border-top: 2px solid #0f172a;">
-                            <td style="padding: 10px;">TOTAL AGREGAT</td>
-                            <td style="padding: 10px; text-align: center;">${data.totalReports} Hari</td>
-                            <td style="padding: 10px; text-align: right;">Rp ${fmt(data.totalNetSales)}</td>
-                            <td style="padding: 10px; text-align: right;">Rp ${fmt(data.totalCash)}</td>
-                            <td style="padding: 10px; text-align: right;">Rp ${fmt(data.totalQris)}</td>
-                            <td style="padding: 10px; text-align: right; color:#dc2626;">Rp ${fmt(data.totalOpex)}</td>
-                            <td style="padding: 10px; text-align: right; color:#059669;">Rp ${fmt(data.netSurplus)}</td>
-                            <td style="padding: 10px; text-align: center;">${data.cirPercentage}%</td>
+                        <tr style="background: #FFF5D1; font-weight: 900; border-top: 3px solid #FFB800;">
+                            <td style="padding: 12px; color: #E5202B;">TOTAL AGREGAT</td>
+                            <td style="padding: 12px; text-align: center; color: #4A3B32;">${data.totalReports} Hari</td>
+                            <td style="padding: 12px; text-align: right; color: #4A3B32;">Rp ${fmt(data.totalNetSales)}</td>
+                            <td style="padding: 12px; text-align: right; color: #E5202B;">Rp ${fmt(data.totalCash)}</td>
+                            <td style="padding: 12px; text-align: right; color: #D49800;">Rp ${fmt(data.totalQris)}</td>
+                            <td style="padding: 12px; text-align: right; color:#E5202B;">Rp ${fmt(data.totalOpex)}</td>
+                            <td style="padding: 12px; text-align: right; color:#10b981; font-size: 14px;">Rp ${fmt(data.netSurplus)}</td>
+                            <td style="padding: 12px; text-align: center; color: #4A3B32;">${data.cirPercentage}%</td>
                         </tr>
                     </tfoot>
                 </table>
 
-                <!-- TABEL RINCIAN PENGELUARAN OPERASIONAL -->
-                <div class="section-title" style="margin-top:30px;">2. Rincian Pengeluaran Operasional yang Diaudit (Itemized OPEX)</div>
+                <!-- TABEL RINCIAN PENGELUARAN OPERASIONAL (GROUPED) -->
+                <div class="section-title" style="margin-top:20px;">2. Rincian Pengeluaran Operasional yang Diaudit (Grouped OPEX)</div>
                 <table>
                     <thead>
                         <tr>
-                            <th style="text-align: left; width: 15%;">Tanggal</th>
-                            <th style="text-align: left; width: 25%;">Outlet</th>
-                            <th style="text-align: left; width: 40%;">Deskripsi Pengeluaran / Beban</th>
-                            <th style="text-align: right; width: 20%;">Nominal (IDR)</th>
+                            <th style="text-align: left; width: 70%;">Item Pengeluaran / Beban (Diakumulasi)</th>
+                            <th style="text-align: right; width: 30%;">Total Nominal (IDR)</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -4513,19 +4552,19 @@ selectOutlet: function(id) {
                 <!-- LEMBAR PENGESAHAN (SIGNATURE BLOCK) -->
                 <div class="footer-sign">
                     <div class="sign-box">
-                        <div style="font-size: 11px; color:#64748b;">Disiapkan oleh:</div>
+                        <div style="font-size: 11px; font-weight: bold; color:#A87B00;">Disiapkan oleh:</div>
                         <div class="sign-line">${this.currentUser ? this.currentUser.Username : 'Financial Controller'}</div>
-                        <div style="font-size: 10px; color:#64748b; margin-top:2px;">ERP System Administrator</div>
+                        <div style="font-size: 10px; font-weight: bold; color:#4A3B32; margin-top:4px;">ERP System Administrator</div>
                     </div>
                     <div class="sign-box">
-                        <div style="font-size: 11px; color:#64748b;">Diperiksa & Disetujui oleh:</div>
+                        <div style="font-size: 11px; font-weight: bold; color:#A87B00;">Diperiksa & Disetujui oleh:</div>
                         <div class="sign-line">Owner / Direksi</div>
-                        <div style="font-size: 10px; color:#64748b; margin-top:2px;">Ai-Cha Tea & Beverage</div>
+                        <div style="font-size: 10px; font-weight: bold; color:#4A3B32; margin-top:4px;">Ai-CHA Indonesia</div>
                     </div>
                 </div>
 
-                <div style="margin-top: 30px; font-size: 9px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 10px;">
-                    Laporan ini dibuat dan diverifikasi secara otomatis oleh Sistem Pembukuan Ai-Snack ERP pada ${new Date().toLocaleString('id-ID')}. Dokumen ini sah sebagai lampiran audit akuntansi internal.
+                <div style="margin-top: 40px; font-size: 10px; font-weight: bold; color: #94a3b8; text-align: center; border-top: 2px dashed #e2e8f0; padding-top: 15px;">
+                    Laporan ini dibuat dan diverifikasi secara otomatis oleh <span style="color:#E5202B;">Sistem ERP Ai-Snack</span> pada ${new Date().toLocaleString('id-ID')}.<br>Dokumen ini sah sebagai lampiran audit akuntansi internal.
                 </div>
             </body>
             </html>
@@ -10087,22 +10126,87 @@ executeVoidTrx: async function(trxId) {
     
     
     exportPDF: function() {
-        this.showToast("Mempersiapkan PDF Laporan...");
-        const element = document.getElementById('pdf-export-area'); if(!element) return;
-        element.classList.add('pdf-container'); 
-        
+        this.showToast("Mempersiapkan PDF Laporan, mohon tunggu sebentar...", "info");
+        const element = document.getElementById('pdf-export-area'); 
+        if(!element) return;
+
         // Buka semua tab agar terbaca oleh mesin PDF
         const rct = document.getElementById('report-content-trx'); if(rct) rct.classList.remove('hidden'); 
         const rcr = document.getElementById('report-content-rekap'); if(rcr) rcr.classList.remove('hidden');
         const rck = document.getElementById('report-content-kas'); if(rck) rck.classList.remove('hidden');
         const rcs = document.getElementById('report-content-selisih'); if(rcs) rcs.classList.remove('hidden');
-        
-        const opt = { margin: 0.3, filename: `Laporan_ERP_${new Date().getTime()}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' } };
-        html2pdf().set(opt).from(element).save().then(()=> { 
-            element.classList.remove('pdf-container'); 
-            this.toggleReportTab('trx'); // Kembalikan ke tab utama setelah sukses
-            this.showToast("PDF Diunduh!"); 
-        });
+
+        // 🚀 SOLUSI BLANK PUTIH & STYLING AI-SNACK: 
+        // Suntikkan CSS khusus (hanya berlaku saat cetak PDF) untuk memaksa semua elemen membentang penuh 
+        // dan menyulap warnanya menjadi warna identitas Ai-Snack.
+        const style = document.createElement('style');
+        style.id = 'pdf-print-style';
+        style.innerHTML = `
+            .pdf-container { 
+                height: auto !important; 
+                max-height: none !important; 
+                overflow: visible !important; 
+                background-color: #ffffff !important;
+                padding: 15px !important;
+                color: #4A3B32 !important;
+            }
+            /* Paksa semua elemen di dalamnya membentang, matikan scroll dan shadow */
+            .pdf-container * { 
+                overflow: visible !important; 
+                height: auto !important; 
+                max-height: none !important; 
+                box-shadow: none !important;
+            }
+            /* Hapus elemen yang tidak perlu ada di PDF (seperti tombol navigasi/aksi) */
+            .pdf-container button, .pdf-container .hide-on-pdf { display: none !important; }
+            
+            /* Ai-Snack Theme Injection */
+            .pdf-container h2, .pdf-container h3 { color: #E5202B !important; font-weight: 900 !important; border-bottom: 2px solid #FFD874 !important; padding-bottom: 5px !important; margin-top: 20px !important; }
+            .pdf-container h4 { color: #A87B00 !important; font-weight: 900 !important; }
+            .pdf-container table { width: 100% !important; border-collapse: collapse !important; margin-bottom: 15px !important; border-radius: 10px !important; overflow: hidden !important; }
+            .pdf-container th { background-color: #E5202B !important; color: white !important; padding: 12px !important; font-size: 11px !important; text-transform: uppercase !important; }
+            .pdf-container td { border-bottom: 1px solid #FFD874 !important; padding: 10px !important; font-size: 11px !important; font-weight: bold !important; color: #4A3B32 !important; }
+            .pdf-container tr:nth-child(even) { background-color: #FFF5D1 !important; }
+            
+            /* Hapus background bawaan elemen yang mengganggu */
+            .pdf-container .bg-slate-50, .pdf-container .bg-white { background-color: transparent !important; border: none !important; }
+        `;
+        document.head.appendChild(style);
+
+        // Tambahkan class penanda
+        element.classList.add('pdf-container'); 
+
+        // 🚀 KUNCI PERBAIKAN: Beri jeda 800ms agar browser sempat me-render (menggambar) 
+        // tab-tab yang baru saja dibuka dan mengaplikasikan CSS cetak di atas.
+        setTimeout(() => {
+            const opt = { 
+                margin: 0.4, 
+                filename: `Laporan_Terpadu_AiSnack_${new Date().getTime()}.pdf`, 
+                image: { type: 'jpeg', quality: 1 }, 
+                // scrollY: 0 sangat penting agar mesin PDF mulai memotret dari ujung paling atas
+                html2canvas: { scale: 2, useCORS: true, logging: false, scrollY: 0 }, 
+                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' } 
+            };
+            
+            html2pdf().set(opt).from(element).save().then(() => { 
+                // ==== BERSIHKAN KEMBALI SETELAH SUKSES ====
+                element.classList.remove('pdf-container'); 
+                const printStyle = document.getElementById('pdf-print-style');
+                if (printStyle) printStyle.remove();
+                
+                this.toggleReportTab('trx'); // Kembalikan ke tab utama (transaksi)
+                this.showToast("🎉 Laporan PDF Berhasil Diunduh!", "success"); 
+                
+            }).catch(err => {
+                console.error("PDF Export Error: ", err);
+                element.classList.remove('pdf-container');
+                const printStyle = document.getElementById('pdf-print-style');
+                if (printStyle) printStyle.remove();
+                
+                this.showToast("Gagal mencetak PDF. Silakan coba lagi.", "error");
+            });
+            
+        }, 800); // 800 milidetik jeda render
     },
     
     // GUDANG & MASTER DATA

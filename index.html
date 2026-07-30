@@ -489,27 +489,58 @@
         
         <div id="mobile-cart-overlay" class="fixed inset-0 bg-slate-900/60 z-[80] hidden md:hidden backdrop-blur-sm transition-opacity" onclick="superApp.toggleMobileCart()"></div>
         
-        <aside id="cart-aside" class="fixed md:static bottom-0 left-0 w-full md:w-[320px] lg:w-[380px] bg-white border-t md:border border-slate-200 rounded-t-[2.5rem] md:rounded-[2rem] flex flex-col shadow-[0_-15px_40px_rgba(0,0,0,0.15)] md:shadow-lg h-[85dvh] md:h-full shrink-0 z-[90] md:z-auto transition-transform duration-300 transform translate-y-full md:translate-y-0">
+        <!-- ========================================================================= -->
+<!-- 🛒 VIEW: CART ASIDE (AI-SNACK PLAYFUL BRANDING)                         -->
+<!-- ========================================================================= -->
+<aside id="cart-aside" class="fixed md:static bottom-0 left-0 w-full md:w-[320px] lg:w-[380px] bg-white border-t md:border border-slate-100 rounded-t-[2.5rem] md:rounded-[2rem] flex flex-col shadow-[0_-15px_40px_rgba(0,0,0,0.1)] md:shadow-[0_10px_40px_rgba(0,0,0,0.06)] h-[85dvh] md:h-full shrink-0 z-[90] md:z-auto transition-transform duration-300 transform translate-y-full md:translate-y-0 overflow-hidden">
           
-          <div class="w-full flex justify-center pt-3 pb-1 md:hidden shrink-0 cursor-pointer" onclick="superApp.toggleMobileCart()">
-              <div class="w-12 h-1.5 bg-slate-200 rounded-full"></div>
-          </div>
+    <!-- 🤏 Mobile Drag Handle -->
+    <div class="w-full flex justify-center pt-3 pb-2 md:hidden shrink-0 cursor-pointer bg-white" onclick="superApp.toggleMobileCart()">
+        <div class="w-12 h-1.5 bg-slate-200 rounded-full"></div>
+    </div>
 
-          <div class="p-5 md:pt-5 pt-2 border-b border-slate-100 flex justify-between items-center bg-slate-50 md:rounded-t-[2rem] shrink-0">
-            <h2 class="font-extrabold text-lg text-slate-800">Keranjang</h2>
-            <div class="flex items-center gap-2">
-                <span class="bg-brand-100 text-brand-600 px-3 py-1 rounded-full text-xs font-black shadow-sm" id="cart-badge">0 Item</span>
-                <button class="md:hidden w-8 h-8 flex items-center justify-center bg-white rounded-full border border-slate-200 text-slate-400 hover:text-slate-600 shadow-sm" onclick="superApp.toggleMobileCart()"><i class="fas fa-times"></i></button>
+    <!-- 🏷️ Header Keranjang (Playful Gradient) -->
+    <div class="p-4 md:p-5 md:pt-6 border-b border-[#FFB800]/20 flex justify-between items-center bg-gradient-to-r from-[#FFF5D1] to-[#FFD874]/50 shrink-0 relative">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-white border-2 border-white flex items-center justify-center text-[#E5202B] shadow-[0_4px_10px_rgba(255,184,0,0.2)]">
+                <i class="fas fa-shopping-basket text-lg drop-shadow-sm"></i>
             </div>
-          </div>
+            <h2 class="font-black text-lg md:text-xl text-[#4A3B32] tracking-tight drop-shadow-sm">Keranjang</h2>
+        </div>
+        <div class="flex items-center gap-2">
+            <!-- Badge Item (Merah Ai-Snack) -->
+            <span class="bg-[#E5202B] text-white px-3 py-1.5 rounded-lg text-[10px] md:text-xs font-black shadow-[0_4px_10px_rgba(229,32,43,0.3)] border border-[#E5202B]" id="cart-badge">
+                0 Item
+            </span>
+            <!-- Tombol Tutup (Mobile) -->
+            <button class="md:hidden w-8 h-8 flex items-center justify-center bg-white rounded-full border border-slate-200 text-slate-400 hover:text-[#E5202B] hover:border-[#E5202B] shadow-sm transition-colors" onclick="superApp.toggleMobileCart()">
+                <i class="fas fa-times text-xs"></i>
+            </button>
+        </div>
+    </div>
           
-          <div class="flex-1 overflow-y-auto p-4 space-y-3 custom-scroll min-h-0 scroll-smooth pb-20 md:pb-4" id="cart-container"></div>
+    <!-- 🛍️ Daftar Item Keranjang (Scrollable) -->
+    <div class="flex-1 overflow-y-auto p-4 md:p-5 space-y-3 custom-scroll min-h-0 scroll-smooth pb-24 md:pb-4 bg-slate-50/50" id="cart-container"></div>
           
-          <div class="p-5 bg-white border-t border-slate-100 md:rounded-b-[2rem] shrink-0 pb-8 md:pb-5">
-            <div class="flex justify-between items-center mb-4"><span class="text-slate-400 font-semibold text-sm">Total Tagihan</span><span class="text-2xl font-black text-brand-600" id="total-price">Rp 0</span></div>
-            <button onclick="superApp.openPaymentModal()" class="w-full bg-brand-500 text-white py-4 rounded-xl font-extrabold shadow-[0_8px_20px_rgba(249,115,22,0.3)] hover:bg-brand-600 active:scale-95 transition-all text-lg tracking-wide"><i class="fas fa-wallet mr-2"></i> BAYAR SEKARANG</button>
-          </div>
-        </aside>
+    <!-- 💳 Footer / Checkout Area -->
+    <div class="p-5 md:p-6 bg-white border-t border-slate-100 shrink-0 pb-8 md:pb-6 relative z-10 shadow-[0_-5px_20px_rgba(0,0,0,0.03)]">
+        
+        <div class="flex justify-between items-end mb-4">
+            <div>
+                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Total Tagihan</span>
+            </div>
+            <span class="text-2xl md:text-3xl font-black text-[#E5202B] tracking-tight drop-shadow-sm" id="total-price">Rp 0</span>
+        </div>
+        
+        <!-- Tombol Bayar (Merah & Bold) -->
+        <button onclick="superApp.openPaymentModal()" class="w-full bg-[#E5202B] hover:bg-[#CC1A24] text-white py-4 rounded-[1.25rem] font-black shadow-[0_8px_20px_rgba(229,32,43,0.3)] hover:shadow-[0_10px_25px_rgba(229,32,43,0.4)] active:scale-[0.98] transition-all text-base md:text-lg tracking-wide flex items-center justify-center gap-2 group border border-[#CC1A24]">
+            <i class="fas fa-wallet group-hover:scale-110 transition-transform"></i> 
+            BAYAR SEKARANG
+        </button>
+
+    </div>
+    
+</aside>
 
         <div class="fixed bottom-[75px] left-0 w-full bg-transparent p-3 md:hidden z-[70] transition-transform" id="floating-cart-btn">
             <button onclick="superApp.toggleMobileCart()" class="w-full bg-slate-900 text-white rounded-2xl py-3.5 px-5 flex justify-between items-center active:scale-95 transition shadow-[0_10px_25px_rgba(0,0,0,0.25)] border border-slate-700">
@@ -2965,7 +2996,7 @@
 
   
 <!-- 1. PANGGIL APP.JS TERLEBIH DAHULU -->
-  <script src="app.js?v=617"></script>
+  <script src="app.js?v=618"></script>
   
 
   <!-- 2. BARU JALANKAN SCRIPT INLINE ANDA -->

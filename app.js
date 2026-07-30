@@ -8541,6 +8541,143 @@ openDetailStokOpname: function(sku) {
         if (typeof this.renderBOMReport === 'function') this.renderBOMReport();  
     },
 
+    // ==============================================================================
+    // 🚀 FUNGSI BARU: ANALITIK POPUP TREN & PRODUK (AI-SNACK PLAYFUL THEME)
+    // ==============================================================================
+    
+    showTrendInsight: function(dateKey, outletFilter) {
+        let jamPadat = {}; let itemsSold = {}; let totalRev = 0;
+        
+        [...(this.db.transactions || [])].forEach(t => {
+            if(t.Status === 'Sukses' && (outletFilter === 'Semua' || t.Outlet === outletFilter)) {
+                let isMatch = dateKey.length > 7 ? t.Tanggal.includes(dateKey) : this.cleanDateOnly(t.Tanggal).includes(dateKey);
+                if(isMatch) {
+                    let hour = t.Waktu ? t.Waktu.substring(0, 2) + ':00' : '00:00';
+                    if(!jamPadat[hour]) jamPadat[hour] = 0;
+                    jamPadat[hour] += Number(t.Total_Bayar) || 0;
+                    totalRev += Number(t.Total_Bayar) || 0;
+                    
+                    let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
+                    items.forEach(item => {
+                        if(!itemsSold[item.nama]) itemsSold[item.nama] = 0;
+                        itemsSold[item.nama] += Number(item.qty) || 0;
+                    });
+                }
+            }
+        });
+
+        // Urutkan Jam & Produk
+        let sortedHours = Object.keys(jamPadat).sort((a,b) => jamPadat[b] - jamPadat[a]);
+        let peakHour = sortedHours.length > 0 ? sortedHours[0] : 'Tidak ada';
+        let sortedItems = Object.keys(itemsSold).sort((a,b) => itemsSold[b] - itemsSold[a]).slice(0, 3);
+        
+        let itemsHtml = sortedItems.map(i => `<div class="bg-white p-3 rounded-xl border border-slate-100 flex justify-between shadow-sm"><span class="font-black text-[#4A3B32] text-xs">${i}</span><span class="bg-[#FFF5D1] text-[#E5202B] px-2 py-0.5 rounded font-black text-[10px]">${itemsSold[i]} Pcs</span></div>`).join('');
+
+        this.injectAndShowInsightModal(
+            `<i class="fas fa-chart-line"></i> Analisis Harian: ${dateKey}`, 
+            `Total: Rp ${totalRev.toLocaleString('id-ID')}`, 
+            peakHour, 
+            itemsHtml || '<p class="text-xs text-slate-400 font-bold">Belum ada data produk detail.</p>'
+        );
+    },
+
+    showProductInsight: function(productName, startDateStr, endDateStr, outletFilter) {
+        let jamPadat = {}; let totalQty = 0; let totalRev = 0;
+        let dateStart = startDateStr ? new Date(startDateStr + "T00:00:00") : new Date(0);
+        let dateEnd = endDateStr ? new Date(endDateStr + "T23:59:59") : new Date();
+
+        [...(this.db.transactions || [])].forEach(t => {
+            if(t.Status === 'Sukses' && (outletFilter === 'Semua' || t.Outlet === outletFilter)) {
+                let trxDate = this.parseDateId(t.Tanggal);
+                if(trxDate >= dateStart && trxDate <= dateEnd) {
+                    let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
+                    let targetItem = items.find(i => i.nama === productName);
+                    
+                    if(targetItem) {
+                        let hour = t.Waktu ? t.Waktu.substring(0, 2) + ':00' : '00:00';
+                        if(!jamPadat[hour]) jamPadat[hour] = 0;
+                        jamPadat[hour] += Number(targetItem.qty) || 0;
+                        
+                        totalQty += Number(targetItem.qty) || 0;
+                        totalRev += (Number(targetItem.qty) || 0) * (Number(targetItem.price) || 0);
+                    }
+                }
+            }
+        });
+
+        let sortedHours = Object.keys(jamPadat).sort((a,b) => jamPadat[b] - jamPadat[a]);
+        let peakHour = sortedHours.length > 0 ? `${sortedHours[0]} (${jamPadat[sortedHours[0]]} Pcs)` : 'Tidak ada';
+
+        let statHtml = `
+        <div class="bg-white p-3.5 rounded-xl border border-slate-100 flex justify-between items-center shadow-sm">
+            <span class="font-black text-slate-500 text-xs">Total Omset Produk</span>
+            <span class="font-black text-[#E5202B] text-sm">Rp ${totalRev.toLocaleString('id-ID')}</span>
+        </div>
+        <div class="bg-white p-3.5 rounded-xl border border-slate-100 flex justify-between items-center shadow-sm">
+            <span class="font-black text-slate-500 text-xs">Kuantitas Terjual</span>
+            <span class="font-black text-emerald-500 text-sm bg-emerald-50 px-2 py-0.5 rounded">${totalQty} Pcs</span>
+        </div>`;
+
+        this.injectAndShowInsightModal(
+            `<i class="fas fa-box-open"></i> Insight: ${productName}`, 
+            `Periode Aktif Terpilih`, 
+            peakHour, 
+            statHtml
+        );
+    },
+
+    injectAndShowInsightModal: function(title, subtitle, peakHour, contentHtml) {
+        let existing = document.getElementById('dynamic-insight-modal');
+        if(existing) existing.remove(); // Bersihkan modal lama jika ada
+
+        let modalHtml = `
+        <div id="dynamic-insight-modal" class="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4 animate-fade-in transition-opacity duration-300">
+            <div class="bg-white/95 backdrop-blur-md rounded-[2.5rem] shadow-[0_20px_60px_rgba(229,32,43,0.2)] border border-white w-full max-w-sm overflow-hidden flex flex-col transform scale-95 transition-transform duration-400" id="dim-card">
+                
+                <!-- HEADER AI-SNACK -->
+                <div class="bg-gradient-to-br from-[#E5202B] to-[#FFB800] p-6 relative overflow-hidden">
+                    <div class="absolute -right-10 -top-10 w-32 h-32 bg-white/30 rounded-full blur-3xl"></div>
+                    <button onclick="document.getElementById('dynamic-insight-modal').remove()" class="absolute top-5 right-5 w-8 h-8 bg-black/10 hover:bg-black/20 rounded-full flex items-center justify-center text-white backdrop-blur-md z-10 transition-colors"><i class="fas fa-xmark text-sm"></i></button>
+                    
+                    <div class="relative z-10 text-white pr-6">
+                        <span class="text-[9px] font-black text-[#FFF5D1] uppercase tracking-widest mb-1 bg-black/10 px-2.5 py-1 rounded-md shadow-sm inline-block"><i class="fas fa-brain mr-1"></i> AI ANALITIK</span>
+                        <h2 class="text-lg font-black leading-tight drop-shadow-md mt-1">${title}</h2>
+                        <p class="text-[10px] font-bold text-rose-100 mt-1 drop-shadow-sm">${subtitle}</p>
+                    </div>
+                </div>
+                
+                <div class="p-6 bg-[#FFF5D1]/30">
+                    <!-- JAM SIBUK -->
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-4 flex items-center gap-4">
+                        <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center text-lg shrink-0"><i class="fas fa-clock"></i></div>
+                        <div>
+                            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Waktu Paling Sibuk</p>
+                            <p class="font-black text-[#4A3B32] text-sm">${peakHour}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- KONTEN DINAMIS -->
+                    <div class="space-y-2.5">
+                        <p class="text-[9px] font-black text-[#A87B00] uppercase tracking-widest ml-1 mb-1">Rincian Data</p>
+                        ${contentHtml}
+                    </div>
+                </div>
+
+                <div class="p-4 bg-white border-t border-slate-100 text-center">
+                    <button onclick="document.getElementById('dynamic-insight-modal').remove()" class="w-full py-3 bg-slate-100 hover:bg-slate-200 text-[#4A3B32] font-black rounded-[1.25rem] text-xs transition-colors shadow-sm active:scale-95">Tutup Analitik</button>
+                </div>
+            </div>
+        </div>`;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // Picu animasi scale up
+        setTimeout(() => {
+            const card = document.getElementById('dim-card');
+            if(card) card.classList.replace('scale-95', 'scale-100');
+        }, 10);
+    },
+
     renderBOMReport: function() {
         const rof = document.getElementById('report-outlet-filter');
         let roleStr = this.currentUser ? String(this.currentUser.Role).toLowerCase() : '';

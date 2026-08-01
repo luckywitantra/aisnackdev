@@ -6782,9 +6782,6 @@ refreshData: function() {
             }
         }
 
-        // ======================================================================
-        // ✅ TAMBAHKAN DAFTAR BARANG YANG DITERIMA KE DALAM POPUP KONFIRMASI
-        // ======================================================================
         const summaryContainer = document.getElementById('terima-confirm-summary');
         if (summaryContainer) {
             let itemHtmlList = items.map(item => `
@@ -6806,7 +6803,6 @@ refreshData: function() {
                     <span class="text-xs font-bold text-slate-500">Total Muatan Fisik</span>
                     <span class="text-xs font-black text-[#E5202B]">${totalPcs} Pcs Barang</span>
                 </div>
-                <!-- Area Scrollable Daftar Barang Datang -->
                 <div class="mt-1 bg-slate-50 border border-slate-100 rounded-xl p-2 max-h-40 overflow-y-auto custom-scroll shadow-inner">
                     ${itemHtmlList}
                 </div>
@@ -6815,25 +6811,24 @@ refreshData: function() {
 
         const btnExecute = document.getElementById('btn-confirm-terima-execute');
         if (btnExecute) {
-            // 🔒 UI BLOCKER DI TOMBOL MODAL
-            btnExecute.onclick = () => {
-                if (this.isProcessing) return;
-                this.isProcessing = true;
-                
+            // 🚀 PERBAIKAN: Gunakan async () => dan HANYA kunci tombol secara visual
+            btnExecute.onclick = async () => {
                 let origHtml = btnExecute.innerHTML;
+                
                 btnExecute.disabled = true;
                 btnExecute.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengirim...';
                 btnExecute.classList.add('opacity-70', 'cursor-not-allowed');
 
                 try {
-                    this.executeSubmitTerimaBarang(items, waText);
+                    await this.executeSubmitTerimaBarang(items, waText);
+                } catch(e) {
+                    console.error("Terima Barang Error:", e);
                 } finally {
                     setTimeout(() => {
-                        this.isProcessing = false;
                         btnExecute.disabled = false;
                         btnExecute.innerHTML = origHtml;
                         btnExecute.classList.remove('opacity-70', 'cursor-not-allowed');
-                    }, 2000);
+                    }, 1000);
                 }
             };
         }
@@ -7142,6 +7137,8 @@ openDetailStokOpname: function(sku) {
     // 🚀 ENGINE: SUBMIT OPNAME FISIK (ANTI-KASIR MALAS V2.0)
     // =========================================================
    submitOpname: async function() {
+        // Jangan dikunci di sini, biarkan fungsi executeSubmitOpname yang menguncinya
+        
         let allItems = []; let dbItems = []; let countSelisih = 0; 
         let isMobile = window.innerWidth < 768;
 
@@ -7239,9 +7236,6 @@ openDetailStokOpname: function(sku) {
             if (subtitleEl) subtitleEl.innerText = "Pastikan fisik telah dihitung akurat.";
         }
 
-        // ======================================================================
-        // ✅ TAMBAHKAN DAFTAR ITEM SELISIH KE DALAM POPUP KONFIRMASI OPNAME
-        // ======================================================================
         const summaryContainer = document.getElementById('opname-confirm-summary');
         if (summaryContainer) {
             let itemHtmlList = dbItems.map(item => `
@@ -7268,7 +7262,6 @@ openDetailStokOpname: function(sku) {
                     <span class="text-xs font-bold text-slate-500">Item Masuk Server (Selisih/Note)</span>
                     <span class="text-xs font-black text-[#E5202B] bg-rose-50 px-2.5 py-0.5 rounded-md border border-rose-200">${dbItems.length} Macam</span>
                 </div>
-                <!-- Area Scrollable Daftar Selisih -->
                 <div class="mt-2 bg-[#FFF5D1]/30 border border-[#FFD874]/50 rounded-xl p-2 max-h-40 overflow-y-auto custom-scroll shadow-inner">
                     ${itemHtmlList}
                 </div>
@@ -7277,12 +7270,11 @@ openDetailStokOpname: function(sku) {
 
         const btnExecute = document.getElementById('btn-confirm-opname-execute');
         if (btnExecute) {
-            // 🔒 UI BLOCKER DI TOMBOL MODAL
-            btnExecute.onclick = () => {
-                if (this.isProcessing) return;
-                this.isProcessing = true; 
-                
+            // 🚀 PERBAIKAN: Gunakan async () => dan HANYA kunci tombol secara visual
+            btnExecute.onclick = async () => {
                 let origHtml = btnExecute.innerHTML;
+                
+                // Kunci UI saja, biarkan state this.isProcessing dikelola oleh fungsi execute
                 btnExecute.disabled = true;
                 btnExecute.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
                 btnExecute.classList.add('opacity-70', 'cursor-not-allowed');
@@ -7292,24 +7284,24 @@ openDetailStokOpname: function(sku) {
                         if (typeof this.closeModal === 'function') this.closeModal('modal-confirm-opname');
                         this.showToast("Semua stok akurat!", "success");
                     } else {
-                        // Pastikan di dalam executeSubmitOpname ada perintah membuka gembok this.isProcessing = false
-                        this.executeSubmitOpname(dbItems, waTextFinal); 
+                        // Await fungsi aslinya agar berjalan sampai tuntas
+                        await this.executeSubmitOpname(dbItems, waTextFinal); 
                     }
+                } catch(e) {
+                    console.error("Opname Error:", e);
                 } finally {
-                    // Beri jeda sedikit jika animasi masih berjalan
                     setTimeout(() => {
-                        this.isProcessing = false;
                         btnExecute.disabled = false;
                         btnExecute.innerHTML = origHtml;
                         btnExecute.classList.remove('opacity-70', 'cursor-not-allowed');
-                    }, 2000); 
+                    }, 1000); 
                 }
             };
         }
 
         if (typeof this.openModal === 'function') this.openModal('modal-confirm-opname');
     },
-    
+
     // =========================================================
     // 🚀 ENGINE: EKSEKUSI DATA (MEMANGGIL WA POPUP)
     // =========================================================

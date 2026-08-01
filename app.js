@@ -712,109 +712,7 @@ const superApp = {
         this.isProcessing = false;
     },
     
-   // =========================================================================
-    // 🧠 1. ENGINE PENGGABUNG DATA (SUPER KEBAL - ANTI HILANG KETIKA TARIK DATA)
-    // =========================================================================
-   mergeDatabase: function(oldDb, newDb) {
-        // Jika memori lokal HP masih kosong, langsung gunakan data baru
-        if (!oldDb || !oldDb.masterProduk) return newDb;
-        if (!newDb) return oldDb;
-
-        console.log("🛡️ [Smart Merge] Memulai penggabungan data...");
-        console.log(`📊 Sebelum digabung -> Laporan Harian: ${(oldDb.laporanHarian || []).length} baris | Transaksi: ${(oldDb.transactions || []).length} baris`);
-
-        let merged = { ...oldDb };
-
-        // --- A. KELOMPOK MASTER DATA (Wajib Timpa 100% agar Stok & Harga selalu Real-Time) ---
-        merged.status = newDb.status || oldDb.status;
-        merged.masterProduk = newDb.masterProduk || oldDb.masterProduk;
-        merged.outlets = newDb.outlets || oldDb.outlets;
-        merged.hargaStokOutlet = newDb.hargaStokOutlet || oldDb.hargaStokOutlet;
-        merged.users = newDb.users || oldDb.users;
-        merged.pengaturan = newDb.pengaturan || oldDb.pengaturan;
-
-        // --- B. HELPER PENGGABUNG ARRAY RIWAYAT (KEBAL ID BERBEDA & ANTI DUPLIKASI) ---
-        const mergeHistoryArray = (oldArr = [], newArr = [], primaryKey, secondaryKey) => {
-            let map = new Map();
-            
-            // 1. Masukkan data lawas (Arsip 90 hari / Tahunan) ke dalam Map
-            oldArr.forEach((item, idx) => {
-                // 🚀 PERBAIKAN: Hilangkan kata "old_" agar jika tak ada ID, dia bisa mengenali data yang sama dengan data baru
-                let fallbackId = `${item.Tanggal || ''}_${item.Waktu || ''}_${item.Outlet || idx}`;
-                let id = item[primaryKey] || item[secondaryKey] || item['ID'] || item['id'] || fallbackId;
-                map.set(String(id).trim(), item);
-            });
-
-            // 2. Masukkan data baru (Tarikan 14/31 Hari Terakhir).
-            // Jika ID sama, data baru otomatis MENIMPA data lawas.
-            newArr.forEach((item, idx) => {
-                // 🚀 PERBAIKAN: Hilangkan kata "new_"
-                let fallbackId = `${item.Tanggal || ''}_${item.Waktu || ''}_${item.Outlet || idx}`;
-                let id = item[primaryKey] || item[secondaryKey] || item['ID'] || item['id'] || fallbackId;
-                map.set(String(id).trim(), item);
-            });
-
-            // 3. 🚀 PERBAIKAN: Sortir ulang agar urutan waktunya rapi setelah digabung
-            return Array.from(map.values()).sort((a, b) => {
-                let dateA = new Date((a.Tanggal || '') + (a.Waktu ? 'T'+a.Waktu : ''));
-                let dateB = new Date((b.Tanggal || '') + (b.Waktu ? 'T'+b.Waktu : ''));
-                return dateA - dateB;
-            });
-        };
-
-        // --- C. TERAPKAN KE SELURUH TABEL RIWAYAT TRANSAKSI ---
-        merged.laporanHarian = mergeHistoryArray(oldDb.laporanHarian, newDb.laporanHarian, 'ID_Laporan', 'id_laporan');
-        merged.transactions = mergeHistoryArray(oldDb.transactions, newDb.transactions, 'ID_TRX', 'id_trx');
-        merged.shifts = mergeHistoryArray(oldDb.shifts, newDb.shifts, 'ID_Shift', 'id_shift');
-        merged.kasKeluar = mergeHistoryArray(oldDb.kasKeluar, newDb.kasKeluar, 'ID_Kas_Keluar', 'id_kas_keluar');
-        
-        // 🚀 PERBAIKAN: Ubah 'riwayatOpname' menjadi 'opname' agar terbaca oleh fungsi renderReport
-        merged.opname = mergeHistoryArray(oldDb.opname, newDb.opname, 'ID_Opname', 'id_opname');
-        
-        merged.mutasi = mergeHistoryArray(oldDb.mutasi, newDb.mutasi, 'ID_Mutasi', 'id_mutasi');
-
-        console.log(`✅ [Smart Merge] Sukses! Setelah digabung -> Laporan Harian: ${merged.laporanHarian.length} baris | Transaksi: ${merged.transactions.length} baris`);
-        return merged;
-    },
-    
-    // =========================================================================
-    // 🚀 2. PENARIK DATA LATAR BELAKANG (DIBATASI 90 HARI & MENGGUNAKAN MERGE)
-    // =========================================================================
-    pullBackgroundData: async function() {
-        console.log("⏳ Memulai sinkronisasi data latar belakang (90 Hari)...");
-        try {
-            const res = await fetch(API_URL + "?ts=" + new Date().getTime() + "&history=90", { 
-                method: 'GET',
-                redirect: 'follow',
-                cache: 'no-store'
-            });
-
-            const data = await res.json();
-            
-            if (data && data.status === 'sukses') {
-                // 🚀 WAJIB MERGE: Agar jika kasir baru saja edit laporan, editannya tidak tertimpa data latar belakang
-                this.db = this.mergeDatabase(this.db, data);
-                localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
-                
-                if (typeof this.updatePendingNotifications === 'function') this.updatePendingNotifications();
-                
-                if (this.currentUser) {
-                    if (this.cart.length === 0) this.refreshData();
-                    if (typeof this.renderReport === 'function' && !document.getElementById('view-report')?.classList.contains('hidden')) this.renderReport();
-                    if (typeof this.generateAIReport === 'function' && !document.getElementById('view-ai')?.classList.contains('hidden')) this.generateAIReport();
-                }
-
-                console.log("✅ Sinkronisasi latar belakang 90 hari selesai dan berhasil digabung!");
-            }
-        } catch (e) {
-            console.warn("Sinkronisasi latar belakang dilewati:", e.message);
-        }
-    },
-
-    // =========================================================================
-    // 🚀 2. TARIK DATA MANUAL (STABILITAS ANTI-GAGAL + AUTO-RETRY 3X)
-    // =========================================================================
-    pullFreshData: async function(silent = false) {
+   pullFreshData: async function(silent = false) {
         if (this.isProcessing && !silent) return; 
         
         if (!silent) this.setLoading(true, "Menyinkronkan Database Terkini...");
@@ -826,7 +724,7 @@ const superApp = {
             // 🚀 PERBAIKAN KRITIS: Menggunakan sistem 3x percobaan TANPA AbortController
             for (let i = 0; i < 3; i++) {
                 try {
-                    // DIET PAYLOAD: 14 hari
+                    // DIET PAYLOAD: 31 hari
                     const res = await fetch(API_URL + "?ts=" + new Date().getTime() + "&history=31", { 
                         method: 'GET',
                         redirect: 'follow',
@@ -920,8 +818,102 @@ const superApp = {
         }
     },
 
-   
+    mergeDatabase: function(oldDb, newDb) {
+        // Jika memori lokal HP masih kosong, langsung gunakan data baru
+        if (!oldDb || !oldDb.masterProduk) return newDb;
+        if (!newDb) return oldDb;
 
+        console.log("🛡️ [Smart Merge] Memulai penggabungan data...");
+
+        let merged = { ...oldDb };
+
+        // --- A. KELOMPOK MASTER DATA (Wajib Timpa 100% agar Stok & Harga selalu Real-Time) ---
+        merged.status = newDb.status || oldDb.status;
+        merged.masterProduk = newDb.masterProduk || oldDb.masterProduk;
+        merged.outlets = newDb.outlets || oldDb.outlets;
+        merged.hargaStokOutlet = newDb.hargaStokOutlet || oldDb.hargaStokOutlet;
+        
+        // 🚀 TAMBAHAN KRITIS: PASTIKAN DATA BARANG MASUK JUGA DITIMPA (TIDAK SEMPAT TERSENTUH FUNGSI MERGE SEBELUMNYA)
+        merged.barangMasuk = newDb.barangMasuk || newDb.mutasi || oldDb.barangMasuk || oldDb.mutasi || [];
+        
+        merged.users = newDb.users || oldDb.users;
+        merged.pengaturan = newDb.pengaturan || oldDb.pengaturan;
+
+        // --- B. HELPER PENGGABUNG ARRAY RIWAYAT (KEBAL ID BERBEDA & ANTI DUPLIKASI) ---
+        const mergeHistoryArray = (oldArr = [], newArr = [], primaryKey, secondaryKey) => {
+            let map = new Map();
+            
+            // 1. Masukkan data lawas ke dalam Map
+            oldArr.forEach((item) => {
+                let fallbackId = `${item.Tanggal || item.Tanggal_Laporan || ''}_${item.Waktu || ''}_${item.Outlet || item.Cabang || ''}_${item.Total_Bayar || item.Nominal || item.Selisih || Math.random()}`;
+                let id = item[primaryKey] || item[secondaryKey] || item['ID'] || item['id'] || fallbackId;
+                
+                map.set(String(id).trim(), item);
+            });
+
+            // 2. Masukkan data baru (Menimpa data lawas secara cerdas)
+            newArr.forEach((item) => {
+                let fallbackId = `${item.Tanggal || item.Tanggal_Laporan || ''}_${item.Waktu || ''}_${item.Outlet || item.Cabang || ''}_${item.Total_Bayar || item.Nominal || item.Selisih || Math.random()}`;
+                let id = item[primaryKey] || item[secondaryKey] || item['ID'] || item['id'] || fallbackId;
+                
+                map.set(String(id).trim(), item);
+            });
+
+            // 3. Kembalikan ke Array (TANPA AUTO-SORT agar tidak crash di tanggal format ID)
+            return Array.from(map.values());
+        };
+
+        // --- C. TERAPKAN KE SELURUH TABEL RIWAYAT ---
+        merged.laporanHarian = mergeHistoryArray(oldDb.laporanHarian, newDb.laporanHarian, 'ID_Laporan', 'id_laporan');
+        merged.transactions = mergeHistoryArray(oldDb.transactions, newDb.transactions, 'ID_TRX', 'id_trx');
+        merged.shifts = mergeHistoryArray(oldDb.shifts, newDb.shifts, 'ID_Shift', 'id_shift');
+        merged.kasKeluar = mergeHistoryArray(oldDb.kasKeluar, newDb.kasKeluar, 'ID_Kas_Keluar', 'id_kas_keluar');
+        
+        // 🚀 KEAMANAN GANDA UNTUK TABEL OPNAME (Mendukung kedua versi penamaan API Anda)
+        merged.opname = mergeHistoryArray(oldDb.opname || oldDb.riwayatOpname, newDb.opname || newDb.riwayatOpname, 'ID_Opname', 'id_opname');
+        merged.riwayatOpname = merged.opname; // Supaya fungsi lama yang memanggil riwayatOpname tidak error
+        
+        merged.mutasi = mergeHistoryArray(oldDb.mutasi, newDb.mutasi, 'ID_Mutasi', 'id_mutasi');
+
+        console.log(`✅ [Smart Merge] Sukses! Setelah digabung -> Laporan Harian: ${merged.laporanHarian.length} baris | Transaksi: ${merged.transactions.length} baris`);
+        return merged;
+    },
+    
+    // =========================================================================
+    // 🚀 2. PENARIK DATA LATAR BELAKANG (DIBATASI 90 HARI & MENGGUNAKAN MERGE)
+    // =========================================================================
+    pullBackgroundData: async function() {
+        console.log("⏳ Memulai sinkronisasi data latar belakang (90 Hari)...");
+        try {
+            const res = await fetch(API_URL + "?ts=" + new Date().getTime() + "&history=90", { 
+                method: 'GET',
+                redirect: 'follow',
+                cache: 'no-store'
+            });
+
+            const data = await res.json();
+            
+            if (data && data.status === 'sukses') {
+                // 🚀 WAJIB MERGE: Agar jika kasir baru saja edit laporan, editannya tidak tertimpa data latar belakang
+                this.db = this.mergeDatabase(this.db, data);
+                localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
+                
+                if (typeof this.updatePendingNotifications === 'function') this.updatePendingNotifications();
+                
+                if (this.currentUser) {
+                    if (this.cart.length === 0) this.refreshData();
+                    if (typeof this.renderReport === 'function' && !document.getElementById('view-report')?.classList.contains('hidden')) this.renderReport();
+                    if (typeof this.generateAIReport === 'function' && !document.getElementById('view-ai')?.classList.contains('hidden')) this.generateAIReport();
+                }
+
+                console.log("✅ Sinkronisasi latar belakang 90 hari selesai dan berhasil digabung!");
+            }
+        } catch (e) {
+            console.warn("Sinkronisasi latar belakang dilewati:", e.message);
+        }
+    },
+
+    
     // =========================================================================
     // 🚀 ENGINE KHUSUS ARSIP LAWAS (DENGAN POP-UP KONFIRMASI CANTIK)
     // =========================================================================

@@ -715,7 +715,7 @@ const superApp = {
    // =========================================================================
     // 🧠 1. ENGINE PENGGABUNG DATA (SUPER KEBAL - ANTI HILANG KETIKA TARIK DATA)
     // =========================================================================
-    mergeDatabase: function(oldDb, newDb) {
+   mergeDatabase: function(oldDb, newDb) {
         // Jika memori lokal HP masih kosong, langsung gunakan data baru
         if (!oldDb || !oldDb.masterProduk) return newDb;
         if (!newDb) return oldDb;
@@ -733,26 +733,33 @@ const superApp = {
         merged.users = newDb.users || oldDb.users;
         merged.pengaturan = newDb.pengaturan || oldDb.pengaturan;
 
-        // --- B. HELPER PENGGABUNG ARRAY RIWAYAT (KEBAL ID BERBEDA & TANPA ID) ---
+        // --- B. HELPER PENGGABUNG ARRAY RIWAYAT (KEBAL ID BERBEDA & ANTI DUPLIKASI) ---
         const mergeHistoryArray = (oldArr = [], newArr = [], primaryKey, secondaryKey) => {
             let map = new Map();
             
             // 1. Masukkan data lawas (Arsip 90 hari / Tahunan) ke dalam Map
             oldArr.forEach((item, idx) => {
-                // Cari ID dari berbagai kemungkinan penulisan, jika tidak ada gunakan gabungan Tanggal+Outlet
-                let id = item[primaryKey] || item[secondaryKey] || item['ID'] || item['id'] || `old_${idx}_${item.Tanggal || ''}_${item.Outlet || ''}`;
+                // 🚀 PERBAIKAN: Hilangkan kata "old_" agar jika tak ada ID, dia bisa mengenali data yang sama dengan data baru
+                let fallbackId = `${item.Tanggal || ''}_${item.Waktu || ''}_${item.Outlet || idx}`;
+                let id = item[primaryKey] || item[secondaryKey] || item['ID'] || item['id'] || fallbackId;
                 map.set(String(id).trim(), item);
             });
 
             // 2. Masukkan data baru (Tarikan 14/31 Hari Terakhir).
-            // Jika ID sama, data baru otomatis MENIMPA data lawas (untuk update status persetujuan / revisi).
-            // Jika ID tidak ada di data lawas, data baru akan DITAMBAHKAN ke dalam daftar.
+            // Jika ID sama, data baru otomatis MENIMPA data lawas.
             newArr.forEach((item, idx) => {
-                let id = item[primaryKey] || item[secondaryKey] || item['ID'] || item['id'] || `new_${idx}_${item.Tanggal || ''}_${item.Outlet || ''}`;
+                // 🚀 PERBAIKAN: Hilangkan kata "new_"
+                let fallbackId = `${item.Tanggal || ''}_${item.Waktu || ''}_${item.Outlet || idx}`;
+                let id = item[primaryKey] || item[secondaryKey] || item['ID'] || item['id'] || fallbackId;
                 map.set(String(id).trim(), item);
             });
 
-            return Array.from(map.values());
+            // 3. 🚀 PERBAIKAN: Sortir ulang agar urutan waktunya rapi setelah digabung
+            return Array.from(map.values()).sort((a, b) => {
+                let dateA = new Date((a.Tanggal || '') + (a.Waktu ? 'T'+a.Waktu : ''));
+                let dateB = new Date((b.Tanggal || '') + (b.Waktu ? 'T'+b.Waktu : ''));
+                return dateA - dateB;
+            });
         };
 
         // --- C. TERAPKAN KE SELURUH TABEL RIWAYAT TRANSAKSI ---
@@ -760,13 +767,16 @@ const superApp = {
         merged.transactions = mergeHistoryArray(oldDb.transactions, newDb.transactions, 'ID_TRX', 'id_trx');
         merged.shifts = mergeHistoryArray(oldDb.shifts, newDb.shifts, 'ID_Shift', 'id_shift');
         merged.kasKeluar = mergeHistoryArray(oldDb.kasKeluar, newDb.kasKeluar, 'ID_Kas_Keluar', 'id_kas_keluar');
-        merged.riwayatOpname = mergeHistoryArray(oldDb.riwayatOpname, newDb.riwayatOpname, 'ID_Opname', 'id_opname');
+        
+        // 🚀 PERBAIKAN: Ubah 'riwayatOpname' menjadi 'opname' agar terbaca oleh fungsi renderReport
+        merged.opname = mergeHistoryArray(oldDb.opname, newDb.opname, 'ID_Opname', 'id_opname');
+        
         merged.mutasi = mergeHistoryArray(oldDb.mutasi, newDb.mutasi, 'ID_Mutasi', 'id_mutasi');
 
         console.log(`✅ [Smart Merge] Sukses! Setelah digabung -> Laporan Harian: ${merged.laporanHarian.length} baris | Transaksi: ${merged.transactions.length} baris`);
         return merged;
     },
-
+    
     // =========================================================================
     // 🚀 2. PENARIK DATA LATAR BELAKANG (DIBATASI 90 HARI & MENGGUNAKAN MERGE)
     // =========================================================================
@@ -817,7 +827,7 @@ const superApp = {
             for (let i = 0; i < 3; i++) {
                 try {
                     // DIET PAYLOAD: 14 hari
-                    const res = await fetch(API_URL + "?ts=" + new Date().getTime() + "&history=14", { 
+                    const res = await fetch(API_URL + "?ts=" + new Date().getTime() + "&history=31", { 
                         method: 'GET',
                         redirect: 'follow',
                         cache: 'no-store'
@@ -4392,7 +4402,7 @@ selectOutlet: function(id) {
             
             outletRowsHtml += `
                 <tr style="border-bottom: 1px solid #f1f5f9;">
-                    <td style="padding: 12px; font-weight: 900; color: #4A3B32;">AI-SNACK ${out.toUpperCase()}</td>
+                    <td style="padding: 12px; font-weight: 900; color: #4A3B32;">AI-CHA ${out.toUpperCase()}</td>
                     <td style="padding: 12px; text-align: center; color: #4A3B32; font-weight: bold;">${ob.count} Hari</td>
                     <td style="padding: 12px; text-align: right; font-weight: 900; color: #4A3B32;">Rp ${fmt(ob.sales)}</td>
                     <td style="padding: 12px; text-align: right; color: #E5202B; font-weight: bold;">Rp ${fmt(ob.cash)}</td>
@@ -4432,7 +4442,7 @@ selectOutlet: function(id) {
                 opexRowsHtml += `
                     <tr style="background-color: #FFF5D1; border-bottom: 2px solid #FFD874;">
                         <td colspan="2" style="padding: 10px 15px; font-weight: 900; color: #E5202B; text-align: left; font-size: 13px;">
-                            🏠 OUTLET: AI-SNACK ${out}
+                            🏠 OUTLET: AI-CHA ${out}
                         </td>
                     </tr>
                 `;
@@ -4460,7 +4470,7 @@ selectOutlet: function(id) {
             <!DOCTYPE html>
             <html>
             <head>
-                <title>Laporan Keuangan Ai-Snack - ${data.startDateStr} sd ${data.endDateStr}</title>
+                <title>Laporan Keuangan Ai-CHA - ${data.startDateStr} sd ${data.endDateStr}</title>
                 <style>
                     @page { size: A4; margin: 15mm; }
                     body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #4A3B32; margin: 0; padding: 0; line-height: 1.4; font-size: 12px; }
@@ -11752,3 +11762,5 @@ setInterval(() => {
         superApp.pullFreshData(true); 
     }
 }, 300000);
+
+

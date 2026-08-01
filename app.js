@@ -2691,10 +2691,52 @@ const superApp = {
             this.showToast(isEdit ? "Laporan Berhasil Diperbarui!" : "Laporan Berhasil Tersimpan!");
         }
         
-        // ... (Kode pembuatan waTextFinal dan navigasi tetap sama, dilewati untuk ringkas) ...
+        // ======================================================================
+        // ✅ KEMBALIKAN FITUR GENERATE TEKS WA LAPORAN HARIAN
+        // ======================================================================
+        let amountPaid = bill > 0 ? Math.round(netSales / bill) : 0;
+        let amountPcs = pcs > 0 ? Math.round(netSales / pcs) : 0;
+        
+        let expText = '-';
+        if (expValid.length > 0) {
+            expText = expValid.map(x => `▪️ ${x.nama}: Rp ${Number(x.nominal).toLocaleString('id-ID')}`).join('\n');
+        }
+
+        let labelJudul = (statusApp === 'Pending Edit') ? `*[ PENGAJUAN REVISI LAPORAN ]*` : `*Laporan Harian Ai-Snack*`;
+        
+        let waTextFinal = `${labelJudul}\n`;
+        waTextFinal += `Update Sales Report Outlet: *Ai-Snack ${cleanCurrOutlet}*\n`;
+        waTextFinal += `Tanggal: ${tglTeks}\n`;
+        waTextFinal += `Cuaca: ${cuaca}\n\n`;
+        waTextFinal += `Net Sales: *Rp ${netSales.toLocaleString('id-ID')}*\n`;
+        waTextFinal += `Amount Paid: Rp ${amountPaid.toLocaleString('id-ID')}\n`;
+        waTextFinal += `Amount Pcs: Rp ${amountPcs.toLocaleString('id-ID')}\n`;
+        waTextFinal += `Bill: ${bill.toLocaleString('id-ID')} Bill\n`;
+        waTextFinal += `Produk Terjual: ${pcs.toLocaleString('id-ID')} Pcs\n\n`;
+        waTextFinal += `Rincian Pembayaran:\n`;
+        waTextFinal += `💵 Cash: Rp ${cash.toLocaleString('id-ID')}\n`;
+        waTextFinal += `💳 QRIS: Rp ${qris.toLocaleString('id-ID')}\n`;
+        
+        if (totExp > 0) {
+            waTextFinal += `\nPengeluaran:\n${expText}\nTotal Pengeluaran: Rp ${totExp.toLocaleString('id-ID')}\n`;
+            waTextFinal += `*Net Cash Laci: Rp ${(cash - totExp).toLocaleString('id-ID')}*\n`;
+        }
+        
+        let targetBln = this.targetBulanan || 0;
+        waTextFinal += `\nAkumulasi Bulanan: Rp ${exactAccumulation.toLocaleString('id-ID')}\n`;
+        waTextFinal += `Target Bulanan: Rp ${targetBln.toLocaleString('id-ID')}`;
+
         this.resetDailyForm();
         this.renderLaporanHarianHistory();
-        if (typeof this.openWaLaporanModal === 'function') this.openWaLaporanModal(`Laporan Tersimpan! (Silakan sesuaikan teks WA)`);
+
+        // Panggil Popup WA Laporan Harian
+        if (typeof this.openWaLaporanModal === 'function') {
+            this.openWaLaporanModal(waTextFinal);
+        } else if (typeof this.showWaModal === 'function') {
+            this.showWaModal(waTextFinal);
+        } else if (typeof this.resendLaporanHarianWa === 'function') {
+            this.resendLaporanHarianWa(idRep);
+        }
     },
 
     // =========================================================
@@ -6685,7 +6727,7 @@ refreshData: function() {
     
   
    submitTerimaBarang: async function() {
-        let items = []; let totalPcs = 0; let waText = "Laporan Barang Masuk";
+        let items = []; let totalPcs = 0; let waText = `*LAPORAN BARANG DATANG PUSAT*\n📍 Cabang: ${this.outlet}\n👤 Kasir: ${this.currentUser ? this.currentUser.Username : 'Kasir'}\n📅 Waktu: ${new Date().toLocaleString('id-ID')}\n\n*_Mohon cek aplikasi menu Audit untuk memverifikasi agar stok masuk ke sistem_*\n\n`;
         let isMobile = window.innerWidth < 768;
 
         (this.db.masterProduk || []).forEach(m => {
@@ -6702,6 +6744,7 @@ refreshData: function() {
                     
                     items.push({ sku: m.SKU, nama: m.Nama_Produk, qty: qtyNum, catatan: note });
                     totalPcs += qtyNum;
+                    waText += `📦 *${m.Nama_Produk}*\nQty Diterima: *${qtyStr} Pcs*\nCatatan: ${note || '-'}\n\n`;
                 }
             }
         });
@@ -6718,13 +6761,56 @@ refreshData: function() {
 
         const iconBox = document.getElementById('terima-confirm-icon-box');
         const titleEl = document.getElementById('terima-confirm-title');
+        const subtitleEl = document.getElementById('terima-confirm-subtitle');
+        const warningBox = document.getElementById('terima-confirm-warning-box');
 
         if (sudahInputHariIni) {
             if (iconBox) iconBox.className = "w-20 h-20 bg-rose-50 text-[#E5202B] rounded-[1.5rem] flex items-center justify-center text-3xl mx-auto mb-4 border border-rose-200 shadow-inner";
             if (titleEl) titleEl.innerText = "Laporan Ganda Terdeteksi";
+            if (subtitleEl) subtitleEl.innerText = "Cabang ini sudah mengirim data pending hari ini.";
+            if (warningBox) {
+                warningBox.className = "bg-rose-50 border border-rose-200 rounded-xl p-3 text-left flex items-start gap-2.5 mb-4 shadow-inner";
+                warningBox.innerHTML = `<i class="fas fa-triangle-exclamation text-[#E5202B] text-base mt-0.5 shrink-0"></i><p class="text-[11px] font-bold text-rose-800 leading-relaxed"><b>PERINGATAN GRAV:</b> Sudah ada input barang datang yang pending hari ini. Yakin ingin mengirim antrean laporan baru?</p>`;
+            }
         } else {
-            if (iconBox) iconBox.className = "w-20 h-20 bg-[#FFF5D1] text-[#A87B00] rounded-[1.5rem] flex items-center justify-center text-3xl mx-auto mb-4 border border-[#FFD874]/50 shadow-inner";
+            if (iconBox) iconBox.className = "w-20 h-20 bg-emerald-50 text-emerald-600 rounded-[1.5rem] flex items-center justify-center text-3xl mx-auto mb-4 border border-emerald-100/60 shadow-inner";
             if (titleEl) titleEl.innerText = "Konfirmasi Barang Datang";
+            if (subtitleEl) subtitleEl.innerText = "Verifikasi jumlah barang yang dikirim kurir pusat.";
+            if (warningBox) {
+                warningBox.className = "bg-[#FFF5D1] border border-[#FFD874]/80 rounded-xl p-3 text-left flex items-start gap-2.5 mb-4 shadow-inner";
+                warningBox.innerHTML = `<i class="fas fa-circle-info text-[#FFB800] text-base mt-0.5 shrink-0"></i><p class="text-[11px] font-bold text-[#4A3B32] leading-relaxed">Stok toko <b>tidak langsung bertambah</b>. Laporan ini memerlukan otorisasi dan persetujuan dari Owner di menu Audit.</p>`;
+            }
+        }
+
+        // ======================================================================
+        // ✅ TAMBAHKAN DAFTAR BARANG YANG DITERIMA KE DALAM POPUP KONFIRMASI
+        // ======================================================================
+        const summaryContainer = document.getElementById('terima-confirm-summary');
+        if (summaryContainer) {
+            let itemHtmlList = items.map(item => `
+                <div class="flex justify-between items-center py-2 border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors px-1">
+                    <div class="flex flex-col">
+                        <span class="text-[11px] font-black text-[#4A3B32]">${item.nama}</span>
+                        ${item.catatan ? `<span class="text-[9px] font-bold text-slate-400 mt-0.5"><i class="fas fa-comment-dots text-[#FFB800]"></i> ${item.catatan}</span>` : ''}
+                    </div>
+                    <span class="text-xs font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200">${item.qty} Pcs</span>
+                </div>
+            `).join('');
+
+            summaryContainer.innerHTML = `
+                <div class="flex justify-between items-center pb-2 border-b border-slate-200/60 mb-2">
+                    <span class="text-xs font-bold text-slate-500">Toko Penerima</span>
+                    <span class="text-xs font-black text-white bg-[#4A3B32] px-2.5 py-0.5 rounded-md shadow-sm">${this.outlet}</span>
+                </div>
+                <div class="flex justify-between items-center pb-3">
+                    <span class="text-xs font-bold text-slate-500">Total Muatan Fisik</span>
+                    <span class="text-xs font-black text-[#E5202B]">${totalPcs} Pcs Barang</span>
+                </div>
+                <!-- Area Scrollable Daftar Barang Datang -->
+                <div class="mt-1 bg-slate-50 border border-slate-100 rounded-xl p-2 max-h-40 overflow-y-auto custom-scroll shadow-inner">
+                    ${itemHtmlList}
+                </div>
+            `;
         }
 
         const btnExecute = document.getElementById('btn-confirm-terima-execute');
@@ -7055,7 +7141,7 @@ openDetailStokOpname: function(sku) {
   // =========================================================
     // 🚀 ENGINE: SUBMIT OPNAME FISIK (ANTI-KASIR MALAS V2.0)
     // =========================================================
-    submitOpname: async function() {
+   submitOpname: async function() {
         let allItems = []; let dbItems = []; let countSelisih = 0; 
         let isMobile = window.innerWidth < 768;
 
@@ -7151,6 +7237,42 @@ openDetailStokOpname: function(sku) {
             if (iconBox) iconBox.className = "w-20 h-20 bg-[#FFF5D1] text-[#A87B00] rounded-[1.5rem] flex items-center justify-center text-3xl mx-auto mb-4 border border-[#FFD874]/50 shadow-inner";
             if (titleEl) titleEl.innerText = "Konfirmasi Laporan Audit";
             if (subtitleEl) subtitleEl.innerText = "Pastikan fisik telah dihitung akurat.";
+        }
+
+        // ======================================================================
+        // ✅ TAMBAHKAN DAFTAR ITEM SELISIH KE DALAM POPUP KONFIRMASI OPNAME
+        // ======================================================================
+        const summaryContainer = document.getElementById('opname-confirm-summary');
+        if (summaryContainer) {
+            let itemHtmlList = dbItems.map(item => `
+                <div class="flex justify-between items-center py-2.5 border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors px-1">
+                    <div class="flex flex-col">
+                        <span class="text-[11px] font-black text-[#4A3B32]">${item.nama}</span>
+                        ${item.catatan ? `<span class="text-[9px] font-bold text-slate-400 mt-0.5"><i class="fas fa-pencil-alt text-[#FFB800]"></i> ${item.catatan}</span>` : ''}
+                    </div>
+                    <div class="text-right">
+                        <span class="text-xs font-black ${item.selisih < 0 ? 'text-[#E5202B]' : (item.selisih > 0 ? 'text-emerald-500' : 'text-slate-400')}">
+                            ${item.selisih > 0 ? '+'+item.selisih : item.selisih}
+                        </span>
+                        <div class="text-[9px] font-bold text-slate-400">Sys: ${item.sistem} | Fis: ${item.fisik}</div>
+                    </div>
+                </div>
+            `).join('');
+
+            summaryContainer.innerHTML = `
+                <div class="flex justify-between items-center pb-2 border-b border-slate-200/60 mb-2">
+                    <span class="text-xs font-bold text-slate-500">Item Akurat</span>
+                    <span class="text-xs font-black text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200">${allItems.length - dbItems.length} Macam</span>
+                </div>
+                <div class="flex justify-between items-center pb-3">
+                    <span class="text-xs font-bold text-slate-500">Item Masuk Server (Selisih/Note)</span>
+                    <span class="text-xs font-black text-[#E5202B] bg-rose-50 px-2.5 py-0.5 rounded-md border border-rose-200">${dbItems.length} Macam</span>
+                </div>
+                <!-- Area Scrollable Daftar Selisih -->
+                <div class="mt-2 bg-[#FFF5D1]/30 border border-[#FFD874]/50 rounded-xl p-2 max-h-40 overflow-y-auto custom-scroll shadow-inner">
+                    ${itemHtmlList}
+                </div>
+            `;
         }
 
         const btnExecute = document.getElementById('btn-confirm-opname-execute');

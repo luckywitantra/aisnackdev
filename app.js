@@ -818,6 +818,89 @@ const superApp = {
         }
     },
 
+    initPullToRefresh: function() {
+        const ptrEl = document.getElementById('pull-to-refresh-indicator');
+        const ptrIcon = document.getElementById('ptr-icon');
+        const ptrIconBox = document.getElementById('ptr-icon-box');
+        const ptrText = document.getElementById('ptr-text');
+        if (!ptrEl) return;
+
+        let startY = 0;
+        let currentY = 0;
+        let isPulling = false;
+        const threshold = 90; // Jarak tarik yang dibutuhkan untuk memicu refresh (px)
+
+        const handleStart = (e) => {
+            // Hanya izinkan ditarik jika posisi layar berada di paling atas
+            if (window.scrollY === 0) {
+                startY = e.touches ? e.touches[0].screenY : e.screenY;
+                isPulling = true;
+                ptrEl.style.transition = 'none'; // Matikan animasi saat jari sedang menarik
+            }
+        };
+
+        const handleMove = (e) => {
+            if (!isPulling) return;
+            currentY = e.touches ? e.touches[0].screenY : e.screenY;
+            let pullDistance = currentY - startY;
+
+            // Jika ditarik ke bawah
+            if (pullDistance > 0 && window.scrollY === 0) {
+                // Efek hambatan (resistance) agar terasa seperti karet
+                let visualDistance = Math.min(pullDistance * 0.45, threshold + 30);
+                ptrEl.style.transform = `translateY(${visualDistance}px)`;
+                
+                // Rotasi icon pelan-pelan mengikuti jari
+                ptrIcon.style.transform = `rotate(${pullDistance}deg)`;
+                
+                // Jika sudah melewati batas threshold, ubah warna jadi status "Siap Lepas"
+                if (pullDistance > threshold) {
+                    ptrIconBox.classList.replace('from-[#E5202B]', 'from-[#25D366]');
+                    ptrIconBox.classList.replace('to-[#FFB800]', 'to-[#128C7E]');
+                    ptrText.innerText = "Lepaskan untuk Refresh!";
+                    ptrText.classList.replace('text-[#4A3B32]', 'text-[#128C7E]');
+                } else {
+                    ptrIconBox.classList.replace('from-[#25D366]', 'from-[#E5202B]');
+                    ptrIconBox.classList.replace('to-[#128C7E]', 'to-[#FFB800]');
+                    ptrText.innerText = "Tarik ke Bawah...";
+                    ptrText.classList.replace('text-[#128C7E]', 'text-[#4A3B32]');
+                }
+            }
+        };
+
+        const handleEnd = () => {
+            if (!isPulling) return;
+            isPulling = false;
+            let pullDistance = currentY - startY;
+            
+            // Nyalakan kembali animasi transisi dengan efek Bouncy (Membal)
+            ptrEl.style.transition = 'transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            
+            if (pullDistance > threshold && window.scrollY === 0) {
+                // Tahan di tengah layar
+                ptrEl.style.transform = `translateY(40px)`; 
+                ptrIcon.classList.add('fa-spin');
+                ptrText.innerText = "Menyegarkan Sistem...";
+                
+                // Beri efek getar kecil pada HP
+                if (navigator.vibrate) navigator.vibrate(50);
+                
+                // Lakukan RELOAD HARD untuk mematikan semua proses nyangkut dan mengulang login
+                setTimeout(() => {
+                    window.location.reload(true);
+                }, 800);
+            } else {
+                // Batal ditarik, sembunyikan kembali ke atas
+                ptrEl.style.transform = `translateY(-100%)`;
+            }
+        };
+
+        // Event Listener untuk HP (Touch)
+        document.addEventListener('touchstart', handleStart, { passive: true });
+        document.addEventListener('touchmove', handleMove, { passive: true });
+        document.addEventListener('touchend', handleEnd);
+    },
+
     mergeDatabase: function(oldDb, newDb) {
         // Jika memori lokal HP masih kosong, langsung gunakan data baru
         if (!oldDb || !oldDb.masterProduk) return newDb;

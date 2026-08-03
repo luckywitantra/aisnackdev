@@ -448,7 +448,7 @@ const superApp = {
             }
 
             // =====================================================================
-            // 🚀 ENGINE PENARIK DATA STABIL 
+            // 🚀 ENGINE PENARIK DATA STABIL (ANTI-HTML CRASH & EXPONENTIAL BACKOFF)
             // =====================================================================
             let performFetch = async () => {
                 let data = null;
@@ -459,12 +459,26 @@ const superApp = {
                             redirect: 'follow',
                             cache: 'no-store'
                         }); 
-                        data = await res.json(); 
-                        if (data && data.status === 'sukses') break; 
+                        
+                        // 🛡️ PROTEKSI 1: Baca respon sebagai teks mentah terlebih dahulu
+                        const rawText = await res.text();
+                        
+                        // 🛡️ PROTEKSI 2: Cegat jika Google mengirim halaman error HTML
+                        if (rawText.trim().startsWith("<!DOCTYPE") || rawText.trim().startsWith("<html")) {
+                            throw new Error("Server Google sibuk (Membalas dengan HTML Error).");
+                        }
+                        
+                        // 🛡️ PROTEKSI 3: Ubah ke JSON dengan aman
+                        data = JSON.parse(rawText);
+                        
+                        if (data && data.status === 'sukses') break; // Sukses? Langsung keluar loop!
                     } catch (e) { 
                         console.warn(`Percobaan ke-${i+1} gagal:`, e.message);
-                        if (logStat && !this.db) logStat.innerText = `Mencoba ulang koneksi (${i+1}/3)...`; 
-                        await new Promise(r => setTimeout(r, 2000)); 
+                        if (logStat && !this.db) logStat.innerText = `Menunggu server Google (${i+1}/3)...`; 
+                        
+                        // ⏱️ EXPONENTIAL BACKOFF: Jeda tunggu diperlama agar Google tidak memblokir (2s -> 4s -> 6s)
+                        let waitTime = (i === 0) ? 2000 : (i === 1) ? 4000 : 6000;
+                        await new Promise(r => setTimeout(r, waitTime)); 
                     }
                 }
                 
@@ -492,15 +506,12 @@ const superApp = {
                     logStat.className = 'text-[10px] text-green-500 font-bold uppercase tracking-widest text-center'; 
                 }
 
-                // 🚀 FITUR BARU: Pembaruan antarmuka otomatis
                 if (this.currentUser) {
                     this.refreshData();
                     this.showToast("⚡ Database otomatis diperbarui dari server!", "success");
                 }
 
-                // =====================================================================
                 // 🚀 INJECT PENARIK DATA LATAR BELAKANG
-                // =====================================================================
                 setTimeout(() => {
                     if (typeof this.pullBackgroundData === 'function') {
                         console.log("⏰ Memicu penarikan data latar belakang (90 Hari)...");
@@ -714,7 +725,7 @@ const superApp = {
         this.isProcessing = false;
     },
     
-   pullFreshData: async function(silent = false) {
+  pullFreshData: async function(silent = false) {
         if (this.isProcessing && !silent) return; 
         
         if (!silent) this.setLoading(true, "Menyinkronkan Database Terkini...");
@@ -723,23 +734,29 @@ const superApp = {
         let data = null;
 
         try {
-            // 🚀 PERBAIKAN KRITIS: Menggunakan sistem 3x percobaan TANPA AbortController
             for (let i = 0; i < 3; i++) {
                 try {
-                    // DIET PAYLOAD: 31 hari
                     const res = await fetch(API_URL + "?ts=" + new Date().getTime() + "&history=31", { 
                         method: 'GET',
                         redirect: 'follow',
                         cache: 'no-store'
                     }); 
                     
-                    data = await res.json();
+                    // 🛡️ PROTEKSI ANTI-HTML CRASH
+                    const rawText = await res.text();
+                    if (rawText.trim().startsWith("<!DOCTYPE") || rawText.trim().startsWith("<html")) {
+                        throw new Error("Server Google sibuk (HTML 502 Error).");
+                    }
+                    data = JSON.parse(rawText);
+                    
                     if (data && data.status === 'sukses') break; 
                 } catch (e) {
                     console.warn(`[Tarik Data] Percobaan ke-${i+1}/3 gagal:`, e.message);
                     if (!silent && i < 2) {
-                        this.setLoading(true, `Mencoba ulang koneksi (${i+2}/3)...`);
-                        await new Promise(r => setTimeout(r, 1500));
+                        this.setLoading(true, `Menunggu server Google (${i+2}/3)...`);
+                        // ⏱️ EXPONENTIAL BACKOFF
+                        let waitTime = (i === 0) ? 2000 : 4000;
+                        await new Promise(r => setTimeout(r, waitTime));
                     }
                 }
             }
@@ -776,18 +793,14 @@ const superApp = {
                 }
             }
             
-            // =================================================================
             // 🚀 STRICT SMART MERGE 
-            // =================================================================
             if (typeof this.mergeDatabase === 'function') {
                 this.db = this.mergeDatabase(this.db, data);
             } else {
-                console.error("❌ Peringatan: Fungsi mergeDatabase tidak ditemukan! Data terpaksa ditimpa.");
                 this.db = data;
             }
             localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
 
-            // JEMBATAN PENGATURAN PERSONALISASI
             let configs = [
                 { key: 'Logo_Aplikasi', storage: 'app_logo_url', callback: (val) => typeof this.updateAppLogos === 'function' && this.updateAppLogos(val) },
                 { key: 'Promo_Standby', storage: 'cfd_promo_standby' },
@@ -812,7 +825,7 @@ const superApp = {
         } catch (e) { 
             console.warn("Fetch Error pullFreshData:", e.message);
             if (!silent) {
-                this.showToast("Gagal menarik data. Cek koneksi internet Anda.", "error"); 
+                this.showToast("Gagal menarik data. Server sedang sibuk, coba lagi nanti.", "error"); 
             }
         } finally {
             this.isProcessing = false;

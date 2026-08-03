@@ -373,6 +373,8 @@ const superApp = {
     // STARTUP & LOGIN (INIT)
     // =========================================================================
     init: async function() {
+        // Nyalakan fitur Swipe ke Bawah (Pull to Refresh)
+        this.initPullToRefresh();
         // 🚀 JALANKAN RADAR UPDATE SILUMAN SEBELUM KASIR LOGIN
         this.autoCheckUpdateOnStart();
 

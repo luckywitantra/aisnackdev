@@ -820,7 +820,7 @@ const superApp = {
         }
     },
 
-    initPullToRefresh: function() {
+   initPullToRefresh: function() {
         const ptrEl = document.getElementById('pull-to-refresh-indicator');
         const ptrIcon = document.getElementById('ptr-icon');
         const ptrIconBox = document.getElementById('ptr-icon-box');
@@ -828,34 +828,52 @@ const superApp = {
         if (!ptrEl) return;
 
         let startY = 0;
+        let startX = 0; // Tambahan: Untuk mendeteksi arah sumbu X
         let currentY = 0;
         let isPulling = false;
-        const threshold = 90; // Jarak tarik yang dibutuhkan untuk memicu refresh (px)
+        let isAxisLocked = false; // Tambahan: Kunci arah usapan
+        
+        // 🚀 PERBAIKAN 1: Threshold dinaikkan agar kasir harus benar-benar niat menariknya
+        const threshold = 150; 
 
         const handleStart = (e) => {
-            // Hanya izinkan ditarik jika posisi layar berada di paling atas
             if (window.scrollY === 0) {
                 startY = e.touches ? e.touches[0].screenY : e.screenY;
+                startX = e.touches ? e.touches[0].screenX : e.screenX;
                 isPulling = true;
-                ptrEl.style.transition = 'none'; // Matikan animasi saat jari sedang menarik
+                isAxisLocked = false;
+                ptrEl.style.transition = 'none';
             }
         };
 
         const handleMove = (e) => {
             if (!isPulling) return;
+            
+            let currentX = e.touches ? e.touches[0].screenX : e.screenX;
             currentY = e.touches ? e.touches[0].screenY : e.screenY;
+            
             let pullDistance = currentY - startY;
+            let swipeHorizontal = Math.abs(currentX - startX);
 
-            // Jika ditarik ke bawah
+            // 🚀 PERBAIKAN 2: Jika tarikan menyamping lebih besar dari tarikan ke bawah, batalkan! (Mencegah salah tarik)
+            if (!isAxisLocked) {
+                if (swipeHorizontal > pullDistance) {
+                    isPulling = false;
+                    return;
+                }
+                isAxisLocked = true;
+            }
+
             if (pullDistance > 0 && window.scrollY === 0) {
-                // Efek hambatan (resistance) agar terasa seperti karet
-                let visualDistance = Math.min(pullDistance * 0.45, threshold + 30);
+                // Cegah browser melakukan scroll default (memantul bawaan HP)
+                if (e.cancelable) e.preventDefault(); 
+                
+                // 🚀 PERBAIKAN 3: Efek Karet (Friction). Tarikan terasa lebih berat (dikali 0.3)
+                let visualDistance = Math.min(pullDistance * 0.3, threshold - 20); 
                 ptrEl.style.transform = `translateY(${visualDistance}px)`;
                 
-                // Rotasi icon pelan-pelan mengikuti jari
                 ptrIcon.style.transform = `rotate(${pullDistance}deg)`;
                 
-                // Jika sudah melewati batas threshold, ubah warna jadi status "Siap Lepas"
                 if (pullDistance > threshold) {
                     ptrIconBox.classList.replace('from-[#E5202B]', 'from-[#25D366]');
                     ptrIconBox.classList.replace('to-[#FFB800]', 'to-[#128C7E]');
@@ -864,7 +882,7 @@ const superApp = {
                 } else {
                     ptrIconBox.classList.replace('from-[#25D366]', 'from-[#E5202B]');
                     ptrIconBox.classList.replace('to-[#128C7E]', 'to-[#FFB800]');
-                    ptrText.innerText = "Tarik ke Bawah...";
+                    ptrText.innerText = "Tarik Lebih Jauh...";
                     ptrText.classList.replace('text-[#128C7E]', 'text-[#4A3B32]');
                 }
             }
@@ -875,31 +893,26 @@ const superApp = {
             isPulling = false;
             let pullDistance = currentY - startY;
             
-            // Nyalakan kembali animasi transisi dengan efek Bouncy (Membal)
             ptrEl.style.transition = 'transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
             
             if (pullDistance > threshold && window.scrollY === 0) {
-                // Tahan di tengah layar
                 ptrEl.style.transform = `translateY(40px)`; 
                 ptrIcon.classList.add('fa-spin');
                 ptrText.innerText = "Menyegarkan Sistem...";
                 
-                // Beri efek getar kecil pada HP
                 if (navigator.vibrate) navigator.vibrate(50);
                 
-                // Lakukan RELOAD HARD untuk mematikan semua proses nyangkut dan mengulang login
                 setTimeout(() => {
                     window.location.reload(true);
                 }, 800);
             } else {
-                // Batal ditarik, sembunyikan kembali ke atas
                 ptrEl.style.transform = `translateY(-100%)`;
             }
         };
 
-        // Event Listener untuk HP (Touch)
+        // Tambahkan opsi passive: false pada touchmove agar e.preventDefault() bisa bekerja mencegah scroll membal bawaan browser
         document.addEventListener('touchstart', handleStart, { passive: true });
-        document.addEventListener('touchmove', handleMove, { passive: true });
+        document.addEventListener('touchmove', handleMove, { passive: false });
         document.addEventListener('touchend', handleEnd);
     },
 

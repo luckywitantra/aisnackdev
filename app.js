@@ -7056,7 +7056,7 @@ refreshData: function() {
     // 🚀 ENGINE: GENERATOR WA OPNAME (DAFTAR DIJADIKAN SATU)
     // =========================================================
     buildOpnameWaText: function(outlet, kasir, waktu, items) {
-        // 🚀 JARING PENGAMAN: Ambil data otomatis jika parameter kosong/undefined
+        // 🚀 JARING PENGAMAN: Ambil nama dan waktu, format ulang jika perlu
         let namaKasir = kasir || (this.currentUser ? this.currentUser.Nama : 'Admin / Kasir');
         
         let waktuSekarang = waktu;
@@ -7070,7 +7070,7 @@ refreshData: function() {
             waktuSekarang = `${dd}/${mm}/${yy} ${hh}:${mnt} WITA`;
         }
 
-        // Cegah duplikasi nama "Ai-Snack Ai-Snack Balikpapan"
+        // Hilangkan kata "Ai-Snack" agar pencarian nama cabang lebih akurat
         let namaOutlet = String(outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
 
         if (!Array.isArray(items)) items = [];
@@ -7099,9 +7099,9 @@ refreshData: function() {
         
         // 1.5 Hitung Total Barang Masuk (Mutasi) untuk Barang Pendukung
         let mutasiIn = {};
-        (this.db.mutasi || []).forEach(m => {
+        (this.db.mutasi || this.db.barangMasuk || []).forEach(m => {
             let mOut = String(m.Outlet_Tujuan || m.Outlet).replace(/^Ai\-Snack\s+/i, '').trim();
-            if(mOut === namaOutlet && m.Status_Approval === 'Disetujui') {
+            if(mOut === namaOutlet && String(m.Status_Approval).trim().toLowerCase() === 'disetujui') {
                 if(!mutasiIn[m.SKU]) mutasiIn[m.SKU] = 0;
                 mutasiIn[m.SKU] += Number(m.Qty || m.qty || 0);
             }
@@ -7116,25 +7116,42 @@ refreshData: function() {
         let listPendukung = [];
 
         items.forEach(item => {
+            // 💡 PERBAIKAN KUNCI REFERENSI (Toleransi 'sys' vs 'sistem', 'note' vs 'catatan')
+            let safeSistem = Number(item.sys || item.sistem || 0);
+            let safeFisik = Number(item.fisik || 0);
+            let safeSelisih = Number(item.selisih || 0);
+            let safeNote = item.note || item.catatan || item.Keterangan_Fisik || '';
+
             let master = (this.db.masterProduk || []).find(m => m.SKU === item.sku);
-            let kategori = master ? String(master.Kategori || '').toLowerCase() : 'bahan';
+            let kategori = master ? String(master.Kategori || '').toLowerCase() : (String(item.kategori || '').toLowerCase() || 'bahan');
             
-            if (kategori === 'bahan') {
-                let soldQty = productSales[item.sku] || 0;
+            // Masukkan data yang sudah "bersih" kembali ke object item
+            let cleanItem = {
+                sku: item.sku,
+                nama: item.nama,
+                sistem: safeSistem,
+                fisik: safeFisik,
+                selisih: safeSelisih,
+                catatan: safeNote,
+                estHari: -1
+            };
+
+            if (kategori === 'bahan' || kategori === 'utama') {
+                let soldQty = productSales[cleanItem.sku] || 0;
                 let vel = soldQty / daysActive;
-                item.estHari = vel > 0 ? Math.floor(item.fisik / vel) : -1; 
-                listBahan.push(item);
+                cleanItem.estHari = vel > 0 ? Math.floor(cleanItem.fisik / vel) : -1; 
+                listBahan.push(cleanItem);
             } else {
-                let totalReceived = mutasiIn[item.sku] || item.sistem; 
-                let totalUsed = totalReceived - item.fisik;
+                let totalReceived = mutasiIn[cleanItem.sku] || cleanItem.sistem; 
+                let totalUsed = totalReceived - cleanItem.fisik;
                 
                 if (totalUsed > 0 && daysActive > 0) {
                     let vel = totalUsed / daysActive; 
-                    item.estHari = Math.floor(item.fisik / vel);
+                    cleanItem.estHari = Math.floor(cleanItem.fisik / vel);
                 } else {
-                    item.estHari = -1; 
+                    cleanItem.estHari = -1; 
                 }
-                listPendukung.push(item);
+                listPendukung.push(cleanItem);
             }
         });
 
@@ -7143,7 +7160,7 @@ refreshData: function() {
         listBahan.sort(sortAZ);
         listPendukung.sort(sortAZ);
 
-        // 4. SUSUN TEKS WHATSAPP EKSEKUTIF (Menggunakan variabel yang sudah diamankan)
+        // 4. SUSUN TEKS WHATSAPP EKSEKUTIF
         let waText = `*[ LAPORAN OPNAME FISIK & AUDIT ]*\n📍 Cabang: *Ai-Snack ${namaOutlet}*\n👤 Kasir: *${namaKasir}*\n📅 Waktu: *${waktuSekarang}*\n\n*_Mohon cek menu Audit Opname di aplikasi untuk menyetujui_*\n\n`;
 
         if (listBahan.length > 0) {

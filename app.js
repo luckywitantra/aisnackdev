@@ -10248,7 +10248,6 @@ executeVoidTrx: async function(trxId) {
     // 🚀 ENGINE: CFO DASHBOARD DEEP DIVE ANALYSIS (POPUP)
     // =========================================================
   openAIDeepDive: function(type, param) {
-        // 1. Dapatkan Rentang Filter Aktif dari Dashboard AI
         const fStartEl = document.getElementById('ai-filter-start');
         const fEndEl = document.getElementById('ai-filter-end');
         let dStart = fStartEl ? fStartEl.value : '';
@@ -10267,7 +10266,7 @@ executeVoidTrx: async function(trxId) {
         let productTotalCash = 0;
         let sysStock = 0;
         let lastFisik = '-';
-        let skuTarget = ''; // 💡 Variabel penampung SKU untuk dilacak stoknya
+        let skuTarget = '';
 
         const isDataValid = (dateString, outletString) => {
             if (!dateString) return false;
@@ -10281,7 +10280,70 @@ executeVoidTrx: async function(trxId) {
             return true;
         };
 
-        // 2. KUMPULKAN TRANSAKSI
+        // ====================================================================
+        // 🚀 1. PENCARIAN SKU BRUTAL (KHUSUS MODE PRODUK)
+        // ====================================================================
+        if (type === 'product') {
+            let paramLower = String(param).trim().toLowerCase();
+            
+            // A. Cari di Master Produk terlebih dahulu
+            for (let p of (this.db.masterProduk || [])) {
+                if (String(p.Nama_Produk).trim().toLowerCase() === paramLower) {
+                    skuTarget = (p.SKU_Bahan && String(p.SKU_Bahan).trim() !== '') ? p.SKU_Bahan : p.SKU;
+                    break;
+                }
+            }
+            
+            // B. Jika tidak ada di master, cari di seluruh riwayat transaksi (tanpa batas waktu)
+            if (!skuTarget) {
+                for (let t of (this.db.transactions || [])) {
+                    let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
+                    for (let it of items) {
+                        if (String(it.nama || '').trim().toLowerCase() === paramLower) {
+                            skuTarget = (it.sku_bahan && String(it.sku_bahan).trim() !== '') ? it.sku_bahan : it.sku;
+                            break;
+                        }
+                    }
+                    if (skuTarget) break;
+                }
+            }
+            
+            // C. Hitung Stok Sistem dan Fisik (Menggunakan toLowerCase agar kebal salah ketik)
+            if (skuTarget) {
+                let skuLower = String(skuTarget).trim().toLowerCase();
+                
+                // Cari Stok Sistem Saat Ini
+                (this.db.hargaStokOutlet || []).forEach(s => {
+                    if (String(s.SKU).trim().toLowerCase() === skuLower) {
+                        let out = String(s.ID_Outlet || s.Outlet || 'Pusat').replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
+                        let filterOut = selOut.replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
+                        
+                        if (selOut === 'Semua' || out === filterOut) {
+                            sysStock += Number(s.Stok_Toko || s.Stok || 0);
+                        }
+                    }
+                });
+                
+                // Cari Fisik Terakhir dari riwayat Opname yang "Disetujui"
+                let opnameList = (this.db.opname || this.db.riwayatOpname || []).filter(o => 
+                    String(o.SKU).trim().toLowerCase() === skuLower && 
+                    String(o.Status_Approval).trim().toLowerCase() === 'disetujui'
+                );
+                
+                if (selOut !== 'Semua') {
+                    let filterOut = selOut.replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
+                    opnameList = opnameList.filter(o => String(o.Outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase() === filterOut);
+                }
+                
+                if (opnameList.length > 0) {
+                    lastFisik = opnameList[opnameList.length - 1].Stok_Fisik;
+                }
+            }
+        }
+
+        // ====================================================================
+        // 🚀 2. KUMPULKAN TRANSAKSI & RINCIAN BAYAR
+        // ====================================================================
         if (['hourly', 'branch', 'product', 'payment', 'pcs'].includes(type)) {
             (this.db.transactions || []).forEach(t => {
                 if (t.Status !== 'Sukses') return;
@@ -10329,56 +10391,13 @@ executeVoidTrx: async function(trxId) {
                             });
                             totalVal += omsetIt; totalPcs += Number(it.qty);
                             
-                            // Hitung Metode Pembayaran Spesifik Produk
+                            // Hitung Cash/QRIS
                             if (String(t.Metode_Bayar).toLowerCase() === 'qris') productTotalQris += omsetIt;
                             else productTotalCash += omsetIt;
-
-                            // 💡 PENTING: Curi target SKU secara akurat (Utamakan SKU_Bahan jika ada)
-                            if (!skuTarget) skuTarget = (it.sku_bahan && String(it.sku_bahan).trim() !== '') ? it.sku_bahan : it.sku;
                         }
                     });
                 }
             });
-
-            // 🚀 PENCARIAN STOK SISTEM & FISIK YANG SUDAH DIPERBAIKI (Tahan Banting)
-            if (type === 'product') {
-                // Fallback: Jika tidak ada transaksi sama sekali, cari dari Master Produk
-                if (!skuTarget) {
-                    (this.db.masterProduk || []).forEach(p => {
-                        if (String(p.Nama_Produk).trim().toLowerCase() === String(param).trim().toLowerCase()) {
-                            skuTarget = (p.SKU_Bahan && String(p.SKU_Bahan).trim() !== '') ? p.SKU_Bahan : p.SKU;
-                        }
-                    });
-                }
-                
-                if (skuTarget) {
-                    // 1. Dapatkan Sisa Stok Sistem
-                    (this.db.hargaStokOutlet || []).forEach(s => {
-                        if (String(s.SKU).trim() === String(skuTarget).trim()) {
-                            let out = String(s.ID_Outlet || s.Outlet || 'Pusat').replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
-                            let filterOut = selOut.replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
-                            
-                            if (selOut === 'Semua' || out === filterOut) {
-                                sysStock += Number(s.Stok_Toko || s.Stok || 0);
-                            }
-                        }
-                    });
-                    
-                    // 2. Dapatkan Stok Fisik Terakhir
-                    let opnameList = (this.db.opname || this.db.riwayatOpname || []).filter(o => 
-                        String(o.SKU).trim() === String(skuTarget).trim() && String(o.Status_Approval).trim() === 'Disetujui'
-                    );
-                    
-                    if (selOut !== 'Semua') {
-                        let filterOut = selOut.replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
-                        opnameList = opnameList.filter(o => String(o.Outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase() === filterOut);
-                    }
-                    
-                    if (opnameList.length > 0) {
-                        lastFisik = opnameList[opnameList.length - 1].Stok_Fisik; // Ambil riwayat paling bawah (terbaru)
-                    }
-                }
-            }
         }
         
         else if (type === 'opname') {
@@ -10417,6 +10436,9 @@ executeVoidTrx: async function(trxId) {
 
         details.sort((a, b) => Math.abs(b.nom) - Math.abs(a.nom));
 
+        // ====================================================================
+        // 🚀 3. HEADER HTML GENERATOR
+        // ====================================================================
         let totalHtml = '';
         if (type === 'product') {
             totalHtml = `

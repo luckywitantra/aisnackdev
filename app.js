@@ -7057,7 +7057,8 @@ refreshData: function() {
     // =========================================================
     buildOpnameWaText: function(outlet, kasir, waktu, items) {
         // 🚀 JARING PENGAMAN: Ambil nama dan waktu, format ulang jika perlu
-        let namaKasir = kasir || (this.currentUser ? this.currentUser.Nama : 'Admin / Kasir');
+       let namaKasir = this.currentUser ? this.currentUser.Username : 'Admin / Kasir';
+       let waktuSekarang = new Date().toLocaleString('id-ID') + ' WITA';
         
         let waktuSekarang = waktu;
         if (!waktuSekarang) {

@@ -10771,9 +10771,9 @@ executeVoidTrx: async function(trxId) {
         let dStart = fStartEl && fStartEl.value ? fStartEl.value : '';
         let dEnd = fEndEl && fEndEl.value ? fEndEl.value : '';
         
-        // 🚀 PERBAIKAN 1: Fallback Tanggal Super Aman
-        let dateStart = dStart ? new Date(dStart + "T00:00:00") : new Date(0); // Mentok ke masa lalu
-        let dateEnd = dEnd ? new Date(dEnd + "T23:59:59") : new Date(8640000000000000); // Mentok ke masa depan
+        // Fallback Tanggal Super Aman
+        let dateStart = dStart ? new Date(dStart + "T00:00:00") : new Date(0); 
+        let dateEnd = dEnd ? new Date(dEnd + "T23:59:59") : new Date(8640000000000000); 
         let selOut = document.getElementById('ai-filter-outlet')?.value || 'Semua';
 
         let title = '';
@@ -10793,7 +10793,6 @@ executeVoidTrx: async function(trxId) {
             let pureDate = String(dateString).split(' ')[0]; 
             let d = typeof this.parseDateId === 'function' ? this.parseDateId(pureDate) : new Date(pureDate.includes('/') ? pureDate.split('/').reverse().join('-') : pureDate);
             
-            // Bypass filter tanggal jika dStart & dEnd tidak diset
             if (dStart && dEnd && (d < dateStart || d > dateEnd)) return false;
             
             let out = outletString ? String(outletString).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase() : 'pusat';
@@ -10802,14 +10801,37 @@ executeVoidTrx: async function(trxId) {
             return true;
         };
 
+        // 🚀 PENJINAK WAKTU GLOBAL (Mencegah NaN pada Sorting Transaksi & Mutasi)
+        const getTimeSafe = (timeStr, backupTimeStr = '00:00:00') => {
+            if (!timeStr) return 0;
+            let parts = String(timeStr).trim().split(' ');
+            let dStr = parts[0];
+            let tStr = parts[1] || backupTimeStr;
+            
+            // Ubah titik ke titik dua untuk jam (09.50 -> 09:50)
+            tStr = String(tStr).replace(/\./g, ':');
+            let tParts = tStr.split(':');
+            let hh = (tParts[0] || '00').padStart(2, '0');
+            let mm = (tParts[1] || '00').padStart(2, '0');
+            let ss = (tParts[2] || '00').padStart(2, '0');
+            tStr = `${hh}:${mm}:${ss}`;
+
+            let d = dStr.split(/[\/\-]/);
+            if (d.length === 3) {
+                if (d[0].length === 4) return new Date(`${d[0]}-${d[1].padStart(2,'0')}-${d[2].padStart(2,'0')}T${tStr}`).getTime();
+                let yy = d[2].length === 2 ? '20' + d[2] : d[2];
+                return new Date(`${yy}-${d[1].padStart(2,'0')}-${d[0].padStart(2,'0')}T${tStr}`).getTime();
+            }
+            return new Date(timeStr).getTime() || 0;
+        };
+
         // ====================================================================
         // 🚀 1. PENCARIAN SKU BRUTAL (KHUSUS MODE PRODUK)
         // ====================================================================
         if (type === 'product') {
-            // Deklarasi aman di tingkat paling atas blok ini
             let paramLower = String(param).trim().toLowerCase();
             
-            // A. Cari di Master Produk terlebih dahulu
+            // A. Cari di Master Produk
             for (let p of (this.db.masterProduk || [])) {
                 if (String(p.Nama_Produk).trim().toLowerCase() === paramLower) {
                     skuTarget = (p.SKU_Bahan && String(p.SKU_Bahan).trim() !== '') ? p.SKU_Bahan : p.SKU;
@@ -10817,7 +10839,7 @@ executeVoidTrx: async function(trxId) {
                 }
             }
             
-            // B. Jika tidak ada di master, cari di seluruh riwayat transaksi (tanpa batas waktu)
+            // B. Cari di Riwayat Transaksi (Fallback)
             if (!skuTarget) {
                 for (let t of (this.db.transactions || [])) {
                     let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
@@ -10831,25 +10853,21 @@ executeVoidTrx: async function(trxId) {
                 }
             }
             
-            // C. Hitung Stok Sistem dan Fisik Terakhir (Super Akurat & Kebal Error)
+            // C. Hitung Stok Sistem dan Fisik Terakhir
             if (skuTarget || paramLower) {
                 let skuLower = String(skuTarget).trim().toLowerCase();
                 let origSkuLower = '';
                 
-                // Cari Original SKU dari Master agar pelacakan ganda lebih kuat
                 let masterData = (this.db.masterProduk || []).find(p => String(p.Nama_Produk).trim().toLowerCase() === paramLower);
                 if (masterData) origSkuLower = String(masterData.SKU).trim().toLowerCase();
 
-                // Fungsi helper kebal untuk mengecek kecocokan SKU/Nama
                 const isMatchSku = (targetDataSku) => {
                     if (!targetDataSku) return false;
                     let s = String(targetDataSku).trim().toLowerCase();
                     return (s === skuLower || (origSkuLower !== '' && s === origSkuLower) || s === paramLower);
                 };
 
-                // --- 1. Hitung Stok Sistem ---
                 (this.db.hargaStokOutlet || []).forEach(s => {
-                    // Lacak dari SKU Bahan, SKU Produk Asli, atau bahkan Nama Produknya langsung!
                     if (isMatchSku(s.SKU) || isMatchSku(s.Nama_Produk)) {
                         let out = String(s.ID_Outlet || s.Outlet || 'Pusat').replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
                         let filterOut = selOut.replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
@@ -10859,38 +10877,11 @@ executeVoidTrx: async function(trxId) {
                         }
                     }
                 });
-
-                // --- Helper Penjinak Waktu (Ubah 09.50 menjadi 09:50 agar Javascript tidak error) ---
-                const getTimeSafe = (timeStr) => {
-                    if (!timeStr) return 0;
-                    let parts = String(timeStr).trim().split(' ');
-                    let d = parts[0].split(/[\/\-]/);
-                    
-                    // Paksa ubah titik menjadi titik dua (09.50 -> 09:50)
-                    let t = (parts[1] || '00:00:00').replace(/\./g, ':');
-                    let tParts = t.split(':');
-                    let hh = (tParts[0] || '00').padStart(2, '0');
-                    let mm = (tParts[1] || '00').padStart(2, '0');
-                    let ss = (tParts[2] || '00').padStart(2, '0');
-                    t = `${hh}:${mm}:${ss}`;
-
-                    if (d.length === 3) {
-                        if (d[0].length === 4) return new Date(`${d[0]}-${d[1].padStart(2,'0')}-${d[2].padStart(2,'0')}T${t}`).getTime();
-                        let yy = d[2].length === 2 ? '20' + d[2] : d[2];
-                        return new Date(`${yy}-${d[1].padStart(2,'0')}-${d[0].padStart(2,'0')}T${t}`).getTime();
-                    }
-                    return new Date(timeStr).getTime() || 0;
-                };
                 
-                // --- 2. Hitung Fisik Tersedia (Waktu Terurut) ---
-                let opnameList = (this.db.opname || this.db.riwayatOpname || []).filter(o => 
-                    isMatchSku(o.SKU) && 
-                    String(o.Status_Approval).trim().toLowerCase() === 'disetujui'
-                );
+                let opnameList = (this.db.opname || this.db.riwayatOpname || []).filter(o => isMatchSku(o.SKU) && String(o.Status_Approval).trim().toLowerCase() === 'disetujui');
                 
                 if (opnameList.length > 0) {
                     if (selOut !== 'Semua') {
-                        // JIKA SPESIFIK 1 CABANG
                         let filterOut = selOut.replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
                         let cabangOpname = opnameList.filter(o => String(o.Outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase() === filterOut);
                         
@@ -10899,26 +10890,18 @@ executeVoidTrx: async function(trxId) {
                             lastFisik = cabangOpname[cabangOpname.length - 1].Stok_Fisik;
                         }
                     } else {
-                        // JIKA SEMUA CABANG (Cari fisik terbaru di TIAP cabang, lalu total)
                         let latestByOutlet = {};
                         opnameList.forEach(o => {
                             let outKey = String(o.Outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
                             let oTime = getTimeSafe(o.Waktu || o.Tanggal);
                             
                             if (!latestByOutlet[outKey] || oTime > latestByOutlet[outKey].time) {
-                                latestByOutlet[outKey] = {
-                                    time: oTime,
-                                    fisik: Number(o.Stok_Fisik || 0)
-                                };
+                                latestByOutlet[outKey] = { time: oTime, fisik: Number(o.Stok_Fisik || 0) };
                             }
                         });
                         
-                        let totalFisikSemuaCabang = 0;
-                        let adaData = false;
-                        for (let key in latestByOutlet) {
-                            totalFisikSemuaCabang += latestByOutlet[key].fisik;
-                            adaData = true;
-                        }
+                        let totalFisikSemuaCabang = 0; let adaData = false;
+                        for (let key in latestByOutlet) { totalFisikSemuaCabang += latestByOutlet[key].fisik; adaData = true; }
                         if (adaData) lastFisik = totalFisikSemuaCabang;
                     }
                 }
@@ -10926,7 +10909,7 @@ executeVoidTrx: async function(trxId) {
         }
 
         // ====================================================================
-        // 🚀 2. KUMPULKAN TRANSAKSI & RINCIAN BAYAR
+        // 🚀 2. KUMPULKAN TRANSAKSI & RINCIAN
         // ====================================================================
         if (['hourly', 'branch', 'product', 'payment', 'pcs'].includes(type)) {
             (this.db.transactions || []).forEach(t => {
@@ -10938,17 +10921,17 @@ executeVoidTrx: async function(trxId) {
                 let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
                 let pcsInTrx = items.reduce((sum, it) => sum + Number(it.qty || 0), 0);
                 
-                // Tambahkan field 'sortTime' untuk keperluan mengurutkan dari waktu terbaru
-                let sortTime = new Date(`${t.Tanggal.split(' ')[0].split('/').reverse().join('-')}T${t.Waktu || '00:00:00'}`).getTime();
+                // Gunakan TimeSafe Global
+                let sortTime = getTimeSafe(`${t.Tanggal} ${t.Waktu || '00:00:00'}`);
 
                 if (type === 'hourly' && jam === parseInt(param)) {
                     title = `Transaksi Pukul ${String(param).padStart(2,'0')}:00`;
-                    details.push({ sortTime: sortTime, icon: 'fa-clock', color: 'text-indigo-500', bg: 'bg-indigo-100', wkt: `${t.Tanggal} ${t.Waktu}`, ref: t.ID_TRX, desc: `Kasir: ${t.Kasir} • Cabang ${tOut}`, nom: Number(t.Total_Bayar), label: 'Rp', extra: `${pcsInTrx} Pcs` });
+                    details.push({ sortTime, icon: 'fa-clock', color: 'text-indigo-500', bg: 'bg-indigo-100', wkt: `${t.Tanggal} ${t.Waktu}`, ref: t.ID_TRX, desc: `Kasir: ${t.Kasir} • Cabang ${tOut}`, nom: Number(t.Total_Bayar), label: 'Rp', extra: `${pcsInTrx} Pcs` });
                     totalVal += Number(t.Total_Bayar); totalPcs += pcsInTrx;
                 } 
                 else if (type === 'branch' && tOut === param) {
                     title = `Kinerja Cabang ${param}`;
-                    details.push({ sortTime: sortTime, icon: 'fa-store', color: 'text-brand-500', bg: 'bg-brand-50', wkt: `${t.Tanggal} ${t.Waktu}`, ref: t.ID_TRX, desc: `Metode: ${t.Metode_Bayar} • Kasir: ${t.Kasir}`, nom: Number(t.Total_Bayar), label: 'Rp', extra: `${pcsInTrx} Pcs` });
+                    details.push({ sortTime, icon: 'fa-store', color: 'text-brand-500', bg: 'bg-brand-50', wkt: `${t.Tanggal} ${t.Waktu}`, ref: t.ID_TRX, desc: `Metode: ${t.Metode_Bayar} • Kasir: ${t.Kasir}`, nom: Number(t.Total_Bayar), label: 'Rp', extra: `${pcsInTrx} Pcs` });
                     totalVal += Number(t.Total_Bayar); totalPcs += pcsInTrx;
                 } 
                 else if (type === 'payment' && String(t.Metode_Bayar).trim().toLowerCase() === String(param).trim().toLowerCase()) {
@@ -10957,12 +10940,12 @@ executeVoidTrx: async function(trxId) {
                     let clr = isCash ? 'text-emerald-500' : 'text-sky-500';
                     let bgClr = isCash ? 'bg-emerald-100' : 'bg-sky-100';
                     let icn = isCash ? 'fa-money-bill-wave' : 'fa-qrcode';
-                    details.push({ sortTime: sortTime, icon: icn, color: clr, bg: bgClr, wkt: `${t.Tanggal} ${t.Waktu}`, ref: t.ID_TRX, desc: `Kasir: ${t.Kasir} • Cabang ${tOut}`, nom: Number(t.Total_Bayar), label: 'Rp', extra: `${pcsInTrx} Pcs` });
+                    details.push({ sortTime, icon: icn, color: clr, bg: bgClr, wkt: `${t.Tanggal} ${t.Waktu}`, ref: t.ID_TRX, desc: `Kasir: ${t.Kasir} • Cabang ${tOut}`, nom: Number(t.Total_Bayar), label: 'Rp', extra: `${pcsInTrx} Pcs` });
                     totalVal += Number(t.Total_Bayar); totalPcs += pcsInTrx;
                 }
                 else if (type === 'pcs') {
                     title = `Rincian Pcs Terjual`;
-                    details.push({ sortTime: sortTime, icon: 'fa-box-open', color: 'text-amber-500', bg: 'bg-amber-100', wkt: `${t.Tanggal} ${t.Waktu}`, ref: t.ID_TRX, desc: `Kasir: ${t.Kasir} • Cabang ${tOut}`, nom: pcsInTrx, label: 'Pcs', extra: `Rp ${Number(t.Total_Bayar).toLocaleString('id-ID')}` });
+                    details.push({ sortTime, icon: 'fa-box-open', color: 'text-amber-500', bg: 'bg-amber-100', wkt: `${t.Tanggal} ${t.Waktu}`, ref: t.ID_TRX, desc: `Kasir: ${t.Kasir} • Cabang ${tOut}`, nom: pcsInTrx, label: 'Pcs', extra: `Rp ${Number(t.Total_Bayar).toLocaleString('id-ID')}` });
                     totalVal += Number(t.Total_Bayar); totalPcs += pcsInTrx;
                 }
                 else if (type === 'product') {
@@ -10972,14 +10955,12 @@ executeVoidTrx: async function(trxId) {
                         if (String(safeNama).trim().toLowerCase() === String(param).trim().toLowerCase()) {
                             let omsetIt = Number(it.qty) * Number(it.price);
                             details.push({ 
-                                sortTime: sortTime,
-                                icon: 'fa-shopping-bag', color: 'text-fuchsia-500', bg: 'bg-fuchsia-100', 
+                                sortTime, icon: 'fa-shopping-bag', color: 'text-fuchsia-500', bg: 'bg-fuchsia-100', 
                                 wkt: `${t.Tanggal} ${t.Waktu}`, ref: t.ID_TRX, desc: `Cabang ${tOut} (Oleh: ${t.Kasir})`, 
                                 nom: omsetIt, label: 'Rp', extra: `${it.qty} Pcs • ${t.Metode_Bayar}` 
                             });
                             totalVal += omsetIt; totalPcs += Number(it.qty);
                             
-                            // 🚀 PERBAIKAN 2: Tambah .trim() untuk keamanan Metode Bayar
                             if (String(t.Metode_Bayar).trim().toLowerCase() === 'qris') productTotalQris += omsetIt;
                             else productTotalCash += omsetIt;
                         }
@@ -10997,12 +10978,10 @@ executeVoidTrx: async function(trxId) {
                 let isMinus = selisih < 0;
                 let clr = isMinus ? 'text-rose-500' : (selisih > 0 ? 'text-emerald-500' : 'text-slate-400');
                 let bgClr = isMinus ? 'bg-rose-100' : (selisih > 0 ? 'bg-emerald-100' : 'bg-slate-100');
-                
-                let sortTime = new Date(`${(o.Waktu||o.Tanggal).split(' ')[0].split('/').reverse().join('-')}T${(o.Waktu||o.Tanggal).split(' ')[1] || '00:00:00'}`).getTime();
+                let sortTime = getTimeSafe(o.Waktu || o.Tanggal);
                 
                 details.push({ 
-                    sortTime: sortTime,
-                    icon: 'fa-clipboard-check', color: clr, bg: bgClr, 
+                    sortTime, icon: 'fa-clipboard-check', color: clr, bg: bgClr, 
                     wkt: o.Waktu || o.Tanggal, ref: `SKU: ${o.SKU}`, desc: `Cabang ${o.Outlet} • Oleh ${o.Kasir}`, 
                     nom: selisih, label: 'Pcs', extra: `Sistem: ${o.Stok_Sistem} ➔ Fisik: ${o.Stok_Fisik}` 
                 });
@@ -11015,28 +10994,32 @@ executeVoidTrx: async function(trxId) {
             (this.db.mutasi || this.db.barangMasuk || []).forEach(m => {
                 if (!isDataValid(m.Waktu || m.Tanggal, m.Outlet_Tujuan || m.Outlet)) return;
                 
-                // 🚀 PERBAIKAN 3: Proteksi properti Qty/qty/Jumlah
                 let qty = Number(m.Qty || m.qty || m.Jumlah || 0); 
-                let sortTime = new Date(`${(m.Waktu||m.Tanggal).split(' ')[0].split('/').reverse().join('-')}T${(m.Waktu||m.Tanggal).split(' ')[1] || '00:00:00'}`).getTime();
+                let sortTime = getTimeSafe(m.Waktu || m.Tanggal);
+                let status = String(m.Status_Approval || 'Pending').trim();
+                
+                // 💡 FITUR: Smart Badge Color untuk Mutasi
+                let isApprove = status.toLowerCase() === 'disetujui' || status.toLowerCase() === 'sukses';
+                let stIcon = isApprove ? 'fa-check-circle text-emerald-500' : 'fa-clock text-amber-500';
                 
                 details.push({ 
-                    sortTime: sortTime,
-                    icon: 'fa-truck-loading', color: 'text-blue-500', bg: 'bg-blue-100', 
+                    sortTime, icon: 'fa-truck-loading', color: 'text-blue-500', bg: 'bg-blue-100', 
                     wkt: m.Waktu || m.Tanggal, ref: `${m.SKU} (${m.ID_Mutasi || 'MUT'})`, desc: `Ke: ${m.Outlet_Tujuan || m.Outlet} • ${m.Keterangan || 'Restok'}`, 
-                    nom: qty, label: 'Pcs', extra: `Status: ${m.Status_Approval}` 
+                    nom: qty, label: 'Pcs', extra: `<i class="fas ${stIcon}"></i> ${status}` 
                 });
                 totalPcs += qty;
             });
         }
 
-        // 🚀 PERBAIKAN 4: Mengurutkan Riwayat dari yang Terbaru ke Terlama (Audit Timeline Mode)
+        // Urutkan dari Terbaru ke Terlama (Kronologis)
         details.sort((a, b) => b.sortTime - a.sortTime);
 
         // ====================================================================
-        // 🚀 3. HEADER HTML GENERATOR
+        // 🚀 3. HEADER & HTML GENERATOR
         // ====================================================================
         let totalHtml = '';
         if (type === 'product') {
+            let avgDaily = dStart && dEnd ? (totalPcs / (Math.max(1, (dateEnd - dateStart) / (1000 * 60 * 60 * 24)))).toFixed(1) : '-';
             totalHtml = `
                 <div class="flex flex-col gap-2 mt-3">
                     <div class="flex flex-wrap gap-2">
@@ -11047,18 +11030,19 @@ executeVoidTrx: async function(trxId) {
                         <span class="text-amber-600 bg-amber-100 px-3 py-1.5 rounded-lg shadow-sm border border-amber-200 flex items-center gap-1.5 text-[11px] font-extrabold"><i class="fas fa-desktop"></i> Sistem: ${sysStock.toLocaleString('id-ID')} Pcs</span>
                         <span class="text-rose-600 bg-rose-100 px-3 py-1.5 rounded-lg shadow-sm border border-rose-200 flex items-center gap-1.5 text-[11px] font-extrabold"><i class="fas fa-box-open"></i> Fisik Terakhir: ${lastFisik !== '-' ? lastFisik + ' Pcs' : 'N/A'}</span>
                     </div>
-                    <div class="text-xs font-black text-slate-700 flex items-center gap-2 mt-1">
+                    <div class="text-xs font-black text-slate-700 flex flex-wrap items-center gap-2 mt-1">
                         Total Terjual: <span class="text-brand-600 bg-brand-50 px-2 py-0.5 rounded shadow-sm border border-brand-200">Rp ${totalVal.toLocaleString('id-ID')} (${totalPcs} Pcs)</span>
+                        ${avgDaily !== '-' ? `<span class="text-slate-500 bg-slate-100 px-2 py-0.5 rounded shadow-sm border border-slate-200">Rata-rata: ${avgDaily} Pcs/Hari</span>` : ''}
                     </div>
                 </div>
             `;
         } else if (['opname', 'mutasi', 'pcs'].includes(type)) {
-            totalHtml = `<div class="mt-3"><span class="text-indigo-600 bg-indigo-100 px-3 py-1 rounded-full shadow-inner border border-indigo-200">${totalPcs.toLocaleString('id-ID')} Pcs</span></div>`;
+            totalHtml = `<div class="mt-3"><span class="text-indigo-600 bg-indigo-100 px-3 py-1 rounded-full shadow-inner border border-indigo-200 font-black">${totalPcs.toLocaleString('id-ID')} Pcs</span></div>`;
         } else {
             totalHtml = `
                 <div class="mt-3 flex flex-wrap gap-2">
-                    <span class="text-emerald-600 bg-emerald-100 px-3 py-1 rounded-full shadow-inner border border-emerald-200">Rp ${totalVal.toLocaleString('id-ID')}</span>
-                    <span class="text-amber-600 bg-amber-100 px-3 py-1 rounded-full shadow-inner border border-amber-200">${totalPcs.toLocaleString('id-ID')} Pcs</span>
+                    <span class="text-emerald-600 bg-emerald-100 px-3 py-1 rounded-full shadow-inner border border-emerald-200 font-black">Rp ${totalVal.toLocaleString('id-ID')}</span>
+                    <span class="text-amber-600 bg-amber-100 px-3 py-1 rounded-full shadow-inner border border-amber-200 font-black">${totalPcs.toLocaleString('id-ID')} Pcs</span>
                 </div>
             `;
         }
@@ -11071,7 +11055,7 @@ executeVoidTrx: async function(trxId) {
                             <i class="fas ${d.icon} text-lg"></i>
                         </div>
                         <div class="flex-1 min-w-0">
-                            <div class="font-extrabold text-[13px] text-slate-800 truncate group-hover:text-brand-600 transition-colors">${d.ref}</div>
+                            <div class="font-extrabold text-[13px] text-slate-800 truncate group-hover:text-brand-600 transition-colors cursor-pointer" onclick="navigator.clipboard.writeText('${d.ref}'); superApp.showToast('ID Referensi disalin!','success')">${d.ref}</div>
                             <div class="text-[10px] font-bold text-slate-400 mt-1 flex flex-col sm:flex-row gap-1 sm:gap-3">
                                 <span><i class="far fa-clock mr-1 opacity-70"></i>${d.wkt}</span>
                                 <span class="text-slate-500 font-semibold truncate">${d.desc}</span>
@@ -11089,6 +11073,12 @@ executeVoidTrx: async function(trxId) {
                 </div>
             `).join('');
 
+        // Teks untuk disalin ke Clipboard (Laporan Instan WA)
+        let copyText = `*DEEP DIVE: ${title}*\n${subtitle}\n------------------\nTotal: ${totalVal > 0 ? 'Rp '+totalVal.toLocaleString('id-ID') : ''} ${totalPcs > 0 ? '('+totalPcs.toLocaleString('id-ID')+' Pcs)' : ''}\n\n`;
+        details.slice(0, 20).forEach(d => { copyText += `• ${d.wkt} | ${d.ref}\n  ${d.desc}\n  Total: ${d.label==='Rp'?'Rp ':''}${d.nom.toLocaleString('id-ID')} ${d.label==='Pcs'?'Pcs':''}\n\n`; });
+        if(details.length > 20) copyText += `... dan ${details.length - 20} data lainnya.\n`;
+        let encodedCopy = encodeURIComponent(copyText);
+
         let existingModal = document.getElementById('ai-deepdive-modal');
         if (existingModal) existingModal.remove();
         if (!document.getElementById('deepdive-style')) {
@@ -11100,22 +11090,33 @@ executeVoidTrx: async function(trxId) {
             <div class="bg-white w-full md:max-w-2xl md:rounded-[2rem] rounded-t-[2rem] shadow-[0_20px_60px_rgba(0,0,0,0.15)] flex flex-col h-[85vh] md:h-[80vh] transform translate-y-full md:translate-y-12 md:scale-90 transition-transform duration-500 overflow-hidden border-t-4 border-brand-500 md:border-4 md:border-white">
                 <div class="p-5 md:p-6 bg-gradient-to-br from-slate-50 to-white flex justify-between items-start shrink-0 relative overflow-hidden">
                     <div class="absolute top-0 right-0 w-32 h-32 bg-brand-50 rounded-full blur-2xl -mr-10 -mt-10"></div>
-                    <div class="relative z-10 w-full pr-10">
+                    <div class="relative z-10 w-full pr-24">
                         <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 bg-brand-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-brand-500/30 transform -rotate-3">
+                            <div class="w-10 h-10 bg-brand-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-brand-500/30 transform -rotate-3 shrink-0">
                                 <i class="fas fa-search-dollar text-xl"></i>
                             </div>
-                            <div>
-                                <h3 class="font-black text-slate-800 text-base md:text-lg tracking-tight">Deep Dive: ${title}</h3>
-                                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">${subtitle}</p>
+                            <div class="min-w-0">
+                                <h3 class="font-black text-slate-800 text-base md:text-lg tracking-tight truncate">Deep Dive: ${title}</h3>
+                                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 truncate">${subtitle}</p>
                             </div>
                         </div>
                         ${totalHtml}
                     </div>
-                    <button onclick="document.getElementById('ai-deepdive-modal').classList.remove('opacity-100'); document.getElementById('ai-deepdive-modal').firstElementChild.classList.add('translate-y-full', 'md:translate-y-12', 'md:scale-90'); setTimeout(()=>document.getElementById('ai-deepdive-modal').remove(), 400)" class="absolute top-5 right-5 w-10 h-10 flex items-center justify-center rounded-full bg-white border-2 border-slate-100 text-slate-400 hover:text-rose-500 hover:bg-rose-50 hover:border-rose-200 transition-all duration-300 active:scale-90 shadow-sm shrink-0 z-20 group">
-                        <i class="fas fa-times group-hover:rotate-90 transition-transform duration-300"></i>
-                    </button>
+                    
+                    <div class="absolute top-5 right-5 flex gap-2 z-20">
+                        <button onclick="navigator.clipboard.writeText(decodeURIComponent('${encodedCopy}')); superApp.showToast('Laporan berhasil disalin ke clipboard!', 'success');" class="w-10 h-10 flex items-center justify-center rounded-full bg-white border-2 border-slate-100 text-brand-500 hover:bg-brand-50 hover:border-brand-200 transition-all duration-300 active:scale-90 shadow-sm shrink-0" title="Salin Laporan Text">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                        <button onclick="document.getElementById('ai-deepdive-modal').classList.remove('opacity-100'); document.getElementById('ai-deepdive-modal').firstElementChild.classList.add('translate-y-full', 'md:translate-y-12', 'md:scale-90'); setTimeout(()=>document.getElementById('ai-deepdive-modal').remove(), 400)" class="w-10 h-10 flex items-center justify-center rounded-full bg-white border-2 border-slate-100 text-slate-400 hover:text-rose-500 hover:bg-rose-50 hover:border-rose-200 transition-all duration-300 active:scale-90 shadow-sm shrink-0 group">
+                            <i class="fas fa-times group-hover:rotate-90 transition-transform duration-300"></i>
+                        </button>
+                    </div>
                 </div>
+                
+                <div class="bg-slate-800 text-white text-[9px] md:text-[10px] font-bold text-center py-1.5 shadow-inner">
+                    <i class="fas fa-lightbulb text-amber-400 mr-1"></i> Klik pada ID/Referensi transaksi untuk menyalin kodenya
+                </div>
+
                 <div class="flex-1 overflow-y-auto custom-scroll p-3 md:p-5 bg-slate-50 border-t border-slate-100 relative">
                     <div class="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden pb-2 relative z-10">
                         ${listHtml}

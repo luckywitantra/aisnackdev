@@ -901,7 +901,7 @@ const superApp = {
         console.log(`✅ [Smart Merge] Sukses! Setelah digabung -> Laporan: ${merged.laporanHarian.length} | Transaksi: ${merged.transactions.length} | Mutasi: ${merged.mutasi.length} baris`);
         
         return merged;
-    }
+    },
     
     // =========================================================================
     // 🚀 ENGINE PENARIK LATAR BELAKANG (90 HARI)

@@ -6747,12 +6747,16 @@ refreshData: function() {
                 let sys = sData ? Number(sData.Stok_Toko) : 0;
                 autoFillData.push({ idDesk: `opn-fisik-${m.SKU}`, idMob: `opn-fisik-mob-${m.SKU}`, val: sys });
 
+                // 🛡️ Amankan nama produk dari tanda kutip tunggal agar onclick tidak error
+                let safeNama = String(m.Nama_Produk || '').replace(/'/g, "\\'");
+
+                // 🚀 UPDATE: Panggil fungsi openStokDetail dengan 3 parameter (SKU, Nama, Outlet)
                 let sysHtmlDesk = isAdmin 
-                    ? `<button onclick="superApp.openDetailStokOpname('${m.SKU}')" class="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-xl border border-indigo-200/60 hover:bg-indigo-500 hover:text-white transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5 mx-auto w-full max-w-[80px]" title="Lihat Analisis & Tren"><i class="fas fa-chart-area"></i> <span id="opn-sys-${m.SKU}" class="font-black">${sys}</span></button>` 
+                    ? `<button onclick="superApp.openStokDetail('${m.SKU}', '${safeNama}', '${this.outlet}')" class="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-xl border border-indigo-200/60 hover:bg-indigo-500 hover:text-white transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5 mx-auto w-full max-w-[80px]" title="Lihat Analisis & Tren"><i class="fas fa-chart-area"></i> <span id="opn-sys-${m.SKU}" class="font-black">${sys}</span></button>` 
                     : `<span id="opn-sys-${m.SKU}" class="font-black text-indigo-600 text-base">${sys}</span>`;
                 
                 let sysHtmlMob = isAdmin 
-                    ? `<button onclick="superApp.openDetailStokOpname('${m.SKU}')" class="inline-flex items-center gap-1.5 bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-md border border-indigo-200/60 shadow-sm active:scale-95"><i class="fas fa-chart-area text-[10px]"></i> <span id="opn-sys-mob-${m.SKU}" class="font-black">${sys}</span></button>` 
+                    ? `<button onclick="superApp.openStokDetail('${m.SKU}', '${safeNama}', '${this.outlet}')" class="inline-flex items-center gap-1.5 bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-md border border-indigo-200/60 shadow-sm active:scale-95"><i class="fas fa-chart-area text-[10px]"></i> <span id="opn-sys-mob-${m.SKU}" class="font-black">${sys}</span></button>` 
                     : `<span id="opn-sys-mob-${m.SKU}" class="font-black text-indigo-600">${sys}</span>`;
 
                 // --- BARIS TABEL DESKTOP ---

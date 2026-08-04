@@ -8763,35 +8763,140 @@ openDetailStokOpname: function(sku) {
         );
     },
 
+    showTrendInsight: function(dateKey, outletFilter) {
+        let jamPadat = {}; let itemsSold = {}; 
+        let totalRev = 0; let totalCash = 0; let totalQris = 0; let totalPcs = 0;
+        
+        [...(this.db.transactions || [])].forEach(t => {
+            if(t.Status === 'Sukses' && (outletFilter === 'Semua' || t.Outlet === outletFilter)) {
+                let isMatch = dateKey.length > 7 ? t.Tanggal.includes(dateKey) : this.cleanDateOnly(t.Tanggal).includes(dateKey);
+                if(isMatch) {
+                    let hour = t.Waktu ? t.Waktu.substring(0, 2) + ':00' : '00:00';
+                    let bayar = Number(t.Total_Bayar) || 0;
+                    
+                    if(!jamPadat[hour]) jamPadat[hour] = 0;
+                    jamPadat[hour] += bayar;
+                    totalRev += bayar;
+                    
+                    // 1. Pemisahan Omset Cash dan QRIS
+                    if (String(t.Metode_Bayar).trim().toLowerCase() === 'qris') {
+                        totalQris += bayar;
+                    } else {
+                        totalCash += bayar;
+                    }
+                    
+                    let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
+                    items.forEach(item => {
+                        let qty = Number(item.qty) || 0;
+                        if(!itemsSold[item.nama]) itemsSold[item.nama] = 0;
+                        itemsSold[item.nama] += qty;
+                        totalPcs += qty; // Hitung total item yang laku hari itu
+                    });
+                }
+            }
+        });
+
+        // 2. Hitung Sisa Stok Seluruh Barang di Cabang tersebut
+        let sysStock = 0;
+        (this.db.hargaStokOutlet || []).forEach(s => {
+            let out = String(s.ID_Outlet || s.Outlet || 'Pusat').replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
+            let filterOut = String(outletFilter).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
+            if (outletFilter === 'Semua' || out === filterOut) {
+                sysStock += Number(s.Stok_Toko || s.Stok || 0);
+            }
+        });
+
+        // Urutkan Jam & Produk
+        let sortedHours = Object.keys(jamPadat).sort((a,b) => jamPadat[b] - jamPadat[a]);
+        let peakHour = sortedHours.length > 0 ? sortedHours[0] : 'Tidak ada';
+        let sortedItems = Object.keys(itemsSold).sort((a,b) => itemsSold[b] - itemsSold[a]).slice(0, 3);
+        
+        let itemsHtml = sortedItems.map(i => `<div class="bg-white p-3 rounded-xl border border-slate-100 flex justify-between shadow-sm"><span class="font-black text-[#4A3B32] text-xs">${i}</span><span class="bg-[#FFF5D1] text-[#E5202B] px-2 py-0.5 rounded font-black text-[10px]">${itemsSold[i]} Pcs</span></div>`).join('');
+        
+        // Buat indikator tren
+        let trenText = `<span class="text-emerald-500 font-bold"><i class="fas fa-check-circle"></i> ${totalPcs} Laku</span>`;
+
+        // 🚀 PANGGIL MODAL DENGAN 8 PARAMETER
+        this.injectAndShowInsightModal(
+            `<i class="fas fa-chart-line"></i> Analisis: ${dateKey}`, 
+            `Total: Rp ${totalRev.toLocaleString('id-ID')}`, 
+            peakHour, 
+            totalCash,
+            totalQris,
+            sysStock,
+            trenText,
+            itemsHtml || '<p class="text-xs text-slate-400 font-bold">Belum ada data produk detail.</p>'
+        );
+    },
+
     showProductInsight: function(productName, startDateStr, endDateStr, outletFilter) {
         let jamPadat = {}; let totalQty = 0; let totalRev = 0;
+        let totalCash = 0; let totalQris = 0;
         let dateStart = startDateStr ? new Date(startDateStr + "T00:00:00") : new Date(0);
         let dateEnd = endDateStr ? new Date(endDateStr + "T23:59:59") : new Date();
+
+        let skuTarget = '';
+        
+        // 1. Cari SKU Master (Anti gagal untuk pencarian stok fisik)
+        (this.db.masterProduk || []).forEach(p => {
+            if (String(p.Nama_Produk).trim().toLowerCase() === String(productName).trim().toLowerCase()) {
+                skuTarget = (p.SKU_Bahan && String(p.SKU_Bahan).trim() !== '') ? p.SKU_Bahan : p.SKU;
+            }
+        });
 
         [...(this.db.transactions || [])].forEach(t => {
             if(t.Status === 'Sukses' && (outletFilter === 'Semua' || t.Outlet === outletFilter)) {
                 let trxDate = this.parseDateId(t.Tanggal);
                 if(trxDate >= dateStart && trxDate <= dateEnd) {
                     let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
-                    let targetItem = items.find(i => i.nama === productName);
+                    // Pencarian nama produk dengan toLowerCase agar tidak meleset
+                    let targetItem = items.find(i => String(i.nama).trim().toLowerCase() === String(productName).trim().toLowerCase());
                     
                     if(targetItem) {
                         let hour = t.Waktu ? t.Waktu.substring(0, 2) + ':00' : '00:00';
-                        if(!jamPadat[hour]) jamPadat[hour] = 0;
-                        jamPadat[hour] += Number(targetItem.qty) || 0;
+                        let qty = Number(targetItem.qty) || 0;
+                        let omset = qty * (Number(targetItem.price) || 0);
                         
-                        totalQty += Number(targetItem.qty) || 0;
-                        totalRev += (Number(targetItem.qty) || 0) * (Number(targetItem.price) || 0);
+                        if(!jamPadat[hour]) jamPadat[hour] = 0;
+                        jamPadat[hour] += qty;
+                        
+                        totalQty += qty;
+                        totalRev += omset;
+                        
+                        // 2. Pemisahan Cash dan QRIS
+                        if (String(t.Metode_Bayar).trim().toLowerCase() === 'qris') {
+                            totalQris += omset;
+                        } else {
+                            totalCash += omset;
+                        }
+
+                        // Jika SKU Master tidak ketemu, curi dari struk transaksi
+                        if (!skuTarget) skuTarget = (targetItem.sku_bahan && String(targetItem.sku_bahan).trim() !== '') ? targetItem.sku_bahan : targetItem.sku;
                     }
                 }
             }
         });
 
+        // 3. Kalkulasi Stok Produk Spesifik ini
+        let sysStock = 0;
+        if (skuTarget) {
+            (this.db.hargaStokOutlet || []).forEach(s => {
+                if (String(s.SKU).trim().toLowerCase() === String(skuTarget).trim().toLowerCase()) {
+                    let out = String(s.ID_Outlet || s.Outlet || 'Pusat').replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
+                    let filterOut = String(outletFilter).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
+                    
+                    if (outletFilter === 'Semua' || out === filterOut) {
+                        sysStock += Number(s.Stok_Toko || s.Stok || 0);
+                    }
+                }
+            });
+        }
+
         let sortedHours = Object.keys(jamPadat).sort((a,b) => jamPadat[b] - jamPadat[a]);
         let peakHour = sortedHours.length > 0 ? `${sortedHours[0]} (${jamPadat[sortedHours[0]]} Pcs)` : 'Tidak ada';
 
         let statHtml = `
-        <div class="bg-white p-3.5 rounded-xl border border-slate-100 flex justify-between items-center shadow-sm">
+        <div class="bg-white p-3.5 rounded-xl border border-slate-100 flex justify-between items-center shadow-sm mb-2">
             <span class="font-black text-slate-500 text-xs">Total Omset Produk</span>
             <span class="font-black text-[#E5202B] text-sm">Rp ${totalRev.toLocaleString('id-ID')}</span>
         </div>
@@ -8800,10 +8905,18 @@ openDetailStokOpname: function(sku) {
             <span class="font-black text-emerald-500 text-sm bg-emerald-50 px-2 py-0.5 rounded">${totalQty} Pcs</span>
         </div>`;
 
+        // Buat indikator tren
+        let trenText = totalQty > 15 ? `<span class="text-rose-500 font-bold"><i class="fas fa-fire"></i> Laris</span>` : `<span class="text-blue-500 font-bold">Normal</span>`;
+
+        // 🚀 PANGGIL MODAL DENGAN 8 PARAMETER
         this.injectAndShowInsightModal(
             `<i class="fas fa-box-open"></i> Insight: ${productName}`, 
             `Periode Aktif Terpilih`, 
             peakHour, 
+            totalCash,
+            totalQris,
+            sysStock,
+            trenText,
             statHtml
         );
     },

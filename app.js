@@ -10420,38 +10420,43 @@ executeVoidTrx: async function(trxId) {
             if (String(s.SKU).trim().toLowerCase() === skuTargetLower) {
                 let sOut = String(s.ID_Outlet || s.Outlet || 'Pusat').replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
                 let targetOut = String(outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
-                
-                if (outlet === 'Semua' || sOut === targetOut) {
-                    sysStock += Number(s.Stok_Toko || s.Stok || 0);
-                }
+                if (outlet === 'Semua' || sOut === targetOut) sysStock += Number(s.Stok_Toko || s.Stok || 0);
             }
         });
 
-        // 3. Bangun Kalender 7 Hari Terakhir
+        // 3. Bangun Kalender 1 Bulan Penuh (Bulan Berjalan)
         let days = [];
-        for(let i = 0; i < 7; i++) {
-            let d = new Date(); 
-            d.setDate(d.getDate() - i);
+        let today = new Date();
+        let currMonth = today.getMonth();
+        let currYear = today.getFullYear();
+        let daysInMonth = new Date(currYear, currMonth + 1, 0).getDate();
+        let passedDays = today.getDate(); // Jumlah hari yang sudah terlewati bulan ini
+        let monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+        let shortMonthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
+        let namaBulanIni = monthNames[currMonth];
+
+        // Loop dari tanggal terakhir di bulan ini mundur ke tanggal 1 (Terbaru di atas)
+        for(let i = daysInMonth; i >= 1; i--) {
+            let d = new Date(currYear, currMonth, i);
             let dd = String(d.getDate()).padStart(2, '0');
             let mm = String(d.getMonth() + 1).padStart(2, '0');
-            let yyyy = d.getFullYear();
             days.push({ 
-                dateStr: `${dd}/${mm}/${yyyy}`, 
-                shortStr: `${dd}/${mm}`, 
+                dateStr: `${dd}/${mm}/${currYear}`, 
+                shortStr: `${dd} ${shortMonthNames[currMonth]}`, 
+                isToday: d.toDateString() === today.toDateString(),
+                isFuture: d > today, // Tandai hari yang belum terjadi
                 terjual: 0, masuk: 0, opnameInfo: '-' 
             });
         }
         
-        // Buat Map untuk pencarian hari lebih cepat
         let historyMap = {};
         days.forEach(d => historyMap[d.dateStr] = d);
 
-        // 4. SCAN RIWAYAT TRANSAKSI (Untuk Kolom Terjual POS)
+        // 4. SCAN RIWAYAT TRANSAKSI BULAN INI
         (this.db.transactions || []).forEach(t => {
             if (t.Status !== 'Sukses') return;
             let tOut = String(t.Outlet || 'Pusat').replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
             let targetOut = String(outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
-            
             if (outlet !== 'Semua' && tOut !== targetOut) return;
             
             let tDate = String(t.Tanggal).split(' ')[0].trim();
@@ -10459,158 +10464,182 @@ executeVoidTrx: async function(trxId) {
                 let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
                 items.forEach(it => {
                     let itSku = (it.sku_bahan && String(it.sku_bahan).trim() !== '') ? it.sku_bahan : it.sku;
-                    if (String(itSku).trim().toLowerCase() === skuTargetLower) {
-                        historyMap[tDate].terjual += Number(it.qty || 0);
-                    }
+                    if (String(itSku).trim().toLowerCase() === skuTargetLower) historyMap[tDate].terjual += Number(it.qty || 0);
                 });
             }
         });
 
-        // 5. SCAN RIWAYAT MUTASI (Untuk Kolom Masuk Pusat)
+        // 5. SCAN RIWAYAT MUTASI BULAN INI
         (this.db.mutasi || this.db.barangMasuk || []).forEach(m => {
             let mOut = String(m.Outlet_Tujuan || m.Outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
             let targetOut = String(outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
-            
             if (outlet !== 'Semua' && mOut !== targetOut) return;
             
             let mDate = String(m.Waktu || m.Tanggal).split(' ')[0].trim();
             if (historyMap[mDate] && String(m.Status_Approval).trim().toLowerCase() === 'disetujui') {
-                if (String(m.SKU).trim().toLowerCase() === skuTargetLower) {
-                    historyMap[mDate].masuk += Number(m.Qty || 0);
-                }
+                if (String(m.SKU).trim().toLowerCase() === skuTargetLower) historyMap[mDate].masuk += Number(m.Qty || 0);
             }
         });
 
-        // 6. SCAN RIWAYAT OPNAME
+        // 6. SCAN RIWAYAT OPNAME BULAN INI
         (this.db.opname || this.db.riwayatOpname || []).forEach(o => {
             let oOut = String(o.Outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
             let targetOut = String(outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
-            
             if (outlet !== 'Semua' && oOut !== targetOut) return;
             
             let oDate = String(o.Waktu || o.Tanggal).split(' ')[0].trim();
             if (historyMap[oDate] && String(o.Status_Approval).trim().toLowerCase() === 'disetujui') {
                 if (String(o.SKU).trim().toLowerCase() === skuTargetLower) {
                     let selisih = Number(o.Selisih || 0);
-                    let color = selisih < 0 ? 'text-rose-500' : (selisih > 0 ? 'text-emerald-500' : 'text-slate-400');
+                    let color = selisih < 0 ? 'text-rose-600 bg-rose-50 border-rose-200' : (selisih > 0 ? 'text-emerald-600 bg-emerald-50 border-emerald-200' : 'text-slate-500 bg-slate-50 border-slate-200');
                     let icon = selisih < 0 ? 'fa-arrow-down' : (selisih > 0 ? 'fa-arrow-up' : 'fa-check');
-                    historyMap[oDate].opnameInfo = `<span class="${color} font-black bg-white px-2 py-0.5 rounded shadow-sm border border-slate-100 text-[9px]"><i class="fas ${icon} mr-1"></i>${selisih} (Fisik: ${o.Stok_Fisik})</span>`;
+                    historyMap[oDate].opnameInfo = `<span class="${color} font-black px-2 py-1 rounded shadow-sm border text-[9px] whitespace-nowrap"><i class="fas ${icon} mr-1"></i>${selisih} (Fisik: ${o.Stok_Fisik})</span>`;
                 }
             }
         });
 
-        // 7. Hitung Rata-Rata & Kecepatan (Indikator AI)
-        let totalTerjual7Hari = 0;
-        days.forEach(d => totalTerjual7Hari += d.terjual);
-        let avg = (totalTerjual7Hari / 7).toFixed(1);
+        // 7. Hitung Rekapitulasi Metrik AI
+        let totalTerjualBulanIni = 0;
+        let totalMasukBulanIni = 0;
+        days.forEach(d => {
+            totalTerjualBulanIni += d.terjual;
+            totalMasukBulanIni += d.masuk;
+        });
+        
+        let avg = passedDays > 0 ? (totalTerjualBulanIni / passedDays).toFixed(1) : 0;
         
         let statusHtml = '';
         if (avg == 0) {
-            statusHtml = `<span class="bg-slate-100 text-slate-500 px-2.5 py-1 rounded-lg">Macet (0)</span>`;
+            statusHtml = `<span class="bg-slate-100 text-slate-500 px-2.5 py-1 rounded-lg border border-slate-200 shadow-sm">Macet</span>`;
+        } else if (sysStock <= 0) {
+            statusHtml = `<span class="bg-rose-100 text-rose-600 px-2.5 py-1 rounded-lg animate-pulse border border-rose-200 shadow-[0_0_10px_rgba(229,32,43,0.3)]">Kosong!</span>`;
         } else if (sysStock < avg * 2) {
-            statusHtml = `<span class="bg-rose-100 text-rose-600 px-2.5 py-1 rounded-lg animate-pulse border border-rose-200">Kritis!</span>`;
+            statusHtml = `<span class="bg-orange-100 text-orange-600 px-2.5 py-1 rounded-lg border border-orange-200 shadow-sm">Kritis</span>`;
         } else if (avg > 5) {
-            statusHtml = `<span class="bg-emerald-100 text-emerald-600 px-2.5 py-1 rounded-lg border border-emerald-200">Laris Manis</span>`;
+            statusHtml = `<span class="bg-emerald-100 text-emerald-600 px-2.5 py-1 rounded-lg border border-emerald-200 shadow-sm">Laris</span>`;
         } else {
-            statusHtml = `<span class="bg-blue-100 text-blue-600 px-2.5 py-1 rounded-lg border border-blue-200">Normal</span>`;
+            statusHtml = `<span class="bg-blue-100 text-blue-600 px-2.5 py-1 rounded-lg border border-blue-200 shadow-sm">Normal</span>`;
         }
 
-        // 8. Generate HTML Baris Tabel (Dengan Zebra Striping Kuning Halus & Animasi)
-        let tbodyHtml = days.map((d, idx) => `
-            <tr class="animate-slide-up hover:bg-[#FFF5D1]/60 transition-colors" style="animation-delay: ${idx * 40}ms; animation-fill-mode: both;">
-                <td class="py-3 px-6 text-[10px] md:text-xs">
-                    <span class="font-extrabold">${idx === 0 ? 'Hari Ini' : (idx === 1 ? 'Kemarin' : d.shortStr)}</span>
+        // 8. Generate HTML Baris Tabel (Sticky Column + Fade Effect untuk hari esok)
+        let tbodyHtml = days.map((d, idx) => {
+            let rowClass = d.isFuture ? "opacity-50 bg-slate-50 border-b border-white" : (d.isToday ? "bg-brand-50/30 border-b border-brand-100" : "border-b border-slate-50 hover:bg-[#FFF5D1]/60");
+            let dateLabel = d.isToday ? '<i class="fas fa-star text-amber-500 mr-1 animate-pulse"></i> HARI INI' : d.shortStr;
+            let stickyBg = d.isFuture ? "bg-slate-50" : (d.isToday ? "bg-brand-50" : "bg-white");
+            
+            return `
+            <tr class="transition-colors ${rowClass}">
+                <td class="py-3 px-4 md:px-5 text-[10px] md:text-xs sticky left-0 ${stickyBg} z-10 border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] whitespace-nowrap">
+                    <span class="font-extrabold ${d.isToday ? 'text-brand-600' : (d.isFuture ? 'text-slate-400' : 'text-slate-700')}">${dateLabel}</span>
                 </td>
-                <td class="py-3 px-4 text-center">
+                <td class="py-3 px-4 text-center whitespace-nowrap">
                     <span class="${d.terjual > 0 ? 'text-[#E5202B] font-black text-sm' : 'text-slate-300'}">${d.terjual > 0 ? d.terjual : '-'}</span>
                 </td>
-                <td class="py-3 px-4 text-center">
-                    <span class="${d.masuk > 0 ? 'text-emerald-500 font-black bg-emerald-50 px-2 py-0.5 rounded shadow-sm' : 'text-slate-300'}">${d.masuk > 0 ? '+'+d.masuk : '-'}</span>
+                <td class="py-3 px-4 text-center whitespace-nowrap">
+                    <span class="${d.masuk > 0 ? 'text-emerald-500 font-black bg-emerald-50 px-2 py-0.5 rounded shadow-sm border border-emerald-100' : 'text-slate-300'}">${d.masuk > 0 ? '+'+d.masuk : '-'}</span>
                 </td>
-                <td class="py-3 px-6 text-right">
-                    ${d.opnameInfo}
+                <td class="py-3 px-5 text-left whitespace-nowrap min-w-[150px]">
+                    ${d.isFuture ? '<span class="text-[9px] text-slate-300 italic">Belum tersedia</span>' : d.opnameInfo}
                 </td>
-            </tr>
-        `).join('');
+            </tr>`;
+        }).join('');
 
-        // 9. Bersihkan Modal Lama & Injeksi Modal Baru ke DOM
+        // 9. Bersihkan Modal Lama & Injeksi
         let existingModal = document.getElementById('modal-stok-detail');
         if (existingModal) existingModal.remove();
 
-        if (!document.getElementById('deepdive-style')) {
-            document.head.insertAdjacentHTML('beforeend', `<style id="deepdive-style">@keyframes slideUpFade { 0% { opacity: 0; transform: translateY(15px); } 100% { opacity: 1; transform: translateY(0); } } .animate-slide-up { animation: slideUpFade 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }</style>`);
-        }
-
         let modalHtml = `
-        <div id="modal-stok-detail" class="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-[9999] flex items-end md:items-center justify-center p-0 md:p-6 opacity-0 transition-opacity duration-400">
-            <div class="bg-white rounded-t-[2.5rem] md:rounded-[2.5rem] w-full max-w-2xl max-h-[90dvh] flex flex-col shadow-[0_20px_60px_rgba(229,32,43,0.15)] overflow-hidden border border-white relative group transform translate-y-full md:translate-y-12 md:scale-90 transition-transform duration-500">
+        <div id="modal-stok-detail" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-end md:items-center justify-center p-0 md:p-6 opacity-0 transition-opacity duration-400">
+            <div class="bg-white rounded-t-[2.5rem] md:rounded-[2.5rem] w-full max-w-3xl max-h-[95dvh] md:max-h-[85dvh] flex flex-col shadow-[0_20px_60px_rgba(0,0,0,0.3)] overflow-hidden border border-white/20 relative group transform translate-y-full md:translate-y-12 md:scale-95 transition-transform duration-500">
                 
                 <!-- 🌟 Watermark Ikon Latar -->
-                <i class="fas fa-chart-line absolute top-0 right-0 -mt-6 -mr-6 text-9xl text-[#FFF5D1]/60 opacity-80 pointer-events-none z-0 transform group-hover:scale-110 group-hover:rotate-3 transition-transform duration-700"></i>
+                <i class="fas fa-calendar-alt absolute top-0 right-0 -mt-6 -mr-6 text-9xl text-[#FFF5D1]/60 opacity-80 pointer-events-none z-0 transform group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-700"></i>
 
                 <!-- 🏷️ Header Modal -->
-                <div class="px-6 lg:px-8 py-5 md:py-6 border-b border-slate-100 flex justify-between items-start shrink-0 relative z-10 bg-white/95 backdrop-blur-sm">
-                    <div class="flex items-center gap-4">
-                        <div class="w-14 h-14 bg-gradient-to-br from-[#FFB800] to-orange-400 rounded-[1.25rem] flex items-center justify-center text-white text-2xl shadow-[0_8px_20px_rgba(255,184,0,0.3)] shrink-0 border border-[#FFD874]/50 transform -rotate-3">
-                            <i class="fas fa-search-dollar drop-shadow-md"></i>
+                <div class="px-5 lg:px-8 py-5 border-b border-slate-100 flex justify-between items-start shrink-0 relative z-10 bg-white/95 backdrop-blur-sm">
+                    <div class="flex items-center gap-3 md:gap-4 pr-4">
+                        <div class="w-12 h-12 md:w-14 md:h-14 bg-gradient-to-br from-[#FFB800] to-orange-400 rounded-2xl flex items-center justify-center text-white text-xl md:text-2xl shadow-[0_8px_20px_rgba(255,184,0,0.3)] shrink-0 border border-[#FFD874]/50 transform rotate-3">
+                            <i class="fas fa-boxes drop-shadow-md"></i>
                         </div>
-                        <div>
-                            <h3 class="font-black text-[#4A3B32] text-lg md:text-xl tracking-tight leading-none truncate max-w-[200px] md:max-w-[300px]">${nama}</h3>
-                            <p class="text-[9px] font-black text-[#E5202B] uppercase tracking-widest mt-1.5 flex items-center gap-1">
-                                <i class="fas fa-bolt text-[#FFB800]"></i> Analisis Tren & Histori 7 Hari
+                        <div class="min-w-0">
+                            <h3 class="font-black text-[#4A3B32] text-base md:text-xl tracking-tight leading-none truncate">${nama}</h3>
+                            <p class="text-[9px] md:text-[10px] font-black text-[#E5202B] uppercase tracking-widest mt-1.5 flex items-center gap-1">
+                                <i class="fas fa-calendar-check text-[#FFB800]"></i> Laporan Bulan ${namaBulanIni} ${currYear}
                             </p>
-                            <p class="text-[9px] font-bold text-slate-400 mt-0.5">Filter Cabang: ${outlet}</p>
+                            <p class="text-[9px] font-bold text-slate-400 mt-0.5 truncate">Cabang: ${outlet}</p>
                         </div>
                     </div>
-                    <button onclick="document.getElementById('modal-stok-detail').classList.remove('opacity-100'); document.getElementById('modal-stok-detail').firstElementChild.classList.add('translate-y-full', 'md:translate-y-12', 'md:scale-90'); setTimeout(()=>document.getElementById('modal-stok-detail').remove(), 400)" class="w-9 h-9 md:w-10 md:h-10 bg-slate-100 hover:bg-rose-50 hover:text-[#E5202B] rounded-full flex items-center justify-center text-slate-400 transition-colors shadow-sm active:scale-90 border border-slate-200 hover:border-rose-200">
+                    <button onclick="document.getElementById('modal-stok-detail').classList.remove('opacity-100'); document.getElementById('modal-stok-detail').firstElementChild.classList.add('translate-y-full', 'md:translate-y-12', 'md:scale-95'); setTimeout(()=>document.getElementById('modal-stok-detail').remove(), 400)" class="w-9 h-9 md:w-10 md:h-10 bg-slate-50 hover:bg-rose-50 hover:text-[#E5202B] rounded-full flex items-center justify-center text-slate-400 transition-all shadow-sm active:scale-90 border border-slate-200 hover:border-rose-200 shrink-0">
                         <i class="fas fa-times text-base md:text-lg"></i>
                     </button>
                 </div>
 
-                <!-- 📊 3 Kartu Metrik (Playful UI) -->
-                <div class="grid grid-cols-3 gap-2 md:gap-3 p-4 md:p-6 bg-[#FFF5D1]/30 shrink-0 relative z-10 border-b border-slate-100">
-                    <div class="bg-white border border-slate-100 rounded-[1.25rem] p-3 md:p-4 shadow-sm flex flex-col items-center text-center hover:-translate-y-0.5 transition-transform group/card">
-                        <span class="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Stok Saat Ini</span>
-                        <span class="text-xl md:text-2xl font-black text-[#E5202B] drop-shadow-sm group-hover/card:scale-110 transition-transform">${sysStock}</span>
+                <!-- 📊 4 Kartu Metrik (Playful UI Grid) -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 p-4 bg-[#FFF5D1]/30 shrink-0 relative z-10 border-b border-slate-100">
+                    <div class="bg-white border border-slate-100 rounded-[1rem] p-3 shadow-sm flex flex-col items-center text-center hover:-translate-y-0.5 transition-transform group/card">
+                        <span class="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1"><i class="fas fa-box text-brand-400 mr-1"></i>Stok Skrg</span>
+                        <span class="text-lg md:text-xl font-black text-[#E5202B] drop-shadow-sm group-hover/card:scale-110 transition-transform">${sysStock}</span>
                     </div>
-                    <div class="bg-white border border-slate-100 rounded-[1.25rem] p-3 md:p-4 shadow-sm flex flex-col items-center text-center hover:-translate-y-0.5 transition-transform group/card">
-                        <span class="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Avg Terjual/Hari</span>
-                        <span class="text-xl md:text-2xl font-black text-[#FFB800] drop-shadow-sm group-hover/card:scale-110 transition-transform">${avg}</span>
+                    <div class="bg-white border border-slate-100 rounded-[1rem] p-3 shadow-sm flex flex-col items-center text-center hover:-translate-y-0.5 transition-transform group/card">
+                        <span class="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1"><i class="fas fa-fire text-orange-400 mr-1"></i>Laku Bulan Ini</span>
+                        <span class="text-lg md:text-xl font-black text-[#FFB800] drop-shadow-sm group-hover/card:scale-110 transition-transform">${totalTerjualBulanIni}</span>
                     </div>
-                    <div class="bg-white border border-slate-100 rounded-[1.25rem] p-3 md:p-4 shadow-sm flex flex-col items-center text-center hover:-translate-y-0.5 transition-transform justify-center">
-                        <span class="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Kecepatan</span>
+                    <div class="bg-white border border-slate-100 rounded-[1rem] p-3 shadow-sm flex flex-col items-center text-center hover:-translate-y-0.5 transition-transform group/card">
+                        <span class="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1"><i class="fas fa-chart-pie text-indigo-400 mr-1"></i>Rata-Rata/Hari</span>
+                        <span class="text-lg md:text-xl font-black text-indigo-600 drop-shadow-sm group-hover/card:scale-110 transition-transform">${avg}</span>
+                    </div>
+                    <div class="bg-white border border-slate-100 rounded-[1rem] p-3 shadow-sm flex flex-col items-center text-center hover:-translate-y-0.5 transition-transform justify-center">
+                        <span class="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1"><i class="fas fa-tachometer-alt text-emerald-400 mr-1"></i>Status</span>
                         <span class="text-[10px] md:text-xs font-black mt-0.5">${statusHtml}</span>
                     </div>
                 </div>
 
-                <!-- 📋 Tabel Riwayat (Zebra Striping) -->
-                <div class="flex-1 overflow-y-auto custom-scroll relative z-10 bg-white">
-                    <table class="w-full text-left text-xs md:text-sm whitespace-nowrap">
-                        <thead class="text-slate-400 border-b border-slate-100 sticky top-0 bg-slate-50/95 backdrop-blur-md shadow-sm z-20">
+                <!-- 💡 HINT SCROLL HORIZONTAL (Desain Alert Playful) -->
+                <div class="bg-slate-800 text-white text-[9px] md:text-[10px] font-bold text-center py-2 flex items-center justify-center gap-2 relative z-10 shadow-[inset_0_4px_6px_rgba(0,0,0,0.1)]">
+                    <i class="fas fa-arrows-alt-h animate-bounce-x text-brand-400"></i> Geser tabel ke kiri / kanan untuk melihat detail <i class="fas fa-hand-pointer text-brand-400"></i>
+                </div>
+
+                <!-- 📋 Tabel Riwayat (Horizontal Scrollable Super Smooth) -->
+                <div class="flex-1 overflow-y-auto overflow-x-auto custom-scroll relative z-10 bg-white">
+                    <table class="w-full text-left text-xs md:text-sm min-w-[550px] md:min-w-full">
+                        <thead class="text-slate-400 border-b border-slate-200 sticky top-0 bg-slate-100/95 backdrop-blur-md shadow-sm z-20">
                             <tr>
-                                <th class="py-3.5 px-6 font-black uppercase tracking-widest text-[9px] md:text-[10px]">Tanggal</th>
-                                <th class="py-3.5 px-4 text-center font-black uppercase tracking-widest text-[9px] md:text-[10px]">Terjual (POS)</th>
-                                <th class="py-3.5 px-4 text-center font-black uppercase tracking-widest text-[9px] md:text-[10px]">Masuk (Pusat)</th>
-                                <th class="py-3.5 px-6 text-right font-black uppercase tracking-widest text-[9px] md:text-[10px]">Info Opname</th>
+                                <th class="py-3 px-4 md:px-5 font-black uppercase tracking-widest text-[9px] md:text-[10px] sticky left-0 bg-slate-100/95 backdrop-blur-md z-30 border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">Tanggal</th>
+                                <th class="py-3 px-4 text-center font-black uppercase tracking-widest text-[9px] md:text-[10px]"><i class="fas fa-shopping-cart text-rose-400 mr-1"></i>Keluar (POS)</th>
+                                <th class="py-3 px-4 text-center font-black uppercase tracking-widest text-[9px] md:text-[10px]"><i class="fas fa-truck-loading text-emerald-400 mr-1"></i>Masuk (Pusat)</th>
+                                <th class="py-3 px-5 text-left font-black uppercase tracking-widest text-[9px] md:text-[10px]"><i class="fas fa-clipboard-check text-blue-400 mr-1"></i>Info Audit Opname</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-50 font-bold text-[#4A3B32] [&>tr:nth-child(even)]:bg-[#FFF5D1]/30">
+                        <tbody class="text-[#4A3B32]">
                             ${tbodyHtml}
                         </tbody>
                     </table>
                 </div>
+                
             </div>
         </div>`;
 
+        // Suntikkan style CSS untuk animasi dan scrollbar jika belum ada
+        if (!document.getElementById('stok-anim-style')) {
+            document.head.insertAdjacentHTML('beforeend', `<style id="stok-anim-style">
+                @keyframes bounceX { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(4px); } }
+                .animate-bounce-x { animation: bounceX 1.5s ease-in-out infinite; }
+                .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+                .custom-scroll::-webkit-scrollbar-track { background: #f8fafc; border-radius: 10px; }
+                .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+                .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+            </style>`);
+        }
+
         document.body.insertAdjacentHTML('beforeend', modalHtml);
 
-        // 10. Animasi Pemanggilan Modal (Bouncy Slide-Up)
+        // 10. Animasi Pemanggilan Modal
         setTimeout(() => {
             let el = document.getElementById('modal-stok-detail');
             if(el) {
                 el.classList.remove('opacity-0');
                 el.classList.add('opacity-100');
-                el.firstElementChild.classList.remove('translate-y-full', 'md:translate-y-12', 'md:scale-90');
+                el.firstElementChild.classList.remove('translate-y-full', 'md:translate-y-12', 'md:scale-95');
                 el.firstElementChild.classList.add('translate-y-0', 'md:translate-y-0', 'md:scale-100');
                 if (navigator.vibrate) navigator.vibrate(40);
             }

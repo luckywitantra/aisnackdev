@@ -853,35 +853,29 @@ const superApp = {
         merged.masterProduk = newDb.masterProduk || oldDb.masterProduk;
         merged.outlets = newDb.outlets || oldDb.outlets;
         merged.hargaStokOutlet = newDb.hargaStokOutlet || oldDb.hargaStokOutlet;
-        
-        // 🚀 TAMBAHAN KRITIS: PASTIKAN DATA BARANG MASUK JUGA DITIMPA 
-        merged.barangMasuk = newDb.barangMasuk || newDb.mutasi || oldDb.barangMasuk || oldDb.mutasi || [];
-        
         merged.users = newDb.users || oldDb.users;
         merged.pengaturan = newDb.pengaturan || oldDb.pengaturan;
+        merged.masterPengeluaran = newDb.masterPengeluaran || oldDb.masterPengeluaran;
 
         // --- B. HELPER PENGGABUNG ARRAY RIWAYAT (KEBAL ID BERBEDA & ANTI DUPLIKASI) ---
         const mergeHistoryArray = (oldArr = [], newArr = [], primaryKey, secondaryKey) => {
             let map = new Map();
             
-            // 1. Masukkan data lawas ke dalam Map
-            oldArr.forEach((item) => {
-                // 🛠️ PERBAIKAN 1: Hapus Math.random() agar ID fallback selalu konsisten (Deterministik)
-                let fallbackId = `${item.Tanggal || item.Tanggal_Laporan || ''}_${item.Waktu || ''}_${item.Outlet || item.Cabang || ''}_${item.Total_Bayar || item.Nominal || item.Selisih || '0'}`;
+            const processItem = (item) => {
+                // 🚀 PERBAIKAN 1: Fallback ID Super Spesifik
+                // Menambahkan SKU dan Qty/Selisih agar transaksi serentak tidak saling menimpa
+                let fallbackId = `${item.Tanggal || item.Tanggal_Laporan || item.Waktu || ''}_${item.Outlet || item.Cabang || item.Outlet_Tujuan || ''}_${item.SKU || ''}_${item.Total_Bayar || item.Nominal || item.Selisih || item.Qty || '0'}`;
+                
                 let id = item[primaryKey] || item[secondaryKey] || item['ID'] || item['id'] || fallbackId;
                 
                 map.set(String(id).trim(), item);
-            });
+            };
 
-            // 2. Masukkan data baru (Menimpa data lawas secara cerdas)
-            newArr.forEach((item) => {
-                let fallbackId = `${item.Tanggal || item.Tanggal_Laporan || ''}_${item.Waktu || ''}_${item.Outlet || item.Cabang || ''}_${item.Total_Bayar || item.Nominal || item.Selisih || '0'}`;
-                let id = item[primaryKey] || item[secondaryKey] || item['ID'] || item['id'] || fallbackId;
-                
-                map.set(String(id).trim(), item);
-            });
+            // Masukkan data lawas, lalu timpa/tambahkan dengan data baru
+            oldArr.forEach(processItem);
+            newArr.forEach(processItem);
 
-            // 3. Kembalikan ke Array (TANPA AUTO-SORT agar tidak crash di tanggal format ID)
+            // Kembalikan ke Array (Tanpa auto-sort agar urutan asli dari Google Sheets terjaga)
             return Array.from(map.values());
         };
 
@@ -889,20 +883,28 @@ const superApp = {
         merged.laporanHarian = mergeHistoryArray(oldDb.laporanHarian, newDb.laporanHarian, 'ID_Laporan', 'id_laporan');
         merged.transactions = mergeHistoryArray(oldDb.transactions, newDb.transactions, 'ID_TRX', 'id_trx');
         merged.shifts = mergeHistoryArray(oldDb.shifts, newDb.shifts, 'ID_Shift', 'id_shift');
-        merged.kasKeluar = mergeHistoryArray(oldDb.kasKeluar, newDb.kasKeluar, 'ID_Kas_Keluar', 'id_kas_keluar');
+        merged.kasKeluar = mergeHistoryArray(oldDb.kasKeluar, newDb.kasKeluar, 'ID_Kas', 'id_kas_keluar');
         
-        // 🚀 KEAMANAN GANDA UNTUK TABEL OPNAME
-        merged.opname = mergeHistoryArray(oldDb.opname || oldDb.riwayatOpname, newDb.opname || newDb.riwayatOpname, 'ID_Opname', 'id_opname');
+        // 🚀 PERBAIKAN 2: Proteksi Tabel Opname (Menggabungkan alias properti)
+        let oldOpname = oldDb.opname || oldDb.riwayatOpname || [];
+        let newOpname = newDb.opname || newDb.riwayatOpname || [];
+        merged.opname = mergeHistoryArray(oldOpname, newOpname, 'ID_Opname', 'id_opname');
         merged.riwayatOpname = merged.opname; 
         
-        merged.mutasi = mergeHistoryArray(oldDb.mutasi, newDb.mutasi, 'ID_Mutasi', 'id_mutasi');
+        // 🚀 PERBAIKAN 3: Proteksi Tabel Mutasi/Barang Masuk
+        // Dipindahkan dari Kelompok A ke Kelompok C agar digabung (merge), bukan ditimpa (overwrite).
+        let oldMutasi = oldDb.mutasi || oldDb.barangMasuk || [];
+        let newMutasi = newDb.mutasi || newDb.barangMasuk || [];
+        merged.mutasi = mergeHistoryArray(oldMutasi, newMutasi, 'ID_Mutasi', 'id_mutasi');
+        merged.barangMasuk = merged.mutasi;
 
-        console.log(`✅ [Smart Merge] Sukses! Setelah digabung -> Laporan Harian: ${merged.laporanHarian.length} baris | Transaksi: ${merged.transactions.length} baris`);
+        console.log(`✅ [Smart Merge] Sukses! Setelah digabung -> Laporan: ${merged.laporanHarian.length} | Transaksi: ${merged.transactions.length} | Mutasi: ${merged.mutasi.length} baris`);
+        
         return merged;
-    },
+    }
     
     // =========================================================================
-    // 🚀 2. PENARIK DATA LATAR BELAKANG (DIBATASI 90 HARI & MENGGUNAKAN MERGE)
+    // 🚀 ENGINE PENARIK LATAR BELAKANG (90 HARI)
     // =========================================================================
     pullBackgroundData: async function() {
         console.log("⏳ Memulai sinkronisasi data latar belakang (90 Hari)...");
@@ -913,7 +915,7 @@ const superApp = {
                 cache: 'no-store'
             });
 
-            // 🛠️ PERBAIKAN 2: TAMENG ANTI-HTML CRASH (Google 502 Error Protection)
+            // 🛠️ TAMENG ANTI-HTML CRASH (Google 502 Error Protection)
             const rawText = await res.text();
             if (rawText.trim().startsWith("<!DOCTYPE") || rawText.trim().startsWith("<html")) {
                 throw new Error("Server Google sibuk (HTML Error).");
@@ -922,6 +924,7 @@ const superApp = {
             const data = JSON.parse(rawText);
             
             if (data && data.status === 'sukses') {
+                // Gunakan Smart Merge yang baru
                 this.db = this.mergeDatabase(this.db, data);
                 localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
                 
@@ -931,9 +934,18 @@ const superApp = {
                     if (this.cart.length === 0) this.refreshData();
                     if (typeof this.renderReport === 'function' && !document.getElementById('view-report')?.classList.contains('hidden')) this.renderReport();
                     if (typeof this.generateAIReport === 'function' && !document.getElementById('view-ai')?.classList.contains('hidden')) this.generateAIReport();
+                    
+                    // 💡 FITUR EXTRA: Jika Modal Stok Detail sedang terbuka saat background sync selesai, muat ulang tabelnya agar data lamanya langsung muncul!
+                    let activeModal = document.getElementById('modal-stok-detail');
+                    if (activeModal && !activeModal.classList.contains('hidden')) {
+                        let skuLabel = activeModal.querySelector('h3').innerText;
+                        let filterOutlet = activeModal.querySelector('select') ? activeModal.querySelector('select').value : 'Semua';
+                        // Karena kita tidak bisa menarik SKU asli dari judul dengan mudah, kita biarkan saja user yang memutar dropdown bulan untuk memuat ulangnya. 
+                        // Tapi setidaknya database internal sudah terisi penuh.
+                    }
                 }
 
-                console.log("✅ Sinkronisasi latar belakang 90 hari selesai dan berhasil digabung!");
+                console.log("✅ Sinkronisasi latar belakang 90 hari selesai! Semua riwayat Mutasi dan Opname berhasil digabung.");
             }
         } catch (e) {
             console.warn("Sinkronisasi latar belakang dilewati:", e.message);

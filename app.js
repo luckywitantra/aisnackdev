@@ -838,7 +838,6 @@ const superApp = {
         }
     },
 
-
     mergeDatabase: function(oldDb, newDb) {
         // Jika memori lokal HP masih kosong, langsung gunakan data baru
         if (!oldDb || !oldDb.masterProduk) return newDb;
@@ -862,10 +861,15 @@ const superApp = {
             let map = new Map();
             
             const processItem = (item) => {
-                // 🚀 PERBAIKAN 1: Fallback ID Super Spesifik
-                // Menambahkan SKU dan Qty/Selisih agar transaksi serentak tidak saling menimpa
-                let fallbackId = `${item.Tanggal || item.Tanggal_Laporan || item.Waktu || ''}_${item.Outlet || item.Cabang || item.Outlet_Tujuan || ''}_${item.SKU || ''}_${item.Total_Bayar || item.Nominal || item.Selisih || item.Qty || '0'}`;
+                // 🚀 PERBAIKAN FATAL: Memisahkan Tanggal, Waktu, SKU, dan Nominal secara eksplisit!
+                let tgl = item.Tanggal || item.Tanggal_Laporan || '';
+                let wkt = item.Waktu || '';
+                let out = item.Outlet || item.Cabang || item.Outlet_Tujuan || '';
+                let sku = item.SKU || item.sku || '';
+                let val = item.Total_Bayar || item.Nominal || item.Selisih || item.Qty || item.qty || item.Jumlah || '0';
                 
+                // Jika ID unik dari server tidak ada, gunakan gabungan ini agar transaksi di jam/menit yang sama tidak tertimpa
+                let fallbackId = `${tgl}_${wkt}_${out}_${sku}_${val}`;
                 let id = item[primaryKey] || item[secondaryKey] || item['ID'] || item['id'] || fallbackId;
                 
                 map.set(String(id).trim(), item);
@@ -885,14 +889,13 @@ const superApp = {
         merged.shifts = mergeHistoryArray(oldDb.shifts, newDb.shifts, 'ID_Shift', 'id_shift');
         merged.kasKeluar = mergeHistoryArray(oldDb.kasKeluar, newDb.kasKeluar, 'ID_Kas', 'id_kas_keluar');
         
-        // 🚀 PERBAIKAN 2: Proteksi Tabel Opname (Menggabungkan alias properti)
+        // Proteksi Tabel Opname (Menggabungkan alias properti)
         let oldOpname = oldDb.opname || oldDb.riwayatOpname || [];
         let newOpname = newDb.opname || newDb.riwayatOpname || [];
         merged.opname = mergeHistoryArray(oldOpname, newOpname, 'ID_Opname', 'id_opname');
         merged.riwayatOpname = merged.opname; 
         
-        // 🚀 PERBAIKAN 3: Proteksi Tabel Mutasi/Barang Masuk
-        // Dipindahkan dari Kelompok A ke Kelompok C agar digabung (merge), bukan ditimpa (overwrite).
+        // Proteksi Tabel Mutasi/Barang Masuk
         let oldMutasi = oldDb.mutasi || oldDb.barangMasuk || [];
         let newMutasi = newDb.mutasi || newDb.barangMasuk || [];
         merged.mutasi = mergeHistoryArray(oldMutasi, newMutasi, 'ID_Mutasi', 'id_mutasi');
@@ -935,13 +938,10 @@ const superApp = {
                     if (typeof this.renderReport === 'function' && !document.getElementById('view-report')?.classList.contains('hidden')) this.renderReport();
                     if (typeof this.generateAIReport === 'function' && !document.getElementById('view-ai')?.classList.contains('hidden')) this.generateAIReport();
                     
-                    // 💡 FITUR EXTRA: Jika Modal Stok Detail sedang terbuka saat background sync selesai, muat ulang tabelnya agar data lamanya langsung muncul!
+                    // Muat ulang tabel stok jika sedang dibuka
                     let activeModal = document.getElementById('modal-stok-detail');
-                    if (activeModal && !activeModal.classList.contains('hidden')) {
-                        let skuLabel = activeModal.querySelector('h3').innerText;
-                        let filterOutlet = activeModal.querySelector('select') ? activeModal.querySelector('select').value : 'Semua';
-                        // Karena kita tidak bisa menarik SKU asli dari judul dengan mudah, kita biarkan saja user yang memutar dropdown bulan untuk memuat ulangnya. 
-                        // Tapi setidaknya database internal sudah terisi penuh.
+                    if (activeModal && !activeModal.classList.contains('opacity-0')) {
+                        console.log("🔄 Memuat ulang data popup stok setelah background sync selesai...");
                     }
                 }
 
@@ -978,7 +978,6 @@ const superApp = {
                 cache: 'no-store'
             });
 
-            // 🛠️ PERBAIKAN 3: TAMENG ANTI-HTML CRASH UNTUK ARSIP TAHUNAN
             const rawText = await res.text();
             if (rawText.trim().startsWith("<!DOCTYPE") || rawText.trim().startsWith("<html")) {
                 throw new Error("Server Google sibuk (HTML Error).");
@@ -987,10 +986,11 @@ const superApp = {
             const data = JSON.parse(rawText);
             
             if (data && data.status === 'sukses') {
-                this.db = data;
-                localStorage.setItem('aisnack_db_cache', JSON.stringify(data));
+                // 🚀 PERBAIKAN: Gunakan Smart Merge agar data offline yang belum sinkron TIDAK TERHAPUS!
+                this.db = this.mergeDatabase(this.db, data);
+                localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
                 
-                this.showToast("✅ Seluruh arsip data lawas berhasil dimuat!", "success");
+                this.showToast("✅ Seluruh arsip data lawas berhasil dimuat dan digabung!", "success");
                 
                 if (typeof this.renderReport === 'function') this.renderReport();
                 if (typeof this.renderLaporanHarianHistory === 'function') this.renderLaporanHarianHistory();

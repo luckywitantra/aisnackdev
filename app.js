@@ -10244,6 +10244,221 @@ executeVoidTrx: async function(trxId) {
         document.getElementById('ai-insight-text').innerHTML = insightTxt;
     },
 
+    openStokDetail: function(sku, nama, outlet = 'Semua') {
+        // 1. Dapatkan SKU Target Asli (Cek apakah barang ini punya bahan baku)
+        let skuTarget = sku;
+        let skuLower = String(sku).trim().toLowerCase();
+        
+        (this.db.masterProduk || []).forEach(p => {
+            if (String(p.SKU).trim().toLowerCase() === skuLower || String(p.Nama_Produk).trim().toLowerCase() === String(nama).trim().toLowerCase()) {
+                skuTarget = (p.SKU_Bahan && String(p.SKU_Bahan).trim() !== '') ? p.SKU_Bahan : p.SKU;
+            }
+        });
+        let skuTargetLower = String(skuTarget).trim().toLowerCase();
+
+        // 2. Kalkulasi Sisa Stok Sistem Saat Ini
+        let sysStock = 0;
+        (this.db.hargaStokOutlet || []).forEach(s => {
+            if (String(s.SKU).trim().toLowerCase() === skuTargetLower) {
+                let sOut = String(s.ID_Outlet || s.Outlet || 'Pusat').replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
+                let targetOut = String(outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
+                
+                if (outlet === 'Semua' || sOut === targetOut) {
+                    sysStock += Number(s.Stok_Toko || s.Stok || 0);
+                }
+            }
+        });
+
+        // 3. Bangun Kalender 7 Hari Terakhir
+        let days = [];
+        for(let i = 0; i < 7; i++) {
+            let d = new Date(); 
+            d.setDate(d.getDate() - i);
+            let dd = String(d.getDate()).padStart(2, '0');
+            let mm = String(d.getMonth() + 1).padStart(2, '0');
+            let yyyy = d.getFullYear();
+            days.push({ 
+                dateStr: `${dd}/${mm}/${yyyy}`, 
+                shortStr: `${dd}/${mm}`, 
+                terjual: 0, masuk: 0, opnameInfo: '-' 
+            });
+        }
+        
+        // Buat Map untuk pencarian hari lebih cepat
+        let historyMap = {};
+        days.forEach(d => historyMap[d.dateStr] = d);
+
+        // 4. SCAN RIWAYAT TRANSAKSI (Untuk Kolom Terjual POS)
+        (this.db.transactions || []).forEach(t => {
+            if (t.Status !== 'Sukses') return;
+            let tOut = String(t.Outlet || 'Pusat').replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
+            let targetOut = String(outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
+            
+            if (outlet !== 'Semua' && tOut !== targetOut) return;
+            
+            let tDate = String(t.Tanggal).split(' ')[0].trim();
+            if (historyMap[tDate]) {
+                let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
+                items.forEach(it => {
+                    let itSku = (it.sku_bahan && String(it.sku_bahan).trim() !== '') ? it.sku_bahan : it.sku;
+                    if (String(itSku).trim().toLowerCase() === skuTargetLower) {
+                        historyMap[tDate].terjual += Number(it.qty || 0);
+                    }
+                });
+            }
+        });
+
+        // 5. SCAN RIWAYAT MUTASI (Untuk Kolom Masuk Pusat)
+        (this.db.mutasi || this.db.barangMasuk || []).forEach(m => {
+            let mOut = String(m.Outlet_Tujuan || m.Outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
+            let targetOut = String(outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
+            
+            if (outlet !== 'Semua' && mOut !== targetOut) return;
+            
+            let mDate = String(m.Waktu || m.Tanggal).split(' ')[0].trim();
+            if (historyMap[mDate] && String(m.Status_Approval).trim().toLowerCase() === 'disetujui') {
+                if (String(m.SKU).trim().toLowerCase() === skuTargetLower) {
+                    historyMap[mDate].masuk += Number(m.Qty || 0);
+                }
+            }
+        });
+
+        // 6. SCAN RIWAYAT OPNAME
+        (this.db.opname || this.db.riwayatOpname || []).forEach(o => {
+            let oOut = String(o.Outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
+            let targetOut = String(outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
+            
+            if (outlet !== 'Semua' && oOut !== targetOut) return;
+            
+            let oDate = String(o.Waktu || o.Tanggal).split(' ')[0].trim();
+            if (historyMap[oDate] && String(o.Status_Approval).trim().toLowerCase() === 'disetujui') {
+                if (String(o.SKU).trim().toLowerCase() === skuTargetLower) {
+                    let selisih = Number(o.Selisih || 0);
+                    let color = selisih < 0 ? 'text-rose-500' : (selisih > 0 ? 'text-emerald-500' : 'text-slate-400');
+                    let icon = selisih < 0 ? 'fa-arrow-down' : (selisih > 0 ? 'fa-arrow-up' : 'fa-check');
+                    historyMap[oDate].opnameInfo = `<span class="${color} font-black bg-white px-2 py-0.5 rounded shadow-sm border border-slate-100 text-[9px]"><i class="fas ${icon} mr-1"></i>${selisih} (Fisik: ${o.Stok_Fisik})</span>`;
+                }
+            }
+        });
+
+        // 7. Hitung Rata-Rata & Kecepatan (Indikator AI)
+        let totalTerjual7Hari = 0;
+        days.forEach(d => totalTerjual7Hari += d.terjual);
+        let avg = (totalTerjual7Hari / 7).toFixed(1);
+        
+        let statusHtml = '';
+        if (avg == 0) {
+            statusHtml = `<span class="bg-slate-100 text-slate-500 px-2.5 py-1 rounded-lg">Macet (0)</span>`;
+        } else if (sysStock < avg * 2) {
+            statusHtml = `<span class="bg-rose-100 text-rose-600 px-2.5 py-1 rounded-lg animate-pulse border border-rose-200">Kritis!</span>`;
+        } else if (avg > 5) {
+            statusHtml = `<span class="bg-emerald-100 text-emerald-600 px-2.5 py-1 rounded-lg border border-emerald-200">Laris Manis</span>`;
+        } else {
+            statusHtml = `<span class="bg-blue-100 text-blue-600 px-2.5 py-1 rounded-lg border border-blue-200">Normal</span>`;
+        }
+
+        // 8. Generate HTML Baris Tabel (Dengan Zebra Striping Kuning Halus & Animasi)
+        let tbodyHtml = days.map((d, idx) => `
+            <tr class="animate-slide-up hover:bg-[#FFF5D1]/60 transition-colors" style="animation-delay: ${idx * 40}ms; animation-fill-mode: both;">
+                <td class="py-3 px-6 text-[10px] md:text-xs">
+                    <span class="font-extrabold">${idx === 0 ? 'Hari Ini' : (idx === 1 ? 'Kemarin' : d.shortStr)}</span>
+                </td>
+                <td class="py-3 px-4 text-center">
+                    <span class="${d.terjual > 0 ? 'text-[#E5202B] font-black text-sm' : 'text-slate-300'}">${d.terjual > 0 ? d.terjual : '-'}</span>
+                </td>
+                <td class="py-3 px-4 text-center">
+                    <span class="${d.masuk > 0 ? 'text-emerald-500 font-black bg-emerald-50 px-2 py-0.5 rounded shadow-sm' : 'text-slate-300'}">${d.masuk > 0 ? '+'+d.masuk : '-'}</span>
+                </td>
+                <td class="py-3 px-6 text-right">
+                    ${d.opnameInfo}
+                </td>
+            </tr>
+        `).join('');
+
+        // 9. Bersihkan Modal Lama & Injeksi Modal Baru ke DOM
+        let existingModal = document.getElementById('modal-stok-detail');
+        if (existingModal) existingModal.remove();
+
+        if (!document.getElementById('deepdive-style')) {
+            document.head.insertAdjacentHTML('beforeend', `<style id="deepdive-style">@keyframes slideUpFade { 0% { opacity: 0; transform: translateY(15px); } 100% { opacity: 1; transform: translateY(0); } } .animate-slide-up { animation: slideUpFade 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }</style>`);
+        }
+
+        let modalHtml = `
+        <div id="modal-stok-detail" class="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-[9999] flex items-end md:items-center justify-center p-0 md:p-6 opacity-0 transition-opacity duration-400">
+            <div class="bg-white rounded-t-[2.5rem] md:rounded-[2.5rem] w-full max-w-2xl max-h-[90dvh] flex flex-col shadow-[0_20px_60px_rgba(229,32,43,0.15)] overflow-hidden border border-white relative group transform translate-y-full md:translate-y-12 md:scale-90 transition-transform duration-500">
+                
+                <!-- 🌟 Watermark Ikon Latar -->
+                <i class="fas fa-chart-line absolute top-0 right-0 -mt-6 -mr-6 text-9xl text-[#FFF5D1]/60 opacity-80 pointer-events-none z-0 transform group-hover:scale-110 group-hover:rotate-3 transition-transform duration-700"></i>
+
+                <!-- 🏷️ Header Modal -->
+                <div class="px-6 lg:px-8 py-5 md:py-6 border-b border-slate-100 flex justify-between items-start shrink-0 relative z-10 bg-white/95 backdrop-blur-sm">
+                    <div class="flex items-center gap-4">
+                        <div class="w-14 h-14 bg-gradient-to-br from-[#FFB800] to-orange-400 rounded-[1.25rem] flex items-center justify-center text-white text-2xl shadow-[0_8px_20px_rgba(255,184,0,0.3)] shrink-0 border border-[#FFD874]/50 transform -rotate-3">
+                            <i class="fas fa-search-dollar drop-shadow-md"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-black text-[#4A3B32] text-lg md:text-xl tracking-tight leading-none truncate max-w-[200px] md:max-w-[300px]">${nama}</h3>
+                            <p class="text-[9px] font-black text-[#E5202B] uppercase tracking-widest mt-1.5 flex items-center gap-1">
+                                <i class="fas fa-bolt text-[#FFB800]"></i> Analisis Tren & Histori 7 Hari
+                            </p>
+                            <p class="text-[9px] font-bold text-slate-400 mt-0.5">Filter Cabang: ${outlet}</p>
+                        </div>
+                    </div>
+                    <button onclick="document.getElementById('modal-stok-detail').classList.remove('opacity-100'); document.getElementById('modal-stok-detail').firstElementChild.classList.add('translate-y-full', 'md:translate-y-12', 'md:scale-90'); setTimeout(()=>document.getElementById('modal-stok-detail').remove(), 400)" class="w-9 h-9 md:w-10 md:h-10 bg-slate-100 hover:bg-rose-50 hover:text-[#E5202B] rounded-full flex items-center justify-center text-slate-400 transition-colors shadow-sm active:scale-90 border border-slate-200 hover:border-rose-200">
+                        <i class="fas fa-times text-base md:text-lg"></i>
+                    </button>
+                </div>
+
+                <!-- 📊 3 Kartu Metrik (Playful UI) -->
+                <div class="grid grid-cols-3 gap-2 md:gap-3 p-4 md:p-6 bg-[#FFF5D1]/30 shrink-0 relative z-10 border-b border-slate-100">
+                    <div class="bg-white border border-slate-100 rounded-[1.25rem] p-3 md:p-4 shadow-sm flex flex-col items-center text-center hover:-translate-y-0.5 transition-transform group/card">
+                        <span class="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Stok Saat Ini</span>
+                        <span class="text-xl md:text-2xl font-black text-[#E5202B] drop-shadow-sm group-hover/card:scale-110 transition-transform">${sysStock}</span>
+                    </div>
+                    <div class="bg-white border border-slate-100 rounded-[1.25rem] p-3 md:p-4 shadow-sm flex flex-col items-center text-center hover:-translate-y-0.5 transition-transform group/card">
+                        <span class="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Avg Terjual/Hari</span>
+                        <span class="text-xl md:text-2xl font-black text-[#FFB800] drop-shadow-sm group-hover/card:scale-110 transition-transform">${avg}</span>
+                    </div>
+                    <div class="bg-white border border-slate-100 rounded-[1.25rem] p-3 md:p-4 shadow-sm flex flex-col items-center text-center hover:-translate-y-0.5 transition-transform justify-center">
+                        <span class="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Kecepatan</span>
+                        <span class="text-[10px] md:text-xs font-black mt-0.5">${statusHtml}</span>
+                    </div>
+                </div>
+
+                <!-- 📋 Tabel Riwayat (Zebra Striping) -->
+                <div class="flex-1 overflow-y-auto custom-scroll relative z-10 bg-white">
+                    <table class="w-full text-left text-xs md:text-sm whitespace-nowrap">
+                        <thead class="text-slate-400 border-b border-slate-100 sticky top-0 bg-slate-50/95 backdrop-blur-md shadow-sm z-20">
+                            <tr>
+                                <th class="py-3.5 px-6 font-black uppercase tracking-widest text-[9px] md:text-[10px]">Tanggal</th>
+                                <th class="py-3.5 px-4 text-center font-black uppercase tracking-widest text-[9px] md:text-[10px]">Terjual (POS)</th>
+                                <th class="py-3.5 px-4 text-center font-black uppercase tracking-widest text-[9px] md:text-[10px]">Masuk (Pusat)</th>
+                                <th class="py-3.5 px-6 text-right font-black uppercase tracking-widest text-[9px] md:text-[10px]">Info Opname</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-50 font-bold text-[#4A3B32] [&>tr:nth-child(even)]:bg-[#FFF5D1]/30">
+                            ${tbodyHtml}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>`;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // 10. Animasi Pemanggilan Modal (Bouncy Slide-Up)
+        setTimeout(() => {
+            let el = document.getElementById('modal-stok-detail');
+            if(el) {
+                el.classList.remove('opacity-0');
+                el.classList.add('opacity-100');
+                el.firstElementChild.classList.remove('translate-y-full', 'md:translate-y-12', 'md:scale-90');
+                el.firstElementChild.classList.add('translate-y-0', 'md:translate-y-0', 'md:scale-100');
+                if (navigator.vibrate) navigator.vibrate(40);
+            }
+        }, 20);
+    },
+
     // =========================================================
     // 🚀 ENGINE: CFO DASHBOARD DEEP DIVE ANALYSIS (POPUP)
     // =========================================================

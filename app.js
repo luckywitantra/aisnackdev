@@ -7060,7 +7060,6 @@ refreshData: function() {
        let namaKasir = this.currentUser ? this.currentUser.Username : 'Admin / Kasir';
        let waktuSekarang = new Date().toLocaleString('id-ID') + ' WITA';
         
-        let waktuSekarang = waktu;
         if (!waktuSekarang) {
             let t = new Date();
             let dd = String(t.getDate()).padStart(2, '0');

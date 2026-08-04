@@ -10805,7 +10805,33 @@ executeVoidTrx: async function(trxId) {
         // ====================================================================
         // 🚀 1. PENCARIAN SKU BRUTAL (KHUSUS MODE PRODUK)
         // ====================================================================
-        // C. Hitung Stok Sistem dan Fisik Terakhir (Super Akurat & Kebal Error)
+        if (type === 'product') {
+            // Deklarasi aman di tingkat paling atas blok ini
+            let paramLower = String(param).trim().toLowerCase();
+            
+            // A. Cari di Master Produk terlebih dahulu
+            for (let p of (this.db.masterProduk || [])) {
+                if (String(p.Nama_Produk).trim().toLowerCase() === paramLower) {
+                    skuTarget = (p.SKU_Bahan && String(p.SKU_Bahan).trim() !== '') ? p.SKU_Bahan : p.SKU;
+                    break;
+                }
+            }
+            
+            // B. Jika tidak ada di master, cari di seluruh riwayat transaksi (tanpa batas waktu)
+            if (!skuTarget) {
+                for (let t of (this.db.transactions || [])) {
+                    let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
+                    for (let it of items) {
+                        if (String(it.nama || '').trim().toLowerCase() === paramLower) {
+                            skuTarget = (it.sku_bahan && String(it.sku_bahan).trim() !== '') ? it.sku_bahan : it.sku;
+                            break;
+                        }
+                    }
+                    if (skuTarget) break;
+                }
+            }
+            
+            // C. Hitung Stok Sistem dan Fisik Terakhir (Super Akurat & Kebal Error)
             if (skuTarget || paramLower) {
                 let skuLower = String(skuTarget).trim().toLowerCase();
                 let origSkuLower = '';
@@ -10897,6 +10923,7 @@ executeVoidTrx: async function(trxId) {
                     }
                 }
             }
+        }
 
         // ====================================================================
         // 🚀 2. KUMPULKAN TRANSAKSI & RINCIAN BAYAR
@@ -12626,5 +12653,4 @@ setInterval(() => {
         superApp.pullFreshData(true); 
     }
 }, 300000);
-
 

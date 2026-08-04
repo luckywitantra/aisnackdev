@@ -10402,8 +10402,8 @@ executeVoidTrx: async function(trxId) {
         document.getElementById('ai-insight-text').innerHTML = insightTxt;
     },
 
-    openStokDetail: function(sku, nama, outlet = 'Semua') {
-        // 1. Dapatkan SKU Target Asli (Cek apakah barang ini punya bahan baku)
+   openStokDetail: function(sku, nama, outlet = 'Semua', targetMonth = null, targetYear = null) {
+        // 1. Dapatkan SKU Target Asli
         let skuTarget = sku;
         let skuLower = String(sku).trim().toLowerCase();
         
@@ -10414,7 +10414,7 @@ executeVoidTrx: async function(trxId) {
         });
         let skuTargetLower = String(skuTarget).trim().toLowerCase();
 
-        // 2. Kalkulasi Sisa Stok Sistem Saat Ini
+        // 2. Kalkulasi Sisa Stok Sistem Saat Ini (Selalu ambil yang paling mutakhir)
         let sysStock = 0;
         (this.db.hargaStokOutlet || []).forEach(s => {
             if (String(s.SKU).trim().toLowerCase() === skuTargetLower) {
@@ -10424,18 +10424,35 @@ executeVoidTrx: async function(trxId) {
             }
         });
 
-        // 3. Bangun Kalender 1 Bulan Penuh (Bulan Berjalan)
-        let days = [];
+        // 3. Konfigurasi Waktu (Dukung Pemilihan Bulan Mundur)
         let today = new Date();
-        let currMonth = today.getMonth();
-        let currYear = today.getFullYear();
+        let currMonth = targetMonth !== null ? parseInt(targetMonth) : today.getMonth();
+        let currYear = targetYear !== null ? parseInt(targetYear) : today.getFullYear();
         let daysInMonth = new Date(currYear, currMonth + 1, 0).getDate();
-        let passedDays = today.getDate(); // Jumlah hari yang sudah terlewati bulan ini
+        
+        // Logika Pintar Rata-Rata: Jika bulan ini, bagi dengan tanggal sekarang. Jika bulan lalu, bagi full sebulan.
+        let passedDays = 0;
+        let viewingDate = new Date(currYear, currMonth, 1);
+        let currentMonthDate = new Date(today.getFullYear(), today.getMonth(), 1);
+        
+        if (viewingDate.getTime() === currentMonthDate.getTime()) passedDays = today.getDate();
+        else if (viewingDate < currentMonthDate) passedDays = daysInMonth;
+        
         let monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
         let shortMonthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
-        let namaBulanIni = monthNames[currMonth];
 
-        // Loop dari tanggal terakhir di bulan ini mundur ke tanggal 1 (Terbaru di atas)
+        // Generate Opsi Dropdown Bulan (Tampilkan 7 Bulan Terakhir)
+        let monthOptions = '';
+        for(let i = 0; i <= 6; i++) {
+            let d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+            let mVal = d.getMonth();
+            let yVal = d.getFullYear();
+            let selected = (mVal === currMonth && yVal === currYear) ? 'selected' : '';
+            monthOptions += `<option value="${mVal}-${yVal}" ${selected}>${monthNames[mVal]} ${yVal}</option>`;
+        }
+
+        // 4. Bangun Kalender 1 Bulan Penuh Berdasarkan Bulan yang Dipilih
+        let days = [];
         for(let i = daysInMonth; i >= 1; i--) {
             let d = new Date(currYear, currMonth, i);
             let dd = String(d.getDate()).padStart(2, '0');
@@ -10444,7 +10461,7 @@ executeVoidTrx: async function(trxId) {
                 dateStr: `${dd}/${mm}/${currYear}`, 
                 shortStr: `${dd} ${shortMonthNames[currMonth]}`, 
                 isToday: d.toDateString() === today.toDateString(),
-                isFuture: d > today, // Tandai hari yang belum terjadi
+                isFuture: d > today,
                 terjual: 0, masuk: 0, opnameInfo: '-' 
             });
         }
@@ -10452,7 +10469,7 @@ executeVoidTrx: async function(trxId) {
         let historyMap = {};
         days.forEach(d => historyMap[d.dateStr] = d);
 
-        // 4. SCAN RIWAYAT TRANSAKSI BULAN INI
+        // 5. SCAN RIWAYAT TRANSAKSI
         (this.db.transactions || []).forEach(t => {
             if (t.Status !== 'Sukses') return;
             let tOut = String(t.Outlet || 'Pusat').replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
@@ -10469,7 +10486,7 @@ executeVoidTrx: async function(trxId) {
             }
         });
 
-        // 5. SCAN RIWAYAT MUTASI BULAN INI
+        // 6. SCAN RIWAYAT MUTASI
         (this.db.mutasi || this.db.barangMasuk || []).forEach(m => {
             let mOut = String(m.Outlet_Tujuan || m.Outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
             let targetOut = String(outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
@@ -10481,7 +10498,7 @@ executeVoidTrx: async function(trxId) {
             }
         });
 
-        // 6. SCAN RIWAYAT OPNAME BULAN INI
+        // 7. SCAN RIWAYAT OPNAME
         (this.db.opname || this.db.riwayatOpname || []).forEach(o => {
             let oOut = String(o.Outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
             let targetOut = String(outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
@@ -10498,7 +10515,7 @@ executeVoidTrx: async function(trxId) {
             }
         });
 
-        // 7. Hitung Rekapitulasi Metrik AI
+        // 8. Hitung Rekapitulasi Metrik AI
         let totalTerjualBulanIni = 0;
         let totalMasukBulanIni = 0;
         days.forEach(d => {
@@ -10521,7 +10538,7 @@ executeVoidTrx: async function(trxId) {
             statusHtml = `<span class="bg-blue-100 text-blue-600 px-2.5 py-1 rounded-lg border border-blue-200 shadow-sm">Normal</span>`;
         }
 
-        // 8. Generate HTML Baris Tabel (Sticky Column + Fade Effect untuk hari esok)
+        // 9. Generate HTML Baris Tabel (Sticky Column + Fade Effect)
         let tbodyHtml = days.map((d, idx) => {
             let rowClass = d.isFuture ? "opacity-50 bg-slate-50 border-b border-white" : (d.isToday ? "bg-brand-50/30 border-b border-brand-100" : "border-b border-slate-50 hover:bg-[#FFF5D1]/60");
             let dateLabel = d.isToday ? '<i class="fas fa-star text-amber-500 mr-1 animate-pulse"></i> HARI INI' : d.shortStr;
@@ -10544,7 +10561,7 @@ executeVoidTrx: async function(trxId) {
             </tr>`;
         }).join('');
 
-        // 9. Bersihkan Modal Lama & Injeksi
+        // 10. Bersihkan Modal Lama & Injeksi
         let existingModal = document.getElementById('modal-stok-detail');
         if (existingModal) existingModal.remove();
 
@@ -10552,7 +10569,6 @@ executeVoidTrx: async function(trxId) {
         <div id="modal-stok-detail" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-end md:items-center justify-center p-0 md:p-6 opacity-0 transition-opacity duration-400">
             <div class="bg-white rounded-t-[2.5rem] md:rounded-[2.5rem] w-full max-w-3xl max-h-[95dvh] md:max-h-[85dvh] flex flex-col shadow-[0_20px_60px_rgba(0,0,0,0.3)] overflow-hidden border border-white/20 relative group transform translate-y-full md:translate-y-12 md:scale-95 transition-transform duration-500">
                 
-                <!-- 🌟 Watermark Ikon Latar -->
                 <i class="fas fa-calendar-alt absolute top-0 right-0 -mt-6 -mr-6 text-9xl text-[#FFF5D1]/60 opacity-80 pointer-events-none z-0 transform group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-700"></i>
 
                 <!-- 🏷️ Header Modal -->
@@ -10562,11 +10578,17 @@ executeVoidTrx: async function(trxId) {
                             <i class="fas fa-boxes drop-shadow-md"></i>
                         </div>
                         <div class="min-w-0">
-                            <h3 class="font-black text-[#4A3B32] text-base md:text-xl tracking-tight leading-none truncate">${nama}</h3>
-                            <p class="text-[9px] md:text-[10px] font-black text-[#E5202B] uppercase tracking-widest mt-1.5 flex items-center gap-1">
-                                <i class="fas fa-calendar-check text-[#FFB800]"></i> Laporan Bulan ${namaBulanIni} ${currYear}
-                            </p>
-                            <p class="text-[9px] font-bold text-slate-400 mt-0.5 truncate">Cabang: ${outlet}</p>
+                            <h3 class="font-black text-[#4A3B32] text-base md:text-xl tracking-tight leading-none truncate mb-1.5">${nama}</h3>
+                            
+                            <!-- 💡 FITUR BARU: Dropdown Pilih Bulan -->
+                            <div class="flex items-center gap-1.5">
+                                <i class="fas fa-calendar-check text-[#FFB800]"></i>
+                                <select onchange="superApp.openStokDetail(\`${sku}\`, \`${nama.replace(/`/g, '\\`')}\`, \`${outlet}\`, this.value.split('-')[0], this.value.split('-')[1])" class="bg-slate-50 border border-slate-200 text-brand-600 text-[10px] md:text-xs font-black rounded-lg px-2 py-0.5 outline-none cursor-pointer hover:border-brand-300 focus:ring-2 focus:ring-brand-200 transition-all shadow-sm">
+                                    ${monthOptions}
+                                </select>
+                            </div>
+
+                            <p class="text-[9px] font-bold text-slate-400 mt-1 truncate">Cabang: ${outlet}</p>
                         </div>
                     </div>
                     <button onclick="document.getElementById('modal-stok-detail').classList.remove('opacity-100'); document.getElementById('modal-stok-detail').firstElementChild.classList.add('translate-y-full', 'md:translate-y-12', 'md:scale-95'); setTimeout(()=>document.getElementById('modal-stok-detail').remove(), 400)" class="w-9 h-9 md:w-10 md:h-10 bg-slate-50 hover:bg-rose-50 hover:text-[#E5202B] rounded-full flex items-center justify-center text-slate-400 transition-all shadow-sm active:scale-90 border border-slate-200 hover:border-rose-200 shrink-0">
@@ -10574,7 +10596,7 @@ executeVoidTrx: async function(trxId) {
                     </button>
                 </div>
 
-                <!-- 📊 4 Kartu Metrik (Playful UI Grid) -->
+                <!-- 📊 4 Kartu Metrik -->
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 p-4 bg-[#FFF5D1]/30 shrink-0 relative z-10 border-b border-slate-100">
                     <div class="bg-white border border-slate-100 rounded-[1rem] p-3 shadow-sm flex flex-col items-center text-center hover:-translate-y-0.5 transition-transform group/card">
                         <span class="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1"><i class="fas fa-box text-brand-400 mr-1"></i>Stok Skrg</span>
@@ -10594,12 +10616,11 @@ executeVoidTrx: async function(trxId) {
                     </div>
                 </div>
 
-                <!-- 💡 HINT SCROLL HORIZONTAL (Desain Alert Playful) -->
                 <div class="bg-slate-800 text-white text-[9px] md:text-[10px] font-bold text-center py-2 flex items-center justify-center gap-2 relative z-10 shadow-[inset_0_4px_6px_rgba(0,0,0,0.1)]">
                     <i class="fas fa-arrows-alt-h animate-bounce-x text-brand-400"></i> Geser tabel ke kiri / kanan untuk melihat detail <i class="fas fa-hand-pointer text-brand-400"></i>
                 </div>
 
-                <!-- 📋 Tabel Riwayat (Horizontal Scrollable Super Smooth) -->
+                <!-- 📋 Tabel Riwayat -->
                 <div class="flex-1 overflow-y-auto overflow-x-auto custom-scroll relative z-10 bg-white">
                     <table class="w-full text-left text-xs md:text-sm min-w-[550px] md:min-w-full">
                         <thead class="text-slate-400 border-b border-slate-200 sticky top-0 bg-slate-100/95 backdrop-blur-md shadow-sm z-20">
@@ -10619,7 +10640,6 @@ executeVoidTrx: async function(trxId) {
             </div>
         </div>`;
 
-        // Suntikkan style CSS untuk animasi dan scrollbar jika belum ada
         if (!document.getElementById('stok-anim-style')) {
             document.head.insertAdjacentHTML('beforeend', `<style id="stok-anim-style">
                 @keyframes bounceX { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(4px); } }
@@ -10633,7 +10653,6 @@ executeVoidTrx: async function(trxId) {
 
         document.body.insertAdjacentHTML('beforeend', modalHtml);
 
-        // 10. Animasi Pemanggilan Modal
         setTimeout(() => {
             let el = document.getElementById('modal-stok-detail');
             if(el) {

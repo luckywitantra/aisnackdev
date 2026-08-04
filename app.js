@@ -10414,7 +10414,7 @@ executeVoidTrx: async function(trxId) {
         });
         let skuTargetLower = String(skuTarget).trim().toLowerCase();
 
-        // 2. Kalkulasi Sisa Stok Sistem Saat Ini (Selalu ambil yang paling mutakhir)
+        // 2. Kalkulasi Sisa Stok Sistem Saat Ini (Real-Time)
         let sysStock = 0;
         (this.db.hargaStokOutlet || []).forEach(s => {
             if (String(s.SKU).trim().toLowerCase() === skuTargetLower) {
@@ -10424,13 +10424,12 @@ executeVoidTrx: async function(trxId) {
             }
         });
 
-        // 3. Konfigurasi Waktu (Dukung Pemilihan Bulan Mundur)
+        // 3. Setup Konfigurasi Waktu
         let today = new Date();
         let currMonth = targetMonth !== null ? parseInt(targetMonth) : today.getMonth();
         let currYear = targetYear !== null ? parseInt(targetYear) : today.getFullYear();
         let daysInMonth = new Date(currYear, currMonth + 1, 0).getDate();
         
-        // Logika Pintar Rata-Rata: Jika bulan ini, bagi dengan tanggal sekarang. Jika bulan lalu, bagi full sebulan.
         let passedDays = 0;
         let viewingDate = new Date(currYear, currMonth, 1);
         let currentMonthDate = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -10441,7 +10440,6 @@ executeVoidTrx: async function(trxId) {
         let monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
         let shortMonthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
 
-        // Generate Opsi Dropdown Bulan (Tampilkan 7 Bulan Terakhir)
         let monthOptions = '';
         for(let i = 0; i <= 6; i++) {
             let d = new Date(today.getFullYear(), today.getMonth() - i, 1);
@@ -10451,99 +10449,150 @@ executeVoidTrx: async function(trxId) {
             monthOptions += `<option value="${mVal}-${yVal}" ${selected}>${monthNames[mVal]} ${yVal}</option>`;
         }
 
-        // 4. Bangun Kalender 1 Bulan Penuh Berdasarkan Bulan yang Dipilih
-        let days = [];
-        for(let i = daysInMonth; i >= 1; i--) {
-            let d = new Date(currYear, currMonth, i);
-            let dd = String(d.getDate()).padStart(2, '0');
-            let mm = String(d.getMonth() + 1).padStart(2, '0');
-            days.push({ 
-                dateStr: `${dd}/${mm}/${currYear}`, 
-                shortStr: `${dd} ${shortMonthNames[currMonth]}`, 
-                isToday: d.toDateString() === today.toDateString(),
-                isFuture: d > today,
-                terjual: 0, masuk: 0, opnameInfo: '-' 
-            });
-        }
-        
-        let historyMap = {};
-        days.forEach(d => historyMap[d.dateStr] = d);
+        // ====================================================================
+        // 🚀 ENGINE BARU: PENGHITUNG KARTU STOK HARIAN (RUNNING BALANCE)
+        // ====================================================================
+        let allActivities = {}; // Wadah semua aktivitas harian
 
-        // 5. SCAN RIWAYAT TRANSAKSI
+        const getAct = (dStr) => {
+            if (!allActivities[dStr]) allActivities[dStr] = { terjual: 0, masuk: 0, selisih: 0, opnameNote: '' };
+            return allActivities[dStr];
+        };
+
+        // Penjinak Tanggal Super Tangguh (Mengatasi format aneh seperti "14/05/2026 09.5")
+        const normalizeDate = (dStr) => {
+            if(!dStr) return '';
+            let raw = String(dStr).split(' ')[0].trim(); 
+            let parts = raw.split(/[\/\-]/);
+            if(parts.length >= 3) {
+                let yy = parts[2]; if(yy.length === 2) yy = '20' + yy;
+                return `${parts[0].padStart(2,'0')}/${parts[1].padStart(2,'0')}/${yy}`;
+            }
+            return raw;
+        };
+
+        // Kumpulkan Keluar (POS)
         (this.db.transactions || []).forEach(t => {
             if (t.Status !== 'Sukses') return;
             let tOut = String(t.Outlet || 'Pusat').replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
             let targetOut = String(outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
             if (outlet !== 'Semua' && tOut !== targetOut) return;
             
-            let tDate = String(t.Tanggal).split(' ')[0].trim();
-            if (historyMap[tDate]) {
-                let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
-                items.forEach(it => {
-                    let itSku = (it.sku_bahan && String(it.sku_bahan).trim() !== '') ? it.sku_bahan : it.sku;
-                    if (String(itSku).trim().toLowerCase() === skuTargetLower) historyMap[tDate].terjual += Number(it.qty || 0);
-                });
-            }
+            let dStr = normalizeDate(t.Tanggal);
+            let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
+            items.forEach(it => {
+                let itSku = (it.sku_bahan && String(it.sku_bahan).trim() !== '') ? it.sku_bahan : it.sku;
+                if (String(itSku).trim().toLowerCase() === skuTargetLower) getAct(dStr).terjual += Number(it.qty || 0);
+            });
         });
 
-        // 6. SCAN RIWAYAT MUTASI
+        // Kumpulkan Masuk (Pusat) -> Mendukung Qty dengan huruf besar
         (this.db.mutasi || this.db.barangMasuk || []).forEach(m => {
             let mOut = String(m.Outlet_Tujuan || m.Outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
             let targetOut = String(outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
             if (outlet !== 'Semua' && mOut !== targetOut) return;
             
-            let mDate = String(m.Waktu || m.Tanggal).split(' ')[0].trim();
-            if (historyMap[mDate] && String(m.Status_Approval).trim().toLowerCase() === 'disetujui') {
-                if (String(m.SKU).trim().toLowerCase() === skuTargetLower) historyMap[mDate].masuk += Number(m.Qty || 0);
+            let dStr = normalizeDate(m.Waktu || m.Tanggal);
+            if (String(m.Status_Approval).trim().toLowerCase() === 'disetujui') {
+                if (String(m.SKU).trim().toLowerCase() === skuTargetLower) getAct(dStr).masuk += Number(m.Qty || m.qty || 0);
             }
         });
 
-        // 7. SCAN RIWAYAT OPNAME
+        // Kumpulkan Opname
         (this.db.opname || this.db.riwayatOpname || []).forEach(o => {
             let oOut = String(o.Outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
             let targetOut = String(outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
             if (outlet !== 'Semua' && oOut !== targetOut) return;
             
-            let oDate = String(o.Waktu || o.Tanggal).split(' ')[0].trim();
-            if (historyMap[oDate] && String(o.Status_Approval).trim().toLowerCase() === 'disetujui') {
+            let dStr = normalizeDate(o.Waktu || o.Tanggal);
+            if (String(o.Status_Approval).trim().toLowerCase() === 'disetujui') {
                 if (String(o.SKU).trim().toLowerCase() === skuTargetLower) {
-                    let selisih = Number(o.Selisih || 0);
-                    let color = selisih < 0 ? 'text-rose-600 bg-rose-50 border-rose-200' : (selisih > 0 ? 'text-emerald-600 bg-emerald-50 border-emerald-200' : 'text-slate-500 bg-slate-50 border-slate-200');
-                    let icon = selisih < 0 ? 'fa-arrow-down' : (selisih > 0 ? 'fa-arrow-up' : 'fa-check');
-                    historyMap[oDate].opnameInfo = `<span class="${color} font-black px-2 py-1 rounded shadow-sm border text-[9px] whitespace-nowrap"><i class="fas ${icon} mr-1"></i>${selisih} (Fisik: ${o.Stok_Fisik})</span>`;
+                    getAct(dStr).selisih += Number(o.Selisih || 0);
+                    getAct(dStr).opnameNote = o.Stok_Fisik || '';
                 }
             }
         });
 
-        // 8. Hitung Rekapitulasi Metrik AI
-        let totalTerjualBulanIni = 0;
-        let totalMasukBulanIni = 0;
-        days.forEach(d => {
-            totalTerjualBulanIni += d.terjual;
-            totalMasukBulanIni += d.masuk;
-        });
+        // 🧠 Kalkulator Hitung Mundur Stok Harian
+        let stockHistory = {};
+        let runningStock = sysStock; // Mulai dari stok hari ini
+        let loopDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        let targetMonthStartDate = new Date(currYear, currMonth, 1);
         
-        let avg = passedDays > 0 ? (totalTerjualBulanIni / passedDays).toFixed(1) : 0;
-        
-        let statusHtml = '';
-        if (avg == 0) {
-            statusHtml = `<span class="bg-slate-100 text-slate-500 px-2.5 py-1 rounded-lg border border-slate-200 shadow-sm">Macet</span>`;
-        } else if (sysStock <= 0) {
-            statusHtml = `<span class="bg-rose-100 text-rose-600 px-2.5 py-1 rounded-lg animate-pulse border border-rose-200 shadow-[0_0_10px_rgba(229,32,43,0.3)]">Kosong!</span>`;
-        } else if (sysStock < avg * 2) {
-            statusHtml = `<span class="bg-orange-100 text-orange-600 px-2.5 py-1 rounded-lg border border-orange-200 shadow-sm">Kritis</span>`;
-        } else if (avg > 5) {
-            statusHtml = `<span class="bg-emerald-100 text-emerald-600 px-2.5 py-1 rounded-lg border border-emerald-200 shadow-sm">Laris</span>`;
-        } else {
-            statusHtml = `<span class="bg-blue-100 text-blue-600 px-2.5 py-1 rounded-lg border border-blue-200 shadow-sm">Normal</span>`;
+        let safetyCount = 0;
+        // Hitung mundur dari hari ini sampai tanggal 1 bulan yang sedang dilihat
+        while (loopDate >= targetMonthStartDate && safetyCount < 365) {
+            let dd = String(loopDate.getDate()).padStart(2, '0');
+            let mm = String(loopDate.getMonth() + 1).padStart(2, '0');
+            let yy = loopDate.getFullYear();
+            let dStr = `${dd}/${mm}/${yy}`;
+            
+            stockHistory[dStr] = runningStock; // Simpan Stok Akhir Hari tersebut
+            
+            // Putar Balik Waktu (Kembalikan ke stok sebelum hari ini terjadi)
+            let act = allActivities[dStr] || { terjual: 0, masuk: 0, selisih: 0 };
+            runningStock = runningStock + act.terjual - act.masuk - act.selisih;
+            
+            loopDate.setDate(loopDate.getDate() - 1);
+            safetyCount++;
         }
 
-        // 9. Generate HTML Baris Tabel (Sticky Column + Fade Effect)
+        // ====================================================================
+        // 4. SUSUN ARRAY HARI (Dari tanggal 31 ke tanggal 1)
+        // ====================================================================
+        let days = [];
+        let totalTerjualBulanIni = 0;
+        
+        for(let i = daysInMonth; i >= 1; i--) {
+            let d = new Date(currYear, currMonth, i);
+            let dd = String(d.getDate()).padStart(2, '0');
+            let mm = String(d.getMonth() + 1).padStart(2, '0');
+            let yyyy = d.getFullYear();
+            let dStr = `${dd}/${mm}/${yyyy}`;
+            
+            let act = allActivities[dStr] || { terjual: 0, masuk: 0, selisih: 0, opnameNote: '' };
+            let sAkhir = stockHistory[dStr]; 
+            
+            totalTerjualBulanIni += act.terjual;
+            
+            days.push({ 
+                dateStr: dStr, shortStr: `${dd} ${shortMonthNames[currMonth]}`, 
+                isToday: d.toDateString() === today.toDateString(), isFuture: d > today,
+                terjual: act.terjual, masuk: act.masuk, selisih: act.selisih, opnameNote: act.opnameNote,
+                sisaStokAkhir: sAkhir
+            });
+        }
+
+        // 5. Hitung Metrik & Status Kecepatan AI
+        let avg = passedDays > 0 ? (totalTerjualBulanIni / passedDays).toFixed(1) : 0;
+        let statusHtml = '';
+        if (avg == 0) statusHtml = `<span class="bg-slate-100 text-slate-500 px-2.5 py-1 rounded-lg shadow-sm">Macet</span>`;
+        else if (sysStock <= 0) statusHtml = `<span class="bg-rose-100 text-rose-600 px-2.5 py-1 rounded-lg animate-pulse shadow-[0_0_10px_rgba(229,32,43,0.3)]">Kosong!</span>`;
+        else if (sysStock < avg * 2) statusHtml = `<span class="bg-orange-100 text-orange-600 px-2.5 py-1 rounded-lg shadow-sm">Kritis</span>`;
+        else if (avg > 5) statusHtml = `<span class="bg-emerald-100 text-emerald-600 px-2.5 py-1 rounded-lg shadow-sm">Laris</span>`;
+        else statusHtml = `<span class="bg-blue-100 text-blue-600 px-2.5 py-1 rounded-lg shadow-sm">Normal</span>`;
+
+        // 6. Generate HTML Baris Tabel (Sticky Column + Info Opname Cerdas)
         let tbodyHtml = days.map((d, idx) => {
             let rowClass = d.isFuture ? "opacity-50 bg-slate-50 border-b border-white" : (d.isToday ? "bg-brand-50/30 border-b border-brand-100" : "border-b border-slate-50 hover:bg-[#FFF5D1]/60");
             let dateLabel = d.isToday ? '<i class="fas fa-star text-amber-500 mr-1 animate-pulse"></i> HARI INI' : d.shortStr;
             let stickyBg = d.isFuture ? "bg-slate-50" : (d.isToday ? "bg-brand-50" : "bg-white");
             
+            // Logika Kolom "Stok Akhir & Opname"
+            let opnameHtml = '';
+            if (d.isFuture) {
+                opnameHtml = '<span class="text-[9px] text-slate-300 italic">Belum tersedia</span>';
+            } else {
+                let valStok = d.sisaStokAkhir !== undefined ? `${d.sisaStokAkhir} Pcs` : '-';
+                let badgeHtml = '';
+                if (d.selisih !== 0 || d.opnameNote !== '') {
+                    let c = d.selisih < 0 ? 'text-rose-600 bg-rose-50 border-rose-200' : (d.selisih > 0 ? 'text-emerald-600 bg-emerald-50 border-emerald-200' : 'text-slate-500 bg-slate-50 border-slate-200');
+                    let i = d.selisih < 0 ? 'fa-arrow-down' : (d.selisih > 0 ? 'fa-arrow-up' : 'fa-check');
+                    badgeHtml = `<span class="${c} font-black px-1.5 py-0.5 rounded border text-[8px] whitespace-nowrap ml-2"><i class="fas ${i} mr-0.5"></i>${d.selisih} (Fisik: ${d.opnameNote})</span>`;
+                }
+                opnameHtml = `<span class="font-black text-indigo-600 text-sm">${valStok}</span>${badgeHtml}`;
+            }
+
             return `
             <tr class="transition-colors ${rowClass}">
                 <td class="py-3 px-4 md:px-5 text-[10px] md:text-xs sticky left-0 ${stickyBg} z-10 border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] whitespace-nowrap">
@@ -10555,15 +10604,17 @@ executeVoidTrx: async function(trxId) {
                 <td class="py-3 px-4 text-center whitespace-nowrap">
                     <span class="${d.masuk > 0 ? 'text-emerald-500 font-black bg-emerald-50 px-2 py-0.5 rounded shadow-sm border border-emerald-100' : 'text-slate-300'}">${d.masuk > 0 ? '+'+d.masuk : '-'}</span>
                 </td>
-                <td class="py-3 px-5 text-left whitespace-nowrap min-w-[150px]">
-                    ${d.isFuture ? '<span class="text-[9px] text-slate-300 italic">Belum tersedia</span>' : d.opnameInfo}
+                <td class="py-3 px-5 text-left whitespace-nowrap min-w-[200px]">
+                    ${opnameHtml}
                 </td>
             </tr>`;
         }).join('');
 
-        // 10. Bersihkan Modal Lama & Injeksi
+        // 7. Render Modal
         let existingModal = document.getElementById('modal-stok-detail');
         if (existingModal) existingModal.remove();
+
+        let safeNama = nama.replace(/'/g, "\\'").replace(/"/g, '&quot;'); // Aman dari error kutip nama produk
 
         let modalHtml = `
         <div id="modal-stok-detail" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-end md:items-center justify-center p-0 md:p-6 opacity-0 transition-opacity duration-400">
@@ -10571,7 +10622,6 @@ executeVoidTrx: async function(trxId) {
                 
                 <i class="fas fa-calendar-alt absolute top-0 right-0 -mt-6 -mr-6 text-9xl text-[#FFF5D1]/60 opacity-80 pointer-events-none z-0 transform group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-700"></i>
 
-                <!-- 🏷️ Header Modal -->
                 <div class="px-5 lg:px-8 py-5 border-b border-slate-100 flex justify-between items-start shrink-0 relative z-10 bg-white/95 backdrop-blur-sm">
                     <div class="flex items-center gap-3 md:gap-4 pr-4">
                         <div class="w-12 h-12 md:w-14 md:h-14 bg-gradient-to-br from-[#FFB800] to-orange-400 rounded-2xl flex items-center justify-center text-white text-xl md:text-2xl shadow-[0_8px_20px_rgba(255,184,0,0.3)] shrink-0 border border-[#FFD874]/50 transform rotate-3">
@@ -10579,15 +10629,12 @@ executeVoidTrx: async function(trxId) {
                         </div>
                         <div class="min-w-0">
                             <h3 class="font-black text-[#4A3B32] text-base md:text-xl tracking-tight leading-none truncate mb-1.5">${nama}</h3>
-                            
-                            <!-- 💡 FITUR BARU: Dropdown Pilih Bulan -->
                             <div class="flex items-center gap-1.5">
                                 <i class="fas fa-calendar-check text-[#FFB800]"></i>
-                                <select onchange="superApp.openStokDetail(\`${sku}\`, \`${nama.replace(/`/g, '\\`')}\`, \`${outlet}\`, this.value.split('-')[0], this.value.split('-')[1])" class="bg-slate-50 border border-slate-200 text-brand-600 text-[10px] md:text-xs font-black rounded-lg px-2 py-0.5 outline-none cursor-pointer hover:border-brand-300 focus:ring-2 focus:ring-brand-200 transition-all shadow-sm">
+                                <select onchange="superApp.openStokDetail('${sku}', '${safeNama}', '${outlet}', this.value.split('-')[0], this.value.split('-')[1])" class="bg-slate-50 border border-slate-200 text-brand-600 text-[10px] md:text-xs font-black rounded-lg px-2 py-0.5 outline-none cursor-pointer hover:border-brand-300 focus:ring-2 focus:ring-brand-200 transition-all shadow-sm">
                                     ${monthOptions}
                                 </select>
                             </div>
-
                             <p class="text-[9px] font-bold text-slate-400 mt-1 truncate">Cabang: ${outlet}</p>
                         </div>
                     </div>
@@ -10596,7 +10643,6 @@ executeVoidTrx: async function(trxId) {
                     </button>
                 </div>
 
-                <!-- 📊 4 Kartu Metrik -->
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 p-4 bg-[#FFF5D1]/30 shrink-0 relative z-10 border-b border-slate-100">
                     <div class="bg-white border border-slate-100 rounded-[1rem] p-3 shadow-sm flex flex-col items-center text-center hover:-translate-y-0.5 transition-transform group/card">
                         <span class="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1"><i class="fas fa-box text-brand-400 mr-1"></i>Stok Skrg</span>
@@ -10620,7 +10666,6 @@ executeVoidTrx: async function(trxId) {
                     <i class="fas fa-arrows-alt-h animate-bounce-x text-brand-400"></i> Geser tabel ke kiri / kanan untuk melihat detail <i class="fas fa-hand-pointer text-brand-400"></i>
                 </div>
 
-                <!-- 📋 Tabel Riwayat -->
                 <div class="flex-1 overflow-y-auto overflow-x-auto custom-scroll relative z-10 bg-white">
                     <table class="w-full text-left text-xs md:text-sm min-w-[550px] md:min-w-full">
                         <thead class="text-slate-400 border-b border-slate-200 sticky top-0 bg-slate-100/95 backdrop-blur-md shadow-sm z-20">
@@ -10628,7 +10673,7 @@ executeVoidTrx: async function(trxId) {
                                 <th class="py-3 px-4 md:px-5 font-black uppercase tracking-widest text-[9px] md:text-[10px] sticky left-0 bg-slate-100/95 backdrop-blur-md z-30 border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">Tanggal</th>
                                 <th class="py-3 px-4 text-center font-black uppercase tracking-widest text-[9px] md:text-[10px]"><i class="fas fa-shopping-cart text-rose-400 mr-1"></i>Keluar (POS)</th>
                                 <th class="py-3 px-4 text-center font-black uppercase tracking-widest text-[9px] md:text-[10px]"><i class="fas fa-truck-loading text-emerald-400 mr-1"></i>Masuk (Pusat)</th>
-                                <th class="py-3 px-5 text-left font-black uppercase tracking-widest text-[9px] md:text-[10px]"><i class="fas fa-clipboard-check text-blue-400 mr-1"></i>Info Audit Opname</th>
+                                <th class="py-3 px-5 text-left font-black uppercase tracking-widest text-[9px] md:text-[10px]"><i class="fas fa-clipboard-check text-indigo-400 mr-1"></i>Stok Akhir & Audit</th>
                             </tr>
                         </thead>
                         <tbody class="text-[#4A3B32]">
@@ -10656,8 +10701,7 @@ executeVoidTrx: async function(trxId) {
         setTimeout(() => {
             let el = document.getElementById('modal-stok-detail');
             if(el) {
-                el.classList.remove('opacity-0');
-                el.classList.add('opacity-100');
+                el.classList.remove('opacity-0'); el.classList.add('opacity-100');
                 el.firstElementChild.classList.remove('translate-y-full', 'md:translate-y-12', 'md:scale-95');
                 el.firstElementChild.classList.add('translate-y-0', 'md:translate-y-0', 'md:scale-100');
                 if (navigator.vibrate) navigator.vibrate(40);

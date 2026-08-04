@@ -6992,7 +6992,7 @@ refreshData: function() {
     // =========================================================
     // 🚀 UPDATE: EKSEKUSI TERIMA BARANG
     // =========================================================
-    executeSubmitTerimaBarang: async function(items, waText) {
+  executeSubmitTerimaBarang: async function(items, waText) {
         if (this.isProcessing) return;
         if (typeof this.closeModal === 'function') this.closeModal('modal-confirm-terima');
         
@@ -7016,14 +7016,17 @@ refreshData: function() {
                     let nm = document.getElementById(`trm-note-mob-${i.sku}`); if(nm) nm.value = '';
                 });
                 
-                // 3. Refresh Data
+                // 3. 🚀 PERBAIKAN FATAL: Gunakan pullFreshData agar menggunakan sistem "Smart Merge"
                 if (!res.is_offline) { 
                     try {
-                        let rUrl = (typeof API_URL !== 'undefined') ? API_URL : this.webAppUrl;
-                        const r = await fetch(rUrl + "?ts=" + new Date().getTime(), { redirect: 'follow' }); 
-                        this.db = await r.json(); 
-                        if (typeof this.refreshData === 'function') this.refreshData(); 
-                    } catch(e) {}
+                        if (typeof this.pullFreshData === 'function') {
+                            await this.pullFreshData(true); // Tarik & gabungkan data di latar belakang
+                        } else if (typeof this.refreshData === 'function') {
+                            this.refreshData();
+                        }
+                    } catch(e) {
+                        console.warn("Gagal menyegarkan data otomatis:", e);
+                    }
                 }
             } else {
                 this.setLoading(false);
@@ -10446,7 +10449,6 @@ executeVoidTrx: async function(trxId) {
     },
 
    openStokDetail: function(sku, nama, outlet = 'Semua', targetMonth = null, targetYear = null) {
-        // 1. Dapatkan SKU Target Asli (Untuk pelacakan transaksi)
         let skuTarget = sku;
         let skuLower = String(sku).trim().toLowerCase();
         
@@ -10457,7 +10459,6 @@ executeVoidTrx: async function(trxId) {
         });
         let skuTargetLower = String(skuTarget).trim().toLowerCase();
 
-        // 2. Kalkulasi Sisa Stok Sistem Saat Ini (Real-Time)
         let sysStock = 0;
         (this.db.hargaStokOutlet || []).forEach(s => {
             if (String(s.SKU).trim().toLowerCase() === skuTargetLower || String(s.SKU).trim().toLowerCase() === skuLower) {
@@ -10467,7 +10468,6 @@ executeVoidTrx: async function(trxId) {
             }
         });
 
-        // 3. Setup Konfigurasi Waktu
         let today = new Date();
         let currMonth = targetMonth !== null ? parseInt(targetMonth) : today.getMonth();
         let currYear = targetYear !== null ? parseInt(targetYear) : today.getFullYear();
@@ -10493,12 +10493,13 @@ executeVoidTrx: async function(trxId) {
         }
 
         // ====================================================================
-        // 🚀 ENGINE BARU: PENGHITUNG KARTU STOK HARIAN (RUNNING BALANCE)
+        // 🚀 ENGINE PENGHITUNG KARTU STOK (DENGAN DUKUNGAN STATUS PENDING)
         // ====================================================================
         let allActivities = {}; 
 
         const getAct = (dStr) => {
-            if (!allActivities[dStr]) allActivities[dStr] = { terjual: 0, masuk: 0, selisih: 0, opnameNote: '' };
+            // 💡 PERBAIKAN: Tambah variabel 'masukPending'
+            if (!allActivities[dStr]) allActivities[dStr] = { terjual: 0, masuk: 0, masukPending: 0, selisih: 0, opnameNote: '' };
             return allActivities[dStr];
         };
 
@@ -10528,7 +10529,7 @@ executeVoidTrx: async function(trxId) {
             });
         });
 
-        // 🛡️ Kumpulkan Masuk (Pusat) - SANGAT KEBAL (Cek SKU Ganda & Status Fleksibel)
+        // 🛡️ Kumpulkan Masuk (Pusat) - Tangkap 'Disetujui' dan 'Pending'
         (this.db.mutasi || this.db.barangMasuk || []).forEach(m => {
             let mOut = String(m.Outlet_Tujuan || m.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
             let targetOut = String(outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
@@ -10538,10 +10539,13 @@ executeVoidTrx: async function(trxId) {
             let status = String(m.Status_Approval || m.Status || '').trim().toLowerCase();
             let mSku = String(m.SKU || '').trim().toLowerCase();
             
-            if (status.includes('disetujui') || status === 'sukses' || status === 'valid') {
-                // Tangkap jika Admin mutasi pakai SKU Bahan ATAUPUN SKU Produk!
-                if (mSku === skuTargetLower || mSku === skuLower) {
-                    getAct(dStr).masuk += Number(m.Qty || m.qty || m.Jumlah || 0);
+            if (mSku === skuTargetLower || mSku === skuLower) {
+                let qty = Number(m.Qty || m.qty || m.Jumlah || 0);
+                if (status.includes('disetujui') || status === 'sukses' || status === 'valid') {
+                    getAct(dStr).masuk += qty;
+                } else if (status.includes('pending') || status.includes('menunggu')) {
+                    // 💡 PERBAIKAN: Masukkan ke wadah Pending agar kasir tahu datanya sudah tercatat
+                    getAct(dStr).masukPending += qty;
                 }
             }
         });
@@ -10579,15 +10583,14 @@ executeVoidTrx: async function(trxId) {
             stockHistory[dStr] = runningStock; 
             
             let act = allActivities[dStr] || { terjual: 0, masuk: 0, selisih: 0 };
-            runningStock = runningStock + act.terjual - act.masuk - act.selisih;
+            // CATATAN: 'masukPending' tidak ikut dihitung di runningStock karena belum disetujui Owner
+            runningStock = runningStock + act.terjual - act.masuk - act.selisih; 
             
             loopDate.setDate(loopDate.getDate() - 1);
             safetyCount++;
         }
 
-        // ====================================================================
-        // 4. SUSUN ARRAY HARI (Dari tanggal 31 ke tanggal 1)
-        // ====================================================================
+        // 4. SUSUN ARRAY HARI
         let days = [];
         let totalTerjualBulanIni = 0;
         
@@ -10598,7 +10601,7 @@ executeVoidTrx: async function(trxId) {
             let yyyy = d.getFullYear();
             let dStr = `${dd}/${mm}/${yyyy}`;
             
-            let act = allActivities[dStr] || { terjual: 0, masuk: 0, selisih: 0, opnameNote: '' };
+            let act = allActivities[dStr] || { terjual: 0, masuk: 0, masukPending: 0, selisih: 0, opnameNote: '' };
             let sAkhir = stockHistory[dStr]; 
             
             totalTerjualBulanIni += act.terjual;
@@ -10606,12 +10609,11 @@ executeVoidTrx: async function(trxId) {
             days.push({ 
                 dateStr: dStr, shortStr: `${dd} ${shortMonthNames[currMonth]}`, 
                 isToday: d.toDateString() === today.toDateString(), isFuture: d > today,
-                terjual: act.terjual, masuk: act.masuk, selisih: act.selisih, opnameNote: act.opnameNote,
-                sisaStokAkhir: sAkhir
+                terjual: act.terjual, masuk: act.masuk, masukPending: act.masukPending, 
+                selisih: act.selisih, opnameNote: act.opnameNote, sisaStokAkhir: sAkhir
             });
         }
 
-        // 5. Hitung Metrik & Status Kecepatan AI
         let avg = passedDays > 0 ? (totalTerjualBulanIni / passedDays).toFixed(1) : 0;
         let statusHtml = '';
         if (avg == 0) statusHtml = `<span class="bg-slate-100 text-slate-500 px-2.5 py-1 rounded-lg shadow-sm">Macet</span>`;
@@ -10626,6 +10628,16 @@ executeVoidTrx: async function(trxId) {
             let dateLabel = d.isToday ? '<i class="fas fa-star text-amber-500 mr-1 animate-pulse"></i> HARI INI' : d.shortStr;
             let stickyBg = d.isFuture ? "bg-slate-50" : (d.isToday ? "bg-brand-50" : "bg-white");
             
+            // 💡 PERBAIKAN TAMPILAN BARANG MASUK (Menampilkan Pending)
+            let masukHtml = '';
+            if (d.masuk > 0) {
+                masukHtml += `<span class="text-emerald-500 font-black bg-emerald-50 px-2 py-0.5 rounded shadow-sm border border-emerald-100 whitespace-nowrap">+${d.masuk}</span>`;
+            }
+            if (d.masukPending > 0) {
+                masukHtml += `<span class="text-amber-500 font-bold bg-amber-50 px-1.5 py-0.5 rounded shadow-sm border border-amber-100 text-[9px] ml-1 whitespace-nowrap" title="Menunggu Approval Owner">+${d.masukPending} (Pend)</span>`;
+            }
+            if (!masukHtml) masukHtml = '<span class="text-slate-300">-</span>';
+
             let opnameHtml = '';
             if (d.isFuture) {
                 opnameHtml = '<span class="text-[9px] text-slate-300 italic">Belum tersedia</span>';
@@ -10649,7 +10661,7 @@ executeVoidTrx: async function(trxId) {
                     <span class="${d.terjual > 0 ? 'text-[#E5202B] font-black text-sm' : 'text-slate-300'}">${d.terjual > 0 ? d.terjual : '-'}</span>
                 </td>
                 <td class="py-3 px-4 text-center whitespace-nowrap">
-                    <span class="${d.masuk > 0 ? 'text-emerald-500 font-black bg-emerald-50 px-2 py-0.5 rounded shadow-sm border border-emerald-100' : 'text-slate-300'}">${d.masuk > 0 ? '+'+d.masuk : '-'}</span>
+                    ${masukHtml}
                 </td>
                 <td class="py-3 px-5 text-left whitespace-nowrap min-w-[200px]">
                     ${opnameHtml}

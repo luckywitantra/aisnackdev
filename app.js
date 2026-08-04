@@ -838,6 +838,7 @@ const superApp = {
         }
     },
 
+
     mergeDatabase: function(oldDb, newDb) {
         // Jika memori lokal HP masih kosong, langsung gunakan data baru
         if (!oldDb || !oldDb.masterProduk) return newDb;
@@ -852,6 +853,10 @@ const superApp = {
         merged.masterProduk = newDb.masterProduk || oldDb.masterProduk;
         merged.outlets = newDb.outlets || oldDb.outlets;
         merged.hargaStokOutlet = newDb.hargaStokOutlet || oldDb.hargaStokOutlet;
+        
+        // 🚀 TAMBAHAN KRITIS: PASTIKAN DATA BARANG MASUK JUGA DITIMPA (Aman dari properti ganda)
+        merged.barangMasuk = newDb.barangMasuk || newDb.mutasi || oldDb.barangMasuk || oldDb.mutasi || [];
+        
         merged.users = newDb.users || oldDb.users;
         merged.pengaturan = newDb.pengaturan || oldDb.pengaturan;
         merged.masterPengeluaran = newDb.masterPengeluaran || oldDb.masterPengeluaran;
@@ -861,25 +866,27 @@ const superApp = {
             let map = new Map();
             
             const processItem = (item) => {
-                // 🚀 PERBAIKAN FATAL: Memisahkan Tanggal, Waktu, SKU, dan Nominal secara eksplisit!
+                // 🛠️ PERBAIKAN 1: HAPUS Math.random() AGAR DATA TIDAK DUPLIKAT
+                // Kita gunakan SKU dan Variabel Nominal mutlak agar ID selalu sama untuk data yang sama
                 let tgl = item.Tanggal || item.Tanggal_Laporan || '';
                 let wkt = item.Waktu || '';
                 let out = item.Outlet || item.Cabang || item.Outlet_Tujuan || '';
                 let sku = item.SKU || item.sku || '';
                 let val = item.Total_Bayar || item.Nominal || item.Selisih || item.Qty || item.qty || item.Jumlah || '0';
                 
-                // Jika ID unik dari server tidak ada, gunakan gabungan ini agar transaksi di jam/menit yang sama tidak tertimpa
                 let fallbackId = `${tgl}_${wkt}_${out}_${sku}_${val}`;
                 let id = item[primaryKey] || item[secondaryKey] || item['ID'] || item['id'] || fallbackId;
                 
                 map.set(String(id).trim(), item);
             };
 
-            // Masukkan data lawas, lalu timpa/tambahkan dengan data baru
+            // Masukkan data lawas ke dalam Map
             oldArr.forEach(processItem);
+            
+            // Masukkan data baru (Menimpa data lawas secara cerdas jika ID/Fallback sama)
             newArr.forEach(processItem);
 
-            // Kembalikan ke Array (Tanpa auto-sort agar urutan asli dari Google Sheets terjaga)
+            // Kembalikan ke Array (TANPA AUTO-SORT agar tidak crash di tanggal format ID)
             return Array.from(map.values());
         };
 
@@ -887,27 +894,20 @@ const superApp = {
         merged.laporanHarian = mergeHistoryArray(oldDb.laporanHarian, newDb.laporanHarian, 'ID_Laporan', 'id_laporan');
         merged.transactions = mergeHistoryArray(oldDb.transactions, newDb.transactions, 'ID_TRX', 'id_trx');
         merged.shifts = mergeHistoryArray(oldDb.shifts, newDb.shifts, 'ID_Shift', 'id_shift');
-        merged.kasKeluar = mergeHistoryArray(oldDb.kasKeluar, newDb.kasKeluar, 'ID_Kas', 'id_kas_keluar');
+        merged.kasKeluar = mergeHistoryArray(oldDb.kasKeluar, newDb.kasKeluar, 'ID_Kas_Keluar', 'id_kas_keluar');
         
-        // Proteksi Tabel Opname (Menggabungkan alias properti)
-        let oldOpname = oldDb.opname || oldDb.riwayatOpname || [];
-        let newOpname = newDb.opname || newDb.riwayatOpname || [];
-        merged.opname = mergeHistoryArray(oldOpname, newOpname, 'ID_Opname', 'id_opname');
+        // 🚀 KEAMANAN GANDA UNTUK TABEL OPNAME
+        merged.opname = mergeHistoryArray(oldDb.opname || oldDb.riwayatOpname, newDb.opname || newDb.riwayatOpname, 'ID_Opname', 'id_opname');
         merged.riwayatOpname = merged.opname; 
         
-        // Proteksi Tabel Mutasi/Barang Masuk
-        let oldMutasi = oldDb.mutasi || oldDb.barangMasuk || [];
-        let newMutasi = newDb.mutasi || newDb.barangMasuk || [];
-        merged.mutasi = mergeHistoryArray(oldMutasi, newMutasi, 'ID_Mutasi', 'id_mutasi');
-        merged.barangMasuk = merged.mutasi;
+        merged.mutasi = mergeHistoryArray(oldDb.mutasi, newDb.mutasi, 'ID_Mutasi', 'id_mutasi');
 
-        console.log(`✅ [Smart Merge] Sukses! Setelah digabung -> Laporan: ${merged.laporanHarian.length} | Transaksi: ${merged.transactions.length} | Mutasi: ${merged.mutasi.length} baris`);
-        
+        console.log(`✅ [Smart Merge] Sukses! Setelah digabung -> Laporan Harian: ${merged.laporanHarian.length} baris | Transaksi: ${merged.transactions.length} baris`);
         return merged;
     },
     
     // =========================================================================
-    // 🚀 ENGINE PENARIK LATAR BELAKANG (90 HARI)
+    // 🚀 2. PENARIK DATA LATAR BELAKANG (DIBATASI 90 HARI & MENGGUNAKAN MERGE)
     // =========================================================================
     pullBackgroundData: async function() {
         console.log("⏳ Memulai sinkronisasi data latar belakang (90 Hari)...");
@@ -918,7 +918,7 @@ const superApp = {
                 cache: 'no-store'
             });
 
-            // 🛠️ TAMENG ANTI-HTML CRASH (Google 502 Error Protection)
+            // 🛠️ PERBAIKAN 2: TAMENG ANTI-HTML CRASH DITERAPKAN DI SINI
             const rawText = await res.text();
             if (rawText.trim().startsWith("<!DOCTYPE") || rawText.trim().startsWith("<html")) {
                 throw new Error("Server Google sibuk (HTML Error).");
@@ -927,7 +927,7 @@ const superApp = {
             const data = JSON.parse(rawText);
             
             if (data && data.status === 'sukses') {
-                // Gunakan Smart Merge yang baru
+                // 🚀 WAJIB MERGE
                 this.db = this.mergeDatabase(this.db, data);
                 localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
                 
@@ -937,21 +937,16 @@ const superApp = {
                     if (this.cart.length === 0) this.refreshData();
                     if (typeof this.renderReport === 'function' && !document.getElementById('view-report')?.classList.contains('hidden')) this.renderReport();
                     if (typeof this.generateAIReport === 'function' && !document.getElementById('view-ai')?.classList.contains('hidden')) this.generateAIReport();
-                    
-                    // Muat ulang tabel stok jika sedang dibuka
-                    let activeModal = document.getElementById('modal-stok-detail');
-                    if (activeModal && !activeModal.classList.contains('opacity-0')) {
-                        console.log("🔄 Memuat ulang data popup stok setelah background sync selesai...");
-                    }
                 }
 
-                console.log("✅ Sinkronisasi latar belakang 90 hari selesai! Semua riwayat Mutasi dan Opname berhasil digabung.");
+                console.log("✅ Sinkronisasi latar belakang 90 hari selesai dan berhasil digabung!");
             }
         } catch (e) {
             console.warn("Sinkronisasi latar belakang dilewati:", e.message);
         }
     },
 
+    
     // =========================================================================
     // 🚀 ENGINE KHUSUS ARSIP LAWAS (DENGAN POP-UP KONFIRMASI CANTIK)
     // =========================================================================
@@ -978,6 +973,7 @@ const superApp = {
                 cache: 'no-store'
             });
 
+            // 🛠️ PERBAIKAN 2: TAMENG ANTI-HTML CRASH DITERAPKAN DI SINI
             const rawText = await res.text();
             if (rawText.trim().startsWith("<!DOCTYPE") || rawText.trim().startsWith("<html")) {
                 throw new Error("Server Google sibuk (HTML Error).");
@@ -986,11 +982,11 @@ const superApp = {
             const data = JSON.parse(rawText);
             
             if (data && data.status === 'sukses') {
-                // 🚀 PERBAIKAN: Gunakan Smart Merge agar data offline yang belum sinkron TIDAK TERHAPUS!
+                // 🛠️ PERBAIKAN 3: GANTI this.db = data MENJADI MERGE (Anti hapus data offline)
                 this.db = this.mergeDatabase(this.db, data);
                 localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
                 
-                this.showToast("✅ Seluruh arsip data lawas berhasil dimuat dan digabung!", "success");
+                this.showToast("✅ Seluruh arsip data lawas berhasil dimuat & digabung!", "success");
                 
                 if (typeof this.renderReport === 'function') this.renderReport();
                 if (typeof this.renderLaporanHarianHistory === 'function') this.renderLaporanHarianHistory();

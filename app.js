@@ -10805,35 +10805,11 @@ executeVoidTrx: async function(trxId) {
         // ====================================================================
         // 🚀 1. PENCARIAN SKU BRUTAL (KHUSUS MODE PRODUK)
         // ====================================================================
-        if (type === 'product') {
-            let paramLower = String(param).trim().toLowerCase();
-            
-            // A. Cari di Master Produk
-            for (let p of (this.db.masterProduk || [])) {
-                if (String(p.Nama_Produk).trim().toLowerCase() === paramLower) {
-                    skuTarget = (p.SKU_Bahan && String(p.SKU_Bahan).trim() !== '') ? p.SKU_Bahan : p.SKU;
-                    break;
-                }
-            }
-            
-            // B. Cari di Riwayat Transaksi (Fallback)
-            if (!skuTarget) {
-                for (let t of (this.db.transactions || [])) {
-                    let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
-                    for (let it of items) {
-                        if (String(it.nama || '').trim().toLowerCase() === paramLower) {
-                            skuTarget = (it.sku_bahan && String(it.sku_bahan).trim() !== '') ? it.sku_bahan : it.sku;
-                            break;
-                        }
-                    }
-                    if (skuTarget) break;
-                }
-            }
-            
-            // C. Hitung Stok Sistem dan Fisik Terakhir
+        // C. Hitung Stok Sistem dan Fisik Terakhir
             if (skuTarget) {
                 let skuLower = String(skuTarget).trim().toLowerCase();
                 
+                // --- Hitung Stok Sistem ---
                 (this.db.hargaStokOutlet || []).forEach(s => {
                     if (String(s.SKU).trim().toLowerCase() === skuLower) {
                         let out = String(s.ID_Outlet || s.Outlet || 'Pusat').replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
@@ -10845,21 +10821,57 @@ executeVoidTrx: async function(trxId) {
                     }
                 });
                 
+                // --- Hitung Fisik Tersedia (Super Akurat) ---
                 let opnameList = (this.db.opname || this.db.riwayatOpname || []).filter(o => 
                     String(o.SKU).trim().toLowerCase() === skuLower && 
                     String(o.Status_Approval).trim().toLowerCase() === 'disetujui'
                 );
                 
-                if (selOut !== 'Semua') {
-                    let filterOut = selOut.replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
-                    opnameList = opnameList.filter(o => String(o.Outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase() === filterOut);
-                }
-                
                 if (opnameList.length > 0) {
-                    lastFisik = opnameList[opnameList.length - 1].Stok_Fisik;
+                    if (selOut !== 'Semua') {
+                        // JIKA SPESIFIK 1 CABANG: Ambil data opname yang benar-benar paling akhir berdasarkan Waktu
+                        let filterOut = selOut.replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
+                        let cabangOpname = opnameList.filter(o => String(o.Outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase() === filterOut);
+                        
+                        if (cabangOpname.length > 0) {
+                            // Urutkan dari Terlama ke Terbaru (Ascending) berdasarkan string waktu
+                            cabangOpname.sort((a, b) => {
+                                let timeA = new Date(`${(a.Waktu||a.Tanggal).split(' ')[0].split('/').reverse().join('-')}T${(a.Waktu||a.Tanggal).split(' ')[1] || '00:00:00'}`).getTime();
+                                let timeB = new Date(`${(b.Waktu||b.Tanggal).split(' ')[0].split('/').reverse().join('-')}T${(b.Waktu||b.Tanggal).split(' ')[1] || '00:00:00'}`).getTime();
+                                return timeA - timeB; 
+                            });
+                            
+                            // Ambil yang paling ujung (terbaru)
+                            lastFisik = cabangOpname[cabangOpname.length - 1].Stok_Fisik;
+                        }
+                    } else {
+                        // JIKA SEMUA CABANG: Cari fisik terbaru di masing-masing cabang, lalu jumlahkan
+                        let latestByOutlet = {};
+                        
+                        opnameList.forEach(o => {
+                            let outKey = String(o.Outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
+                            let oTime = new Date(`${(o.Waktu||o.Tanggal).split(' ')[0].split('/').reverse().join('-')}T${(o.Waktu||o.Tanggal).split(' ')[1] || '00:00:00'}`).getTime();
+                            
+                            // Simpan hanya jika cabang ini belum ada di object, atau jika waktu opname-nya lebih baru
+                            if (!latestByOutlet[outKey] || oTime > latestByOutlet[outKey].time) {
+                                latestByOutlet[outKey] = {
+                                    time: oTime,
+                                    fisik: Number(o.Stok_Fisik || 0)
+                                };
+                            }
+                        });
+                        
+                        let totalFisikSemuaCabang = 0;
+                        let adaData = false;
+                        for (let key in latestByOutlet) {
+                            totalFisikSemuaCabang += latestByOutlet[key].fisik;
+                            adaData = true;
+                        }
+                        
+                        if (adaData) lastFisik = totalFisikSemuaCabang;
+                    }
                 }
             }
-        }
 
         // ====================================================================
         // 🚀 2. KUMPULKAN TRANSAKSI & RINCIAN BAYAR

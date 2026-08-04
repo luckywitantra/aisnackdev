@@ -8808,12 +8808,18 @@ openDetailStokOpname: function(sku) {
         );
     },
 
-    injectAndShowInsightModal: function(title, subtitle, peakHour, contentHtml) {
+    injectAndShowInsightModal: function(title, subtitle, peakHour, totalCash, totalQris, stok, tren, contentHtml) {
         let existing = document.getElementById('dynamic-insight-modal');
         if(existing) existing.remove(); // Bersihkan modal lama jika ada
 
+        // Format angka dengan titik pemisah ribuan jika berupa angka/number
+        const formatVal = (val, prefix = '') => {
+            if (val === undefined || val === null || val === 'N/A') return '-';
+            return !isNaN(val) ? prefix + Number(val).toLocaleString('id-ID') : val;
+        };
+
         let modalHtml = `
-        <div id="dynamic-insight-modal" class="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4 animate-fade-in transition-opacity duration-300">
+        <div id="dynamic-insight-modal" class="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4 animate-fade-in transition-opacity duration-300">
             <div class="bg-white/95 backdrop-blur-md rounded-[2.5rem] shadow-[0_20px_60px_rgba(229,32,43,0.2)] border border-white w-full max-w-sm overflow-hidden flex flex-col transform scale-95 transition-transform duration-400" id="dim-card">
                 
                 <!-- HEADER AI-SNACK -->
@@ -8828,35 +8834,70 @@ openDetailStokOpname: function(sku) {
                     </div>
                 </div>
                 
-                <div class="p-6 bg-[#FFF5D1]/30">
+                <div class="p-5 md:p-6 bg-[#FFF5D1]/30 flex-1 overflow-y-auto custom-scroll max-h-[60vh]">
                     <!-- JAM SIBUK -->
-                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-4 flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center text-lg shrink-0"><i class="fas fa-clock"></i></div>
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-4 flex items-center gap-4 group hover:-translate-y-0.5 transition-transform">
+                        <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center text-lg shrink-0 group-hover:scale-110 transition-transform"><i class="fas fa-clock"></i></div>
                         <div>
                             <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Waktu Paling Sibuk</p>
                             <p class="font-black text-[#4A3B32] text-sm">${peakHour}</p>
                         </div>
                     </div>
                     
+                    <!-- 📊 GRID METRIK BARU (Cash, QRIS, Stok, Tren) -->
+                    <div class="grid grid-cols-2 gap-3 mb-5">
+                        <!-- Kartu Cash -->
+                        <div class="bg-white p-3 rounded-2xl shadow-sm border border-emerald-100 flex flex-col gap-1 relative overflow-hidden group">
+                            <div class="absolute -right-2 -bottom-2 text-emerald-50 opacity-60 group-hover:scale-110 transition-transform duration-300"><i class="fas fa-money-bill-wave text-5xl"></i></div>
+                            <span class="text-[9px] font-black text-emerald-600 uppercase tracking-widest relative z-10">Cash</span>
+                            <span class="font-black text-slate-800 text-sm relative z-10 truncate">${formatVal(totalCash, 'Rp ')}</span>
+                        </div>
+                        
+                        <!-- Kartu QRIS -->
+                        <div class="bg-white p-3 rounded-2xl shadow-sm border border-sky-100 flex flex-col gap-1 relative overflow-hidden group">
+                            <div class="absolute -right-2 -bottom-2 text-sky-50 opacity-60 group-hover:scale-110 transition-transform duration-300"><i class="fas fa-qrcode text-5xl"></i></div>
+                            <span class="text-[9px] font-black text-sky-600 uppercase tracking-widest relative z-10">QRIS</span>
+                            <span class="font-black text-slate-800 text-sm relative z-10 truncate">${formatVal(totalQris, 'Rp ')}</span>
+                        </div>
+
+                        <!-- Kartu Stok -->
+                        <div class="bg-white p-3 rounded-2xl shadow-sm border border-amber-100 flex flex-col gap-1 relative overflow-hidden group">
+                            <div class="absolute -right-2 -bottom-2 text-amber-50 opacity-60 group-hover:scale-110 transition-transform duration-300"><i class="fas fa-box-open text-5xl"></i></div>
+                            <span class="text-[9px] font-black text-amber-600 uppercase tracking-widest relative z-10">Sisa Stok</span>
+                            <span class="font-black text-slate-800 text-sm relative z-10 truncate">${formatVal(stok)} Pcs</span>
+                        </div>
+
+                        <!-- Kartu Tren -->
+                        <div class="bg-white p-3 rounded-2xl shadow-sm border border-fuchsia-100 flex flex-col gap-1 relative overflow-hidden group">
+                            <div class="absolute -right-2 -bottom-2 text-fuchsia-50 opacity-60 group-hover:scale-110 transition-transform duration-300"><i class="fas fa-chart-line text-5xl"></i></div>
+                            <span class="text-[9px] font-black text-fuchsia-600 uppercase tracking-widest relative z-10">Tren (7 Hari)</span>
+                            <span class="font-black text-slate-800 text-sm relative z-10 truncate">${tren}</span>
+                        </div>
+                    </div>
+                    
                     <!-- KONTEN DINAMIS -->
                     <div class="space-y-2.5">
-                        <p class="text-[9px] font-black text-[#A87B00] uppercase tracking-widest ml-1 mb-1">Rincian Data</p>
+                        <p class="text-[9px] font-black text-[#A87B00] uppercase tracking-widest ml-1 mb-1 flex items-center gap-1.5"><i class="fas fa-list-ul"></i> Rincian Data</p>
                         ${contentHtml}
                     </div>
                 </div>
 
-                <div class="p-4 bg-white border-t border-slate-100 text-center">
-                    <button onclick="document.getElementById('dynamic-insight-modal').remove()" class="w-full py-3 bg-slate-100 hover:bg-slate-200 text-[#4A3B32] font-black rounded-[1.25rem] text-xs transition-colors shadow-sm active:scale-95">Tutup Analitik</button>
+                <!-- FOOTER TOMBOL -->
+                <div class="p-4 bg-white border-t border-slate-100 text-center shrink-0">
+                    <button onclick="document.getElementById('dynamic-insight-modal').remove()" class="w-full py-3 bg-slate-100 hover:bg-rose-50 hover:text-[#E5202B] text-[#4A3B32] font-black rounded-[1.25rem] text-xs transition-colors shadow-sm active:scale-95 border border-transparent hover:border-rose-100">Tutup Analitik</button>
                 </div>
             </div>
         </div>`;
 
         document.body.insertAdjacentHTML('beforeend', modalHtml);
         
-        // Picu animasi scale up
+        // Picu animasi scale up (Bouncy effect)
         setTimeout(() => {
             const card = document.getElementById('dim-card');
-            if(card) card.classList.replace('scale-95', 'scale-100');
+            if(card) {
+                card.classList.remove('scale-95');
+                card.classList.add('scale-100');
+            }
         }, 10);
     },
 

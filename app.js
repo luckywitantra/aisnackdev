@@ -10403,7 +10403,7 @@ executeVoidTrx: async function(trxId) {
     },
 
    openStokDetail: function(sku, nama, outlet = 'Semua', targetMonth = null, targetYear = null) {
-        // 1. Dapatkan SKU Target Asli
+        // 1. Dapatkan SKU Target Asli (Untuk pelacakan transaksi)
         let skuTarget = sku;
         let skuLower = String(sku).trim().toLowerCase();
         
@@ -10417,7 +10417,7 @@ executeVoidTrx: async function(trxId) {
         // 2. Kalkulasi Sisa Stok Sistem Saat Ini (Real-Time)
         let sysStock = 0;
         (this.db.hargaStokOutlet || []).forEach(s => {
-            if (String(s.SKU).trim().toLowerCase() === skuTargetLower) {
+            if (String(s.SKU).trim().toLowerCase() === skuTargetLower || String(s.SKU).trim().toLowerCase() === skuLower) {
                 let sOut = String(s.ID_Outlet || s.Outlet || 'Pusat').replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
                 let targetOut = String(outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
                 if (outlet === 'Semua' || sOut === targetOut) sysStock += Number(s.Stok_Toko || s.Stok || 0);
@@ -10452,14 +10452,13 @@ executeVoidTrx: async function(trxId) {
         // ====================================================================
         // 🚀 ENGINE BARU: PENGHITUNG KARTU STOK HARIAN (RUNNING BALANCE)
         // ====================================================================
-        let allActivities = {}; // Wadah semua aktivitas harian
+        let allActivities = {}; 
 
         const getAct = (dStr) => {
             if (!allActivities[dStr]) allActivities[dStr] = { terjual: 0, masuk: 0, selisih: 0, opnameNote: '' };
             return allActivities[dStr];
         };
 
-        // Penjinak Tanggal Super Tangguh (Mengatasi format aneh seperti "14/05/2026 09.5")
         const normalizeDate = (dStr) => {
             if(!dStr) return '';
             let raw = String(dStr).split(' ')[0].trim(); 
@@ -10486,15 +10485,21 @@ executeVoidTrx: async function(trxId) {
             });
         });
 
-        // Kumpulkan Masuk (Pusat) -> Mendukung Qty dengan huruf besar
+        // 🛡️ Kumpulkan Masuk (Pusat) - SANGAT KEBAL (Cek SKU Ganda & Status Fleksibel)
         (this.db.mutasi || this.db.barangMasuk || []).forEach(m => {
-            let mOut = String(m.Outlet_Tujuan || m.Outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
+            let mOut = String(m.Outlet_Tujuan || m.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
             let targetOut = String(outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
             if (outlet !== 'Semua' && mOut !== targetOut) return;
             
             let dStr = normalizeDate(m.Waktu || m.Tanggal);
-            if (String(m.Status_Approval).trim().toLowerCase() === 'disetujui') {
-                if (String(m.SKU).trim().toLowerCase() === skuTargetLower) getAct(dStr).masuk += Number(m.Qty || m.qty || 0);
+            let status = String(m.Status_Approval || m.Status || '').trim().toLowerCase();
+            let mSku = String(m.SKU || '').trim().toLowerCase();
+            
+            if (status.includes('disetujui') || status === 'sukses' || status === 'valid') {
+                // Tangkap jika Admin mutasi pakai SKU Bahan ATAUPUN SKU Produk!
+                if (mSku === skuTargetLower || mSku === skuLower) {
+                    getAct(dStr).masuk += Number(m.Qty || m.qty || m.Jumlah || 0);
+                }
             }
         });
 
@@ -10505,8 +10510,10 @@ executeVoidTrx: async function(trxId) {
             if (outlet !== 'Semua' && oOut !== targetOut) return;
             
             let dStr = normalizeDate(o.Waktu || o.Tanggal);
+            let oSku = String(o.SKU || '').trim().toLowerCase();
+            
             if (String(o.Status_Approval).trim().toLowerCase() === 'disetujui') {
-                if (String(o.SKU).trim().toLowerCase() === skuTargetLower) {
+                if (oSku === skuTargetLower || oSku === skuLower) {
                     getAct(dStr).selisih += Number(o.Selisih || 0);
                     getAct(dStr).opnameNote = o.Stok_Fisik || '';
                 }
@@ -10515,21 +10522,19 @@ executeVoidTrx: async function(trxId) {
 
         // 🧠 Kalkulator Hitung Mundur Stok Harian
         let stockHistory = {};
-        let runningStock = sysStock; // Mulai dari stok hari ini
+        let runningStock = sysStock; 
         let loopDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
         let targetMonthStartDate = new Date(currYear, currMonth, 1);
         
         let safetyCount = 0;
-        // Hitung mundur dari hari ini sampai tanggal 1 bulan yang sedang dilihat
         while (loopDate >= targetMonthStartDate && safetyCount < 365) {
             let dd = String(loopDate.getDate()).padStart(2, '0');
             let mm = String(loopDate.getMonth() + 1).padStart(2, '0');
             let yy = loopDate.getFullYear();
             let dStr = `${dd}/${mm}/${yy}`;
             
-            stockHistory[dStr] = runningStock; // Simpan Stok Akhir Hari tersebut
+            stockHistory[dStr] = runningStock; 
             
-            // Putar Balik Waktu (Kembalikan ke stok sebelum hari ini terjadi)
             let act = allActivities[dStr] || { terjual: 0, masuk: 0, selisih: 0 };
             runningStock = runningStock + act.terjual - act.masuk - act.selisih;
             
@@ -10572,13 +10577,12 @@ executeVoidTrx: async function(trxId) {
         else if (avg > 5) statusHtml = `<span class="bg-emerald-100 text-emerald-600 px-2.5 py-1 rounded-lg shadow-sm">Laris</span>`;
         else statusHtml = `<span class="bg-blue-100 text-blue-600 px-2.5 py-1 rounded-lg shadow-sm">Normal</span>`;
 
-        // 6. Generate HTML Baris Tabel (Sticky Column + Info Opname Cerdas)
+        // 6. Generate HTML Baris Tabel
         let tbodyHtml = days.map((d, idx) => {
             let rowClass = d.isFuture ? "opacity-50 bg-slate-50 border-b border-white" : (d.isToday ? "bg-brand-50/30 border-b border-brand-100" : "border-b border-slate-50 hover:bg-[#FFF5D1]/60");
             let dateLabel = d.isToday ? '<i class="fas fa-star text-amber-500 mr-1 animate-pulse"></i> HARI INI' : d.shortStr;
             let stickyBg = d.isFuture ? "bg-slate-50" : (d.isToday ? "bg-brand-50" : "bg-white");
             
-            // Logika Kolom "Stok Akhir & Opname"
             let opnameHtml = '';
             if (d.isFuture) {
                 opnameHtml = '<span class="text-[9px] text-slate-300 italic">Belum tersedia</span>';
@@ -10614,7 +10618,7 @@ executeVoidTrx: async function(trxId) {
         let existingModal = document.getElementById('modal-stok-detail');
         if (existingModal) existingModal.remove();
 
-        let safeNama = nama.replace(/'/g, "\\'").replace(/"/g, '&quot;'); // Aman dari error kutip nama produk
+        let safeNama = nama.replace(/'/g, "\\'").replace(/"/g, '&quot;'); 
 
         let modalHtml = `
         <div id="modal-stok-detail" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] flex items-end md:items-center justify-center p-0 md:p-6 opacity-0 transition-opacity duration-400">
@@ -10649,7 +10653,7 @@ executeVoidTrx: async function(trxId) {
                         <span class="text-lg md:text-xl font-black text-[#E5202B] drop-shadow-sm group-hover/card:scale-110 transition-transform">${sysStock}</span>
                     </div>
                     <div class="bg-white border border-slate-100 rounded-[1rem] p-3 shadow-sm flex flex-col items-center text-center hover:-translate-y-0.5 transition-transform group/card">
-                        <span class="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1"><i class="fas fa-fire text-orange-400 mr-1"></i>Laku Bulan Ini</span>
+                        <span class="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1"><i class="fas fa-fire text-orange-400 mr-1"></i>Laku Bln Ini</span>
                         <span class="text-lg md:text-xl font-black text-[#FFB800] drop-shadow-sm group-hover/card:scale-110 transition-transform">${totalTerjualBulanIni}</span>
                     </div>
                     <div class="bg-white border border-slate-100 rounded-[1rem] p-3 shadow-sm flex flex-col items-center text-center hover:-translate-y-0.5 transition-transform group/card">

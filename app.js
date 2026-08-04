@@ -7056,6 +7056,23 @@ refreshData: function() {
     // 🚀 ENGINE: GENERATOR WA OPNAME (DAFTAR DIJADIKAN SATU)
     // =========================================================
     buildOpnameWaText: function(outlet, kasir, waktu, items) {
+        // 🚀 JARING PENGAMAN: Ambil data otomatis jika parameter kosong/undefined
+        let namaKasir = kasir || (this.currentUser ? this.currentUser.Nama : 'Admin / Kasir');
+        
+        let waktuSekarang = waktu;
+        if (!waktuSekarang) {
+            let t = new Date();
+            let dd = String(t.getDate()).padStart(2, '0');
+            let mm = String(t.getMonth() + 1).padStart(2, '0');
+            let yy = t.getFullYear();
+            let hh = String(t.getHours()).padStart(2, '0');
+            let mnt = String(t.getMinutes()).padStart(2, '0');
+            waktuSekarang = `${dd}/${mm}/${yy} ${hh}:${mnt} WITA`;
+        }
+
+        // Cegah duplikasi nama "Ai-Snack Ai-Snack Balikpapan"
+        let namaOutlet = String(outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+
         if (!Array.isArray(items)) items = [];
 
         // 1. Hitung Kecepatan Jualan (Velocity) untuk Bahan Utama dari Riwayat Transaksi
@@ -7063,7 +7080,7 @@ refreshData: function() {
         let oldestDate = new Date();
         
         (this.db.transactions || []).forEach(t => {
-            if(t.Status === 'Sukses' && t.Outlet === outlet) {
+            if(t.Status === 'Sukses' && String(t.Outlet).replace(/^Ai\-Snack\s+/i, '').trim() === namaOutlet) {
                 let d = typeof this.parseDateId === 'function' ? this.parseDateId(t.Tanggal) : new Date(t.Tanggal); 
                 if(d < oldestDate && d.getTime() > 0) oldestDate = d;
                 
@@ -7083,9 +7100,10 @@ refreshData: function() {
         // 1.5 Hitung Total Barang Masuk (Mutasi) untuk Barang Pendukung
         let mutasiIn = {};
         (this.db.mutasi || []).forEach(m => {
-            if(m.Outlet_Tujuan === outlet && m.Status_Approval === 'Disetujui') {
+            let mOut = String(m.Outlet_Tujuan || m.Outlet).replace(/^Ai\-Snack\s+/i, '').trim();
+            if(mOut === namaOutlet && m.Status_Approval === 'Disetujui') {
                 if(!mutasiIn[m.SKU]) mutasiIn[m.SKU] = 0;
-                mutasiIn[m.SKU] += Number(m.Qty) || 0;
+                mutasiIn[m.SKU] += Number(m.Qty || m.qty || 0);
             }
         });
 
@@ -7125,8 +7143,8 @@ refreshData: function() {
         listBahan.sort(sortAZ);
         listPendukung.sort(sortAZ);
 
-        // 4. SUSUN TEKS WHATSAPP EKSEKUTIF
-        let waText = `*[ LAPORAN OPNAME FISIK & AUDIT ]*\n📍 Cabang: *Ai-CHA ${outlet}*\n👤 Kasir: ${kasir}\n📅 Waktu: ${waktu}\n\n*_Mohon cek menu Audit Opname di aplikasi untuk menyetujui_*\n\n`;
+        // 4. SUSUN TEKS WHATSAPP EKSEKUTIF (Menggunakan variabel yang sudah diamankan)
+        let waText = `*[ LAPORAN OPNAME FISIK & AUDIT ]*\n📍 Cabang: *Ai-Snack ${namaOutlet}*\n👤 Kasir: *${namaKasir}*\n📅 Waktu: *${waktuSekarang}*\n\n*_Mohon cek menu Audit Opname di aplikasi untuk menyetujui_*\n\n`;
 
         if (listBahan.length > 0) {
             waText += `*📦 BAHAN UTAMA*\n`;

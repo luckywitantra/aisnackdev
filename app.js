@@ -10247,7 +10247,7 @@ executeVoidTrx: async function(trxId) {
     // =========================================================
     // 🚀 ENGINE: CFO DASHBOARD DEEP DIVE ANALYSIS (POPUP)
     // =========================================================
-    openAIDeepDive: function(type, param) {
+   openAIDeepDive: function(type, param) {
         // 1. Dapatkan Rentang Filter Aktif dari Dashboard AI
         const fStartEl = document.getElementById('ai-filter-start');
         const fEndEl = document.getElementById('ai-filter-end');
@@ -10261,90 +10261,208 @@ executeVoidTrx: async function(trxId) {
         let subtitle = `Periode: ${dStart} s/d ${dEnd}`;
         let details = [];
         let totalVal = 0;
+        let totalPcs = 0;
 
-        // 2. Kumpulkan Transaksi Terkait
-        (this.db.transactions || []).forEach(t => {
-            if (t.Status !== 'Sukses') return;
-            let trxDate = this.parseDateId(t.Tanggal);
+        // Helper Cerdas untuk mengecek apakah data masuk dalam filter Tanggal & Outlet
+        const isDataValid = (dateString, outletString) => {
+            if (!dateString) return false;
+            // Bersihkan format waktu jika ada (misal: "04/08/2026 10.00.00" -> "04/08/2026")
+            let pureDate = String(dateString).split(' ')[0]; 
+            let d = typeof this.parseDateId === 'function' ? this.parseDateId(pureDate) : new Date(pureDate);
             
-            if (trxDate >= dateStart && trxDate <= dateEnd) {
-                let tOut = t.Outlet || 'Pusat';
-                if (selOut !== 'Semua' && tOut !== selOut) return;
+            if (d < dateStart || d > dateEnd) return false;
+            let out = outletString ? String(outletString).replace(/^Ai\-Snack\s+/i, '').trim() : 'Pusat';
+            let filterOut = selOut.replace(/^Ai\-Snack\s+/i, '').trim();
+            
+            if (selOut !== 'Semua' && out !== filterOut) return false;
+            return true;
+        };
 
+        // 2. KUMPULKAN TRANSAKSI (Hourly, Branch, Product, Payment, Pcs)
+        if (['hourly', 'branch', 'product', 'payment', 'pcs'].includes(type)) {
+            (this.db.transactions || []).forEach(t => {
+                if (t.Status !== 'Sukses') return;
+                if (!isDataValid(t.Tanggal, t.Outlet)) return;
+
+                let tOut = t.Outlet || 'Pusat';
                 let jam = t.Waktu ? parseInt(String(t.Waktu).split('.')[0]) : 0;
                 let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
+                
+                // Hitung total Pcs dalam satu struk
+                let pcsInTrx = items.reduce((sum, it) => sum + Number(it.qty || 0), 0);
 
-                // Logika Filter Berdasarkan Klik
                 if (type === 'hourly' && jam === parseInt(param)) {
-                    title = `Deep Dive: Transaksi Pukul ${String(param).padStart(2,'0')}:00`;
-                    details.push({ wkt: `${t.Tanggal} ${t.Waktu}`, ref: t.ID_TRX, desc: `Kasir: ${t.Kasir} • Cabang ${tOut}`, nom: Number(t.Total_Bayar) });
-                    totalVal += Number(t.Total_Bayar);
+                    title = `Transaksi Pukul ${String(param).padStart(2,'0')}:00`;
+                    details.push({ icon: 'fa-clock', color: 'text-indigo-500', bg: 'bg-indigo-100', wkt: `${t.Tanggal} ${t.Waktu}`, ref: t.ID_TRX, desc: `Kasir: ${t.Kasir} • Cabang ${tOut}`, nom: Number(t.Total_Bayar), label: 'Rp', extra: `${pcsInTrx} Pcs` });
+                    totalVal += Number(t.Total_Bayar); totalPcs += pcsInTrx;
                 } 
                 else if (type === 'branch' && tOut === param) {
-                    title = `Deep Dive: Kinerja Cabang ${param}`;
-                    details.push({ wkt: `${t.Tanggal} ${t.Waktu}`, ref: t.ID_TRX, desc: `Metode: ${t.Metode_Bayar} • Kasir: ${t.Kasir}`, nom: Number(t.Total_Bayar) });
-                    totalVal += Number(t.Total_Bayar);
+                    title = `Kinerja Cabang ${param}`;
+                    details.push({ icon: 'fa-store', color: 'text-brand-500', bg: 'bg-brand-50', wkt: `${t.Tanggal} ${t.Waktu}`, ref: t.ID_TRX, desc: `Metode: ${t.Metode_Bayar} • Kasir: ${t.Kasir}`, nom: Number(t.Total_Bayar), label: 'Rp', extra: `${pcsInTrx} Pcs` });
+                    totalVal += Number(t.Total_Bayar); totalPcs += pcsInTrx;
                 } 
+                else if (type === 'payment' && String(t.Metode_Bayar).toLowerCase() === String(param).toLowerCase()) {
+                    title = `Pembayaran via ${param.toUpperCase()}`;
+                    let isCash = param.toLowerCase() === 'cash';
+                    let clr = isCash ? 'text-emerald-500' : 'text-sky-500';
+                    let bgClr = isCash ? 'bg-emerald-100' : 'bg-sky-100';
+                    let icn = isCash ? 'fa-money-bill-wave' : 'fa-qrcode';
+                    
+                    details.push({ icon: icn, color: clr, bg: bgClr, wkt: `${t.Tanggal} ${t.Waktu}`, ref: t.ID_TRX, desc: `Kasir: ${t.Kasir} • Cabang ${tOut}`, nom: Number(t.Total_Bayar), label: 'Rp', extra: `${pcsInTrx} Pcs` });
+                    totalVal += Number(t.Total_Bayar); totalPcs += pcsInTrx;
+                }
+                else if (type === 'pcs') {
+                    title = `Rincian Pcs Terjual`;
+                    details.push({ icon: 'fa-box-open', color: 'text-amber-500', bg: 'bg-amber-100', wkt: `${t.Tanggal} ${t.Waktu}`, ref: t.ID_TRX, desc: `Kasir: ${t.Kasir} • Cabang ${tOut}`, nom: pcsInTrx, label: 'Pcs', extra: `Rp ${Number(t.Total_Bayar).toLocaleString('id-ID')}` });
+                    totalVal += Number(t.Total_Bayar); totalPcs += pcsInTrx;
+                }
                 else if (type === 'product') {
-                    title = `Deep Dive: Produk ${param}`;
+                    title = `Produk: ${param}`;
                     items.forEach(it => {
                         let safeNama = it.nama || 'Unknown';
                         if (safeNama === param) {
                             let omsetIt = Number(it.qty) * Number(it.price);
-                            details.push({ wkt: `${t.Tanggal} ${t.Waktu}`, ref: t.ID_TRX, desc: `${it.qty} Pcs Terjual di ${tOut} (Oleh: ${t.Kasir})`, nom: omsetIt });
-                            totalVal += omsetIt;
+                            details.push({ icon: 'fa-shopping-bag', color: 'text-fuchsia-500', bg: 'bg-fuchsia-100', wkt: `${t.Tanggal} ${t.Waktu}`, ref: t.ID_TRX, desc: `Cabang ${tOut} (Oleh: ${t.Kasir})`, nom: omsetIt, label: 'Rp', extra: `${it.qty} Pcs` });
+                            totalVal += omsetIt; totalPcs += Number(it.qty);
                         }
                     });
                 }
-            }
-        });
+            });
+        }
+        
+        // 3. KUMPULKAN DATA OPNAME (Discrepancy)
+        else if (type === 'opname') {
+            title = `Pergerakan Opname Stok`;
+            (this.db.opname || this.db.riwayatOpname || []).forEach(o => {
+                if (!isDataValid(o.Waktu || o.Tanggal, o.Outlet)) return;
+                
+                let selisih = Number(o.Selisih || 0);
+                let isMinus = selisih < 0;
+                let clr = isMinus ? 'text-rose-500' : (selisih > 0 ? 'text-emerald-500' : 'text-slate-400');
+                let bgClr = isMinus ? 'bg-rose-100' : (selisih > 0 ? 'bg-emerald-100' : 'bg-slate-100');
+                
+                details.push({ 
+                    icon: 'fa-clipboard-check', color: clr, bg: bgClr, 
+                    wkt: o.Waktu || o.Tanggal, ref: `SKU: ${o.SKU}`, desc: `Cabang ${o.Outlet} • Oleh ${o.Kasir}`, 
+                    nom: selisih, label: 'Pcs', extra: `Sistem: ${o.Stok_Sistem} ➔ Fisik: ${o.Stok_Fisik}` 
+                });
+                totalPcs += selisih;
+            });
+        }
+        
+        // 4. KUMPULKAN DATA BARANG MASUK / MUTASI
+        else if (type === 'mutasi') {
+            title = `Barang Masuk & Distribusi`;
+            (this.db.mutasi || this.db.barangMasuk || []).forEach(m => {
+                if (!isDataValid(m.Waktu || m.Tanggal, m.Outlet_Tujuan || m.Outlet)) return;
+                
+                let qty = Number(m.Qty || 0);
+                details.push({ 
+                    icon: 'fa-truck-loading', color: 'text-blue-500', bg: 'bg-blue-100', 
+                    wkt: m.Waktu || m.Tanggal, ref: `${m.SKU} (${m.ID_Mutasi || 'MUT'})`, desc: `Ke: ${m.Outlet_Tujuan || m.Outlet} • ${m.Keterangan || 'Restok'}`, 
+                    nom: qty, label: 'Pcs', extra: `Status: ${m.Status_Approval}` 
+                });
+                totalPcs += qty;
+            });
+        }
 
-        // Urutkan dari Omset terbesar ke terkecil
-        details.sort((a, b) => b.nom - a.nom);
+        // Urutkan dari nilai absolut terbesar ke terkecil
+        details.sort((a, b) => Math.abs(b.nom) - Math.abs(a.nom));
 
-        // 3. Bangun Komponen UI List
-        let listHtml = details.length === 0 ? `<div class="p-8 text-center text-slate-400 italic text-xs border border-dashed border-slate-200 rounded-xl m-2">Rincian transaksi tidak ditemukan</div>` :
-            details.map(d => `
-                <div class="flex items-center justify-between p-3.5 border-b border-slate-100 hover:bg-slate-50 transition group">
-                    <div class="flex-1 min-w-0 pr-3">
-                        <div class="font-extrabold text-xs text-slate-800 truncate group-hover:text-brand-600 transition-colors">${d.ref}</div>
-                        <div class="text-[10px] font-bold text-slate-400 mt-0.5 flex flex-col sm:flex-row gap-1 sm:gap-2">
-                            <span><i class="far fa-clock mr-1"></i>${d.wkt}</span>
-                            <span class="text-indigo-500">${d.desc}</span>
+        // 5. Setup Highlight Nilai Total di Header
+        let totalHtml = '';
+        if (['opname', 'mutasi', 'pcs'].includes(type)) {
+            totalHtml = `<span class="text-indigo-600 bg-indigo-100 px-3 py-1 rounded-full shadow-inner border border-indigo-200">${totalPcs.toLocaleString('id-ID')} Pcs</span>`;
+        } else {
+            totalHtml = `
+                <span class="text-emerald-600 bg-emerald-100 px-3 py-1 rounded-full shadow-inner border border-emerald-200">Rp ${totalVal.toLocaleString('id-ID')}</span>
+                <span class="text-amber-600 bg-amber-100 px-3 py-1 rounded-full shadow-inner border border-amber-200 ml-1">${totalPcs.toLocaleString('id-ID')} Pcs</span>
+            `;
+        }
+
+        // 6. Bangun Komponen UI List (Playful & Interaktif)
+        let listHtml = details.length === 0 ? `<div class="p-10 flex flex-col items-center justify-center text-slate-400 opacity-70"><i class="fas fa-ghost text-4xl mb-3"></i><p class="text-xs font-bold tracking-widest uppercase">Data Kosong</p></div>` :
+            details.map((d, idx) => `
+                <div class="flex items-center justify-between p-4 border-b border-slate-100 hover:bg-slate-50 transition-all duration-300 group animate-slide-up" style="animation-delay: ${idx * 30}ms; animation-fill-mode: both;">
+                    
+                    <div class="flex items-center flex-1 min-w-0 pr-3 gap-4">
+                        <!-- Playful Icon Badge -->
+                        <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${d.bg} ${d.color} shadow-sm group-hover:scale-110 transition-transform duration-300">
+                            <i class="fas ${d.icon} text-lg"></i>
+                        </div>
+                        
+                        <!-- Texts -->
+                        <div class="flex-1 min-w-0">
+                            <div class="font-extrabold text-[13px] text-slate-800 truncate group-hover:text-brand-600 transition-colors">${d.ref}</div>
+                            <div class="text-[10px] font-bold text-slate-400 mt-1 flex flex-col sm:flex-row gap-1 sm:gap-3">
+                                <span><i class="far fa-clock mr-1 opacity-70"></i>${d.wkt}</span>
+                                <span class="text-slate-500 font-semibold truncate">${d.desc}</span>
+                            </div>
                         </div>
                     </div>
-                    <div class="text-right shrink-0">
-                        <div class="font-black text-brand-600 text-sm">Rp ${d.nom.toLocaleString('id-ID')}</div>
+                    
+                    <!-- Values -->
+                    <div class="text-right shrink-0 flex flex-col items-end">
+                        <div class="font-black ${d.nom < 0 ? 'text-rose-500' : 'text-slate-800'} text-sm md:text-base tracking-tight">
+                            ${d.nom > 0 && type === 'opname' ? '+' : ''}${d.label === 'Rp' ? 'Rp ' : ''}${d.nom.toLocaleString('id-ID')} ${d.label === 'Pcs' ? 'Pcs' : ''}
+                        </div>
+                        <div class="text-[9px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md mt-1 border border-slate-200">
+                            ${d.extra}
+                        </div>
                     </div>
+                    
                 </div>
             `).join('');
 
-        // 4. Injeksi Modal Modern (Tailwind Glassmorphism)
+        // 7. Injeksi Modal Modern (Tailwind Glassmorphism + Bouncy Animations)
         let existingModal = document.getElementById('ai-deepdive-modal');
         if (existingModal) existingModal.remove();
 
+        // Tambahkan keyframes jika belum ada (Untuk efek list muncul berurutan)
+        if (!document.getElementById('deepdive-style')) {
+            document.head.insertAdjacentHTML('beforeend', `
+                <style id="deepdive-style">
+                    @keyframes slideUpFade {
+                        0% { opacity: 0; transform: translateY(15px); }
+                        100% { opacity: 1; transform: translateY(0); }
+                    }
+                    .animate-slide-up { animation: slideUpFade 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+                </style>
+            `);
+        }
+
         let modalHtml = `
-        <div id="ai-deepdive-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-end md:items-center justify-center p-0 md:p-4 opacity-0 transition-opacity duration-300">
-            <div class="bg-white w-full md:max-w-xl md:rounded-3xl rounded-t-3xl shadow-2xl flex flex-col h-[85vh] md:h-[75vh] transform translate-y-full md:translate-y-10 md:scale-95 transition-transform duration-300 overflow-hidden border border-white/20">
+        <div id="ai-deepdive-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[9999] flex items-end md:items-center justify-center p-0 md:p-4 opacity-0 transition-opacity duration-400">
+            <div class="bg-white w-full md:max-w-2xl md:rounded-[2rem] rounded-t-[2rem] shadow-[0_20px_60px_rgba(0,0,0,0.15)] flex flex-col h-[85vh] md:h-[80vh] transform translate-y-full md:translate-y-12 md:scale-90 transition-transform duration-500 cubic-bezier(0.34, 1.56, 0.64, 1) overflow-hidden border-t-4 border-brand-500 md:border-4 md:border-white">
                 
-                <!-- HEADER -->
-                <div class="p-5 md:p-6 border-b border-slate-100 flex justify-between items-start bg-slate-50/80 shrink-0">
-                    <div>
-                        <h3 class="font-black text-slate-800 text-sm md:text-base flex items-center gap-2">
-                            <i class="fas fa-microscope text-brand-500 p-1.5 bg-white rounded-lg shadow-sm border border-slate-100"></i> 
-                            ${title}
-                        </h3>
-                        <p class="text-[10px] font-bold text-slate-500 mt-2 uppercase tracking-widest">${subtitle}</p>
-                        <div class="mt-1 text-xs font-black text-slate-700">Total Filter: <span class="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded shadow-sm">Rp ${totalVal.toLocaleString('id-ID')}</span></div>
+                <!-- HEADER (Glass + Gradient) -->
+                <div class="p-5 md:p-6 bg-gradient-to-br from-slate-50 to-white flex justify-between items-start shrink-0 relative overflow-hidden">
+                    <!-- Deco Circles -->
+                    <div class="absolute top-0 right-0 w-32 h-32 bg-brand-50 rounded-full blur-2xl -mr-10 -mt-10"></div>
+                    
+                    <div class="relative z-10">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-brand-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-brand-500/30 transform -rotate-3">
+                                <i class="fas fa-search-dollar text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-black text-slate-800 text-base md:text-lg tracking-tight">Deep Dive: ${title}</h3>
+                                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">${subtitle}</p>
+                            </div>
+                        </div>
+                        <div class="mt-4 text-xs font-black text-slate-700 flex items-center gap-2">
+                            Total Filter: ${totalHtml}
+                        </div>
                     </div>
-                    <button onclick="document.getElementById('ai-deepdive-modal').classList.remove('opacity-100'); document.getElementById('ai-deepdive-modal').firstElementChild.classList.add('translate-y-full', 'md:translate-y-10', 'md:scale-95'); setTimeout(()=>document.getElementById('ai-deepdive-modal').remove(), 300)" class="w-8 h-8 flex items-center justify-center rounded-full bg-white border border-slate-200 text-slate-400 hover:text-rose-500 hover:bg-rose-50 hover:border-rose-200 transition active:scale-90 shadow-sm shrink-0">
-                        <i class="fas fa-times"></i>
+                    
+                    <button onclick="document.getElementById('ai-deepdive-modal').classList.remove('opacity-100'); document.getElementById('ai-deepdive-modal').firstElementChild.classList.add('translate-y-full', 'md:translate-y-12', 'md:scale-90'); setTimeout(()=>document.getElementById('ai-deepdive-modal').remove(), 400)" class="w-10 h-10 flex items-center justify-center rounded-full bg-white border-2 border-slate-100 text-slate-400 hover:text-rose-500 hover:bg-rose-50 hover:border-rose-200 transition-all duration-300 active:scale-90 shadow-sm shrink-0 relative z-10 group">
+                        <i class="fas fa-times group-hover:rotate-90 transition-transform duration-300"></i>
                     </button>
                 </div>
                 
                 <!-- BODY LIST -->
-                <div class="flex-1 overflow-y-auto custom-scroll p-2 md:p-4 bg-slate-50/30">
-                    <div class="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
+                <div class="flex-1 overflow-y-auto custom-scroll p-3 md:p-5 bg-slate-50 border-t border-slate-100 relative">
+                    <div class="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden pb-2 relative z-10">
                         ${listHtml}
                     </div>
                 </div>
@@ -10354,16 +10472,18 @@ executeVoidTrx: async function(trxId) {
 
         document.body.insertAdjacentHTML('beforeend', modalHtml);
 
-        // Animasi Tampil (Fade In & Slide Up)
+        // Animasi Tampil (Bouncy Pop-Up)
         setTimeout(() => {
             let el = document.getElementById('ai-deepdive-modal');
             if(el) {
                 el.classList.remove('opacity-0');
                 el.classList.add('opacity-100');
-                el.firstElementChild.classList.remove('translate-y-full', 'md:translate-y-10', 'md:scale-95');
+                el.firstElementChild.classList.remove('translate-y-full', 'md:translate-y-12', 'md:scale-90');
                 el.firstElementChild.classList.add('translate-y-0', 'md:translate-y-0', 'md:scale-100');
+                // Beri getaran haptic kecil pada HP
+                if (navigator.vibrate) navigator.vibrate(40);
             }
-        }, 10);
+        }, 20);
     },
 
     // =========================================================

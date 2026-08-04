@@ -10805,13 +10805,26 @@ executeVoidTrx: async function(trxId) {
         // ====================================================================
         // 🚀 1. PENCARIAN SKU BRUTAL (KHUSUS MODE PRODUK)
         // ====================================================================
-        // C. Hitung Stok Sistem dan Fisik Terakhir
-            if (skuTarget) {
+        // C. Hitung Stok Sistem dan Fisik Terakhir (Super Akurat & Kebal Error)
+            if (skuTarget || paramLower) {
                 let skuLower = String(skuTarget).trim().toLowerCase();
+                let origSkuLower = '';
                 
-                // --- Hitung Stok Sistem ---
+                // Cari Original SKU dari Master agar pelacakan ganda lebih kuat
+                let masterData = (this.db.masterProduk || []).find(p => String(p.Nama_Produk).trim().toLowerCase() === paramLower);
+                if (masterData) origSkuLower = String(masterData.SKU).trim().toLowerCase();
+
+                // Fungsi helper kebal untuk mengecek kecocokan SKU/Nama
+                const isMatchSku = (targetDataSku) => {
+                    if (!targetDataSku) return false;
+                    let s = String(targetDataSku).trim().toLowerCase();
+                    return (s === skuLower || (origSkuLower !== '' && s === origSkuLower) || s === paramLower);
+                };
+
+                // --- 1. Hitung Stok Sistem ---
                 (this.db.hargaStokOutlet || []).forEach(s => {
-                    if (String(s.SKU).trim().toLowerCase() === skuLower) {
+                    // Lacak dari SKU Bahan, SKU Produk Asli, atau bahkan Nama Produknya langsung!
+                    if (isMatchSku(s.SKU) || isMatchSku(s.Nama_Produk)) {
                         let out = String(s.ID_Outlet || s.Outlet || 'Pusat').replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
                         let filterOut = selOut.replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
                         
@@ -10820,39 +10833,52 @@ executeVoidTrx: async function(trxId) {
                         }
                     }
                 });
+
+                // --- Helper Penjinak Waktu (Ubah 09.50 menjadi 09:50 agar Javascript tidak error) ---
+                const getTimeSafe = (timeStr) => {
+                    if (!timeStr) return 0;
+                    let parts = String(timeStr).trim().split(' ');
+                    let d = parts[0].split(/[\/\-]/);
+                    
+                    // Paksa ubah titik menjadi titik dua (09.50 -> 09:50)
+                    let t = (parts[1] || '00:00:00').replace(/\./g, ':');
+                    let tParts = t.split(':');
+                    let hh = (tParts[0] || '00').padStart(2, '0');
+                    let mm = (tParts[1] || '00').padStart(2, '0');
+                    let ss = (tParts[2] || '00').padStart(2, '0');
+                    t = `${hh}:${mm}:${ss}`;
+
+                    if (d.length === 3) {
+                        if (d[0].length === 4) return new Date(`${d[0]}-${d[1].padStart(2,'0')}-${d[2].padStart(2,'0')}T${t}`).getTime();
+                        let yy = d[2].length === 2 ? '20' + d[2] : d[2];
+                        return new Date(`${yy}-${d[1].padStart(2,'0')}-${d[0].padStart(2,'0')}T${t}`).getTime();
+                    }
+                    return new Date(timeStr).getTime() || 0;
+                };
                 
-                // --- Hitung Fisik Tersedia (Super Akurat) ---
+                // --- 2. Hitung Fisik Tersedia (Waktu Terurut) ---
                 let opnameList = (this.db.opname || this.db.riwayatOpname || []).filter(o => 
-                    String(o.SKU).trim().toLowerCase() === skuLower && 
+                    isMatchSku(o.SKU) && 
                     String(o.Status_Approval).trim().toLowerCase() === 'disetujui'
                 );
                 
                 if (opnameList.length > 0) {
                     if (selOut !== 'Semua') {
-                        // JIKA SPESIFIK 1 CABANG: Ambil data opname yang benar-benar paling akhir berdasarkan Waktu
+                        // JIKA SPESIFIK 1 CABANG
                         let filterOut = selOut.replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
                         let cabangOpname = opnameList.filter(o => String(o.Outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase() === filterOut);
                         
                         if (cabangOpname.length > 0) {
-                            // Urutkan dari Terlama ke Terbaru (Ascending) berdasarkan string waktu
-                            cabangOpname.sort((a, b) => {
-                                let timeA = new Date(`${(a.Waktu||a.Tanggal).split(' ')[0].split('/').reverse().join('-')}T${(a.Waktu||a.Tanggal).split(' ')[1] || '00:00:00'}`).getTime();
-                                let timeB = new Date(`${(b.Waktu||b.Tanggal).split(' ')[0].split('/').reverse().join('-')}T${(b.Waktu||b.Tanggal).split(' ')[1] || '00:00:00'}`).getTime();
-                                return timeA - timeB; 
-                            });
-                            
-                            // Ambil yang paling ujung (terbaru)
+                            cabangOpname.sort((a, b) => getTimeSafe(a.Waktu || a.Tanggal) - getTimeSafe(b.Waktu || b.Tanggal));
                             lastFisik = cabangOpname[cabangOpname.length - 1].Stok_Fisik;
                         }
                     } else {
-                        // JIKA SEMUA CABANG: Cari fisik terbaru di masing-masing cabang, lalu jumlahkan
+                        // JIKA SEMUA CABANG (Cari fisik terbaru di TIAP cabang, lalu total)
                         let latestByOutlet = {};
-                        
                         opnameList.forEach(o => {
                             let outKey = String(o.Outlet).replace(/^Ai\-Snack\s+/i, '').trim().toLowerCase();
-                            let oTime = new Date(`${(o.Waktu||o.Tanggal).split(' ')[0].split('/').reverse().join('-')}T${(o.Waktu||o.Tanggal).split(' ')[1] || '00:00:00'}`).getTime();
+                            let oTime = getTimeSafe(o.Waktu || o.Tanggal);
                             
-                            // Simpan hanya jika cabang ini belum ada di object, atau jika waktu opname-nya lebih baru
                             if (!latestByOutlet[outKey] || oTime > latestByOutlet[outKey].time) {
                                 latestByOutlet[outKey] = {
                                     time: oTime,
@@ -10867,7 +10893,6 @@ executeVoidTrx: async function(trxId) {
                             totalFisikSemuaCabang += latestByOutlet[key].fisik;
                             adaData = true;
                         }
-                        
                         if (adaData) lastFisik = totalFisikSemuaCabang;
                     }
                 }

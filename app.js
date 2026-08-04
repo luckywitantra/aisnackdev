@@ -840,34 +840,27 @@ const superApp = {
 
 
     mergeDatabase: function(oldDb, newDb) {
-        // Jika memori lokal HP masih kosong, langsung gunakan data baru
         if (!oldDb || !oldDb.masterProduk) return newDb;
         if (!newDb) return oldDb;
 
-        console.log("🛡️ [Smart Merge] Memulai penggabungan data...");
-
         let merged = { ...oldDb };
 
-        // --- A. KELOMPOK MASTER DATA (Wajib Timpa 100% agar Stok & Harga selalu Real-Time) ---
+        // --- A. KELOMPOK MASTER DATA ---
         merged.status = newDb.status || oldDb.status;
         merged.masterProduk = newDb.masterProduk || oldDb.masterProduk;
         merged.outlets = newDb.outlets || oldDb.outlets;
         merged.hargaStokOutlet = newDb.hargaStokOutlet || oldDb.hargaStokOutlet;
         
-        // 🚀 TAMBAHAN KRITIS: PASTIKAN DATA BARANG MASUK JUGA DITIMPA (Aman dari properti ganda)
-        merged.barangMasuk = newDb.barangMasuk || newDb.mutasi || oldDb.barangMasuk || oldDb.mutasi || [];
-        
+        // (Baris "merged.barangMasuk" yang keliru telah dihapus dari kelompok ini)
+
         merged.users = newDb.users || oldDb.users;
         merged.pengaturan = newDb.pengaturan || oldDb.pengaturan;
         merged.masterPengeluaran = newDb.masterPengeluaran || oldDb.masterPengeluaran;
 
-        // --- B. HELPER PENGGABUNG ARRAY RIWAYAT (KEBAL ID BERBEDA & ANTI DUPLIKASI) ---
+        // --- B. HELPER PENGGABUNG ARRAY RIWAYAT ---
         const mergeHistoryArray = (oldArr = [], newArr = [], primaryKey, secondaryKey) => {
             let map = new Map();
-            
             const processItem = (item) => {
-                // 🛠️ PERBAIKAN 1: HAPUS Math.random() AGAR DATA TIDAK DUPLIKAT
-                // Kita gunakan SKU dan Variabel Nominal mutlak agar ID selalu sama untuk data yang sama
                 let tgl = item.Tanggal || item.Tanggal_Laporan || '';
                 let wkt = item.Waktu || '';
                 let out = item.Outlet || item.Cabang || item.Outlet_Tujuan || '';
@@ -879,14 +872,10 @@ const superApp = {
                 
                 map.set(String(id).trim(), item);
             };
-
-            // Masukkan data lawas ke dalam Map
-            oldArr.forEach(processItem);
             
-            // Masukkan data baru (Menimpa data lawas secara cerdas jika ID/Fallback sama)
+            oldArr.forEach(processItem);
             newArr.forEach(processItem);
-
-            // Kembalikan ke Array (TANPA AUTO-SORT agar tidak crash di tanggal format ID)
+            
             return Array.from(map.values());
         };
 
@@ -894,15 +883,20 @@ const superApp = {
         merged.laporanHarian = mergeHistoryArray(oldDb.laporanHarian, newDb.laporanHarian, 'ID_Laporan', 'id_laporan');
         merged.transactions = mergeHistoryArray(oldDb.transactions, newDb.transactions, 'ID_TRX', 'id_trx');
         merged.shifts = mergeHistoryArray(oldDb.shifts, newDb.shifts, 'ID_Shift', 'id_shift');
-        merged.kasKeluar = mergeHistoryArray(oldDb.kasKeluar, newDb.kasKeluar, 'ID_Kas_Keluar', 'id_kas_keluar');
+        merged.kasKeluar = mergeHistoryArray(oldDb.kasKeluar, newDb.kasKeluar, 'ID_Kas', 'id_kas_keluar');
         
-        // 🚀 KEAMANAN GANDA UNTUK TABEL OPNAME
-        merged.opname = mergeHistoryArray(oldDb.opname || oldDb.riwayatOpname, newDb.opname || newDb.riwayatOpname, 'ID_Opname', 'id_opname');
+        let oldOpname = oldDb.opname || oldDb.riwayatOpname || [];
+        let newOpname = newDb.opname || newDb.riwayatOpname || [];
+        merged.opname = mergeHistoryArray(oldOpname, newOpname, 'ID_Opname', 'id_opname');
         merged.riwayatOpname = merged.opname; 
         
-        merged.mutasi = mergeHistoryArray(oldDb.mutasi, newDb.mutasi, 'ID_Mutasi', 'id_mutasi');
+        // 🚀 PROSES BARANG MASUK YANG BENAR (Digabung secara ketat di bawah ini)
+        let oldMutasi = oldDb.mutasi || oldDb.barangMasuk || [];
+        let newMutasi = newDb.mutasi || newDb.barangMasuk || [];
+        merged.mutasi = mergeHistoryArray(oldMutasi, newMutasi, 'ID_Mutasi', 'id_mutasi');
+        merged.barangMasuk = merged.mutasi;
 
-        console.log(`✅ [Smart Merge] Sukses! Setelah digabung -> Laporan Harian: ${merged.laporanHarian.length} baris | Transaksi: ${merged.transactions.length} baris`);
+        console.log(`✅ [Smart Merge] Sukses! Mutasi berhasil digabung: ${merged.mutasi.length} baris`);
         return merged;
     },
     

@@ -10262,15 +10262,22 @@ executeVoidTrx: async function(trxId) {
         let details = [];
         let totalVal = 0;
         let totalPcs = 0;
+        
+        // Variabel Tambahan Khusus Mode "Produk"
+        let productTotalQris = 0;
+        let productTotalCash = 0;
+        let sysStock = 0;
+        let lastFisik = '-';
 
-        // Helper Cerdas untuk mengecek apakah data masuk dalam filter Tanggal & Outlet
+        // Helper Cerdas untuk mengecek filter Tanggal & Outlet
         const isDataValid = (dateString, outletString) => {
             if (!dateString) return false;
-            // Bersihkan format waktu jika ada (misal: "04/08/2026 10.00.00" -> "04/08/2026")
             let pureDate = String(dateString).split(' ')[0]; 
-            let d = typeof this.parseDateId === 'function' ? this.parseDateId(pureDate) : new Date(pureDate);
+            // Fallback aman untuk parsing tanggal Indonesia (DD/MM/YYYY)
+            let d = typeof this.parseDateId === 'function' ? this.parseDateId(pureDate) : new Date(pureDate.includes('/') ? pureDate.split('/').reverse().join('-') : pureDate);
             
             if (d < dateStart || d > dateEnd) return false;
+            
             let out = outletString ? String(outletString).replace(/^Ai\-Snack\s+/i, '').trim() : 'Pusat';
             let filterOut = selOut.replace(/^Ai\-Snack\s+/i, '').trim();
             
@@ -10288,7 +10295,6 @@ executeVoidTrx: async function(trxId) {
                 let jam = t.Waktu ? parseInt(String(t.Waktu).split('.')[0]) : 0;
                 let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
                 
-                // Hitung total Pcs dalam satu struk
                 let pcsInTrx = items.reduce((sum, it) => sum + Number(it.qty || 0), 0);
 
                 if (type === 'hourly' && jam === parseInt(param)) {
@@ -10307,7 +10313,6 @@ executeVoidTrx: async function(trxId) {
                     let clr = isCash ? 'text-emerald-500' : 'text-sky-500';
                     let bgClr = isCash ? 'bg-emerald-100' : 'bg-sky-100';
                     let icn = isCash ? 'fa-money-bill-wave' : 'fa-qrcode';
-                    
                     details.push({ icon: icn, color: clr, bg: bgClr, wkt: `${t.Tanggal} ${t.Waktu}`, ref: t.ID_TRX, desc: `Kasir: ${t.Kasir} • Cabang ${tOut}`, nom: Number(t.Total_Bayar), label: 'Rp', extra: `${pcsInTrx} Pcs` });
                     totalVal += Number(t.Total_Bayar); totalPcs += pcsInTrx;
                 }
@@ -10320,17 +10325,60 @@ executeVoidTrx: async function(trxId) {
                     title = `Produk: ${param}`;
                     items.forEach(it => {
                         let safeNama = it.nama || 'Unknown';
-                        if (safeNama === param) {
+                        if (String(safeNama).trim().toLowerCase() === String(param).trim().toLowerCase()) {
                             let omsetIt = Number(it.qty) * Number(it.price);
-                            details.push({ icon: 'fa-shopping-bag', color: 'text-fuchsia-500', bg: 'bg-fuchsia-100', wkt: `${t.Tanggal} ${t.Waktu}`, ref: t.ID_TRX, desc: `Cabang ${tOut} (Oleh: ${t.Kasir})`, nom: omsetIt, label: 'Rp', extra: `${it.qty} Pcs` });
+                            details.push({ 
+                                icon: 'fa-shopping-bag', color: 'text-fuchsia-500', bg: 'bg-fuchsia-100', 
+                                wkt: `${t.Tanggal} ${t.Waktu}`, ref: t.ID_TRX, desc: `Cabang ${tOut} (Oleh: ${t.Kasir})`, 
+                                nom: omsetIt, label: 'Rp', extra: `${it.qty} Pcs • ${t.Metode_Bayar}` 
+                            });
                             totalVal += omsetIt; totalPcs += Number(it.qty);
+                            
+                            // Hitung Metode Pembayaran Spesifik Produk
+                            if (String(t.Metode_Bayar).toLowerCase() === 'qris') {
+                                productTotalQris += omsetIt;
+                            } else {
+                                productTotalCash += omsetIt;
+                            }
                         }
                     });
                 }
             });
+
+            // LOGIKA EKSTRA: Cari Stok Sistem & Fisik untuk Mode Produk
+            if (type === 'product') {
+                let skuTarget = '';
+                (this.db.masterProduk || []).forEach(p => {
+                    if (String(p.Nama_Produk).trim().toLowerCase() === String(param).trim().toLowerCase()) skuTarget = p.SKU;
+                });
+                
+                if (skuTarget) {
+                    // 1. Dapatkan Sisa Stok Sistem Terkini
+                    (this.db.hargaStokOutlet || []).forEach(s => {
+                        if (s.SKU === skuTarget) {
+                            let out = s.ID_Outlet || 'Pusat';
+                            let filterOut = selOut.replace(/^Ai\-Snack\s+/i, '').trim();
+                            if (selOut === 'Semua' || out === filterOut) {
+                                sysStock += Number(s.Stok_Toko || 0);
+                            }
+                        }
+                    });
+                    
+                    // 2. Dapatkan Stok Fisik dari Opname Terakhir
+                    let opnameList = (this.db.opname || this.db.riwayatOpname || []).filter(o => o.SKU === skuTarget && o.Status_Approval === 'Disetujui');
+                    if (selOut !== 'Semua') {
+                        let filterOut = selOut.replace(/^Ai\-Snack\s+/i, '').trim();
+                        opnameList = opnameList.filter(o => o.Outlet === filterOut);
+                    }
+                    if (opnameList.length > 0) {
+                        let lastOp = opnameList[opnameList.length - 1]; // Mengambil baris paling baru (bawah)
+                        lastFisik = lastOp.Stok_Fisik;
+                    }
+                }
+            }
         }
         
-        // 3. KUMPULKAN DATA OPNAME (Discrepancy)
+        // 3. KUMPULKAN DATA OPNAME 
         else if (type === 'opname') {
             title = `Pergerakan Opname Stok`;
             (this.db.opname || this.db.riwayatOpname || []).forEach(o => {
@@ -10371,27 +10419,43 @@ executeVoidTrx: async function(trxId) {
 
         // 5. Setup Highlight Nilai Total di Header
         let totalHtml = '';
-        if (['opname', 'mutasi', 'pcs'].includes(type)) {
-            totalHtml = `<span class="text-indigo-600 bg-indigo-100 px-3 py-1 rounded-full shadow-inner border border-indigo-200">${totalPcs.toLocaleString('id-ID')} Pcs</span>`;
+        if (type === 'product') {
+            totalHtml = `
+                <div class="flex flex-col gap-2 mt-3">
+                    <div class="flex flex-wrap gap-2">
+                        <span class="text-emerald-600 bg-emerald-100 px-3 py-1.5 rounded-lg shadow-sm border border-emerald-200 flex items-center gap-1.5 text-[11px] font-extrabold"><i class="fas fa-money-bill-wave"></i> Cash: Rp ${productTotalCash.toLocaleString('id-ID')}</span>
+                        <span class="text-sky-600 bg-sky-100 px-3 py-1.5 rounded-lg shadow-sm border border-sky-200 flex items-center gap-1.5 text-[11px] font-extrabold"><i class="fas fa-qrcode"></i> QRIS: Rp ${productTotalQris.toLocaleString('id-ID')}</span>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="text-amber-600 bg-amber-100 px-3 py-1.5 rounded-lg shadow-sm border border-amber-200 flex items-center gap-1.5 text-[11px] font-extrabold"><i class="fas fa-desktop"></i> Sistem: ${sysStock.toLocaleString('id-ID')} Pcs</span>
+                        <span class="text-rose-600 bg-rose-100 px-3 py-1.5 rounded-lg shadow-sm border border-rose-200 flex items-center gap-1.5 text-[11px] font-extrabold"><i class="fas fa-box-open"></i> Fisik Terakhir: ${lastFisik !== '-' ? lastFisik + ' Pcs' : 'N/A'}</span>
+                    </div>
+                    <div class="text-xs font-black text-slate-700 flex items-center gap-2 mt-1">
+                        Total Terjual: <span class="text-brand-600 bg-brand-50 px-2 py-0.5 rounded shadow-sm border border-brand-200">Rp ${totalVal.toLocaleString('id-ID')} (${totalPcs} Pcs)</span>
+                    </div>
+                </div>
+            `;
+        } else if (['opname', 'mutasi', 'pcs'].includes(type)) {
+            totalHtml = `<div class="mt-3"><span class="text-indigo-600 bg-indigo-100 px-3 py-1 rounded-full shadow-inner border border-indigo-200">${totalPcs.toLocaleString('id-ID')} Pcs</span></div>`;
         } else {
             totalHtml = `
-                <span class="text-emerald-600 bg-emerald-100 px-3 py-1 rounded-full shadow-inner border border-emerald-200">Rp ${totalVal.toLocaleString('id-ID')}</span>
-                <span class="text-amber-600 bg-amber-100 px-3 py-1 rounded-full shadow-inner border border-amber-200 ml-1">${totalPcs.toLocaleString('id-ID')} Pcs</span>
+                <div class="mt-3 flex flex-wrap gap-2">
+                    <span class="text-emerald-600 bg-emerald-100 px-3 py-1 rounded-full shadow-inner border border-emerald-200">Rp ${totalVal.toLocaleString('id-ID')}</span>
+                    <span class="text-amber-600 bg-amber-100 px-3 py-1 rounded-full shadow-inner border border-amber-200">${totalPcs.toLocaleString('id-ID')} Pcs</span>
+                </div>
             `;
         }
 
-        // 6. Bangun Komponen UI List (Playful & Interaktif)
+        // 6. Bangun Komponen UI List
         let listHtml = details.length === 0 ? `<div class="p-10 flex flex-col items-center justify-center text-slate-400 opacity-70"><i class="fas fa-ghost text-4xl mb-3"></i><p class="text-xs font-bold tracking-widest uppercase">Data Kosong</p></div>` :
             details.map((d, idx) => `
                 <div class="flex items-center justify-between p-4 border-b border-slate-100 hover:bg-slate-50 transition-all duration-300 group animate-slide-up" style="animation-delay: ${idx * 30}ms; animation-fill-mode: both;">
                     
                     <div class="flex items-center flex-1 min-w-0 pr-3 gap-4">
-                        <!-- Playful Icon Badge -->
                         <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${d.bg} ${d.color} shadow-sm group-hover:scale-110 transition-transform duration-300">
                             <i class="fas ${d.icon} text-lg"></i>
                         </div>
                         
-                        <!-- Texts -->
                         <div class="flex-1 min-w-0">
                             <div class="font-extrabold text-[13px] text-slate-800 truncate group-hover:text-brand-600 transition-colors">${d.ref}</div>
                             <div class="text-[10px] font-bold text-slate-400 mt-1 flex flex-col sm:flex-row gap-1 sm:gap-3">
@@ -10401,7 +10465,6 @@ executeVoidTrx: async function(trxId) {
                         </div>
                     </div>
                     
-                    <!-- Values -->
                     <div class="text-right shrink-0 flex flex-col items-end">
                         <div class="font-black ${d.nom < 0 ? 'text-rose-500' : 'text-slate-800'} text-sm md:text-base tracking-tight">
                             ${d.nom > 0 && type === 'opname' ? '+' : ''}${d.label === 'Rp' ? 'Rp ' : ''}${d.nom.toLocaleString('id-ID')} ${d.label === 'Pcs' ? 'Pcs' : ''}
@@ -10414,11 +10477,10 @@ executeVoidTrx: async function(trxId) {
                 </div>
             `).join('');
 
-        // 7. Injeksi Modal Modern (Tailwind Glassmorphism + Bouncy Animations)
+        // 7. Injeksi Modal Modern (Tailwind)
         let existingModal = document.getElementById('ai-deepdive-modal');
         if (existingModal) existingModal.remove();
 
-        // Tambahkan keyframes jika belum ada (Untuk efek list muncul berurutan)
         if (!document.getElementById('deepdive-style')) {
             document.head.insertAdjacentHTML('beforeend', `
                 <style id="deepdive-style">
@@ -10433,14 +10495,13 @@ executeVoidTrx: async function(trxId) {
 
         let modalHtml = `
         <div id="ai-deepdive-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[9999] flex items-end md:items-center justify-center p-0 md:p-4 opacity-0 transition-opacity duration-400">
-            <div class="bg-white w-full md:max-w-2xl md:rounded-[2rem] rounded-t-[2rem] shadow-[0_20px_60px_rgba(0,0,0,0.15)] flex flex-col h-[85vh] md:h-[80vh] transform translate-y-full md:translate-y-12 md:scale-90 transition-transform duration-500 cubic-bezier(0.34, 1.56, 0.64, 1) overflow-hidden border-t-4 border-brand-500 md:border-4 md:border-white">
+            <div class="bg-white w-full md:max-w-2xl md:rounded-[2rem] rounded-t-[2rem] shadow-[0_20px_60px_rgba(0,0,0,0.15)] flex flex-col h-[85vh] md:h-[80vh] transform translate-y-full md:translate-y-12 md:scale-90 transition-transform duration-500 overflow-hidden border-t-4 border-brand-500 md:border-4 md:border-white">
                 
                 <!-- HEADER (Glass + Gradient) -->
                 <div class="p-5 md:p-6 bg-gradient-to-br from-slate-50 to-white flex justify-between items-start shrink-0 relative overflow-hidden">
-                    <!-- Deco Circles -->
                     <div class="absolute top-0 right-0 w-32 h-32 bg-brand-50 rounded-full blur-2xl -mr-10 -mt-10"></div>
                     
-                    <div class="relative z-10">
+                    <div class="relative z-10 w-full pr-10">
                         <div class="flex items-center gap-3">
                             <div class="w-10 h-10 bg-brand-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-brand-500/30 transform -rotate-3">
                                 <i class="fas fa-search-dollar text-xl"></i>
@@ -10450,12 +10511,10 @@ executeVoidTrx: async function(trxId) {
                                 <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">${subtitle}</p>
                             </div>
                         </div>
-                        <div class="mt-4 text-xs font-black text-slate-700 flex items-center gap-2">
-                            Total Filter: ${totalHtml}
-                        </div>
+                        ${totalHtml}
                     </div>
                     
-                    <button onclick="document.getElementById('ai-deepdive-modal').classList.remove('opacity-100'); document.getElementById('ai-deepdive-modal').firstElementChild.classList.add('translate-y-full', 'md:translate-y-12', 'md:scale-90'); setTimeout(()=>document.getElementById('ai-deepdive-modal').remove(), 400)" class="w-10 h-10 flex items-center justify-center rounded-full bg-white border-2 border-slate-100 text-slate-400 hover:text-rose-500 hover:bg-rose-50 hover:border-rose-200 transition-all duration-300 active:scale-90 shadow-sm shrink-0 relative z-10 group">
+                    <button onclick="document.getElementById('ai-deepdive-modal').classList.remove('opacity-100'); document.getElementById('ai-deepdive-modal').firstElementChild.classList.add('translate-y-full', 'md:translate-y-12', 'md:scale-90'); setTimeout(()=>document.getElementById('ai-deepdive-modal').remove(), 400)" class="absolute top-5 right-5 w-10 h-10 flex items-center justify-center rounded-full bg-white border-2 border-slate-100 text-slate-400 hover:text-rose-500 hover:bg-rose-50 hover:border-rose-200 transition-all duration-300 active:scale-90 shadow-sm shrink-0 z-20 group">
                         <i class="fas fa-times group-hover:rotate-90 transition-transform duration-300"></i>
                     </button>
                 </div>
@@ -10480,7 +10539,6 @@ executeVoidTrx: async function(trxId) {
                 el.classList.add('opacity-100');
                 el.firstElementChild.classList.remove('translate-y-full', 'md:translate-y-12', 'md:scale-90');
                 el.firstElementChild.classList.add('translate-y-0', 'md:translate-y-0', 'md:scale-100');
-                // Beri getaran haptic kecil pada HP
                 if (navigator.vibrate) navigator.vibrate(40);
             }
         }, 20);

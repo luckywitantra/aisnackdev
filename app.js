@@ -7908,26 +7908,49 @@ openDetailStokOpname: function(sku) {
     closeDetailOpnameModal: function() {
         const modal = document.getElementById('modal-detail-opname');
         if (modal) {
+            // 1. Hilangkan transparansi
             modal.classList.remove('opacity-100');
+            
+            // 2. Luncurkan kotak ke bawah (Khusus HP) dan perkecil ukurannya
             if(modal.firstElementChild) {
-                // Tambahkan 'translate-y-full' khusus mobile bottom-sheet style saat tutup
                 modal.firstElementChild.classList.remove('scale-100', 'translate-y-0');
                 modal.firstElementChild.classList.add('scale-95', 'translate-y-full', 'md:translate-y-0');
             }
-            setTimeout(() => modal.classList.add('hidden'), 300);
+            
+            // 3. Setelah 300ms (animasi selesai), sembunyikan sepenuhnya
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                
+                // 🧹 PERBAIKAN: Bersihkan efek "meluncur ke bawah" secara diam-diam
+                // Agar saat dibuka lagi, posisinya langsung kembali ke tengah/normal!
+                if(modal.firstElementChild) {
+                    modal.firstElementChild.classList.remove('translate-y-full', 'md:translate-y-0');
+                }
+            }, 300);
         }
     },
 
     closeDetailRestokModal: function() {
         const modal = document.getElementById('modal-detail-restok');
         if (modal) {
+            // 1. Hilangkan transparansi
             modal.classList.remove('opacity-100');
+            
+            // 2. Luncurkan kotak ke bawah (Khusus HP) dan perkecil ukurannya
             if(modal.firstElementChild) {
-                // Tambahkan 'translate-y-full' khusus mobile bottom-sheet style saat tutup
                 modal.firstElementChild.classList.remove('scale-100', 'translate-y-0');
                 modal.firstElementChild.classList.add('scale-95', 'translate-y-full', 'md:translate-y-0');
             }
-            setTimeout(() => modal.classList.add('hidden'), 300);
+            
+            // 3. Setelah 300ms (animasi selesai), sembunyikan sepenuhnya
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                
+                // 🧹 PERBAIKAN: Bersihkan efek "meluncur ke bawah" secara diam-diam
+                if(modal.firstElementChild) {
+                    modal.firstElementChild.classList.remove('translate-y-full', 'md:translate-y-0');
+                }
+            }, 300);
         }
     },
 

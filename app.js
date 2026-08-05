@@ -3689,6 +3689,154 @@ selectOutlet: function(id) {
         }
     },
 
+     // =========================================================
+    // 🚀 RENDER DASHBOARD EKSEKUTIF DENGAN KARTU MINI INTERAKTIF
+    // =========================================================
+    renderExecutiveDashboard: function() {
+        const dashCont = document.getElementById('lapharian-executive-dashboard');
+        if (!dashCont) return;
+
+        let isOwner = this.currentUser && (this.currentUser.Role === 'owner' || this.currentUser.Role === 'supervisor');
+        if (!isOwner) {
+            dashCont.classList.add('hidden');
+            return;
+        }
+        dashCont.classList.remove('hidden');
+
+        // 1. Ambil & Inisialisasi Tanggal Filter
+        const startInput = document.getElementById('exec-filter-start');
+        const endInput = document.getElementById('exec-filter-end');
+        let now = new Date();
+
+        if (startInput && !startInput.value) {
+            let pad = n => String(n).padStart(2, '0');
+            startInput.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`;
+        }
+        if (endInput && !endInput.value) {
+            let pad = n => String(n).padStart(2, '0');
+            endInput.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+        }
+
+        let startObj = (startInput && startInput.value) ? new Date(startInput.value) : null;
+        if (startObj) startObj.setHours(0, 0, 0, 0);
+        let endObj = (endInput && endInput.value) ? new Date(endInput.value) : null;
+        if (endObj) endObj.setHours(23, 59, 59, 999);
+
+        let isConsolidated = (this.outlet === 'Pusat' || this.outlet === 'Semua' || !this.outlet);
+        let titleEl = document.getElementById('exec-dash-title');
+        if (titleEl) {
+            titleEl.innerText = isConsolidated ? "Konsolidasi Seluruh Outlet" : `Analisis Eksekutif: ${this.outlet}`;
+        }
+
+        let totSales = 0, totCash = 0, totQris = 0, totExp = 0;
+        let outletMap = {};
+        
+        // 🚀 KUNCI PERBAIKAN: Gunakan variabel global superApp untuk menampung data item biaya
+        this.execExpenseData = {}; 
+
+        (this.db.laporanHarian || []).forEach(rep => {
+            if (rep.Status_Approval === 'Ditolak') return;
+
+            if (startObj || endObj) {
+                let cleanStr = (rep.Tanggal || '').split(',').pop().trim();
+                let match = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+                if (match) {
+                    let repDateObj = new Date(parseInt(match[3],10), parseInt(match[2],10)-1, parseInt(match[1],10));
+                    if (startObj && repDateObj < startObj) return;
+                    if (endObj && repDateObj > endObj) return;
+                } else return;
+            }
+
+            let repOutlet = String(rep.Outlet || 'Lainnya').replace(/^Ai\-Snack\s+/i, '').trim();
+            let currOutlet = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+
+            if (!isConsolidated && repOutlet !== currOutlet) return;
+
+            let net = Number(rep.Net_Sales || 0);
+            let cash = Number(rep.Cash || 0);
+            let qris = Number(rep.QRIS || 0);
+            let exp = Number(rep.Total_Pengeluaran || 0);
+
+            totSales += net;
+            totCash += cash;
+            totQris += qris;
+            totExp += exp;
+
+            if (!outletMap[repOutlet]) outletMap[repOutlet] = { sales: 0, cash: 0, qris: 0, exp: 0 };
+            outletMap[repOutlet].sales += net;
+            outletMap[repOutlet].cash += cash;
+            outletMap[repOutlet].qris += qris;
+            outletMap[repOutlet].exp += exp;
+
+            try {
+                let expArr = JSON.parse(rep.Pengeluaran_JSON || '[]');
+                expArr.forEach(itemExp => {
+                    let itemName = String(itemExp.nama || 'LAINNYA').toUpperCase().trim();
+                    let itemNom = Number(itemExp.nominal || 0);
+                    if (itemName !== '' && itemNom > 0) {
+                        if (!this.execExpenseData[itemName]) this.execExpenseData[itemName] = 0;
+                        this.execExpenseData[itemName] += itemNom;
+                    }
+                });
+            } catch(e){}
+        });
+
+        // 2. Render 4 KPI Utama
+        if (document.getElementById('exec-total-sales')) document.getElementById('exec-total-sales').innerText = `Rp ${totSales.toLocaleString('id-ID')}`;
+        if (document.getElementById('exec-total-cash')) document.getElementById('exec-total-cash').innerText = `Rp ${totCash.toLocaleString('id-ID')}`;
+        if (document.getElementById('exec-total-qris')) document.getElementById('exec-total-qris').innerText = `Rp ${totQris.toLocaleString('id-ID')}`;
+        if (document.getElementById('exec-total-expense')) document.getElementById('exec-total-expense').innerText = `Rp ${totExp.toLocaleString('id-ID')}`;
+
+        // 3. Update Akumulasi Target
+        let targetTotal = this.targetBulanan || 180000000;
+        if (isConsolidated && this.db && this.db.outlets) {
+            let tCons = 0;
+            this.db.outlets.forEach(o => {
+                if (o.Nama_Outlet !== 'Pusat' && o.Nama_Outlet !== 'Semua') {
+                    let st = localStorage.getItem('aicha_target_bulanan_' + o.Nama_Outlet);
+                    tCons += (st && !isNaN(st)) ? Number(st) : 180000000;
+                }
+            });
+            if (tCons > 0) targetTotal = tCons;
+        }
+
+        let pctExec = Math.min(Math.round((totSales / targetTotal) * 100), 100);
+        let sisaTarget = Math.max(targetTotal - totSales, 0);
+
+        if (document.getElementById('accum-net-sales')) document.getElementById('accum-net-sales').innerText = `Rp ${totSales.toLocaleString('id-ID')}`;
+        if (document.getElementById('accum-target')) document.getElementById('accum-target').innerText = `Rp ${targetTotal.toLocaleString('id-ID')}`;
+        if (document.getElementById('accum-progress-bar')) document.getElementById('accum-progress-bar').style.width = `${pctExec}%`;
+        if (document.getElementById('accum-percent')) document.getElementById('accum-percent').innerText = `Progress: ${pctExec}%`;
+        if (document.getElementById('accum-remaining')) document.getElementById('accum-remaining').innerText = `Kurang: Rp ${sisaTarget.toLocaleString('id-ID')}`;
+
+        // 4. Render Kartu Mini Outlet
+        const cardsGrid = document.getElementById('exec-outlet-cards-grid');
+        if (cardsGrid) {
+            let outletKeys = Object.keys(outletMap).sort((a,b) => outletMap[b].sales - outletMap[a].sales);
+            cardsGrid.innerHTML = outletKeys.length === 0 
+                ? `<div class="col-span-full text-xs text-slate-400 italic text-center py-6 border border-dashed border-slate-700 rounded-2xl">Belum ada transaksi di periode ini</div>`
+                : outletKeys.map(outName => {
+                    let oData = outletMap[outName];
+                    let pct = totSales > 0 ? Math.round((oData.sales / totSales) * 100) : 0;
+                    return `
+                    <div onclick="superApp.openDetailOutletModal('${outName}')" class="bg-slate-800/80 hover:bg-slate-700/90 p-3.5 rounded-2xl border border-slate-700 hover:border-rose-500/50 cursor-pointer transition-all active:scale-95 shadow-md flex flex-col justify-between group">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="font-black text-white text-sm group-hover:text-rose-400 transition">Ai-CHA ${outName}</span>
+                            <span class="text-[9px] font-bold bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded-full border border-rose-500/30">${pct}%</span>
+                        </div>
+                        <div>
+                            <span class="text-[10px] text-slate-400 block uppercase font-bold">Sales Cabang</span>
+                            <span class="font-black text-rose-400 text-base block tracking-tight">Rp ${oData.sales.toLocaleString('id-ID')}</span>
+                        </div>
+                    </div>`;
+                }).join('');
+        }
+
+        // 5. Simpan Total ke Global & Panggil Engine List Interaktif (Search & Sort)
+        this.execTotalExpense = totExp;
+        this.renderExecExpenseList();
+    },
+
     // =========================================================
     // 🚀 CONTROLLER POPUP ANALISIS SUPER DETAIL PER OUTLET
     // =========================================================
@@ -3849,153 +3997,7 @@ selectOutlet: function(id) {
         if (modal) modal.classList.add('hidden');
     },
 
-    // =========================================================
-    // 🚀 RENDER DASHBOARD EKSEKUTIF DENGAN KARTU MINI INTERAKTIF
-    // =========================================================
-    renderExecutiveDashboard: function() {
-        const dashCont = document.getElementById('lapharian-executive-dashboard');
-        if (!dashCont) return;
-
-        let isOwner = this.currentUser && (this.currentUser.Role === 'owner' || this.currentUser.Role === 'supervisor');
-        if (!isOwner) {
-            dashCont.classList.add('hidden');
-            return;
-        }
-        dashCont.classList.remove('hidden');
-
-        // 1. Ambil & Inisialisasi Tanggal Filter
-        const startInput = document.getElementById('exec-filter-start');
-        const endInput = document.getElementById('exec-filter-end');
-        let now = new Date();
-
-        if (startInput && !startInput.value) {
-            let pad = n => String(n).padStart(2, '0');
-            startInput.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`;
-        }
-        if (endInput && !endInput.value) {
-            let pad = n => String(n).padStart(2, '0');
-            endInput.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-        }
-
-        let startObj = (startInput && startInput.value) ? new Date(startInput.value) : null;
-        if (startObj) startObj.setHours(0, 0, 0, 0);
-        let endObj = (endInput && endInput.value) ? new Date(endInput.value) : null;
-        if (endObj) endObj.setHours(23, 59, 59, 999);
-
-        let isConsolidated = (this.outlet === 'Pusat' || this.outlet === 'Semua' || !this.outlet);
-        let titleEl = document.getElementById('exec-dash-title');
-        if (titleEl) {
-            titleEl.innerText = isConsolidated ? "Konsolidasi Seluruh Outlet" : `Analisis Eksekutif: ${this.outlet}`;
-        }
-
-        let totSales = 0, totCash = 0, totQris = 0, totExp = 0;
-        let outletMap = {};
-        
-        // 🚀 KUNCI PERBAIKAN: Gunakan variabel global superApp untuk menampung data item biaya
-        this.execExpenseData = {}; 
-
-        (this.db.laporanHarian || []).forEach(rep => {
-            if (rep.Status_Approval === 'Ditolak') return;
-
-            if (startObj || endObj) {
-                let cleanStr = (rep.Tanggal || '').split(',').pop().trim();
-                let match = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-                if (match) {
-                    let repDateObj = new Date(parseInt(match[3],10), parseInt(match[2],10)-1, parseInt(match[1],10));
-                    if (startObj && repDateObj < startObj) return;
-                    if (endObj && repDateObj > endObj) return;
-                } else return;
-            }
-
-            let repOutlet = String(rep.Outlet || 'Lainnya').replace(/^Ai\-Snack\s+/i, '').trim();
-            let currOutlet = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
-
-            if (!isConsolidated && repOutlet !== currOutlet) return;
-
-            let net = Number(rep.Net_Sales || 0);
-            let cash = Number(rep.Cash || 0);
-            let qris = Number(rep.QRIS || 0);
-            let exp = Number(rep.Total_Pengeluaran || 0);
-
-            totSales += net;
-            totCash += cash;
-            totQris += qris;
-            totExp += exp;
-
-            if (!outletMap[repOutlet]) outletMap[repOutlet] = { sales: 0, cash: 0, qris: 0, exp: 0 };
-            outletMap[repOutlet].sales += net;
-            outletMap[repOutlet].cash += cash;
-            outletMap[repOutlet].qris += qris;
-            outletMap[repOutlet].exp += exp;
-
-            try {
-                let expArr = JSON.parse(rep.Pengeluaran_JSON || '[]');
-                expArr.forEach(itemExp => {
-                    let itemName = String(itemExp.nama || 'LAINNYA').toUpperCase().trim();
-                    let itemNom = Number(itemExp.nominal || 0);
-                    if (itemName !== '' && itemNom > 0) {
-                        if (!this.execExpenseData[itemName]) this.execExpenseData[itemName] = 0;
-                        this.execExpenseData[itemName] += itemNom;
-                    }
-                });
-            } catch(e){}
-        });
-
-        // 2. Render 4 KPI Utama
-        if (document.getElementById('exec-total-sales')) document.getElementById('exec-total-sales').innerText = `Rp ${totSales.toLocaleString('id-ID')}`;
-        if (document.getElementById('exec-total-cash')) document.getElementById('exec-total-cash').innerText = `Rp ${totCash.toLocaleString('id-ID')}`;
-        if (document.getElementById('exec-total-qris')) document.getElementById('exec-total-qris').innerText = `Rp ${totQris.toLocaleString('id-ID')}`;
-        if (document.getElementById('exec-total-expense')) document.getElementById('exec-total-expense').innerText = `Rp ${totExp.toLocaleString('id-ID')}`;
-
-        // 3. Update Akumulasi Target
-        let targetTotal = this.targetBulanan || 180000000;
-        if (isConsolidated && this.db && this.db.outlets) {
-            let tCons = 0;
-            this.db.outlets.forEach(o => {
-                if (o.Nama_Outlet !== 'Pusat' && o.Nama_Outlet !== 'Semua') {
-                    let st = localStorage.getItem('aicha_target_bulanan_' + o.Nama_Outlet);
-                    tCons += (st && !isNaN(st)) ? Number(st) : 180000000;
-                }
-            });
-            if (tCons > 0) targetTotal = tCons;
-        }
-
-        let pctExec = Math.min(Math.round((totSales / targetTotal) * 100), 100);
-        let sisaTarget = Math.max(targetTotal - totSales, 0);
-
-        if (document.getElementById('accum-net-sales')) document.getElementById('accum-net-sales').innerText = `Rp ${totSales.toLocaleString('id-ID')}`;
-        if (document.getElementById('accum-target')) document.getElementById('accum-target').innerText = `Rp ${targetTotal.toLocaleString('id-ID')}`;
-        if (document.getElementById('accum-progress-bar')) document.getElementById('accum-progress-bar').style.width = `${pctExec}%`;
-        if (document.getElementById('accum-percent')) document.getElementById('accum-percent').innerText = `Progress: ${pctExec}%`;
-        if (document.getElementById('accum-remaining')) document.getElementById('accum-remaining').innerText = `Kurang: Rp ${sisaTarget.toLocaleString('id-ID')}`;
-
-        // 4. Render Kartu Mini Outlet
-        const cardsGrid = document.getElementById('exec-outlet-cards-grid');
-        if (cardsGrid) {
-            let outletKeys = Object.keys(outletMap).sort((a,b) => outletMap[b].sales - outletMap[a].sales);
-            cardsGrid.innerHTML = outletKeys.length === 0 
-                ? `<div class="col-span-full text-xs text-slate-400 italic text-center py-6 border border-dashed border-slate-700 rounded-2xl">Belum ada transaksi di periode ini</div>`
-                : outletKeys.map(outName => {
-                    let oData = outletMap[outName];
-                    let pct = totSales > 0 ? Math.round((oData.sales / totSales) * 100) : 0;
-                    return `
-                    <div onclick="superApp.openDetailOutletModal('${outName}')" class="bg-slate-800/80 hover:bg-slate-700/90 p-3.5 rounded-2xl border border-slate-700 hover:border-rose-500/50 cursor-pointer transition-all active:scale-95 shadow-md flex flex-col justify-between group">
-                        <div class="flex justify-between items-start mb-2">
-                            <span class="font-black text-white text-sm group-hover:text-rose-400 transition">Ai-CHA ${outName}</span>
-                            <span class="text-[9px] font-bold bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded-full border border-rose-500/30">${pct}%</span>
-                        </div>
-                        <div>
-                            <span class="text-[10px] text-slate-400 block uppercase font-bold">Sales Cabang</span>
-                            <span class="font-black text-rose-400 text-base block tracking-tight">Rp ${oData.sales.toLocaleString('id-ID')}</span>
-                        </div>
-                    </div>`;
-                }).join('');
-        }
-
-        // 5. Simpan Total ke Global & Panggil Engine List Interaktif (Search & Sort)
-        this.execTotalExpense = totExp;
-        this.renderExecExpenseList();
-    },
+   
 
     // =========================================================
     // 🚀 CONTROLLER DATEPICKER INPUT KUSTOM YANG CANTIK

@@ -3344,81 +3344,80 @@
 <!-- ========================================================================= -->
 <!-- 🔍 MODAL DEEP-DIVE OPNAME FISIK (AI-SNACK PLAYFUL BRANDING)               -->
 <!-- ========================================================================= -->
-<div id="modal-detail-opname" class="hidden fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4 animate-fade-in opacity-0 transition-opacity duration-300">
-    <!-- PERBAIKAN: Menghapus flex flex-col pada container utama jika menyebabkan ruang melar yang tidak perlu -->
-    <div class="bg-white/95 backdrop-blur-md rounded-[2.5rem] shadow-[0_20px_60px_rgba(229,32,43,0.15)] border border-white w-full max-w-3xl overflow-hidden max-h-[90vh] flex flex-col transform scale-95 transition-transform duration-400">
+<div id="modal-detail-opname" class="hidden fixed inset-0 z-[80] flex items-end md:items-center justify-center bg-slate-900/60 backdrop-blur-sm p-0 md:p-4 animate-fade-in opacity-0 transition-opacity duration-300">
+    <div class="bg-white/95 backdrop-blur-md rounded-t-[2rem] md:rounded-[2rem] shadow-[0_20px_60px_rgba(229,32,43,0.15)] border border-white w-full max-w-2xl overflow-hidden max-h-[90dvh] flex flex-col transform scale-95 transition-transform duration-400">
         
-        <!-- HEADER (Tetap) -->
-        <div class="bg-gradient-to-br from-[#E5202B] to-[#CC1A24] p-6 relative shrink-0 overflow-hidden">
+        <!-- HEADER -->
+        <div class="bg-gradient-to-br from-[#E5202B] to-[#CC1A24] p-4 md:p-5 relative shrink-0 overflow-hidden">
             <!-- Glow Latar Belakang -->
-            <div class="absolute -right-10 -top-10 w-32 h-32 bg-white/20 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="absolute -right-6 -top-6 w-24 h-24 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
             
-            <button onclick="superApp.closeDetailOpnameModal()" class="absolute top-5 right-5 w-9 h-9 bg-black/10 hover:bg-black/20 rounded-full flex items-center justify-center transition active:scale-90 text-white backdrop-blur-md z-10 border border-white/20"><i class="fas fa-xmark text-sm"></i></button>
+            <button onclick="superApp.closeDetailOpnameModal()" class="absolute top-4 right-4 w-8 h-8 bg-black/10 hover:bg-black/20 rounded-full flex items-center justify-center transition active:scale-90 text-white backdrop-blur-md z-10 border border-white/20 shrink-0"><i class="fas fa-xmark text-xs"></i></button>
             
-            <div class="flex items-center gap-4 relative z-10 text-white">
-                <div class="w-14 h-14 rounded-[1.25rem] bg-white/20 backdrop-blur-sm border border-white/30 shadow-inner flex items-center justify-center shrink-0">
-                    <i class="fas fa-clipboard-list text-2xl drop-shadow-md"></i>
+            <div class="flex items-center gap-3 relative z-10 text-white pr-10">
+                <div class="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-white/20 backdrop-blur-sm border border-white/30 shadow-inner flex items-center justify-center shrink-0">
+                    <i class="fas fa-clipboard-list text-lg md:text-xl drop-shadow-md"></i>
                 </div>
-                <div>
-                    <span class="text-[9px] font-black text-[#FFF5D1] uppercase tracking-widest mb-1 bg-black/10 px-2.5 py-1 rounded-md backdrop-blur-sm shadow-sm inline-block" id="opname-meta-id">OPN-XXXX</span>
-                    <h2 class="text-xl md:text-2xl font-black leading-tight drop-shadow-md mt-0.5 tracking-tight" id="opname-meta-title">Rincian Audit Selisih Fisik</h2>
-                    <p class="text-[11px] font-bold text-rose-100 mt-1 drop-shadow-sm" id="opname-meta-subtitle">Cabang: - | Waktu: -</p>
+                <div class="min-w-0">
+                    <span class="cursor-pointer hover:bg-black/20 text-[8px] md:text-[9px] font-black text-[#FFF5D1] uppercase tracking-widest mb-0.5 bg-black/10 px-2 py-0.5 rounded backdrop-blur-sm shadow-sm inline-flex items-center transition-colors" id="opname-meta-id" onclick="navigator.clipboard.writeText(this.innerText.replace('📋 ','')); superApp.showToast('ID disalin!', 'success');" title="Klik Salin ID">📋 OPN-XXXX</span>
+                    <h2 class="text-base md:text-lg font-black leading-tight drop-shadow-md tracking-tight truncate" id="opname-meta-title">Rincian Audit Fisik</h2>
+                    <p class="text-[9px] md:text-[10px] font-bold text-rose-100 mt-0.5 drop-shadow-sm truncate" id="opname-meta-subtitle">Cabang: - | Waktu: -</p>
                 </div>
             </div>
         </div>
         
-        <!-- BODY (PERBAIKAN KUNCI: Menambahkan pembatas tinggi relatif agar scroll jalan, namun tidak mendorong modal jadi raksasa) -->
-        <div class="p-5 md:p-6 overflow-y-auto custom-scroll shrink relative bg-[#FFF5D1]/20">
-            <div class="space-y-3" id="opname-item-list"></div>
+        <!-- BODY (Compact Mode & Custom Scroll) -->
+        <div class="p-3 md:p-4 overflow-y-auto custom-scroll shrink relative bg-[#FFF5D1]/10 min-h-0">
+            <div class="space-y-2" id="opname-item-list"></div>
         </div>
         
-        <!-- FOOTER (Wadah Tombol Otorisasi) -->
-        <div id="opname-modal-footer" class="p-5 bg-white border-t border-slate-100 hidden shrink-0 relative z-20"></div>
+        <!-- FOOTER -->
+        <div id="opname-modal-footer" class="p-3 md:p-4 bg-white border-t border-slate-100 hidden shrink-0 relative z-20 shadow-[0_-10px_20px_rgba(0,0,0,0.02)]"></div>
     </div>
 </div>
 
 <!-- ========================================================================= -->
 <!-- 📦 MODAL DEEP-DIVE BARANG MASUK (AI-SNACK PLAYFUL BRANDING)               -->
 <!-- ========================================================================= -->
-<div id="modal-detail-restok" class="hidden fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4 animate-fade-in opacity-0 transition-opacity duration-300">
-    <!-- PERBAIKAN: Menghapus flex flex-col agar modal tidak melar dan memakan ruang kosong -->
-    <div class="bg-white/95 backdrop-blur-md rounded-[2.5rem] shadow-[0_20px_60px_rgba(255,184,0,0.15)] border border-white w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col transform scale-95 transition-transform duration-400">
+<div id="modal-detail-restok" class="hidden fixed inset-0 z-[80] flex items-end md:items-center justify-center bg-slate-900/60 backdrop-blur-sm p-0 md:p-4 animate-fade-in opacity-0 transition-opacity duration-300">
+    <div class="bg-white/95 backdrop-blur-md rounded-t-[2rem] md:rounded-[2rem] shadow-[0_20px_60px_rgba(255,184,0,0.15)] border border-white w-full max-w-2xl overflow-hidden max-h-[90dvh] flex flex-col transform scale-95 transition-transform duration-400">
         
-        <div class="bg-gradient-to-br from-[#FFB800] to-orange-500 p-6 relative shrink-0 overflow-hidden">
+        <!-- HEADER -->
+        <div class="bg-gradient-to-br from-[#FFB800] to-orange-500 p-4 md:p-5 relative shrink-0 overflow-hidden">
             <!-- Glow Latar Belakang -->
-            <div class="absolute -right-10 -top-10 w-32 h-32 bg-white/30 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="absolute -right-6 -top-6 w-24 h-24 bg-white/30 rounded-full blur-2xl pointer-events-none"></div>
 
-            <button onclick="superApp.closeDetailRestokModal()" class="absolute top-5 right-5 w-9 h-9 bg-black/10 hover:bg-black/20 rounded-full flex items-center justify-center transition active:scale-90 text-white backdrop-blur-md z-10 border border-white/20"><i class="fas fa-xmark text-sm"></i></button>
+            <button onclick="superApp.closeDetailRestokModal()" class="absolute top-4 right-4 w-8 h-8 bg-black/10 hover:bg-black/20 rounded-full flex items-center justify-center transition active:scale-90 text-white backdrop-blur-md z-10 border border-white/20 shrink-0"><i class="fas fa-xmark text-xs"></i></button>
             
-            <div class="flex items-center gap-4 relative z-10 text-white">
-                <div class="w-14 h-14 rounded-[1.25rem] bg-white/20 backdrop-blur-sm border border-white/30 shadow-inner flex items-center justify-center shrink-0">
-                    <i class="fas fa-box-open text-2xl drop-shadow-md"></i>
+            <div class="flex items-center gap-3 relative z-10 text-white pr-10">
+                <div class="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-white/20 backdrop-blur-sm border border-white/30 shadow-inner flex items-center justify-center shrink-0">
+                    <i class="fas fa-box-open text-lg md:text-xl drop-shadow-md"></i>
                 </div>
-                <div>
-                    <span class="text-[9px] font-black text-amber-50 uppercase tracking-widest mb-1 bg-black/10 px-2.5 py-1 rounded-md backdrop-blur-sm shadow-sm inline-block" id="restok-meta-id">SJ-XXXX</span>
-                    <h2 class="text-xl md:text-2xl font-black leading-tight drop-shadow-md mt-0.5 tracking-tight">Detail Penerimaan Logistik</h2>
-                    <p class="text-[11px] font-bold text-amber-100 mt-1 drop-shadow-sm" id="restok-meta-subtitle">Dari: Pusat | Diterima oleh: -</p>
+                <div class="min-w-0">
+                    <span class="cursor-pointer hover:bg-black/20 text-[8px] md:text-[9px] font-black text-amber-50 uppercase tracking-widest mb-0.5 bg-black/10 px-2 py-0.5 rounded backdrop-blur-sm shadow-sm inline-flex items-center transition-colors" id="restok-meta-id" onclick="navigator.clipboard.writeText(this.innerText.replace('📋 ','')); superApp.showToast('Surat Jalan disalin!', 'success');" title="Klik Salin Surat Jalan">📋 SJ-XXXX</span>
+                    <h2 class="text-base md:text-lg font-black leading-tight drop-shadow-md tracking-tight truncate" id="restok-meta-title">Detail Logistik Masuk</h2>
+                    <p class="text-[9px] md:text-[10px] font-bold text-amber-100 mt-0.5 drop-shadow-sm truncate" id="restok-meta-subtitle">Dari: Pusat | Oleh: -</p>
                 </div>
             </div>
         </div>
         
-        <!-- PERBAIKAN KUNCI: Ubah flex-1 menjadi shrink relative agar tingginya pas dengan konten -->
-        <div class="p-5 md:p-6 overflow-y-auto custom-scroll shrink relative bg-slate-50">
-            <table class="w-full text-left whitespace-nowrap text-xs bg-white rounded-[1.25rem] overflow-hidden shadow-sm border border-slate-100">
-                <thead class="bg-slate-50/90 backdrop-blur-sm text-slate-400 font-black uppercase tracking-widest text-[9px] border-b border-slate-100">
+        <!-- BODY (Tabel Super Rapi) -->
+        <div class="p-3 md:p-4 overflow-y-auto custom-scroll shrink relative bg-slate-50 min-h-0">
+            <table class="w-full text-left whitespace-nowrap text-[10px] md:text-xs bg-white rounded-xl overflow-hidden shadow-sm border border-slate-100">
+                <thead class="bg-slate-50/90 backdrop-blur-sm text-slate-400 font-black uppercase tracking-widest text-[8px] md:text-[9px] border-b border-slate-100">
                     <tr>
-                        <th class="py-4 px-5">Nama Item / Barang</th>
-                        <th class="py-4 px-5 text-center">Qty Diterima</th>
-                        <th class="py-4 px-5">Kondisi</th>
+                        <th class="py-2.5 px-3 md:px-4">Nama Barang</th>
+                        <th class="py-2.5 px-2 md:px-3 text-center">Qty</th>
+                        <th class="py-2.5 px-3 md:px-4 text-right">Kondisi</th>
                     </tr>
                 </thead>
-                <!-- Zebra Striping Kuning Ai-Snack -->
-                <tbody id="restok-item-list" class="divide-y divide-slate-100 text-[#4A3B32] font-bold [&>tr:nth-child(even)]:bg-[#FFF5D1]/30 [&>tr:hover]:bg-[#FFF5D1]/70 transition-colors"></tbody>
+                <!-- Zebra Striping Kuning Ai-Snack yang ditipiskan -->
+                <tbody id="restok-item-list" class="divide-y divide-slate-100 text-[#4A3B32] font-bold [&>tr:nth-child(even)]:bg-[#FFF5D1]/20 [&>tr:hover]:bg-[#FFF5D1]/50 transition-colors"></tbody>
             </table>
         </div>
         
-        <!-- Wadah Tombol Otorisasi (Otomatis Muncul Jika Pending) -->
-        <div id="restok-modal-footer" class="p-5 bg-white border-t border-slate-100 hidden shrink-0 relative z-20"></div>
+        <!-- FOOTER -->
+        <div id="restok-modal-footer" class="p-3 md:p-4 bg-white border-t border-slate-100 hidden shrink-0 relative z-20 shadow-[0_-10px_20px_rgba(0,0,0,0.02)]"></div>
     </div>
 </div>
 

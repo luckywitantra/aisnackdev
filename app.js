@@ -9785,7 +9785,7 @@ openDetailStokOpname: function(sku) {
         } else { kasText = "▪️ Nihil / Tidak ada pengeluaran.\n"; }
 
         // --- 5. SUSUN TEKS PESAN WHATSAPP ---
-        let text = `*📊 LAPORAN OPERASIONAL AI-SNACK*\n`;
+        let text = `*📊 Update Sales Report Ai-Snack*\n`;
         text += `📍 Cabang: *${outletName}*\n`;
         text += `📅 Periode: *${startDate} s/d ${endDate}*\n`;
         text += `👤 User: ${this.currentUser ? this.currentUser.Username : 'Sistem'}\n`;
@@ -10785,7 +10785,7 @@ executeVoidTrx: async function(trxId) {
     // =========================================================
     // 🚀 ENGINE: CFO DASHBOARD DEEP DIVE ANALYSIS (POPUP)
     // =========================================================
-  openAIDeepDive: function(type, param) {
+ openAIDeepDive: function(type, param) {
         const fStartEl = document.getElementById('ai-filter-start');
         const fEndEl = document.getElementById('ai-filter-end');
         let dStart = fStartEl && fStartEl.value ? fStartEl.value : '';
@@ -10798,15 +10798,19 @@ executeVoidTrx: async function(trxId) {
         let title = '';
         let subtitle = dStart && dEnd ? `${dStart} s/d ${dEnd}` : `Semua Periode`;
         let details = [];
+        
         let totalVal = 0;
         let totalPcs = 0;
-        
-        // 🚀 FITUR BARU: Total Cash & QRIS kini dilacak secara Global!
         let totalQris = 0;
         let totalCash = 0;
+        let globalOmsetPeriode = 0; // 🚀 Untuk Fitur Prediksi Kontribusi
+
         let sysStock = 0;
         let lastFisik = '-';
         let skuTarget = '';
+        
+        // 📊 Wadah Data untuk Sparkline Chart
+        let sparkData = {}; 
 
         const isDataValid = (dateString, outletString) => {
             if (!dateString) return false;
@@ -10843,11 +10847,12 @@ executeVoidTrx: async function(trxId) {
             return new Date(timeStr).getTime() || 0;
         };
 
-        // Helper Smart Badges
-        const outBadge = (outName) => `<span class="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-[8px] border border-slate-200 font-extrabold uppercase tracking-widest"><i class="fas fa-store mr-0.5 opacity-70"></i>${outName}</span>`;
+        // 🚀 FITUR: Clickable Badges (Live Filter Trigger)
+        const filterCmd = `onclick="window.aiFilterList(this.innerText.trim()); event.stopPropagation();"`;
+        const outBadge = (outName) => `<span ${filterCmd} class="cursor-pointer hover:bg-slate-200 bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-[8px] border border-slate-200 font-extrabold uppercase tracking-widest transition-colors"><i class="fas fa-store mr-0.5 opacity-70"></i>${outName}</span>`;
         const getPayBadge = (method) => String(method).trim().toLowerCase().includes('qris') ? 
-            `<span class="bg-sky-50 text-sky-600 px-1.5 py-0.5 rounded text-[8px] font-extrabold border border-sky-200 tracking-wider"><i class="fas fa-qrcode mr-0.5"></i>QRIS</span>` : 
-            `<span class="bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded text-[8px] font-extrabold border border-emerald-200 tracking-wider"><i class="fas fa-money-bill-wave mr-0.5"></i>CASH</span>`;
+            `<span ${filterCmd} class="cursor-pointer hover:bg-sky-100 bg-sky-50 text-sky-600 px-1.5 py-0.5 rounded text-[8px] font-extrabold border border-sky-200 tracking-wider transition-colors"><i class="fas fa-qrcode mr-0.5"></i>QRIS</span>` : 
+            `<span ${filterCmd} class="cursor-pointer hover:bg-emerald-100 bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded text-[8px] font-extrabold border border-emerald-200 tracking-wider transition-colors"><i class="fas fa-money-bill-wave mr-0.5"></i>CASH</span>`;
 
         // ====================================================================
         // 🚀 1. PENCARIAN SKU BRUTAL
@@ -10861,7 +10866,6 @@ executeVoidTrx: async function(trxId) {
                     break;
                 }
             }
-            
             if (!skuTarget) {
                 for (let t of (this.db.transactions || [])) {
                     let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
@@ -10874,7 +10878,6 @@ executeVoidTrx: async function(trxId) {
                     if (skuTarget) break;
                 }
             }
-            
             if (skuTarget || paramLower) {
                 let skuLower = String(skuTarget).trim().toLowerCase();
                 let origSkuLower = '';
@@ -10923,7 +10926,7 @@ executeVoidTrx: async function(trxId) {
         }
 
         // ====================================================================
-        // 🚀 2. KUMPULKAN TRANSAKSI & SMART BADGES
+        // 🚀 2. KUMPULKAN TRANSAKSI & PREPARE SPARKLINE DATA
         // ====================================================================
         if (['hourly', 'branch', 'product', 'payment', 'pcs'].includes(type)) {
             (this.db.transactions || []).forEach(t => {
@@ -10938,18 +10941,24 @@ executeVoidTrx: async function(trxId) {
                 let sortTime = getTimeSafe(`${t.Tanggal} ${t.Waktu || '00:00:00'}`);
                 let isQris = String(t.Metode_Bayar).trim().toLowerCase().includes('qris');
                 let nominalTrx = Number(t.Total_Bayar);
+                
+                globalOmsetPeriode += nominalTrx; // Akumulasi Global
+                
+                let dateKey = String(t.Tanggal).split(' ')[0].substring(0, 5); // DD/MM untuk grafik
 
                 if (type === 'hourly' && jam === parseInt(param)) {
                     title = `Pukul ${String(param).padStart(2,'0')}:00`;
                     details.push({ sortTime, icon: 'fa-clock', color: 'text-indigo-500', bg: 'bg-indigo-100', wkt: `${t.Tanggal} ${t.Waktu}`, ref: t.ID_TRX, desc: `Kasir: ${t.Kasir}`, nom: nominalTrx, label: 'Rp', extra: `${pcsInTrx} Pcs`, badges: `${outBadge(tOut)} ${getPayBadge(t.Metode_Bayar)}` });
                     totalVal += nominalTrx; totalPcs += pcsInTrx;
                     if (isQris) totalQris += nominalTrx; else totalCash += nominalTrx;
+                    sparkData[dateKey] = (sparkData[dateKey] || 0) + nominalTrx;
                 } 
                 else if (type === 'branch' && tOut === param) {
                     title = `Cabang ${param}`;
                     details.push({ sortTime, icon: 'fa-store', color: 'text-brand-500', bg: 'bg-brand-50', wkt: `${t.Tanggal} ${t.Waktu}`, ref: t.ID_TRX, desc: `Kasir: ${t.Kasir}`, nom: nominalTrx, label: 'Rp', extra: `${pcsInTrx} Pcs`, badges: `${outBadge(tOut)} ${getPayBadge(t.Metode_Bayar)}` });
                     totalVal += nominalTrx; totalPcs += pcsInTrx;
                     if (isQris) totalQris += nominalTrx; else totalCash += nominalTrx;
+                    sparkData[dateKey] = (sparkData[dateKey] || 0) + nominalTrx;
                 } 
                 else if (type === 'payment' && String(t.Metode_Bayar).trim().toLowerCase() === String(param).trim().toLowerCase()) {
                     title = `Via ${param.toUpperCase()}`;
@@ -10959,12 +10968,14 @@ executeVoidTrx: async function(trxId) {
                     details.push({ sortTime, icon: icn, color: clr, bg: bgClr, wkt: `${t.Tanggal} ${t.Waktu}`, ref: t.ID_TRX, desc: `Kasir: ${t.Kasir}`, nom: nominalTrx, label: 'Rp', extra: `${pcsInTrx} Pcs`, badges: `${outBadge(tOut)} ${getPayBadge(t.Metode_Bayar)}` });
                     totalVal += nominalTrx; totalPcs += pcsInTrx;
                     if (isQris) totalQris += nominalTrx; else totalCash += nominalTrx;
+                    sparkData[dateKey] = (sparkData[dateKey] || 0) + nominalTrx;
                 }
                 else if (type === 'pcs') {
                     title = `Rincian Penjualan`;
                     details.push({ sortTime, icon: 'fa-box-open', color: 'text-amber-500', bg: 'bg-amber-100', wkt: `${t.Tanggal} ${t.Waktu}`, ref: t.ID_TRX, desc: `Kasir: ${t.Kasir}`, nom: pcsInTrx, label: 'Pcs', extra: `Rp ${nominalTrx.toLocaleString('id-ID')}`, badges: `${outBadge(tOut)} ${getPayBadge(t.Metode_Bayar)}` });
                     totalVal += nominalTrx; totalPcs += pcsInTrx;
                     if (isQris) totalQris += nominalTrx; else totalCash += nominalTrx;
+                    sparkData[dateKey] = (sparkData[dateKey] || 0) + pcsInTrx; // Grafik dalam Pcs
                 }
                 else if (type === 'product') {
                     title = `${param}`;
@@ -10979,6 +10990,7 @@ executeVoidTrx: async function(trxId) {
                             });
                             totalVal += omsetIt; totalPcs += Number(it.qty);
                             if (isQris) totalQris += omsetIt; else totalCash += omsetIt;
+                            sparkData[dateKey] = (sparkData[dateKey] || 0) + Number(it.qty); // Grafik tren Pcs Produk
                         }
                     });
                 }
@@ -10995,6 +11007,7 @@ executeVoidTrx: async function(trxId) {
                 let clr = isMinus ? 'text-rose-500' : (selisih > 0 ? 'text-emerald-500' : 'text-slate-400');
                 let bgClr = isMinus ? 'bg-rose-100' : (selisih > 0 ? 'bg-emerald-100' : 'bg-slate-100');
                 let sortTime = getTimeSafe(o.Waktu || o.Tanggal);
+                let dateKey = String(o.Waktu || o.Tanggal).split(' ')[0].substring(0, 5);
                 
                 details.push({ 
                     sortTime, icon: 'fa-clipboard-check', color: clr, bg: bgClr, 
@@ -11002,6 +11015,7 @@ executeVoidTrx: async function(trxId) {
                     nom: selisih, label: 'Pcs', extra: `Sys: ${o.Stok_Sistem} ➔ Fsk: ${o.Stok_Fisik}`, badges: outBadge(o.Outlet) 
                 });
                 totalPcs += selisih;
+                sparkData[dateKey] = (sparkData[dateKey] || 0) + selisih;
             });
         }
         
@@ -11013,6 +11027,7 @@ executeVoidTrx: async function(trxId) {
                 let qty = Number(m.Qty || m.qty || m.Jumlah || 0); 
                 let sortTime = getTimeSafe(m.Waktu || m.Tanggal);
                 let status = String(m.Status_Approval || 'Pending').trim();
+                let dateKey = String(m.Waktu || m.Tanggal).split(' ')[0].substring(0, 5);
                 
                 let isApprove = status.toLowerCase() === 'disetujui' || status.toLowerCase() === 'sukses';
                 let stBadge = isApprove ? `<span class="bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded text-[8px] font-extrabold border border-emerald-200 tracking-wider"><i class="fas fa-check-circle mr-0.5"></i>OK</span>` : `<span class="bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded text-[8px] font-extrabold border border-amber-200 tracking-wider"><i class="fas fa-clock mr-0.5"></i>PEND</span>`;
@@ -11024,54 +11039,107 @@ executeVoidTrx: async function(trxId) {
                     nom: qty, label: 'Pcs', extra: `Ke: ${outName}`, badges: `${outBadge(outName)} ${stBadge}` 
                 });
                 totalPcs += qty;
+                sparkData[dateKey] = (sparkData[dateKey] || 0) + qty;
             });
         }
 
         details.sort((a, b) => b.sortTime - a.sortTime);
 
         // ====================================================================
-        // 🚀 3. COMPACT HTML GENERATOR
+        // 🚀 3. ANALITIK SPARKLINE & PREDIKSI CERDAS
         // ====================================================================
-        let totalHtml = '';
+        let sparkHtml = '';
+        let sparkKeys = Object.keys(sparkData).sort(); // Sortir tanggal
+        if (sparkKeys.length > 1) {
+            let maxVal = Math.max(...Object.values(sparkData).map(Math.abs));
+            let bars = sparkKeys.slice(-15).map(k => {
+                let val = Math.abs(sparkData[k]);
+                let pct = maxVal > 0 ? (val / maxVal) * 100 : 0;
+                let isMinus = sparkData[k] < 0;
+                let bColor = isMinus ? 'bg-rose-400' : 'bg-brand-400';
+                return `<div class="w-1.5 md:w-2 ${bColor} rounded-t-sm mx-0.5 opacity-80 hover:opacity-100 transition-all cursor-pointer" style="height: ${Math.max(10, pct)}%;" title="${k}: ${sparkData[k]}"></div>`;
+            }).join('');
+            
+            sparkHtml = `
+                <div class="absolute right-6 top-16 h-8 w-24 md:w-32 flex items-end justify-end border-b border-slate-200/50 pb-0.5 z-10" title="Tren 15 Hari Terakhir">
+                    ${bars}
+                </div>
+            `;
+        }
+
         let trxSummaryHtml = `
-            <div class="flex flex-wrap gap-1 mt-1.5">
-                <span class="text-emerald-600 bg-emerald-100 px-2 py-1 rounded-md shadow-sm border border-emerald-200 flex items-center gap-1 text-[9px] font-extrabold"><i class="fas fa-money-bill-wave"></i> Tunai: Rp ${totalCash.toLocaleString('id-ID')}</span>
-                <span class="text-sky-600 bg-sky-100 px-2 py-1 rounded-md shadow-sm border border-sky-200 flex items-center gap-1 text-[9px] font-extrabold"><i class="fas fa-qrcode"></i> QRIS: Rp ${totalQris.toLocaleString('id-ID')}</span>
+            <div class="flex flex-wrap gap-1 mt-1.5 z-20 relative">
+                <span ${filterCmd} class="cursor-pointer text-emerald-600 bg-emerald-100 hover:bg-emerald-200 px-2 py-1 rounded-md shadow-sm border border-emerald-200 flex items-center gap-1 text-[9px] font-extrabold transition-colors"><i class="fas fa-money-bill-wave"></i> Tunai: Rp ${totalCash.toLocaleString('id-ID')}</span>
+                <span ${filterCmd} class="cursor-pointer text-sky-600 bg-sky-100 hover:bg-sky-200 px-2 py-1 rounded-md shadow-sm border border-sky-200 flex items-center gap-1 text-[9px] font-extrabold transition-colors"><i class="fas fa-qrcode"></i> QRIS: Rp ${totalQris.toLocaleString('id-ID')}</span>
             </div>
         `;
 
+        let totalHtml = '';
         if (type === 'product') {
-            let avgDaily = dStart && dEnd ? (totalPcs / (Math.max(1, (dateEnd - dateStart) / (1000 * 60 * 60 * 24)))).toFixed(1) : '-';
+            let passedDays = Math.max(1, (dateEnd - dateStart) / (1000 * 60 * 60 * 24));
+            let avgDaily = dStart && dEnd ? (totalPcs / passedDays).toFixed(1) : '-';
+            
+            // 💡 FITUR: Kontribusi & Prediksi Habis Stok
+            let contribution = globalOmsetPeriode > 0 ? ((totalVal / globalOmsetPeriode) * 100).toFixed(1) : '0';
+            let estDays = avgDaily > 0 && typeof lastFisik === 'number' ? Math.floor(lastFisik / avgDaily) : '-';
+            let estBadge = estDays !== '-' ? (estDays < 3 ? `<span class="text-rose-600 animate-pulse"><i class="fas fa-exclamation-triangle"></i> Sisa ${estDays} Hari</span>` : `<span class="text-emerald-600">Aman ${estDays} Hr</span>`) : '';
+
             totalHtml = `
-                <div class="flex flex-col gap-1 mt-1.5">
+                <div class="flex flex-col gap-1 mt-1.5 relative">
+                    ${sparkHtml}
                     ${trxSummaryHtml}
-                    <div class="flex flex-wrap gap-1">
+                    <div class="flex flex-wrap gap-1 relative z-20">
                         <span class="text-amber-600 bg-amber-100 px-2 py-1 rounded-md shadow-sm border border-amber-200 flex items-center gap-1 text-[9px] font-extrabold"><i class="fas fa-desktop"></i> Sys: ${sysStock.toLocaleString('id-ID')}</span>
                         <span class="text-rose-600 bg-rose-100 px-2 py-1 rounded-md shadow-sm border border-rose-200 flex items-center gap-1 text-[9px] font-extrabold"><i class="fas fa-box-open"></i> Fisik: ${lastFisik !== '-' ? lastFisik : 'N/A'}</span>
                     </div>
                     <div class="text-[9px] font-black text-slate-700 flex flex-wrap items-center gap-1 mt-0.5">
-                        <span class="text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded shadow-sm border border-brand-200">Total: Rp ${totalVal.toLocaleString('id-ID')} (${totalPcs} Pcs)</span>
+                        <span class="text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded shadow-sm border border-brand-200" title="Omset / Kontribusi">Rp ${totalVal.toLocaleString('id-ID')} (${contribution}%)</span>
                         ${avgDaily !== '-' ? `<span class="text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded shadow-sm border border-slate-200">Avg: ${avgDaily}/Hr</span>` : ''}
+                        ${estBadge ? `<span class="bg-white border border-slate-200 px-1.5 py-0.5 rounded shadow-sm">${estBadge}</span>` : ''}
                     </div>
                 </div>
             `;
         } else if (['hourly', 'branch', 'payment', 'pcs'].includes(type)) {
             totalHtml = `
-                <div class="flex flex-col gap-1 mt-1.5">
+                <div class="flex flex-col gap-1 mt-1.5 relative">
+                    ${sparkHtml}
                     ${trxSummaryHtml}
-                    <div class="flex flex-wrap gap-1 mt-0.5">
+                    <div class="flex flex-wrap gap-1 mt-0.5 relative z-20">
                         <span class="text-brand-600 bg-brand-100 px-2 py-1 rounded-md shadow-sm border border-brand-200 font-black text-[10px]">Total: Rp ${totalVal.toLocaleString('id-ID')}</span>
                         <span class="text-amber-600 bg-amber-100 px-2 py-1 rounded-md shadow-sm border border-amber-200 font-black text-[10px]">${totalPcs.toLocaleString('id-ID')} Pcs</span>
                     </div>
                 </div>
             `;
         } else {
-            totalHtml = `<div class="mt-2"><span class="text-indigo-600 bg-indigo-100 px-2 py-1 rounded-md shadow-sm border border-indigo-200 font-black text-[10px]">${totalPcs.toLocaleString('id-ID')} Pcs</span></div>`;
+            totalHtml = `<div class="mt-2 relative">${sparkHtml}<span class="text-indigo-600 bg-indigo-100 px-2 py-1 rounded-md shadow-sm border border-indigo-200 font-black text-[10px] z-20 relative">${totalPcs.toLocaleString('id-ID')} Pcs</span></div>`;
         }
+
+        // ====================================================================
+        // 🚀 4. INJEKSI LIVE SEARCH & HTML BARIS
+        // ====================================================================
+        window.aiFilterList = function(val) {
+            let v = String(val).toLowerCase().trim();
+            let inp = document.getElementById('ai-search-input');
+            if(inp && inp.value !== val) inp.value = val;
+            
+            document.querySelectorAll('.ai-deepdive-row').forEach(row => {
+                row.style.display = row.innerText.toLowerCase().includes(v) ? 'flex' : 'none';
+            });
+        };
+
+        let searchBarHtml = `
+            <div class="px-3 md:px-4 py-2 border-b border-slate-100 bg-slate-50 sticky top-0 z-30">
+                <div class="relative">
+                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                    <input id="ai-search-input" oninput="window.aiFilterList(this.value)" type="text" class="w-full bg-white border border-slate-200 rounded-full pl-8 pr-8 py-1.5 text-[10px] md:text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-brand-200 focus:border-brand-300 shadow-inner transition-all" placeholder="Cari trx, kasir, qris, cabang...">
+                    <button onclick="window.aiFilterList(''); document.getElementById('ai-search-input').value='';" class="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center text-slate-400 hover:text-rose-500 rounded-full hover:bg-rose-50 transition-colors"><i class="fas fa-times text-[9px]"></i></button>
+                </div>
+            </div>
+        `;
 
         let listHtml = details.length === 0 ? `<div class="p-6 flex flex-col items-center justify-center text-slate-400 opacity-70"><i class="fas fa-ghost text-3xl mb-2"></i><p class="text-[9px] font-bold tracking-widest uppercase">Data Kosong</p></div>` :
             details.map((d, idx) => `
-                <div class="flex items-center justify-between p-2.5 md:p-3 border-b border-slate-100 hover:bg-slate-50 transition-all duration-300 group animate-slide-up" style="animation-delay: ${idx * 30 > 600 ? 0 : idx * 30}ms; animation-fill-mode: both;">
+                <div class="ai-deepdive-row flex items-center justify-between p-2.5 md:p-3 border-b border-slate-100 hover:bg-slate-50 transition-all duration-300 group animate-slide-up" style="animation-delay: ${idx * 30 > 600 ? 0 : idx * 30}ms; animation-fill-mode: both;">
                     <div class="flex items-center flex-1 min-w-0 pr-2 gap-2.5">
                         <div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${d.bg} ${d.color} shadow-sm group-hover:scale-110 transition-transform duration-300">
                             <i class="fas ${d.icon} text-sm"></i>
@@ -11111,9 +11179,9 @@ executeVoidTrx: async function(trxId) {
 
         let modalHtml = `
         <div id="ai-deepdive-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[9999] flex items-end md:items-center justify-center p-0 md:p-4 opacity-0 transition-opacity duration-400">
-            <div class="bg-white w-full md:max-w-xl rounded-t-[1.5rem] md:rounded-[1.5rem] shadow-[0_10px_40px_rgba(0,0,0,0.15)] flex flex-col max-h-[85vh] transform translate-y-full md:translate-y-8 md:scale-95 transition-transform duration-500 overflow-hidden border-t-4 border-brand-500 md:border-2 md:border-white">
-                <div class="p-4 bg-gradient-to-br from-slate-50 to-white flex justify-between items-start shrink-0 relative overflow-hidden">
-                    <div class="absolute top-0 right-0 w-24 h-24 bg-brand-50 rounded-full blur-xl -mr-8 -mt-8"></div>
+            <div class="bg-white w-full md:max-w-xl rounded-t-[1.5rem] md:rounded-[1.5rem] shadow-[0_10px_40px_rgba(0,0,0,0.15)] flex flex-col max-h-[85vh] transform translate-y-full md:translate-y-8 md:scale-95 transition-transform duration-500 overflow-hidden border-t-4 border-brand-500 md:border-2 md:border-white relative">
+                <div class="p-4 bg-gradient-to-br from-slate-50 to-white flex justify-between items-start shrink-0 relative overflow-hidden z-20">
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-brand-50 rounded-full blur-xl -mr-8 -mt-8 pointer-events-none"></div>
                     <div class="relative z-10 w-full pr-16">
                         <div class="flex items-center gap-2.5">
                             <div class="w-8 h-8 bg-brand-500 text-white rounded-lg flex items-center justify-center shadow-md shadow-brand-500/30 transform -rotate-3 shrink-0">
@@ -11127,7 +11195,7 @@ executeVoidTrx: async function(trxId) {
                         ${totalHtml}
                     </div>
                     
-                    <div class="absolute top-3 right-3 flex gap-1.5 z-20">
+                    <div class="absolute top-3 right-3 flex gap-1.5 z-30">
                         <button onclick="navigator.clipboard.writeText(decodeURIComponent('${encodedCopy}')); superApp.showToast('Laporan disalin!', 'success');" class="w-7 h-7 flex items-center justify-center rounded-full bg-white border border-slate-200 text-brand-500 hover:bg-brand-50 hover:border-brand-300 transition-all duration-300 active:scale-90 shadow-sm shrink-0" title="Salin Teks">
                             <i class="fas fa-copy text-[10px]"></i>
                         </button>
@@ -11137,9 +11205,12 @@ executeVoidTrx: async function(trxId) {
                     </div>
                 </div>
 
-                <div class="flex-1 overflow-y-auto custom-scroll p-2 md:p-3 bg-slate-50 border-t border-slate-100 relative min-h-0">
-                    <div class="bg-white border border-slate-100 rounded-[1.25rem] shadow-sm overflow-hidden pb-1 relative z-10">
-                        ${listHtml}
+                <div class="flex-1 flex flex-col overflow-hidden relative z-10 min-h-0 bg-slate-50">
+                    ${details.length > 0 ? searchBarHtml : ''}
+                    <div class="flex-1 overflow-y-auto custom-scroll p-2 md:p-3 relative">
+                        <div class="bg-white border border-slate-100 rounded-[1.25rem] shadow-sm overflow-hidden pb-1 relative z-10">
+                            ${listHtml}
+                        </div>
                     </div>
                 </div>
             </div>

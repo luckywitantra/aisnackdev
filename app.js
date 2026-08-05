@@ -10941,7 +10941,7 @@ openAIDeepDive: function(type, param) {
                 let nominalTrx = Number(t.Total_Bayar);
                 
                 globalOmsetPeriode += nominalTrx; 
-                let dateKey = String(t.Tanggal).split(' ')[0].substring(0, 5); // Tangkap Tgl/Bln (cth: 14/05)
+                let dateKey = String(t.Tanggal).split(' ')[0].substring(0, 5); 
 
                 if (type === 'hourly' && jam === parseInt(param)) {
                     title = `Pukul ${String(param).padStart(2,'0')}:00`;
@@ -10986,8 +10986,7 @@ openAIDeepDive: function(type, param) {
                                 nom: omsetIt, label: 'Rp', extra: `${it.qty} Pcs`, badges: `${outBadge(tOut)} ${getPayBadge(t.Metode_Bayar)}` 
                             });
                             totalVal += omsetIt; totalPcs += Number(it.qty);
-                            if (String(t.Metode_Bayar).trim().toLowerCase() === 'qris') productTotalQris += omsetIt;
-                            else productTotalCash += omsetIt;
+                            if (isQris) totalQris += omsetIt; else totalCash += omsetIt;
                             
                             sparkData[dateKey] = (sparkData[dateKey] || 0) + Number(it.qty); 
                         }
@@ -11050,7 +11049,6 @@ openAIDeepDive: function(type, param) {
         let sparkHtml = '';
         let sparkKeys = Object.keys(sparkData).sort(); 
         
-        // 💡 PERBAIKAN 1: Tampilkan grafik meskipun datanya hanya 1 hari! (Diubah dari > 1 menjadi > 0)
         if (sparkKeys.length > 0) {
             let maxVal = Math.max(...Object.values(sparkData).map(Math.abs));
             let bars = sparkKeys.slice(-15).map(k => {
@@ -11061,7 +11059,6 @@ openAIDeepDive: function(type, param) {
                 return `<div class="w-2.5 md:w-3 ${bColor} rounded-t-[3px] mx-[1.5px] opacity-75 hover:opacity-100 transition-all cursor-pointer shadow-sm" style="height: ${Math.max(10, pct)}%;" title="Tgl ${k} = ${sparkData[k]}"></div>`;
             }).join('');
             
-            // Posisi grafik dipindah ke kanan agar selalu terlihat
             sparkHtml = `
                 <div class="absolute right-0 top-0 h-11 flex items-end justify-end border-b border-slate-200/50 pb-[1px] z-0 opacity-80" title="Grafik 15 Hari Terakhir">
                     ${bars}
@@ -11069,10 +11066,11 @@ openAIDeepDive: function(type, param) {
             `;
         }
 
+        // 🚀 PERBAIKAN: Gunakan totalCash dan totalQris secara langsung
         let trxSummaryHtml = `
             <div class="flex flex-wrap gap-1 mt-1.5 z-20 relative">
-                <span ${filterCmd} class="cursor-pointer text-emerald-600 bg-emerald-100 hover:bg-emerald-200 px-2 py-1 rounded-md shadow-sm border border-emerald-200 flex items-center gap-1 text-[9px] font-extrabold transition-colors"><i class="fas fa-money-bill-wave"></i> Tunai: Rp ${(type==='product'?productTotalCash:totalCash).toLocaleString('id-ID')}</span>
-                <span ${filterCmd} class="cursor-pointer text-sky-600 bg-sky-100 hover:bg-sky-200 px-2 py-1 rounded-md shadow-sm border border-sky-200 flex items-center gap-1 text-[9px] font-extrabold transition-colors"><i class="fas fa-qrcode"></i> QRIS: Rp ${(type==='product'?productTotalQris:totalQris).toLocaleString('id-ID')}</span>
+                <span ${filterCmd} class="cursor-pointer text-emerald-600 bg-emerald-100 hover:bg-emerald-200 px-2 py-1 rounded-md shadow-sm border border-emerald-200 flex items-center gap-1 text-[9px] font-extrabold transition-colors"><i class="fas fa-money-bill-wave"></i> Tunai: Rp ${totalCash.toLocaleString('id-ID')}</span>
+                <span ${filterCmd} class="cursor-pointer text-sky-600 bg-sky-100 hover:bg-sky-200 px-2 py-1 rounded-md shadow-sm border border-sky-200 flex items-center gap-1 text-[9px] font-extrabold transition-colors"><i class="fas fa-qrcode"></i> QRIS: Rp ${totalQris.toLocaleString('id-ID')}</span>
             </div>
         `;
 
@@ -11081,7 +11079,6 @@ openAIDeepDive: function(type, param) {
             let passedDays = Math.max(1, (dateEnd - dateStart) / (1000 * 60 * 60 * 24));
             let avgDaily = dStart && dEnd ? (totalPcs / passedDays).toFixed(1) : '-';
             
-            // 💡 PERBAIKAN 2: Paksa agar lastFisik menjadi tipe Number saat dihitung oleh AI
             let numFisik = Number(lastFisik);
             let contribution = globalOmsetPeriode > 0 ? ((totalVal / globalOmsetPeriode) * 100).toFixed(1) : '0';
             let estDays = avgDaily > 0 && !isNaN(numFisik) && lastFisik !== '-' ? Math.floor(numFisik / avgDaily) : '-';

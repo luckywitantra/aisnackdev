@@ -7910,21 +7910,22 @@ openDetailStokOpname: function(sku) {
         if (modal) {
             modal.classList.remove('opacity-100');
             if(modal.firstElementChild) {
-                modal.firstElementChild.classList.remove('scale-100');
-                modal.firstElementChild.classList.add('scale-95');
+                // Tambahkan 'translate-y-full' khusus mobile bottom-sheet style saat tutup
+                modal.firstElementChild.classList.remove('scale-100', 'translate-y-0');
+                modal.firstElementChild.classList.add('scale-95', 'translate-y-full', 'md:translate-y-0');
             }
             setTimeout(() => modal.classList.add('hidden'), 300);
         }
     },
-
 
     closeDetailRestokModal: function() {
         const modal = document.getElementById('modal-detail-restok');
         if (modal) {
             modal.classList.remove('opacity-100');
             if(modal.firstElementChild) {
-                modal.firstElementChild.classList.remove('scale-100');
-                modal.firstElementChild.classList.add('scale-95');
+                // Tambahkan 'translate-y-full' khusus mobile bottom-sheet style saat tutup
+                modal.firstElementChild.classList.remove('scale-100', 'translate-y-0');
+                modal.firstElementChild.classList.add('scale-95', 'translate-y-full', 'md:translate-y-0');
             }
             setTimeout(() => modal.classList.add('hidden'), 300);
         }

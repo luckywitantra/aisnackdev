@@ -11055,14 +11055,14 @@ openAIDeepDive: function(type, param) {
                 let val = Math.abs(sparkData[k]);
                 let pct = maxVal > 0 ? (val / maxVal) * 100 : 50; 
                 let isMinus = sparkData[k] < 0;
-                let bColor = isMinus ? 'bg-rose-400' : 'bg-brand-400';
-                return `<div class="w-2.5 md:w-3 ${bColor} rounded-t-[3px] mx-[1.5px] opacity-75 hover:opacity-100 transition-all cursor-pointer shadow-sm" style="height: ${Math.max(10, pct)}%;" title="Tgl ${k} = ${sparkData[k]}"></div>`;
+                let bColor = isMinus ? 'bg-rose-500' : 'bg-blue-400';
+                return `<div class="w-2.5 md:w-3 ${bColor} rounded-t-[3px] mx-[1px] opacity-100 hover:opacity-80 transition-all cursor-pointer shadow-sm border border-slate-200/50" style="height: ${Math.max(10, pct)}%;" title="Tgl ${k} = ${sparkData[k]}"></div>`;
             }).join('');
             
             sparkHtml = `
-                <div class="absolute right-0 top-0 h-11 flex items-end justify-end border-b border-slate-200/50 pb-[1px] z-0 opacity-80" title="Grafik 15 Hari Terakhir">
-                    ${bars}
-                </div>
+            <div class="absolute right-0 top-0 h-11 flex items-end justify-end border-b border-slate-200/50 pb-[1px] z-10 opacity-100" title="Grafik 15 Hari Terakhir">
+             ${bars}
+            </div>
             `;
         }
 

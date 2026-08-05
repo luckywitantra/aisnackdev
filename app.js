@@ -10785,7 +10785,7 @@ executeVoidTrx: async function(trxId) {
     // =========================================================
     // 🚀 ENGINE: CFO DASHBOARD DEEP DIVE ANALYSIS (POPUP)
     // =========================================================
- openAIDeepDive: function(type, param) {
+openAIDeepDive: function(type, param) {
         const fStartEl = document.getElementById('ai-filter-start');
         const fEndEl = document.getElementById('ai-filter-end');
         let dStart = fStartEl && fStartEl.value ? fStartEl.value : '';
@@ -10803,13 +10803,12 @@ executeVoidTrx: async function(trxId) {
         let totalPcs = 0;
         let totalQris = 0;
         let totalCash = 0;
-        let globalOmsetPeriode = 0; // 🚀 Untuk Fitur Prediksi Kontribusi
+        let globalOmsetPeriode = 0; 
 
         let sysStock = 0;
         let lastFisik = '-';
         let skuTarget = '';
         
-        // 📊 Wadah Data untuk Sparkline Chart
         let sparkData = {}; 
 
         const isDataValid = (dateString, outletString) => {
@@ -10847,7 +10846,6 @@ executeVoidTrx: async function(trxId) {
             return new Date(timeStr).getTime() || 0;
         };
 
-        // 🚀 FITUR: Clickable Badges (Live Filter Trigger)
         const filterCmd = `onclick="window.aiFilterList(this.innerText.trim()); event.stopPropagation();"`;
         const outBadge = (outName) => `<span ${filterCmd} class="cursor-pointer hover:bg-slate-200 bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-[8px] border border-slate-200 font-extrabold uppercase tracking-widest transition-colors"><i class="fas fa-store mr-0.5 opacity-70"></i>${outName}</span>`;
         const getPayBadge = (method) => String(method).trim().toLowerCase().includes('qris') ? 
@@ -10942,9 +10940,8 @@ executeVoidTrx: async function(trxId) {
                 let isQris = String(t.Metode_Bayar).trim().toLowerCase().includes('qris');
                 let nominalTrx = Number(t.Total_Bayar);
                 
-                globalOmsetPeriode += nominalTrx; // Akumulasi Global
-                
-                let dateKey = String(t.Tanggal).split(' ')[0].substring(0, 5); // DD/MM untuk grafik
+                globalOmsetPeriode += nominalTrx; 
+                let dateKey = String(t.Tanggal).split(' ')[0].substring(0, 5); // Tangkap Tgl/Bln (cth: 14/05)
 
                 if (type === 'hourly' && jam === parseInt(param)) {
                     title = `Pukul ${String(param).padStart(2,'0')}:00`;
@@ -10975,7 +10972,7 @@ executeVoidTrx: async function(trxId) {
                     details.push({ sortTime, icon: 'fa-box-open', color: 'text-amber-500', bg: 'bg-amber-100', wkt: `${t.Tanggal} ${t.Waktu}`, ref: t.ID_TRX, desc: `Kasir: ${t.Kasir}`, nom: pcsInTrx, label: 'Pcs', extra: `Rp ${nominalTrx.toLocaleString('id-ID')}`, badges: `${outBadge(tOut)} ${getPayBadge(t.Metode_Bayar)}` });
                     totalVal += nominalTrx; totalPcs += pcsInTrx;
                     if (isQris) totalQris += nominalTrx; else totalCash += nominalTrx;
-                    sparkData[dateKey] = (sparkData[dateKey] || 0) + pcsInTrx; // Grafik dalam Pcs
+                    sparkData[dateKey] = (sparkData[dateKey] || 0) + pcsInTrx; 
                 }
                 else if (type === 'product') {
                     title = `${param}`;
@@ -10989,8 +10986,10 @@ executeVoidTrx: async function(trxId) {
                                 nom: omsetIt, label: 'Rp', extra: `${it.qty} Pcs`, badges: `${outBadge(tOut)} ${getPayBadge(t.Metode_Bayar)}` 
                             });
                             totalVal += omsetIt; totalPcs += Number(it.qty);
-                            if (isQris) totalQris += omsetIt; else totalCash += omsetIt;
-                            sparkData[dateKey] = (sparkData[dateKey] || 0) + Number(it.qty); // Grafik tren Pcs Produk
+                            if (String(t.Metode_Bayar).trim().toLowerCase() === 'qris') productTotalQris += omsetIt;
+                            else productTotalCash += omsetIt;
+                            
+                            sparkData[dateKey] = (sparkData[dateKey] || 0) + Number(it.qty); 
                         }
                     });
                 }
@@ -11049,19 +11048,22 @@ executeVoidTrx: async function(trxId) {
         // 🚀 3. ANALITIK SPARKLINE & PREDIKSI CERDAS
         // ====================================================================
         let sparkHtml = '';
-        let sparkKeys = Object.keys(sparkData).sort(); // Sortir tanggal
-        if (sparkKeys.length > 1) {
+        let sparkKeys = Object.keys(sparkData).sort(); 
+        
+        // 💡 PERBAIKAN 1: Tampilkan grafik meskipun datanya hanya 1 hari! (Diubah dari > 1 menjadi > 0)
+        if (sparkKeys.length > 0) {
             let maxVal = Math.max(...Object.values(sparkData).map(Math.abs));
             let bars = sparkKeys.slice(-15).map(k => {
                 let val = Math.abs(sparkData[k]);
-                let pct = maxVal > 0 ? (val / maxVal) * 100 : 0;
+                let pct = maxVal > 0 ? (val / maxVal) * 100 : 50; 
                 let isMinus = sparkData[k] < 0;
                 let bColor = isMinus ? 'bg-rose-400' : 'bg-brand-400';
-                return `<div class="w-1.5 md:w-2 ${bColor} rounded-t-sm mx-0.5 opacity-80 hover:opacity-100 transition-all cursor-pointer" style="height: ${Math.max(10, pct)}%;" title="${k}: ${sparkData[k]}"></div>`;
+                return `<div class="w-2.5 md:w-3 ${bColor} rounded-t-[3px] mx-[1.5px] opacity-75 hover:opacity-100 transition-all cursor-pointer shadow-sm" style="height: ${Math.max(10, pct)}%;" title="Tgl ${k} = ${sparkData[k]}"></div>`;
             }).join('');
             
+            // Posisi grafik dipindah ke kanan agar selalu terlihat
             sparkHtml = `
-                <div class="absolute right-6 top-16 h-8 w-24 md:w-32 flex items-end justify-end border-b border-slate-200/50 pb-0.5 z-10" title="Tren 15 Hari Terakhir">
+                <div class="absolute right-0 top-0 h-11 flex items-end justify-end border-b border-slate-200/50 pb-[1px] z-0 opacity-80" title="Grafik 15 Hari Terakhir">
                     ${bars}
                 </div>
             `;
@@ -11069,8 +11071,8 @@ executeVoidTrx: async function(trxId) {
 
         let trxSummaryHtml = `
             <div class="flex flex-wrap gap-1 mt-1.5 z-20 relative">
-                <span ${filterCmd} class="cursor-pointer text-emerald-600 bg-emerald-100 hover:bg-emerald-200 px-2 py-1 rounded-md shadow-sm border border-emerald-200 flex items-center gap-1 text-[9px] font-extrabold transition-colors"><i class="fas fa-money-bill-wave"></i> Tunai: Rp ${totalCash.toLocaleString('id-ID')}</span>
-                <span ${filterCmd} class="cursor-pointer text-sky-600 bg-sky-100 hover:bg-sky-200 px-2 py-1 rounded-md shadow-sm border border-sky-200 flex items-center gap-1 text-[9px] font-extrabold transition-colors"><i class="fas fa-qrcode"></i> QRIS: Rp ${totalQris.toLocaleString('id-ID')}</span>
+                <span ${filterCmd} class="cursor-pointer text-emerald-600 bg-emerald-100 hover:bg-emerald-200 px-2 py-1 rounded-md shadow-sm border border-emerald-200 flex items-center gap-1 text-[9px] font-extrabold transition-colors"><i class="fas fa-money-bill-wave"></i> Tunai: Rp ${(type==='product'?productTotalCash:totalCash).toLocaleString('id-ID')}</span>
+                <span ${filterCmd} class="cursor-pointer text-sky-600 bg-sky-100 hover:bg-sky-200 px-2 py-1 rounded-md shadow-sm border border-sky-200 flex items-center gap-1 text-[9px] font-extrabold transition-colors"><i class="fas fa-qrcode"></i> QRIS: Rp ${(type==='product'?productTotalQris:totalQris).toLocaleString('id-ID')}</span>
             </div>
         `;
 
@@ -11079,39 +11081,45 @@ executeVoidTrx: async function(trxId) {
             let passedDays = Math.max(1, (dateEnd - dateStart) / (1000 * 60 * 60 * 24));
             let avgDaily = dStart && dEnd ? (totalPcs / passedDays).toFixed(1) : '-';
             
-            // 💡 FITUR: Kontribusi & Prediksi Habis Stok
+            // 💡 PERBAIKAN 2: Paksa agar lastFisik menjadi tipe Number saat dihitung oleh AI
+            let numFisik = Number(lastFisik);
             let contribution = globalOmsetPeriode > 0 ? ((totalVal / globalOmsetPeriode) * 100).toFixed(1) : '0';
-            let estDays = avgDaily > 0 && typeof lastFisik === 'number' ? Math.floor(lastFisik / avgDaily) : '-';
-            let estBadge = estDays !== '-' ? (estDays < 3 ? `<span class="text-rose-600 animate-pulse"><i class="fas fa-exclamation-triangle"></i> Sisa ${estDays} Hari</span>` : `<span class="text-emerald-600">Aman ${estDays} Hr</span>`) : '';
+            let estDays = avgDaily > 0 && !isNaN(numFisik) && lastFisik !== '-' ? Math.floor(numFisik / avgDaily) : '-';
+            
+            let estBadge = estDays !== '-' ? (estDays < 3 ? `<span class="text-rose-600 animate-pulse font-black"><i class="fas fa-exclamation-triangle"></i> Sisa ${estDays} Hr</span>` : `<span class="text-emerald-600 font-bold"><i class="fas fa-check-circle"></i> Aman ${estDays} Hr</span>`) : '';
 
             totalHtml = `
-                <div class="flex flex-col gap-1 mt-1.5 relative">
+                <div class="flex flex-col gap-1 mt-1.5 relative w-full">
                     ${sparkHtml}
                     ${trxSummaryHtml}
-                    <div class="flex flex-wrap gap-1 relative z-20">
+                    <div class="flex flex-wrap gap-1 relative z-20 mt-0.5">
                         <span class="text-amber-600 bg-amber-100 px-2 py-1 rounded-md shadow-sm border border-amber-200 flex items-center gap-1 text-[9px] font-extrabold"><i class="fas fa-desktop"></i> Sys: ${sysStock.toLocaleString('id-ID')}</span>
                         <span class="text-rose-600 bg-rose-100 px-2 py-1 rounded-md shadow-sm border border-rose-200 flex items-center gap-1 text-[9px] font-extrabold"><i class="fas fa-box-open"></i> Fisik: ${lastFisik !== '-' ? lastFisik : 'N/A'}</span>
                     </div>
-                    <div class="text-[9px] font-black text-slate-700 flex flex-wrap items-center gap-1 mt-0.5">
-                        <span class="text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded shadow-sm border border-brand-200" title="Omset / Kontribusi">Rp ${totalVal.toLocaleString('id-ID')} (${contribution}%)</span>
-                        ${avgDaily !== '-' ? `<span class="text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded shadow-sm border border-slate-200">Avg: ${avgDaily}/Hr</span>` : ''}
+                    <div class="text-[9px] font-black text-slate-700 flex flex-wrap items-center gap-1 mt-1 relative z-20">
+                        <span class="text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded border border-brand-200" title="Omset (Kontribusi)">Total: Rp ${totalVal.toLocaleString('id-ID')} (${contribution}%)</span>
+                        ${avgDaily !== '-' ? `<span class="text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200"><i class="fas fa-chart-line mr-0.5 text-brand-400"></i>${avgDaily}/Hr</span>` : ''}
                         ${estBadge ? `<span class="bg-white border border-slate-200 px-1.5 py-0.5 rounded shadow-sm">${estBadge}</span>` : ''}
                     </div>
                 </div>
             `;
         } else if (['hourly', 'branch', 'payment', 'pcs'].includes(type)) {
             totalHtml = `
-                <div class="flex flex-col gap-1 mt-1.5 relative">
+                <div class="flex flex-col gap-1 mt-1.5 relative w-full">
                     ${sparkHtml}
                     ${trxSummaryHtml}
-                    <div class="flex flex-wrap gap-1 mt-0.5 relative z-20">
+                    <div class="flex flex-wrap gap-1 mt-1 relative z-20">
                         <span class="text-brand-600 bg-brand-100 px-2 py-1 rounded-md shadow-sm border border-brand-200 font-black text-[10px]">Total: Rp ${totalVal.toLocaleString('id-ID')}</span>
                         <span class="text-amber-600 bg-amber-100 px-2 py-1 rounded-md shadow-sm border border-amber-200 font-black text-[10px]">${totalPcs.toLocaleString('id-ID')} Pcs</span>
                     </div>
                 </div>
             `;
         } else {
-            totalHtml = `<div class="mt-2 relative">${sparkHtml}<span class="text-indigo-600 bg-indigo-100 px-2 py-1 rounded-md shadow-sm border border-indigo-200 font-black text-[10px] z-20 relative">${totalPcs.toLocaleString('id-ID')} Pcs</span></div>`;
+            totalHtml = `
+                <div class="mt-2.5 relative w-full h-12">
+                    ${sparkHtml}
+                    <span class="text-indigo-600 bg-indigo-100 px-2 py-1 rounded-md shadow-sm border border-indigo-200 font-black text-[10px] absolute bottom-0 left-0 z-20">${totalPcs.toLocaleString('id-ID')} Pcs</span>
+                </div>`;
         }
 
         // ====================================================================
@@ -11128,7 +11136,7 @@ executeVoidTrx: async function(trxId) {
         };
 
         let searchBarHtml = `
-            <div class="px-3 md:px-4 py-2 border-b border-slate-100 bg-slate-50 sticky top-0 z-30">
+            <div class="px-3 md:px-4 py-2 border-b border-slate-100 bg-slate-50 sticky top-0 z-30 shadow-[0_4px_10px_rgba(0,0,0,0.02)]">
                 <div class="relative">
                     <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
                     <input id="ai-search-input" oninput="window.aiFilterList(this.value)" type="text" class="w-full bg-white border border-slate-200 rounded-full pl-8 pr-8 py-1.5 text-[10px] md:text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-brand-200 focus:border-brand-300 shadow-inner transition-all" placeholder="Cari trx, kasir, qris, cabang...">
@@ -11180,10 +11188,10 @@ executeVoidTrx: async function(trxId) {
         let modalHtml = `
         <div id="ai-deepdive-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[9999] flex items-end md:items-center justify-center p-0 md:p-4 opacity-0 transition-opacity duration-400">
             <div class="bg-white w-full md:max-w-xl rounded-t-[1.5rem] md:rounded-[1.5rem] shadow-[0_10px_40px_rgba(0,0,0,0.15)] flex flex-col max-h-[85vh] transform translate-y-full md:translate-y-8 md:scale-95 transition-transform duration-500 overflow-hidden border-t-4 border-brand-500 md:border-2 md:border-white relative">
-                <div class="p-4 bg-gradient-to-br from-slate-50 to-white flex justify-between items-start shrink-0 relative overflow-hidden z-20">
-                    <div class="absolute top-0 right-0 w-24 h-24 bg-brand-50 rounded-full blur-xl -mr-8 -mt-8 pointer-events-none"></div>
+                <div class="p-4 pb-3 bg-gradient-to-br from-slate-50 to-white flex justify-between items-start shrink-0 relative overflow-hidden z-20 border-b border-slate-100">
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-brand-50 rounded-full blur-xl -mr-8 -mt-8 pointer-events-none z-0"></div>
                     <div class="relative z-10 w-full pr-16">
-                        <div class="flex items-center gap-2.5">
+                        <div class="flex items-center gap-2.5 mb-1">
                             <div class="w-8 h-8 bg-brand-500 text-white rounded-lg flex items-center justify-center shadow-md shadow-brand-500/30 transform -rotate-3 shrink-0">
                                 <i class="fas fa-search-dollar text-sm"></i>
                             </div>

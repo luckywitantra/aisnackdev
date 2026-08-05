@@ -9738,17 +9738,40 @@ openDetailStokOpname: function(sku) {
 
         // --- 4. EKSTRAKSI DATA DETAIL DARI TABEL LAYAR ---
         
-        // A. Ekstrak Rekap Jualan (Item)
+        // A. Ekstrak Rekap Jualan (Item) dan Urutkan Berdasarkan Pendapatan
         let rekapTbody = document.getElementById('report-rekap-tbody');
         let rekapText = '';
         if (rekapTbody && rekapTbody.rows.length > 0 && rekapTbody.rows[0].cells.length >= 3) {
+            let rekapItems = [];
+            
             for (let row of rekapTbody.rows) {
                 // Abaikan teks kosong "Belum Ada Penjualan" jika tabel masih kosong
                 if (row.cells[0].innerText.includes('Belum Ada Penjualan')) continue;
-                rekapText += `▪️ ${row.cells[0].innerText} = ${row.cells[1].innerText} (${row.cells[2].innerText})\n`;
+                
+                let nama = row.cells[0].innerText;
+                let qty = row.cells[1].innerText;
+                let omsetStr = row.cells[2].innerText;
+                
+                // Bersihkan string "Rp 150.000" menjadi angka 150000 agar bisa disorting matematika
+                let omsetNum = Number(String(omsetStr).replace(/[^0-9]/g, '')) || 0;
+                
+                rekapItems.push({ nama, qty, omsetStr, omsetNum });
             }
-            if(rekapText === '') rekapText = "▪️ Nihil / Tidak ada penjualan.\n";
-        } else { rekapText = "▪️ Nihil / Tidak ada penjualan.\n"; }
+            
+            if (rekapItems.length > 0) {
+                // Urutkan array dari omset tertinggi ke terendah (Descending)
+                rekapItems.sort((a, b) => b.omsetNum - a.omsetNum);
+                
+                // Rangkai kembali menjadi teks WhatsApp
+                rekapItems.forEach(item => {
+                    rekapText += `▪️ ${item.nama} = ${item.qty} (${item.omsetStr})\n`;
+                });
+            } else {
+                rekapText = "▪️ Nihil / Tidak ada penjualan.\n";
+            }
+        } else { 
+            rekapText = "▪️ Nihil / Tidak ada penjualan.\n"; 
+        }
 
         // B. Ekstrak Kas Keluar
         let kasTbody = document.getElementById('report-kas-tbody');
@@ -9760,8 +9783,6 @@ openDetailStokOpname: function(sku) {
             }
             if(kasText === '') kasText = "▪️ Nihil / Tidak ada pengeluaran.\n";
         } else { kasText = "▪️ Nihil / Tidak ada pengeluaran.\n"; }
-
-        // BAGIAN AUDIT FISIK TELAH DIHAPUS
 
         // --- 5. SUSUN TEKS PESAN WHATSAPP ---
         let text = `*📊 LAPORAN OPERASIONAL AI-SNACK*\n`;
@@ -9819,7 +9840,6 @@ openDetailStokOpname: function(sku) {
             const title = modalWa.querySelector('h3');
             const desc = modalWa.querySelector('p');
             if(title) title.innerText = "Laporan Siap!";
-            // Teks deskripsi di dalam modal juga sudah diubah agar tidak menyebut Audit lagi
             if(desc) desc.innerText = "Seluruh rincian jualan dan kas sudah dirangkum otomatis. Lanjutkan kirim ke Grup WhatsApp?";
         }
     },

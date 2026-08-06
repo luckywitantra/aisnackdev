@@ -6667,31 +6667,42 @@ refreshData: function() {
             let kat = String(m.Kategori || '').toLowerCase();
             if (kat === 'bahan' || kat === 'pendukung') {
                 
-                // --- BARIS TABEL DESKTOP ---
+                // --- BARIS TABEL DESKTOP (UX DIPERBAIKI) ---
                 let strHtml = `
                 <tr class="border-b border-slate-100 hover:bg-slate-50/80 transition-colors group">
-                    <td class="py-3.5 px-5 min-w-[200px] whitespace-normal">
+                    <td class="py-3 px-4 min-w-[200px] whitespace-normal">
                         <div class="font-extrabold text-sm text-slate-800 leading-snug">${m.Nama_Produk}</div>
                         <div class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">SKU: ${m.SKU}</div>
                     </td>
-                    <td class="py-3.5 px-5 text-center w-[180px]">
-                        <input type="text" id="trm-qty-${m.SKU}" class="w-24 bg-slate-50 hover:bg-white focus:bg-white border-2 border-slate-200 focus:border-emerald-500 rounded-xl px-3 py-2 text-center outline-none font-black text-emerald-600 transition-all shadow-inner cursor-pointer text-sm" readonly onclick="osKeyboard.open('trm-qty-${m.SKU}', 'numeric')" placeholder="0">
+                    
+                    <!-- PERBAIKAN UX: Input Angka Mencolok Tema Emerald -->
+                    <td class="py-3 px-4 text-center bg-emerald-50/30 border-x-2 border-emerald-500/40">
+                        <input type="text" id="trm-qty-${m.SKU}" class="w-20 bg-emerald-50 hover:bg-emerald-100 border-2 border-emerald-500 rounded-xl px-2 py-2 text-center outline-none font-black text-emerald-700 transition-all shadow-inner cursor-pointer text-sm mx-auto" readonly onclick="osKeyboard.open('trm-qty-${m.SKU}', 'numeric')" placeholder="0">
                     </td>
-                    <td class="py-3.5 px-5 min-w-[250px]">
-                        <input type="text" id="trm-note-${m.SKU}" class="w-full bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-emerald-500 rounded-xl px-3.5 py-2 outline-none text-xs font-bold text-slate-700 transition-all cursor-pointer" readonly onclick="osKeyboard.open('trm-note-${m.SKU}', 'text')" placeholder="Keterangan kurir / kondisi fisik...">
+                    
+                    <!-- PERBAIKAN UX: Input Keterangan Standar -->
+                    <td class="py-3 px-4 min-w-[200px]">
+                        <input type="text" id="trm-note-${m.SKU}" class="w-full bg-white hover:bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 outline-none text-xs font-normal text-slate-600 transition-all cursor-pointer shadow-sm" readonly onclick="osKeyboard.open('trm-note-${m.SKU}', 'text')" placeholder="Catatan kurir / kondisi fisik...">
                     </td>
                 </tr>`;
                 
-                // --- KARTU PADAT MOBILE ---
+                // --- KARTU PADAT MOBILE (UX SANGAT LEGA - STACKED) ---
                 let strMobile = `
-                <div class="bg-white p-3.5 rounded-2xl border border-slate-100 shadow-2xs hover:shadow-sm transition-all flex flex-col gap-2.5 group">
+                <div class="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex flex-col gap-2 group">
                     <div class="flex justify-between items-start gap-2">
-                        <h4 class="font-extrabold text-sm text-slate-800 leading-snug">${m.Nama_Produk}</h4>
-                        <span class="text-[9px] text-slate-400 font-bold bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 shrink-0 uppercase">${m.SKU}</span>
+                        <div class="flex-1">
+                            <h4 class="font-extrabold text-xs md:text-sm text-slate-800 leading-snug">${m.Nama_Produk}</h4>
+                            <div class="text-[9px] text-slate-400 font-bold uppercase mt-1 flex items-center gap-1.5"><i class="fas fa-barcode"></i> SKU: ${m.SKU}</div>
+                        </div>
                     </div>
-                    <div class="flex gap-2">
-                        <input type="text" id="trm-qty-mob-${m.SKU}" class="w-20 bg-slate-50 border-2 border-slate-200 focus:border-emerald-500 rounded-xl px-2 py-2 text-center outline-none font-black text-emerald-600 transition-all shadow-inner cursor-pointer text-sm" readonly onclick="osKeyboard.open('trm-qty-mob-${m.SKU}', 'numeric')" placeholder="Qty">
-                        <input type="text" id="trm-note-mob-${m.SKU}" class="flex-1 bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-3 py-2 outline-none text-xs font-bold text-slate-700 transition-all cursor-pointer" readonly onclick="osKeyboard.open('trm-note-mob-${m.SKU}', 'text')" placeholder="Catatan fisik/kurir...">
+                    
+                    <!-- PERBAIKAN UX: Input Angka & Teks Disusun Vertikal -->
+                    <div class="flex flex-col gap-2 pt-2 border-t border-slate-100 mt-1">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] font-black text-emerald-600 uppercase tracking-wider flex-1"><i class="fas fa-box-open mr-1"></i> Jumlah (Pcs) :</span>
+                            <input type="text" id="trm-qty-mob-${m.SKU}" class="w-24 bg-emerald-50 hover:bg-emerald-100 border-2 border-emerald-500 rounded-xl px-2 py-2 text-center outline-none font-black text-emerald-700 text-sm cursor-pointer shadow-inner shrink-0" readonly onclick="osKeyboard.open('trm-qty-mob-${m.SKU}', 'numeric')" placeholder="0">
+                        </div>
+                        <input type="text" id="trm-note-mob-${m.SKU}" class="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 focus:border-emerald-500 rounded-xl px-3 py-2.5 outline-none text-xs font-normal text-slate-600 cursor-pointer shadow-sm" readonly onclick="osKeyboard.open('trm-note-mob-${m.SKU}', 'text')" placeholder="Tulis kondisi fisik/kurir...">
                     </div>
                 </div>`;
                 

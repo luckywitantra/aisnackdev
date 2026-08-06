@@ -6976,14 +6976,6 @@ refreshData: function() {
         }
     },
 
-    closeWaShareModal: function() {
-        const modal = document.getElementById('modal-wa-share');
-        if (modal) {
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-        }
-    },
-
 
     // =========================================================
     // 🚀 UPDATE: EKSEKUSI TERIMA BARANG

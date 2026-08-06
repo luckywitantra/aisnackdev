@@ -3833,6 +3833,9 @@ selectOutlet: function(id) {
     // =========================================================
     // 🚀 CONTROLLER POPUP ANALISIS SUPER DETAIL PER OUTLET
     // =========================================================
+   // =========================================================
+    // 🚀 CONTROLLER POPUP ANALISIS SUPER DETAIL PER OUTLET
+    // =========================================================
     openDetailOutletModal: function(outName) {
         const modal = document.getElementById('modal-detail-outlet-eksekutif');
         const titleEl = document.getElementById('modal-detail-outlet-name');
@@ -3901,7 +3904,7 @@ selectOutlet: function(id) {
         if (savedT && !isNaN(savedT)) targetCabang = Number(savedT);
         let pctTarget = Math.min(Math.round((totSales / targetCabang) * 100), 100);
 
-        // 4. Rakit HTML Popup Super Compact
+        // 4. Rakit HTML Popup Super Compact (DENGAN EFEK KLIK PADA 6 KARTU KPI)
         contEl.innerHTML = `
             <!-- Kartu Progres Target Cabang -->
             <div class="bg-slate-800/90 p-3 rounded-xl border border-slate-700 shadow-sm">
@@ -3916,28 +3919,40 @@ selectOutlet: function(id) {
 
             <!-- Matriks Rangkuman KPI (Grid Compact) -->
             <div class="grid grid-cols-2 gap-2">
-                <div class="bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60 flex flex-col justify-center">
-                    <span class="text-[8px] text-slate-400 font-bold uppercase block mb-0.5">Net Sales</span>
+                <!-- 🚀 Kartu Net Sales -->
+                <div onclick="superApp.openKpiDetailModal('sales', '${outName}')" class="bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60 flex flex-col justify-center cursor-pointer hover:bg-slate-700 hover:border-rose-500/50 transition-all active:scale-95 group relative shadow-sm">
+                    <i class="fas fa-external-link-alt absolute top-2 right-2 text-slate-600 group-hover:text-rose-400 text-[8px] transition-colors"></i>
+                    <span class="text-[8px] text-slate-400 font-bold uppercase block mb-0.5 group-hover:text-slate-300">Net Sales</span>
                     <span class="text-sm font-black text-rose-400 leading-none">Rp ${totSales.toLocaleString('id-ID')}</span>
                 </div>
-                <div class="bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60 flex flex-col justify-center">
-                    <span class="text-[8px] text-slate-400 font-bold uppercase block mb-0.5">Total Cash</span>
+                <!-- 🚀 Kartu Total Cash -->
+                <div onclick="superApp.openKpiDetailModal('cash', '${outName}')" class="bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60 flex flex-col justify-center cursor-pointer hover:bg-slate-700 hover:border-emerald-500/50 transition-all active:scale-95 group relative shadow-sm">
+                    <i class="fas fa-external-link-alt absolute top-2 right-2 text-slate-600 group-hover:text-emerald-400 text-[8px] transition-colors"></i>
+                    <span class="text-[8px] text-slate-400 font-bold uppercase block mb-0.5 group-hover:text-slate-300">Total Cash</span>
                     <span class="text-sm font-black text-emerald-400 leading-none">Rp ${totCash.toLocaleString('id-ID')}</span>
                 </div>
-                <div class="bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60 flex flex-col justify-center">
-                    <span class="text-[8px] text-slate-400 font-bold uppercase block mb-0.5">Total QRIS</span>
+                <!-- 🚀 Kartu Total QRIS -->
+                <div onclick="superApp.openKpiDetailModal('qris', '${outName}')" class="bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60 flex flex-col justify-center cursor-pointer hover:bg-slate-700 hover:border-blue-500/50 transition-all active:scale-95 group relative shadow-sm">
+                    <i class="fas fa-external-link-alt absolute top-2 right-2 text-slate-600 group-hover:text-blue-400 text-[8px] transition-colors"></i>
+                    <span class="text-[8px] text-slate-400 font-bold uppercase block mb-0.5 group-hover:text-slate-300">Total QRIS</span>
                     <span class="text-sm font-black text-blue-400 leading-none">Rp ${totQris.toLocaleString('id-ID')}</span>
                 </div>
-                <div class="bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60 flex flex-col justify-center">
-                    <span class="text-[8px] text-slate-400 font-bold uppercase block mb-0.5">Total OPEX</span>
+                <!-- 🚀 Kartu Total OPEX -->
+                <div onclick="superApp.openKpiDetailModal('opex', '${outName}')" class="bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60 flex flex-col justify-center cursor-pointer hover:bg-slate-700 hover:border-amber-500/50 transition-all active:scale-95 group relative shadow-sm">
+                    <i class="fas fa-external-link-alt absolute top-2 right-2 text-slate-600 group-hover:text-amber-400 text-[8px] transition-colors"></i>
+                    <span class="text-[8px] text-slate-400 font-bold uppercase block mb-0.5 group-hover:text-slate-300">Total OPEX</span>
                     <span class="text-sm font-black text-amber-400 leading-none">Rp ${totExp.toLocaleString('id-ID')}</span>
                 </div>
-                <div class="bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60 flex flex-col justify-center">
-                    <span class="text-[8px] text-slate-400 font-bold uppercase block mb-0.5">Avg/Bill <span class="text-[7px] text-slate-500 font-normal">(${totBill})</span></span>
+                <!-- 🚀 Kartu Avg/Bill -->
+                <div onclick="superApp.openKpiDetailModal('bill', '${outName}')" class="bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60 flex flex-col justify-center cursor-pointer hover:bg-slate-700 hover:border-purple-500/50 transition-all active:scale-95 group relative shadow-sm">
+                    <i class="fas fa-external-link-alt absolute top-2 right-2 text-slate-600 group-hover:text-purple-400 text-[8px] transition-colors"></i>
+                    <span class="text-[8px] text-slate-400 font-bold uppercase block mb-0.5 group-hover:text-slate-300">Avg/Bill <span class="text-[7px] text-slate-500 font-normal">(${totBill})</span></span>
                     <span class="text-sm font-black text-purple-400 leading-none">Rp ${avgBill.toLocaleString('id-ID')}</span>
                 </div>
-                <div class="bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60 flex flex-col justify-center">
-                    <span class="text-[8px] text-slate-400 font-bold uppercase block mb-0.5">Avg/Pcs <span class="text-[7px] text-slate-500 font-normal">(${totPcs})</span></span>
+                <!-- 🚀 Kartu Avg/Pcs -->
+                <div onclick="superApp.openKpiDetailModal('pcs', '${outName}')" class="bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60 flex flex-col justify-center cursor-pointer hover:bg-slate-700 hover:border-teal-500/50 transition-all active:scale-95 group relative shadow-sm">
+                    <i class="fas fa-external-link-alt absolute top-2 right-2 text-slate-600 group-hover:text-teal-400 text-[8px] transition-colors"></i>
+                    <span class="text-[8px] text-slate-400 font-bold uppercase block mb-0.5 group-hover:text-slate-300">Avg/Pcs <span class="text-[7px] text-slate-500 font-normal">(${totPcs})</span></span>
                     <span class="text-sm font-black text-teal-400 leading-none">Rp ${avgPcs.toLocaleString('id-ID')}</span>
                 </div>
             </div>
@@ -3974,7 +3989,6 @@ selectOutlet: function(id) {
             </div>
         `;
         
-        // 🚀 PENTING: Simpan data ke variabel global dan render list
         this.detailExpenseData = expItemMap;
         this.renderDetailOutletExpenseList();
     },
@@ -3982,6 +3996,158 @@ selectOutlet: function(id) {
     closeDetailOutletModal: function() {
         const modal = document.getElementById('modal-detail-outlet-eksekutif');
         if (modal) modal.classList.add('hidden');
+    },
+
+    // =========================================================
+    // 🚀 ENGINE: POPUP DETAIL HARIAN PER KPI (BARU)
+    // =========================================================
+    openKpiDetailModal: function(kpiType, outName) {
+        // 1. Suntikkan HTML Modal jika belum ada di dalam body
+        let modalDetail = document.getElementById('modal-kpi-detail-exec');
+        if (!modalDetail) {
+            const modalHtml = `
+            <div id="modal-kpi-detail-exec" class="hidden fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 transition-opacity duration-300">
+                <div class="bg-slate-800 rounded-[1.5rem] shadow-2xl border border-slate-600/50 w-full max-w-sm overflow-hidden flex flex-col transform transition-transform duration-300 scale-95" id="kpi-detail-box">
+                    
+                    <div class="bg-slate-900/80 p-4 border-b border-slate-700 flex justify-between items-center relative overflow-hidden shrink-0">
+                        <div class="absolute -right-4 -top-4 w-16 h-16 rounded-full blur-xl pointer-events-none" id="kpi-detail-glow"></div>
+                        <div>
+                            <h3 class="font-black text-sm text-white tracking-tight" id="kpi-detail-title">Detail KPI</h3>
+                            <p class="text-[10px] text-slate-400 font-bold" id="kpi-detail-subtitle">Outlet</p>
+                        </div>
+                        <button type="button" onclick="superApp.closeKpiDetailModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition active:scale-90 relative z-10"><i class="fas fa-times"></i></button>
+                    </div>
+
+                    <div class="p-4 flex-1 overflow-y-auto custom-scroll max-h-[60vh] bg-slate-800" id="kpi-detail-list">
+                        <!-- List dirender via JS -->
+                    </div>
+
+                    <div class="bg-slate-900/80 p-4 border-t border-slate-700 shrink-0 flex justify-between items-center">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Akumulasi</span>
+                        <span class="font-black text-sm" id="kpi-detail-total">Rp 0</span>
+                    </div>
+                </div>
+            </div>`;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            modalDetail = document.getElementById('modal-kpi-detail-exec');
+        }
+
+        // 2. Baca filter tanggal yang sama persis
+        const startInput = document.getElementById('exec-filter-start');
+        const endInput = document.getElementById('exec-filter-end');
+        let startObj = (startInput && startInput.value) ? new Date(startInput.value) : null;
+        if (startObj) startObj.setHours(0, 0, 0, 0);
+        let endObj = (endInput && endInput.value) ? new Date(endInput.value) : null;
+        if (endObj) endObj.setHours(23, 59, 59, 999);
+
+        // 3. Setup Variabel Tema & Konfigurasi Berdasarkan KPI
+        let kpiName = ""; let kpiColorClass = ""; let glowColor = ""; let prefix = "Rp ";
+        
+        if (kpiType === 'sales') { kpiName = "Net Sales"; kpiColorClass = "text-rose-400"; glowColor = "bg-rose-500/30"; }
+        else if (kpiType === 'cash') { kpiName = "Total Cash Laci"; kpiColorClass = "text-emerald-400"; glowColor = "bg-emerald-500/30"; }
+        else if (kpiType === 'qris') { kpiName = "Total QRIS Masuk"; kpiColorClass = "text-blue-400"; glowColor = "bg-blue-500/30"; }
+        else if (kpiType === 'opex') { kpiName = "Total Pengeluaran (OPEX)"; kpiColorClass = "text-amber-400"; glowColor = "bg-amber-500/30"; }
+        else if (kpiType === 'bill') { kpiName = "Rata-rata Pendapatan per Bill"; kpiColorClass = "text-purple-400"; glowColor = "bg-purple-500/30"; }
+        else if (kpiType === 'pcs') { kpiName = "Rata-rata Pendapatan per Pcs"; kpiColorClass = "text-teal-400"; glowColor = "bg-teal-500/30"; }
+
+        // Update Header Modal
+        document.getElementById('kpi-detail-title').innerText = `Breakdown Harian: ${kpiName}`;
+        document.getElementById('kpi-detail-subtitle').innerText = `Cabang Ai-CHA ${outName}`;
+        document.getElementById('kpi-detail-glow').className = `absolute -right-4 -top-4 w-16 h-16 rounded-full blur-xl pointer-events-none ${glowColor}`;
+        document.getElementById('kpi-detail-total').className = `font-black text-base ${kpiColorClass}`;
+
+        // 4. Ekstrak Data Harian dari Laporan
+        let dailyData = [];
+        let totalVal = 0;
+
+        (this.db.laporanHarian || []).forEach(rep => {
+            if (rep.Status_Approval === 'Ditolak') return;
+            let repOutlet = String(rep.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+            if (repOutlet !== outName) return;
+
+            let repDateObj = null;
+            let dateStrLokal = rep.Tanggal || '';
+            let cleanStr = dateStrLokal.split(',').pop().trim();
+            let match = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+            
+            if (match) {
+                repDateObj = new Date(parseInt(match[3],10), parseInt(match[2],10)-1, parseInt(match[1],10));
+                if (startObj && repDateObj < startObj) return;
+                if (endObj && repDateObj > endObj) return;
+            } else return;
+
+            let val = 0;
+            if (kpiType === 'sales') val = Number(rep.Net_Sales || 0);
+            else if (kpiType === 'cash') val = Number(rep.Cash || 0);
+            else if (kpiType === 'qris') val = Number(rep.QRIS || 0);
+            else if (kpiType === 'opex') val = Number(rep.Total_Pengeluaran || 0);
+            else if (kpiType === 'bill') {
+                let s = Number(rep.Net_Sales || 0); let b = Number(rep.Bill || 0);
+                if (b > 0) val = Math.round(s / b);
+            }
+            else if (kpiType === 'pcs') {
+                let s = Number(rep.Net_Sales || 0); let p = Number(rep.Pcs || 0);
+                if (p > 0) val = Math.round(s / p);
+            }
+
+            if (val > 0) {
+                dailyData.push({ dateObj: repDateObj, label: dateStrLokal, val: val });
+            }
+        });
+
+        // Urutkan dari tanggal terbaru ke terlama
+        dailyData.sort((a, b) => b.dateObj - a.dateObj);
+
+        // 5. Render List ke Layar
+        const listCont = document.getElementById('kpi-detail-list');
+        if (dailyData.length === 0) {
+            listCont.innerHTML = `<div class="text-center text-slate-500 font-bold text-[10px] py-10 italic border border-dashed border-slate-700 rounded-xl">Tidak ada riwayat untuk periode ini.</div>`;
+            document.getElementById('kpi-detail-total').innerText = `${prefix}0`;
+        } else {
+            let htmlList = '';
+            let valAcc = 0; let totalDivisor = 0;
+
+            dailyData.forEach(d => {
+                htmlList += `
+                <div class="flex justify-between items-center p-3 border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors last:border-0 rounded-lg">
+                    <span class="text-xs font-bold text-slate-300"><i class="far fa-calendar-alt text-slate-500 mr-1.5"></i> ${d.label}</span>
+                    <span class="text-sm font-black ${kpiColorClass}">${prefix}${d.val.toLocaleString('id-ID')}</span>
+                </div>`;
+                valAcc += d.val;
+                totalDivisor++;
+            });
+
+            listCont.innerHTML = htmlList;
+
+            // Logika Total Akhir Bawah
+            if (kpiType === 'bill' || kpiType === 'pcs') {
+                // Untuk average, tampilkan rata-rata dari seluruh hari yang tampil
+                let avg = Math.round(valAcc / totalDivisor);
+                document.getElementById('kpi-detail-total').innerText = `${prefix}${avg.toLocaleString('id-ID')}`;
+                document.getElementById('kpi-detail-total').previousElementSibling.innerText = "Rata-rata Periode Ini";
+            } else {
+                document.getElementById('kpi-detail-total').innerText = `${prefix}${valAcc.toLocaleString('id-ID')}`;
+                document.getElementById('kpi-detail-total').previousElementSibling.innerText = "Total Akumulasi";
+            }
+        }
+
+        // Tampilkan Modal dengan Animasi Lembut
+        modalDetail.classList.remove('hidden');
+        // Trigger reflow untuk CSS transition
+        void modalDetail.offsetWidth; 
+        modalDetail.firstElementChild.classList.remove('scale-95');
+        modalDetail.firstElementChild.classList.add('scale-100');
+    },
+
+    closeKpiDetailModal: function() {
+        const modalDetail = document.getElementById('modal-kpi-detail-exec');
+        if (modalDetail) {
+            modalDetail.firstElementChild.classList.remove('scale-100');
+            modalDetail.firstElementChild.classList.add('scale-95');
+            setTimeout(() => {
+                modalDetail.classList.add('hidden');
+            }, 250);
+        }
     },
 
    

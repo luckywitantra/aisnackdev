@@ -6738,10 +6738,9 @@ refreshData: function() {
                 let sys = sData ? Number(sData.Stok_Toko) : 0;
                 autoFillData.push({ idDesk: `opn-fisik-${m.SKU}`, idMob: `opn-fisik-mob-${m.SKU}`, val: sys });
 
-                // 🛡️ Amankan nama produk dari tanda kutip tunggal agar onclick tidak error
+                // 🛡️ Amankan nama produk dari tanda kutip tunggal
                 let safeNama = String(m.Nama_Produk || '').replace(/'/g, "\\'");
 
-                // 🚀 Panggil fungsi openStokDetail dengan 3 parameter (SKU, Nama, Outlet)
                 let sysHtmlDesk = isAdmin 
                     ? `<button onclick="superApp.openStokDetail('${m.SKU}', '${safeNama}', '${this.outlet}')" class="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-xl border border-indigo-200/60 hover:bg-indigo-500 hover:text-white transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5 mx-auto w-full max-w-[80px]" title="Lihat Analisis & Tren"><i class="fas fa-chart-area"></i> <span id="opn-sys-${m.SKU}" class="font-black">${sys}</span></button>` 
                     : `<span id="opn-sys-${m.SKU}" class="font-black text-indigo-600 text-base">${sys}</span>`;
@@ -6750,7 +6749,7 @@ refreshData: function() {
                     ? `<button onclick="superApp.openStokDetail('${m.SKU}', '${safeNama}', '${this.outlet}')" class="inline-flex items-center gap-1.5 bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-md border border-indigo-200/60 shadow-sm active:scale-95"><i class="fas fa-chart-area text-[10px]"></i> <span id="opn-sys-mob-${m.SKU}" class="font-black">${sys}</span></button>` 
                     : `<span id="opn-sys-mob-${m.SKU}" class="font-black text-indigo-600">${sys}</span>`;
 
-                // --- BARIS TABEL DESKTOP (UX DIPERBAIKI) ---
+                // --- BARIS TABEL DESKTOP ---
                 let desk = `
                 <tr class="border-b border-slate-100 hover:bg-slate-50/80 transition-colors group">
                     <td class="py-3 px-4 min-w-[200px] whitespace-normal">
@@ -6759,38 +6758,38 @@ refreshData: function() {
                     </td>
                     <td class="py-3 px-4 text-center border-l border-slate-100/50">${sysHtmlDesk}</td>
                     
-                    <!-- PERBAIKAN UX: Input Angka Mencolok -->
                     <td class="py-3 px-4 text-center bg-[#FFF5D1]/30 border-x-2 border-[#FFB800]/50">
                         <input type="text" id="opn-fisik-${m.SKU}" class="w-20 bg-[#FFF5D1]/80 hover:bg-[#FFD874]/50 border-2 border-[#FFB800] rounded-xl px-2 py-2 text-center outline-none font-black text-[#A87B00] transition-all shadow-inner cursor-pointer text-sm" value="${sys}" readonly onclick="osKeyboard.open('opn-fisik-${m.SKU}', 'numeric')" oninput="superApp.calcOpname('${m.SKU}')">
                     </td>
                     
                     <td class="py-3 px-4 text-right font-black text-slate-300 text-xl border-r border-slate-100/50" id="opn-selisih-${m.SKU}">0</td>
                     
-                    <!-- PERBAIKAN UX: Input Keterangan Standar -->
                     <td class="py-3 px-4 min-w-[200px]">
                         <input type="text" id="opn-note-${m.SKU}" class="w-full bg-white hover:bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 outline-none text-xs font-normal text-slate-600 transition-all cursor-pointer shadow-sm" readonly onclick="osKeyboard.open('opn-note-${m.SKU}', 'text')" placeholder="Kondisi Fisik / Alasan...">
                     </td>
                 </tr>`;
                 
-                // --- KARTU PADAT MOBILE (UX DIPERBAIKI) ---
+                // --- KARTU PADAT MOBILE (UX SANGAT LEGA - STACKED) ---
                 let mob = `
-                <div class="bg-white p-3 rounded-2xl border border-slate-100 shadow-2xs hover:shadow-sm transition-all flex flex-col gap-2 group">
+                <div class="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex flex-col gap-2 group">
                     <div class="flex justify-between items-start gap-2">
-                        <div>
+                        <div class="flex-1">
                             <h4 class="font-extrabold text-xs md:text-sm text-slate-800 leading-snug">${m.Nama_Produk}</h4>
                             <div class="text-[9px] text-slate-400 font-bold uppercase mt-1 flex items-center gap-1.5">Sys: ${sysHtmlMob}</div>
                         </div>
-                        <div class="text-right shrink-0 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100">
-                            <span class="text-[7px] text-slate-400 uppercase font-black tracking-wider block mb-0.5">Selisih</span>
+                        <div class="text-center shrink-0 bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-100">
+                            <span class="text-[8px] text-slate-400 uppercase font-black tracking-wider block mb-0.5">Selisih</span>
                             <span class="font-black text-slate-300 text-lg leading-none" id="opn-selisih-mob-${m.SKU}">0</span>
                         </div>
                     </div>
                     
-                    <!-- PERBAIKAN UX: Beda Warna Input -->
-                    <div class="flex gap-2 pt-2 border-t border-slate-100 mt-0.5">
-                        <input type="text" id="opn-fisik-mob-${m.SKU}" class="w-16 bg-[#FFF5D1]/80 hover:bg-[#FFD874]/50 border-2 border-[#FFB800] rounded-xl px-1 py-2 text-center outline-none font-black text-[#A87B00] text-sm cursor-pointer shadow-inner shrink-0" value="${sys}" readonly onclick="osKeyboard.open('opn-fisik-mob-${m.SKU}', 'numeric')" oninput="superApp.calcOpnameMob('${m.SKU}')">
-                        
-                        <input type="text" id="opn-note-mob-${m.SKU}" class="flex-1 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 outline-none text-[10px] md:text-xs font-normal text-slate-600 cursor-pointer shadow-sm" readonly onclick="osKeyboard.open('opn-note-mob-${m.SKU}', 'text')" placeholder="Alasan selisih...">
+                    <!-- PERBAIKAN UX: Input Angka & Teks Disusun Vertikal -->
+                    <div class="flex flex-col gap-2 pt-2 border-t border-slate-100 mt-1">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] font-black text-[#A87B00] uppercase tracking-wider flex-1"><i class="fas fa-hand-holding-box mr-1"></i> Fisik Aktual :</span>
+                            <input type="text" id="opn-fisik-mob-${m.SKU}" class="w-24 bg-[#FFF5D1]/80 hover:bg-[#FFD874]/50 border-2 border-[#FFB800] rounded-xl px-2 py-2 text-center outline-none font-black text-[#A87B00] text-sm cursor-pointer shadow-inner shrink-0" value="${sys}" readonly onclick="osKeyboard.open('opn-fisik-mob-${m.SKU}', 'numeric')" oninput="superApp.calcOpnameMob('${m.SKU}')">
+                        </div>
+                        <input type="text" id="opn-note-mob-${m.SKU}" class="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 focus:border-purple-500 rounded-xl px-3 py-2.5 outline-none text-xs font-normal text-slate-600 cursor-pointer shadow-sm" readonly onclick="osKeyboard.open('opn-note-mob-${m.SKU}', 'text')" placeholder="Tulis alasan jika ada selisih...">
                     </div>
                 </div>`;
 
@@ -6799,23 +6798,19 @@ refreshData: function() {
             }
         });
 
-        // Injeksi ke Tabel Desktop
         const tU = document.getElementById('opname-tbody-utama'); 
         if (tU) tU.innerHTML = hu || `<tr><td colspan="5" class="py-12">${this.getEmptyState('fa-box-open', 'Belum Ada Bahan', 'Tambahkan bahan di menu gudang')}</td></tr>`;
         const tP = document.getElementById('opname-tbody-pendukung'); 
         if (tP) tP.innerHTML = hp || `<tr><td colspan="5" class="py-12">${this.getEmptyState('fa-pump-soap', 'Belum Ada Barang', 'Tambahkan pendukung di gudang')}</td></tr>`;
         
-        // Injeksi ke Kartu Mobile
         const mU = document.getElementById('opname-mob-utama'); 
         if (mU) mU.innerHTML = hum || '<div class="text-center py-10 text-slate-400 text-xs font-bold border-2 border-dashed border-slate-200 rounded-2xl bg-white/50">Tidak ada bahan utama</div>';
         const mP = document.getElementById('opname-mob-pendukung'); 
         if (mP) mP.innerHTML = hpm || '<div class="text-center py-10 text-slate-400 text-xs font-bold border-2 border-dashed border-slate-200 rounded-2xl bg-white/50">Tidak ada barang pendukung</div>';
 
-        // Update Angka Badge pada Sub-Tab
         const bU = document.getElementById('count-opname-utama'); if(bU) bU.innerText = cUtama;
         const bP = document.getElementById('count-opname-pendukung'); if(bP) bP.innerText = cPend;
 
-        // Auto-fill Nilai Stok Sistem ke Input Fisik (Setelah DOM Selesai Render)
         setTimeout(() => {
             autoFillData.forEach(item => {
                 let elDesk = document.getElementById(item.idDesk); 

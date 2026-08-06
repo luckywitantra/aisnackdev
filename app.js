@@ -3957,13 +3957,14 @@ selectOutlet: function(id) {
                 </div>
             </div>
 
-            <!-- Net Cash Bersih (Pill Style) -->
-            <div class="bg-gradient-to-r from-emerald-900/40 to-teal-900/40 p-2.5 rounded-xl border border-emerald-500/30 flex justify-between items-center shadow-inner">
-                <div class="flex items-center gap-1.5">
+           <!-- Net Cash Bersih (Pill Style) DIBUAT INTERAKTIF -->
+            <div onclick="superApp.openKpiDetailModal('netlaci', '${outName}')" class="bg-gradient-to-r from-emerald-900/40 to-teal-900/40 hover:from-emerald-800/60 hover:to-teal-800/60 p-2.5 pr-8 rounded-xl border border-emerald-500/30 flex justify-between items-center shadow-inner cursor-pointer transition-all active:scale-95 group relative mt-2">
+                <div class="flex items-center gap-1.5 relative z-10">
                     <i class="fas fa-wallet text-emerald-400 text-xs"></i>
-                    <span class="text-[9px] font-bold text-emerald-200">Net Laci (Cash - OPEX):</span>
+                    <span class="text-[9px] font-bold text-emerald-200 group-hover:text-white transition-colors">Net Laci (Cash - OPEX):</span>
                 </div>
-                <span class="text-sm font-black text-emerald-400 drop-shadow-sm">Rp ${netLaci.toLocaleString('id-ID')}</span>
+                <span class="text-sm font-black text-emerald-400 drop-shadow-sm relative z-10">Rp ${netLaci.toLocaleString('id-ID')}</span>
+                <i class="fas fa-external-link-alt absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600/50 group-hover:text-emerald-400 text-[10px] transition-colors"></i>
             </div>
 
             <!-- Breakdown Pengeluaran Box -->
@@ -4001,6 +4002,9 @@ selectOutlet: function(id) {
     // =========================================================
     // 🚀 ENGINE: POPUP DETAIL HARIAN PER KPI (BARU)
     // =========================================================
+    // =========================================================
+    // 🚀 ENGINE: POPUP DETAIL HARIAN PER KPI (UPDATED DENGAN NET LACI)
+    // =========================================================
     openKpiDetailModal: function(kpiType, outName) {
         // 1. Suntikkan HTML Modal jika belum ada di dalam body
         let modalDetail = document.getElementById('modal-kpi-detail-exec');
@@ -4023,7 +4027,7 @@ selectOutlet: function(id) {
                     </div>
 
                     <div class="bg-slate-900/80 p-4 border-t border-slate-700 shrink-0 flex justify-between items-center">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Akumulasi</span>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest" id="kpi-detail-total-label">Total Akumulasi</span>
                         <span class="font-black text-sm" id="kpi-detail-total">Rp 0</span>
                     </div>
                 </div>
@@ -4041,7 +4045,7 @@ selectOutlet: function(id) {
         if (endObj) endObj.setHours(23, 59, 59, 999);
 
         // 3. Setup Variabel Tema & Konfigurasi Berdasarkan KPI
-        let kpiName = ""; let kpiColorClass = ""; let glowColor = ""; let prefix = "Rp ";
+        let kpiName = ""; let kpiColorClass = ""; let glowColor = "";
         
         if (kpiType === 'sales') { kpiName = "Net Sales"; kpiColorClass = "text-rose-400"; glowColor = "bg-rose-500/30"; }
         else if (kpiType === 'cash') { kpiName = "Total Cash Laci"; kpiColorClass = "text-emerald-400"; glowColor = "bg-emerald-500/30"; }
@@ -4049,16 +4053,16 @@ selectOutlet: function(id) {
         else if (kpiType === 'opex') { kpiName = "Total Pengeluaran (OPEX)"; kpiColorClass = "text-amber-400"; glowColor = "bg-amber-500/30"; }
         else if (kpiType === 'bill') { kpiName = "Rata-rata Pendapatan per Bill"; kpiColorClass = "text-purple-400"; glowColor = "bg-purple-500/30"; }
         else if (kpiType === 'pcs') { kpiName = "Rata-rata Pendapatan per Pcs"; kpiColorClass = "text-teal-400"; glowColor = "bg-teal-500/30"; }
+        else if (kpiType === 'netlaci') { kpiName = "Net Laci (Cash - OPEX)"; kpiColorClass = "text-emerald-400"; glowColor = "bg-emerald-500/30"; }
 
         // Update Header Modal
         document.getElementById('kpi-detail-title').innerText = `Breakdown Harian: ${kpiName}`;
         document.getElementById('kpi-detail-subtitle').innerText = `Cabang Ai-CHA ${outName}`;
         document.getElementById('kpi-detail-glow').className = `absolute -right-4 -top-4 w-16 h-16 rounded-full blur-xl pointer-events-none ${glowColor}`;
-        document.getElementById('kpi-detail-total').className = `font-black text-base ${kpiColorClass}`;
+        document.getElementById('kpi-detail-total').className = `font-black text-sm ${kpiColorClass}`;
 
         // 4. Ekstrak Data Harian dari Laporan
         let dailyData = [];
-        let totalVal = 0;
 
         (this.db.laporanHarian || []).forEach(rep => {
             if (rep.Status_Approval === 'Ditolak') return;
@@ -4077,20 +4081,26 @@ selectOutlet: function(id) {
             } else return;
 
             let val = 0;
-            if (kpiType === 'sales') val = Number(rep.Net_Sales || 0);
-            else if (kpiType === 'cash') val = Number(rep.Cash || 0);
-            else if (kpiType === 'qris') val = Number(rep.QRIS || 0);
-            else if (kpiType === 'opex') val = Number(rep.Total_Pengeluaran || 0);
+            let isValid = false;
+
+            if (kpiType === 'sales') { val = Number(rep.Net_Sales || 0); isValid = val > 0; }
+            else if (kpiType === 'cash') { val = Number(rep.Cash || 0); isValid = val > 0; }
+            else if (kpiType === 'qris') { val = Number(rep.QRIS || 0); isValid = val > 0; }
+            else if (kpiType === 'opex') { val = Number(rep.Total_Pengeluaran || 0); isValid = val > 0; }
             else if (kpiType === 'bill') {
                 let s = Number(rep.Net_Sales || 0); let b = Number(rep.Bill || 0);
-                if (b > 0) val = Math.round(s / b);
+                if (b > 0) { val = Math.round(s / b); isValid = true; }
             }
             else if (kpiType === 'pcs') {
                 let s = Number(rep.Net_Sales || 0); let p = Number(rep.Pcs || 0);
-                if (p > 0) val = Math.round(s / p);
+                if (p > 0) { val = Math.round(s / p); isValid = true; }
+            }
+            else if (kpiType === 'netlaci') {
+                let c = Number(rep.Cash || 0); let o = Number(rep.Total_Pengeluaran || 0);
+                if (c > 0 || o > 0) { val = c - o; isValid = true; } // Catat asalkan ada aktivitas cash/opex di hari itu
             }
 
-            if (val > 0) {
+            if (isValid) {
                 dailyData.push({ dateObj: repDateObj, label: dateStrLokal, val: val });
             }
         });
@@ -4102,16 +4112,21 @@ selectOutlet: function(id) {
         const listCont = document.getElementById('kpi-detail-list');
         if (dailyData.length === 0) {
             listCont.innerHTML = `<div class="text-center text-slate-500 font-bold text-[10px] py-10 italic border border-dashed border-slate-700 rounded-xl">Tidak ada riwayat untuk periode ini.</div>`;
-            document.getElementById('kpi-detail-total').innerText = `${prefix}0`;
+            document.getElementById('kpi-detail-total').innerText = `Rp 0`;
         } else {
             let htmlList = '';
             let valAcc = 0; let totalDivisor = 0;
 
             dailyData.forEach(d => {
+                // Modifikasi agar Minus (-) tampil berwarna merah
+                let isNegative = d.val < 0;
+                let textCol = (kpiType === 'netlaci' && isNegative) ? 'text-rose-400' : kpiColorClass;
+                let formattedVal = isNegative ? `-Rp ${Math.abs(d.val).toLocaleString('id-ID')}` : `Rp ${d.val.toLocaleString('id-ID')}`;
+
                 htmlList += `
                 <div class="flex justify-between items-center p-3 border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors last:border-0 rounded-lg">
                     <span class="text-xs font-bold text-slate-300"><i class="far fa-calendar-alt text-slate-500 mr-1.5"></i> ${d.label}</span>
-                    <span class="text-sm font-black ${kpiColorClass}">${prefix}${d.val.toLocaleString('id-ID')}</span>
+                    <span class="text-sm font-black ${textCol}">${formattedVal}</span>
                 </div>`;
                 valAcc += d.val;
                 totalDivisor++;
@@ -4120,20 +4135,25 @@ selectOutlet: function(id) {
             listCont.innerHTML = htmlList;
 
             // Logika Total Akhir Bawah
+            let finalValue = valAcc;
+            let finalLabel = "Total Akumulasi";
+
             if (kpiType === 'bill' || kpiType === 'pcs') {
-                // Untuk average, tampilkan rata-rata dari seluruh hari yang tampil
-                let avg = Math.round(valAcc / totalDivisor);
-                document.getElementById('kpi-detail-total').innerText = `${prefix}${avg.toLocaleString('id-ID')}`;
-                document.getElementById('kpi-detail-total').previousElementSibling.innerText = "Rata-rata Periode Ini";
-            } else {
-                document.getElementById('kpi-detail-total').innerText = `${prefix}${valAcc.toLocaleString('id-ID')}`;
-                document.getElementById('kpi-detail-total').previousElementSibling.innerText = "Total Akumulasi";
+                finalValue = Math.round(valAcc / totalDivisor);
+                finalLabel = "Rata-rata Periode Ini";
             }
+
+            let isTotalNegative = finalValue < 0;
+            let finalColorClass = (kpiType === 'netlaci' && isTotalNegative) ? 'text-rose-400' : kpiColorClass;
+            let finalFormattedVal = isTotalNegative ? `-Rp ${Math.abs(finalValue).toLocaleString('id-ID')}` : `Rp ${finalValue.toLocaleString('id-ID')}`;
+
+            document.getElementById('kpi-detail-total').innerText = finalFormattedVal;
+            document.getElementById('kpi-detail-total').className = `font-black text-sm ${finalColorClass}`;
+            document.getElementById('kpi-detail-total-label').innerText = finalLabel;
         }
 
         // Tampilkan Modal dengan Animasi Lembut
         modalDetail.classList.remove('hidden');
-        // Trigger reflow untuk CSS transition
         void modalDetail.offsetWidth; 
         modalDetail.firstElementChild.classList.remove('scale-95');
         modalDetail.firstElementChild.classList.add('scale-100');

@@ -4000,19 +4000,14 @@ selectOutlet: function(id) {
     },
 
     // =========================================================
-    // 🚀 ENGINE: POPUP DETAIL HARIAN PER KPI (BARU)
-    // =========================================================
-    // =========================================================
-    // 🚀 ENGINE: POPUP DETAIL HARIAN PER KPI (UPDATED DENGAN NET LACI)
+    // 🚀 ENGINE: POPUP DETAIL HARIAN PER KPI (SUPPORT GLOBAL MAPPING)
     // =========================================================
     openKpiDetailModal: function(kpiType, outName) {
-        // 1. Suntikkan HTML Modal jika belum ada di dalam body
         let modalDetail = document.getElementById('modal-kpi-detail-exec');
         if (!modalDetail) {
             const modalHtml = `
             <div id="modal-kpi-detail-exec" class="hidden fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 transition-opacity duration-300">
                 <div class="bg-slate-800 rounded-[1.5rem] shadow-2xl border border-slate-600/50 w-full max-w-sm overflow-hidden flex flex-col transform transition-transform duration-300 scale-95" id="kpi-detail-box">
-                    
                     <div class="bg-slate-900/80 p-4 border-b border-slate-700 flex justify-between items-center relative overflow-hidden shrink-0">
                         <div class="absolute -right-4 -top-4 w-16 h-16 rounded-full blur-xl pointer-events-none" id="kpi-detail-glow"></div>
                         <div>
@@ -4021,11 +4016,7 @@ selectOutlet: function(id) {
                         </div>
                         <button type="button" onclick="superApp.closeKpiDetailModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition active:scale-90 relative z-10"><i class="fas fa-times"></i></button>
                     </div>
-
-                    <div class="p-4 flex-1 overflow-y-auto custom-scroll max-h-[60vh] bg-slate-800" id="kpi-detail-list">
-                        <!-- List dirender via JS -->
-                    </div>
-
+                    <div class="p-4 flex-1 overflow-y-auto custom-scroll max-h-[60vh] bg-slate-800" id="kpi-detail-list"></div>
                     <div class="bg-slate-900/80 p-4 border-t border-slate-700 shrink-0 flex justify-between items-center">
                         <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest" id="kpi-detail-total-label">Total Akumulasi</span>
                         <span class="font-black text-sm" id="kpi-detail-total">Rp 0</span>
@@ -4036,7 +4027,6 @@ selectOutlet: function(id) {
             modalDetail = document.getElementById('modal-kpi-detail-exec');
         }
 
-        // 2. Baca filter tanggal yang sama persis
         const startInput = document.getElementById('exec-filter-start');
         const endInput = document.getElementById('exec-filter-end');
         let startObj = (startInput && startInput.value) ? new Date(startInput.value) : null;
@@ -4044,9 +4034,8 @@ selectOutlet: function(id) {
         let endObj = (endInput && endInput.value) ? new Date(endInput.value) : null;
         if (endObj) endObj.setHours(23, 59, 59, 999);
 
-        // 3. Setup Variabel Tema & Konfigurasi Berdasarkan KPI
+        // Pengaturan Tema Warna KPI
         let kpiName = ""; let kpiColorClass = ""; let glowColor = "";
-        
         if (kpiType === 'sales') { kpiName = "Net Sales"; kpiColorClass = "text-rose-400"; glowColor = "bg-rose-500/30"; }
         else if (kpiType === 'cash') { kpiName = "Total Cash Laci"; kpiColorClass = "text-emerald-400"; glowColor = "bg-emerald-500/30"; }
         else if (kpiType === 'qris') { kpiName = "Total QRIS Masuk"; kpiColorClass = "text-blue-400"; glowColor = "bg-blue-500/30"; }
@@ -4055,19 +4044,28 @@ selectOutlet: function(id) {
         else if (kpiType === 'pcs') { kpiName = "Rata-rata Pendapatan per Pcs"; kpiColorClass = "text-teal-400"; glowColor = "bg-teal-500/30"; }
         else if (kpiType === 'netlaci') { kpiName = "Net Laci (Cash - OPEX)"; kpiColorClass = "text-emerald-400"; glowColor = "bg-emerald-500/30"; }
 
-        // Update Header Modal
-        document.getElementById('kpi-detail-title').innerText = `Breakdown Harian: ${kpiName}`;
-        document.getElementById('kpi-detail-subtitle').innerText = `Cabang Ai-CHA ${outName}`;
-        document.getElementById('kpi-detail-glow').className = `absolute -right-4 -top-4 w-16 h-16 rounded-full blur-xl pointer-events-none ${glowColor}`;
-        document.getElementById('kpi-detail-total').className = `font-black text-sm ${kpiColorClass}`;
+        // Penentuan Skala Global vs Lokal
+        let isGlobal = (outName === 'global');
+        let isConsolidated = (this.outlet === 'Pusat' || this.outlet === 'Semua' || !this.outlet);
+        let displayOutletName = isGlobal 
+            ? (isConsolidated ? "Seluruh Outlet (Konsolidasi)" : `Ai-CHA ${String(this.outlet).replace(/^Ai\-Snack\s+/i, '').trim()}`) 
+            : `Ai-CHA ${outName}`;
 
-        // 4. Ekstrak Data Harian dari Laporan
-        let dailyData = [];
+        document.getElementById('kpi-detail-title').innerText = `Breakdown Harian: ${kpiName}`;
+        document.getElementById('kpi-detail-subtitle').innerText = displayOutletName;
+        document.getElementById('kpi-detail-glow').className = `absolute -right-4 -top-4 w-16 h-16 rounded-full blur-xl pointer-events-none ${glowColor}`;
+
+        // 🚀 Agregasi Data Berdasarkan Hari (Agar Global Data Digabung)
+        let dateMap = {};
 
         (this.db.laporanHarian || []).forEach(rep => {
             if (rep.Status_Approval === 'Ditolak') return;
+            
             let repOutlet = String(rep.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
-            if (repOutlet !== outName) return;
+            let currOutlet = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+            
+            if (!isGlobal && repOutlet !== outName) return; 
+            if (isGlobal && !isConsolidated && repOutlet !== currOutlet) return; 
 
             let repDateObj = null;
             let dateStrLokal = rep.Tanggal || '';
@@ -4080,35 +4078,38 @@ selectOutlet: function(id) {
                 if (endObj && repDateObj > endObj) return;
             } else return;
 
-            let val = 0;
-            let isValid = false;
-
-            if (kpiType === 'sales') { val = Number(rep.Net_Sales || 0); isValid = val > 0; }
-            else if (kpiType === 'cash') { val = Number(rep.Cash || 0); isValid = val > 0; }
-            else if (kpiType === 'qris') { val = Number(rep.QRIS || 0); isValid = val > 0; }
-            else if (kpiType === 'opex') { val = Number(rep.Total_Pengeluaran || 0); isValid = val > 0; }
-            else if (kpiType === 'bill') {
-                let s = Number(rep.Net_Sales || 0); let b = Number(rep.Bill || 0);
-                if (b > 0) { val = Math.round(s / b); isValid = true; }
-            }
-            else if (kpiType === 'pcs') {
-                let s = Number(rep.Net_Sales || 0); let p = Number(rep.Pcs || 0);
-                if (p > 0) { val = Math.round(s / p); isValid = true; }
-            }
-            else if (kpiType === 'netlaci') {
-                let c = Number(rep.Cash || 0); let o = Number(rep.Total_Pengeluaran || 0);
-                if (c > 0 || o > 0) { val = c - o; isValid = true; } // Catat asalkan ada aktivitas cash/opex di hari itu
+            if (!dateMap[dateStrLokal]) {
+                dateMap[dateStrLokal] = { dateObj: repDateObj, s: 0, c: 0, q: 0, o: 0, b: 0, p: 0 };
             }
 
-            if (isValid) {
-                dailyData.push({ dateObj: repDateObj, label: dateStrLokal, val: val });
-            }
+            dateMap[dateStrLokal].s += Number(rep.Net_Sales || 0);
+            dateMap[dateStrLokal].c += Number(rep.Cash || 0);
+            dateMap[dateStrLokal].q += Number(rep.QRIS || 0);
+            dateMap[dateStrLokal].o += Number(rep.Total_Pengeluaran || 0);
+            dateMap[dateStrLokal].b += Number(rep.Bill || 0);
+            dateMap[dateStrLokal].p += Number(rep.Pcs || 0);
         });
 
-        // Urutkan dari tanggal terbaru ke terlama
+        // Ekstraksi ke Array untuk ditampilkan
+        let dailyData = [];
+        for (let dateStr in dateMap) {
+            let d = dateMap[dateStr];
+            let val = 0; let isValid = false;
+
+            if (kpiType === 'sales') { val = d.s; isValid = val > 0; }
+            else if (kpiType === 'cash') { val = d.c; isValid = val > 0; }
+            else if (kpiType === 'qris') { val = d.q; isValid = val > 0; }
+            else if (kpiType === 'opex') { val = d.o; isValid = val > 0; }
+            else if (kpiType === 'bill') { if (d.b > 0) { val = Math.round(d.s / d.b); isValid = true; } }
+            else if (kpiType === 'pcs') { if (d.p > 0) { val = Math.round(d.s / d.p); isValid = true; } }
+            else if (kpiType === 'netlaci') { if (d.c > 0 || d.o > 0) { val = d.c - d.o; isValid = true; } }
+
+            if (isValid) dailyData.push({ dateObj: d.dateObj, label: dateStr, val: val });
+        }
+
         dailyData.sort((a, b) => b.dateObj - a.dateObj);
 
-        // 5. Render List ke Layar
+        // Render List
         const listCont = document.getElementById('kpi-detail-list');
         if (dailyData.length === 0) {
             listCont.innerHTML = `<div class="text-center text-slate-500 font-bold text-[10px] py-10 italic border border-dashed border-slate-700 rounded-xl">Tidak ada riwayat untuk periode ini.</div>`;
@@ -4118,7 +4119,6 @@ selectOutlet: function(id) {
             let valAcc = 0; let totalDivisor = 0;
 
             dailyData.forEach(d => {
-                // Modifikasi agar Minus (-) tampil berwarna merah
                 let isNegative = d.val < 0;
                 let textCol = (kpiType === 'netlaci' && isNegative) ? 'text-rose-400' : kpiColorClass;
                 let formattedVal = isNegative ? `-Rp ${Math.abs(d.val).toLocaleString('id-ID')}` : `Rp ${d.val.toLocaleString('id-ID')}`;
@@ -4134,7 +4134,6 @@ selectOutlet: function(id) {
 
             listCont.innerHTML = htmlList;
 
-            // Logika Total Akhir Bawah
             let finalValue = valAcc;
             let finalLabel = "Total Akumulasi";
 
@@ -4152,22 +4151,10 @@ selectOutlet: function(id) {
             document.getElementById('kpi-detail-total-label').innerText = finalLabel;
         }
 
-        // Tampilkan Modal dengan Animasi Lembut
         modalDetail.classList.remove('hidden');
         void modalDetail.offsetWidth; 
         modalDetail.firstElementChild.classList.remove('scale-95');
         modalDetail.firstElementChild.classList.add('scale-100');
-    },
-
-    closeKpiDetailModal: function() {
-        const modalDetail = document.getElementById('modal-kpi-detail-exec');
-        if (modalDetail) {
-            modalDetail.firstElementChild.classList.remove('scale-100');
-            modalDetail.firstElementChild.classList.add('scale-95');
-            setTimeout(() => {
-                modalDetail.classList.add('hidden');
-            }, 250);
-        }
     },
 
    

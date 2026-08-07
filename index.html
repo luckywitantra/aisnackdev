@@ -837,12 +837,11 @@
 
 
 <!-- ================= VIEW REKONSILIASI & KASBON ================= -->
-<!-- 🚀 PERBAIKAN SCROLL HP: overflow-y-auto dipindah ke parent, h-full dikondisikan -->
-<div id="view-rekon" class="app-view hidden flex-col h-full gap-4 pb-28 md:pb-6 transition-all duration-300 relative overflow-y-auto custom-scroll">
+<!-- 🚀 PERBAIKAN SCROLL HP: Overflow dipusatkan pada pembungkus kartu -->
+<div id="view-rekon" class="app-view hidden flex-col h-full gap-4 pb-28 md:pb-6 transition-all duration-300 relative min-h-0">
     
-    <div class="bg-white/95 backdrop-blur-md p-3 md:p-6 lg:p-8 rounded-[1.5rem] md:rounded-[2.5rem] shadow-[0_10px_40px_rgba(0,0,0,0.04)] border border-slate-100 flex flex-col relative group min-h-max">
+    <div class="bg-white/95 backdrop-blur-md p-3 md:p-6 lg:p-8 rounded-[1.5rem] md:rounded-[2.5rem] shadow-[0_10px_40px_rgba(0,0,0,0.04)] border border-slate-100 flex flex-col relative group flex-1 min-h-0">
         
-        <!-- Watermark Latar (SISA KODINGAN DI BAWAHNYA BIARKAN SAMA) -->     
         <!-- Watermark Latar -->
         <div class="absolute top-0 right-0 -mt-8 -mr-10 text-[12rem] text-cyan-50 opacity-50 pointer-events-none hidden md:block z-0 transform group-hover:scale-110 group-hover:rotate-6 transition-transform duration-700">
             <i class="fas fa-vault"></i>
@@ -864,7 +863,6 @@
             <div class="flex flex-wrap items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200 shadow-inner w-full lg:w-auto">
                 <select id="rekon-filter-outlet" onchange="superApp.renderRekon()" class="bg-white border border-slate-200 text-cyan-700 text-[10px] md:text-xs font-black rounded-lg px-2 py-1.5 outline-none focus:border-cyan-400 shadow-sm cursor-pointer">
                     <option value="Semua">Semua Cabang</option>
-                    <!-- Opsi cabang diinjeksi via JS -->
                 </select>
                 <input type="date" id="rekon-filter-start" onchange="superApp.renderRekon()" class="bg-white border border-slate-200 text-slate-600 text-[10px] md:text-xs font-bold rounded-lg px-2 py-1.5 outline-none focus:border-cyan-400 shadow-sm">
                 <span class="text-slate-400 font-black text-[10px]">-</span>
@@ -872,73 +870,77 @@
             </div>
         </div>
 
-        <!-- 3 Kartu Komparasi Super (Ai-CHA vs Ai-Snack vs Bank) -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4 shrink-0 relative z-10">
-            <!-- Kartu Ai-CHA -->
-            <div class="bg-gradient-to-br from-rose-50 to-red-50 p-4 rounded-[1.25rem] border border-rose-200 shadow-sm relative overflow-hidden">
-                <i class="fas fa-store absolute -right-3 -bottom-3 text-5xl text-rose-500/10"></i>
-                <h4 class="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-2 border-b border-rose-200/50 pb-1 inline-block">Laporan Ai-CHA</h4>
-                <div class="flex justify-between items-end mt-1">
-                    <div>
-                        <p class="text-[9px] font-bold text-slate-500">Net Laci (Tunai - OPEX)</p>
-                        <p class="text-sm font-black text-[#4A3B32]" id="rekon-aicha-net">Rp 0</p>
+        <!-- 🚀 Area Scrollable Utama (Memuat Kartu & Tabel) -->
+        <div class="flex-1 overflow-y-auto custom-scroll pr-1 relative z-10">
+            
+            <!-- 3 Kartu Komparasi Super -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4 shrink-0">
+                <!-- Kartu Ai-CHA -->
+                <div class="bg-gradient-to-br from-rose-50 to-red-50 p-4 rounded-[1.25rem] border border-rose-200 shadow-sm relative overflow-hidden">
+                    <i class="fas fa-store absolute -right-3 -bottom-3 text-5xl text-rose-500/10"></i>
+                    <h4 class="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-2 border-b border-rose-200/50 pb-1 inline-block">Laporan Ai-CHA</h4>
+                    <div class="flex justify-between items-end mt-1">
+                        <div>
+                            <p class="text-[9px] font-bold text-slate-500">Net Laci (Tunai - OPEX)</p>
+                            <p class="text-sm font-black text-[#4A3B32]" id="rekon-aicha-net">Rp 0</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-[9px] font-bold text-slate-500">Total QRIS</p>
+                            <p class="text-sm font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100" id="rekon-aicha-qris">Rp 0</p>
+                        </div>
                     </div>
-                    <div class="text-right">
-                        <p class="text-[9px] font-bold text-slate-500">Total QRIS</p>
-                        <p class="text-sm font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100" id="rekon-aicha-qris">Rp 0</p>
+                </div>
+
+                <!-- Kartu Ai-Snack -->
+                <div class="bg-gradient-to-br from-amber-50 to-orange-50 p-4 rounded-[1.25rem] border border-amber-200 shadow-sm relative overflow-hidden">
+                    <i class="fas fa-hamburger absolute -right-3 -bottom-3 text-5xl text-amber-500/10"></i>
+                    <h4 class="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-2 border-b border-amber-200/50 pb-1 inline-block">POS Ai-Snack</h4>
+                    <div class="flex justify-between items-end mt-1">
+                        <div>
+                            <p class="text-[9px] font-bold text-slate-500">Kas Tunai Masuk</p>
+                            <p class="text-sm font-black text-[#4A3B32]" id="rekon-aisnack-tunai">Rp 0</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-[9px] font-bold text-slate-500">Total QRIS</p>
+                            <p class="text-sm font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100" id="rekon-aisnack-qris">Rp 0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Kartu Gabungan -->
+                <div class="bg-gradient-to-br from-cyan-500 to-blue-600 p-4 rounded-[1.25rem] border border-blue-400 shadow-lg shadow-blue-500/30 text-white relative overflow-hidden">
+                    <i class="fas fa-university absolute -right-3 -bottom-3 text-6xl text-white/10"></i>
+                    <h4 class="text-[10px] font-black text-cyan-100 uppercase tracking-widest mb-1">Target Saldo Masuk Rekening</h4>
+                    <div class="flex items-baseline gap-2">
+                        <p class="text-2xl md:text-3xl font-black drop-shadow-md" id="rekon-total-qris-bank">Rp 0</p>
+                    </div>
+                    <div class="mt-2 flex gap-2">
+                        <span class="text-[9px] font-bold bg-black/20 px-2 py-1 rounded backdrop-blur-sm border border-white/20">Ai-CHA + Ai-Snack (QRIS)</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Kartu Ai-Snack -->
-            <div class="bg-gradient-to-br from-amber-50 to-orange-50 p-4 rounded-[1.25rem] border border-amber-200 shadow-sm relative overflow-hidden">
-                <i class="fas fa-hamburger absolute -right-3 -bottom-3 text-5xl text-amber-500/10"></i>
-                <h4 class="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-2 border-b border-amber-200/50 pb-1 inline-block">POS Ai-Snack</h4>
-                <div class="flex justify-between items-end mt-1">
-                    <div>
-                        <p class="text-[9px] font-bold text-slate-500">Kas Tunai Masuk</p>
-                        <p class="text-sm font-black text-[#4A3B32]" id="rekon-aisnack-tunai">Rp 0</p>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-[9px] font-bold text-slate-500">Total QRIS</p>
-                        <p class="text-sm font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100" id="rekon-aisnack-qris">Rp 0</p>
-                    </div>
-                </div>
+            <!-- Pill Tabs Selector -->
+            <div class="flex gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200/50 w-full md:w-max mb-3 shrink-0 mx-auto md:mx-0">
+                <button onclick="superApp.switchRekonTab('qris')" id="subtab-rekon-qris" class="flex-1 md:flex-none py-2 px-4 bg-white text-blue-600 rounded-lg text-xs font-black shadow-sm transition flex items-center justify-center gap-1.5 border border-white">
+                    <i class="fas fa-qrcode"></i> Mutasi QRIS
+                </button>
+                <button onclick="superApp.switchRekonTab('cash')" id="subtab-rekon-cash" class="flex-1 md:flex-none py-2 px-4 text-slate-500 hover:text-slate-800 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 border border-transparent">
+                    <i class="fas fa-money-bill-wave"></i> Mutasi Cash
+                </button>
+                <button onclick="superApp.switchRekonTab('kasbon')" id="subtab-rekon-kasbon" class="flex-1 md:flex-none py-2 px-4 text-slate-500 hover:text-slate-800 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 border border-transparent">
+                    <i class="fas fa-hand-holding-usd"></i> Kasbon & OPEX
+                </button>
             </div>
 
-            <!-- Kartu Gabungan Rekening (Target Rekon Bank) -->
-            <div class="bg-gradient-to-br from-cyan-500 to-blue-600 p-4 rounded-[1.25rem] border border-blue-400 shadow-lg shadow-blue-500/30 text-white relative overflow-hidden">
-                <i class="fas fa-university absolute -right-3 -bottom-3 text-6xl text-white/10"></i>
-                <h4 class="text-[10px] font-black text-cyan-100 uppercase tracking-widest mb-1">Target Saldo Masuk Rekening</h4>
-                <div class="flex items-baseline gap-2">
-                    <p class="text-2xl md:text-3xl font-black drop-shadow-md" id="rekon-total-qris-bank">Rp 0</p>
-                </div>
-                <div class="mt-2 flex gap-2">
-                    <span class="text-[9px] font-bold bg-black/20 px-2 py-1 rounded backdrop-blur-sm border border-white/20">Ai-CHA + Ai-Snack (QRIS)</span>
-                </div>
+            <!-- Area Daftar Tabel -->
+            <div class="border border-slate-200 rounded-xl bg-white overflow-hidden shadow-sm">
+                <div id="rekon-content-qris" class="flex flex-col w-full h-full"></div>
+                <div id="rekon-content-cash" class="hidden flex-col w-full h-full"></div>
+                <div id="rekon-content-kasbon" class="hidden flex-col w-full h-full"></div>
             </div>
-        </div>
-
-        <!-- Pill Tabs Selector (DIPERBARUI) -->
-        <div class="flex gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200/50 w-full md:w-max mb-3 shrink-0 relative z-10 mx-auto md:mx-0">
-            <button onclick="superApp.switchRekonTab('qris')" id="subtab-rekon-qris" class="flex-1 md:flex-none py-2 px-4 bg-white text-blue-600 rounded-lg text-xs font-black shadow-sm transition flex items-center justify-center gap-1.5 border border-white">
-                <i class="fas fa-qrcode"></i> Mutasi QRIS
-            </button>
-            <button onclick="superApp.switchRekonTab('cash')" id="subtab-rekon-cash" class="flex-1 md:flex-none py-2 px-4 text-slate-500 hover:text-slate-800 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 border border-transparent">
-                <i class="fas fa-money-bill-wave"></i> Mutasi Cash
-            </button>
-            <button onclick="superApp.switchRekonTab('kasbon')" id="subtab-rekon-kasbon" class="flex-1 md:flex-none py-2 px-4 text-slate-500 hover:text-slate-800 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 border border-transparent">
-                <i class="fas fa-hand-holding-usd"></i> Kasbon & OPEX
-            </button>
-        </div>
-
-        <!-- Area Daftar Dinamis (DIPERBARUI) -->
-        <div class="flex-1 min-h-0 overflow-y-auto custom-scroll relative z-10 border border-slate-200 rounded-xl bg-slate-50/50">
-            <div id="rekon-content-qris" class="flex flex-col w-full h-full"></div>
-            <div id="rekon-content-cash" class="hidden flex-col w-full h-full"></div>
-            <div id="rekon-content-kasbon" class="hidden flex-col w-full h-full"></div>
-        </div>
-
+            
+        </div> <!-- End of Scrollable Area -->
     </div>
 </div>
 
@@ -3416,7 +3418,7 @@
 
   
 <!-- 1. PANGGIL APP.JS TERLEBIH DAHULU -->
-  <script src="app.js?v=687"></script>
+  <script src="app.js?v=688"></script>
 
   <!-- 2. BARU JALANKAN SCRIPT INLINE ANDA -->
   <script>

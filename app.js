@@ -5948,7 +5948,7 @@ refreshData: function() {
 
 
     
-   switchMenu: function(menu) {
+ switchMenu: function(menu) {
     // 1. Bersihkan akses (Tidak perlu lagi memblokir hpp/profit karena sudah dilebur)
     // Cukup sembunyikan semua halaman
     document.querySelectorAll('.app-view').forEach(el => el.classList.add('hidden'));
@@ -5964,11 +5964,12 @@ refreshData: function() {
         'outlet': 'text-teal-600',    
         'staf': 'text-amber-600',
         'laporan-harian': 'text-rose-600',
-        'user': 'text-purple-600' // 🚀 TAMBAHAN: Warna ungu elegan untuk Manajemen User
+        'user': 'text-purple-600',
+        'rekon': 'text-cyan-600' // 🚀 TAMBAHAN: Warna Cyan untuk Rekon & Kasbon
     };
     const allColors = Object.values(colors);
 
-    // [Navigasi Aktif] - Sesuai kode Anda sebelumnya
+    // [Navigasi Aktif]
     document.querySelectorAll('.nav-btn').forEach(b => { 
         b.classList.remove('nav-active', 'bg-slate-50', ...allColors); 
         b.classList.add('text-slate-500'); 
@@ -5994,7 +5995,8 @@ refreshData: function() {
         'pos': 'POS', 'opname': 'Opname Fisik Stok', 'terima': 'Penerimaan Barang', 
         'audit': 'Audit Laporan', 'report': 'Laporan Terpadu', 'ai': 'CFO Dashboard & Asisten AI', 
         'gudang': 'Gudang Pusat', 'master': 'Master Varian POS', 'outlet': 'Cabang & Harga Khusus', 'staf': 'Kinerja Karyawan', 'laporan-harian': 'Laporan Harian Ai-CHA',
-        'user': 'Manajemen Pengguna' // 🚀 TAMBAHAN: Judul halaman otomatis untuk User
+        'user': 'Manajemen Pengguna',
+        'rekon': 'Rekonsiliasi Bank & Kasbon' // 🚀 TAMBAHAN: Judul halaman otomatis untuk Rekon
     };
     const pageTitle = document.getElementById('page-title'); 
     if (pageTitle) pageTitle.innerText = titles[menu] || 'Aplikasi';
@@ -6013,7 +6015,7 @@ refreshData: function() {
         if (typeof this.showMenuGuide === 'function') setTimeout(() => this.showMenuGuide('opname'), 200);
     }
     if (menu === 'laporan-harian' && typeof this.initLaporanHarian === 'function') {
-    this.initLaporanHarian();
+        this.initLaporanHarian();
     }
     if (menu === 'audit' && typeof this.renderAudit === 'function') this.renderAudit();
     if (menu === 'terima' && typeof this.renderTerimaBarang === 'function') {
@@ -6026,15 +6028,19 @@ refreshData: function() {
     }
     if (menu === 'staf' && typeof this.renderStaf === 'function') this.renderStaf();
     
-    // 🚀 TAMBAHAN: Trigger fungsi render saat menu Manajemen User dibuka
     if (menu === 'user' && typeof this.renderUserManagement === 'function') {
         this.renderUserManagement();
+    }
+
+    // 🚀 TAMBAHAN: Trigger fungsi render saat menu Rekon dibuka
+    if (menu === 'rekon' && typeof this.renderRekon === 'function') {
+        this.renderRekon();
     }
     
     if (menu === 'gudang' || menu === 'master' || menu === 'outlet') {
         if (typeof this.renderGudang === 'function') {
             this.renderGudang();
-            // 🚀 Buka tab stok otomatis agar layar tidak blank!
+            // Buka tab stok otomatis agar layar tidak blank!
             this.toggleGudangTab('stok');
         }
     }
@@ -12848,6 +12854,275 @@ openAIDeepDive: function(type, param) {
             mobContainer.innerHTML = mobCardsHtml || '<div class="p-6 text-center text-slate-400 text-xs font-bold border-2 border-dashed border-slate-200 rounded-2xl bg-white/50">Belum ada data bahan baku</div>';
         }
     },
+
+
+
+    // =========================================================
+    // 🚀 ENGINE: REKONSILIASI BANK & KASBON KARYAWAN (KHUSUS OWNER)
+    // =========================================================
+    rekonDataStore: { qris: {}, kasbon: {} },
+
+    loadRekonDataFromCloud: function() {
+        let saved = (this.db.pengaturan || []).find(x => x.Pengaturan === 'aisnack_rekon_data');
+        if (saved && saved.Nilai) {
+            try { this.rekonDataStore = JSON.parse(saved.Nilai); } catch(e) { this.rekonDataStore = { qris: {}, kasbon: {} }; }
+        }
+    },
+
+    saveRekonDataToCloud: function() {
+        let dataStr = JSON.stringify(this.rekonDataStore);
+        this.apiPost({ action: 'update_pengaturan', kunci: 'aisnack_rekon_data', nilai: dataStr }).then(res => {
+            if(res.status === 'sukses') this.showToast("Data Rekon/Kasbon tersimpan ke cloud", "success");
+        });
+    },
+
+    switchRekonTab: function(tab) {
+        const cBank = document.getElementById('rekon-content-bank');
+        const cKasbon = document.getElementById('rekon-content-kasbon');
+        const bBank = document.getElementById('subtab-rekon-bank');
+        const bKasbon = document.getElementById('subtab-rekon-kasbon');
+
+        const activeClass = 'flex-1 md:flex-none py-2 px-4 bg-white text-cyan-600 rounded-lg text-xs font-black shadow-sm transition flex items-center justify-center gap-1.5 border border-white';
+        const inactiveClass = 'flex-1 md:flex-none py-2 px-4 text-slate-500 hover:text-slate-800 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 border border-transparent';
+
+        if (tab === 'bank') {
+            cBank.classList.replace('hidden', 'flex'); cKasbon.classList.replace('flex', 'hidden');
+            bBank.className = activeClass; bKasbon.className = inactiveClass;
+        } else {
+            cKasbon.classList.replace('hidden', 'flex'); cBank.classList.replace('flex', 'hidden');
+            bKasbon.className = activeClass; bBank.className = inactiveClass;
+        }
+    },
+
+    renderRekon: function() {
+        this.loadRekonDataFromCloud(); // Tarik memori ceklis bank & kasbon terbaru
+
+        const startInput = document.getElementById('rekon-filter-start');
+        const endInput = document.getElementById('rekon-filter-end');
+        let now = new Date(); let pad = n => String(n).padStart(2, '0');
+
+        if (startInput && !startInput.value) startInput.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`;
+        if (endInput && !endInput.value) endInput.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+
+        let dStart = startInput.value; let dEnd = endInput.value;
+        let dateStart = new Date(dStart + "T00:00:00"); let dateEnd = new Date(dEnd + "T23:59:59");
+
+        const filterOutEl = document.getElementById('rekon-filter-outlet');
+        if (filterOutEl && filterOutEl.options.length <= 1) {
+            let opts = '<option value="Semua">Semua Cabang</option>';
+            (this.db.outlets || []).forEach(o => { opts += `<option value="${o.ID_Outlet}">${o.Nama_Outlet}</option>`; });
+            filterOutEl.innerHTML = opts;
+        }
+        let selOut = filterOutEl ? filterOutEl.value : 'Semua';
+
+        let totalAichaNet = 0; let totalAichaQris = 0;
+        let totalPOSCash = 0; let totalPOSQris = 0;
+        
+        let arrBank = []; let arrKasbon = [];
+
+        // 1. Ekstrak Laporan Ai-CHA
+        (this.db.laporanHarian || []).forEach(rep => {
+            if (rep.Status_Approval === 'Ditolak') return;
+            let rOut = String(rep.Outlet).replace(/^Ai\-Snack\s+/i, '').trim();
+            if (selOut !== 'Semua' && rOut !== selOut) return;
+
+            let repDateObj = null; let cleanStr = (rep.Tanggal || '').split(',').pop().trim();
+            let match = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+            if (match) {
+                repDateObj = new Date(parseInt(match[3],10), parseInt(match[2],10)-1, parseInt(match[1],10));
+                if (repDateObj < dateStart || repDateObj > dateEnd) return;
+            } else return;
+
+            let csh = Number(rep.Cash || 0); let exp = Number(rep.Total_Pengeluaran || 0);
+            let qris = Number(rep.QRIS || 0);
+            
+            totalAichaNet += (csh - exp);
+            totalAichaQris += qris;
+
+            // Ekstrak Kasbon & Opex
+            try {
+                let expArr = JSON.parse(rep.Pengeluaran_JSON || '[]');
+                expArr.forEach((ex, idx) => {
+                    let nom = Number(ex.nominal);
+                    if (nom > 0) {
+                        let isKasbon = ex.nama.toUpperCase().includes('KASBON') || ex.nama.toUpperCase().includes('PINJAM');
+                        arrKasbon.push({
+                            id_laporan: rep.ID_Laporan, idx: idx, tgl: rep.Tanggal, outlet: rOut,
+                            nama: ex.nama, nominal: nom, isKasbon: isKasbon
+                        });
+                    }
+                });
+            } catch(e) {}
+        });
+
+        // 2. Ekstrak Transaksi POS Ai-Snack
+        let qrisByDateOutlet = {}; // Grouping QRIS per hari per cabang untuk tabel Bank
+        (this.db.transactions || []).forEach(t => {
+            if (t.Status !== 'Sukses') return;
+            let tOut = String(t.Outlet).replace(/^Ai\-Snack\s+/i, '').trim();
+            if (selOut !== 'Semua' && tOut !== selOut) return;
+
+            let tDate = this.parseDateId(t.Tanggal);
+            if (tDate >= dateStart && tDate <= dateEnd) {
+                let isQris = String(t.Metode_Bayar).trim().toLowerCase().includes('qris');
+                let byr = Number(t.Total_Bayar || 0);
+
+                if (isQris) {
+                    totalPOSQris += byr;
+                    let dKey = `${this.cleanDateOnly(t.Tanggal)}_${tOut}`;
+                    if(!qrisByDateOutlet[dKey]) qrisByDateOutlet[dKey] = { tgl: this.cleanDateOnly(t.Tanggal), outlet: tOut, total: 0 };
+                    qrisByDateOutlet[dKey].total += byr;
+                } else {
+                    totalPOSCash += byr;
+                }
+            }
+        });
+
+        // --- UPDATE 3 KARTU KPI ATAS ---
+        if(document.getElementById('rekon-aicha-net')) document.getElementById('rekon-aicha-net').innerText = `Rp ${totalAichaNet.toLocaleString('id-ID')}`;
+        if(document.getElementById('rekon-aicha-qris')) document.getElementById('rekon-aicha-qris').innerText = `Rp ${totalAichaQris.toLocaleString('id-ID')}`;
+        if(document.getElementById('rekon-aisnack-tunai')) document.getElementById('rekon-aisnack-tunai').innerText = `Rp ${totalPOSCash.toLocaleString('id-ID')}`;
+        if(document.getElementById('rekon-aisnack-qris')) document.getElementById('rekon-aisnack-qris').innerText = `Rp ${totalPOSQris.toLocaleString('id-ID')}`;
+        if(document.getElementById('rekon-total-qris-bank')) document.getElementById('rekon-total-qris-bank').innerText = `Rp ${(totalAichaQris + totalPOSQris).toLocaleString('id-ID')}`;
+
+        // --- RENDER TABEL REKON BANK (QRIS) ---
+        let htmlBank = `<table class="w-full text-left whitespace-nowrap text-xs"><thead class="bg-slate-100 text-slate-500 sticky top-0 z-10"><tr><th class="p-3">Tgl & Cabang</th><th class="p-3 text-right">QRIS Masuk</th><th class="p-3 text-center">Status Bank</th></tr></thead><tbody class="divide-y divide-slate-100 bg-white">`;
+        
+        let bankKeys = Object.keys(qrisByDateOutlet).sort();
+        if (bankKeys.length === 0) htmlBank += `<tr><td colspan="3" class="p-8 text-center text-slate-400 font-bold">Tidak ada transaksi QRIS</td></tr>`;
+        else {
+            bankKeys.forEach(k => {
+                let d = qrisByDateOutlet[k];
+                let savedBank = this.rekonDataStore.qris[k] || { status: 'Pending', note: '' };
+                
+                let badge = savedBank.status === 'Sesuai' ? `<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded font-black"><i class="fas fa-check-circle"></i> Sesuai M-Bank</span>` :
+                            savedBank.status === 'Selisih' ? `<span class="bg-rose-100 text-rose-700 px-2 py-1 rounded font-black"><i class="fas fa-exclamation-circle"></i> Selisih</span>` :
+                            `<span class="bg-slate-100 text-slate-500 px-2 py-1 rounded font-black">Cek Manual</span>`;
+
+                htmlBank += `
+                <tr class="hover:bg-cyan-50/50 transition cursor-pointer" onclick="superApp.openRekonBankModal('${k}', '${d.tgl}', '${d.outlet}', ${d.total})">
+                    <td class="p-3">
+                        <span class="font-extrabold text-slate-800">${d.tgl}</span><br>
+                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest"><i class="fas fa-store text-cyan-400"></i> ${d.outlet}</span>
+                    </td>
+                    <td class="p-3 text-right font-black text-blue-600">Rp ${d.total.toLocaleString('id-ID')}</td>
+                    <td class="p-3 text-center">
+                        ${badge}<br>
+                        ${savedBank.note ? `<span class="text-[9px] italic text-slate-400 mt-1 block max-w-[120px] truncate mx-auto">${savedBank.note}</span>` : ''}
+                    </td>
+                </tr>`;
+            });
+        }
+        htmlBank += `</tbody></table>`;
+        document.getElementById('rekon-content-bank').innerHTML = htmlBank;
+
+        // --- RENDER TABEL KASBON & OPEX ---
+        let htmlKasbon = `<table class="w-full text-left whitespace-nowrap text-xs"><thead class="bg-slate-100 text-slate-500 sticky top-0 z-10"><tr><th class="p-3">Tgl & Cabang</th><th class="p-3">Keterangan Biaya</th><th class="p-3 text-right">Nominal</th><th class="p-3 text-center">Status / Terbayar</th></tr></thead><tbody class="divide-y divide-slate-100 bg-white">`;
+        
+        if (arrKasbon.length === 0) htmlKasbon += `<tr><td colspan="4" class="p-8 text-center text-slate-400 font-bold">Tidak ada pengeluaran/kasbon tercatat</td></tr>`;
+        else {
+            arrKasbon.reverse().forEach(d => {
+                let k = `${d.id_laporan}_${d.idx}`;
+                let savedKasbon = this.rekonDataStore.kasbon[k] || { terbayar: 0, lunas: false };
+                let sisa = d.nominal - savedKasbon.terbayar;
+                
+                let sisaTeks = savedKasbon.lunas ? `<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded font-black"><i class="fas fa-check"></i> Lunas</span>` : 
+                               d.isKasbon ? `<span class="bg-orange-100 text-orange-700 px-2 py-1 rounded font-black border border-orange-200 shadow-sm">Sisa: Rp ${sisa.toLocaleString('id-ID')}</span>` :
+                               `<span class="bg-slate-100 text-slate-500 px-2 py-1 rounded font-black">OPEX Biasa</span>`;
+
+                htmlKasbon += `
+                <tr class="hover:bg-amber-50/50 transition cursor-pointer" onclick="superApp.openRekonKasbonModal('${k}', '${d.tgl}', '${d.outlet}', '${d.nama}', ${d.nominal})">
+                    <td class="p-3">
+                        <span class="font-extrabold text-slate-800">${d.tgl}</span><br>
+                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest"><i class="fas fa-store text-amber-400"></i> ${d.outlet}</span>
+                    </td>
+                    <td class="p-3">
+                        <span class="font-black text-slate-700 ${d.isKasbon ? 'text-amber-600' : ''}">${d.nama}</span>
+                    </td>
+                    <td class="p-3 text-right font-black text-rose-600">Rp ${d.nominal.toLocaleString('id-ID')}</td>
+                    <td class="p-3 text-center">${sisaTeks}</td>
+                </tr>`;
+            });
+        }
+        htmlKasbon += `</tbody></table>`;
+        document.getElementById('rekon-content-kasbon').innerHTML = htmlKasbon;
+    },
+
+    // --- MODAL REKON BANK ---
+    openRekonBankModal: function(key, tgl, outlet, total) {
+        let saved = this.rekonDataStore.qris[key] || { status: 'Pending', note: '' };
+        
+        let inputs = `
+            <div class="mb-4 text-center">
+                <p class="text-xs font-bold text-slate-400">Total QRIS Masuk</p>
+                <h2 class="text-3xl font-black text-blue-600">Rp ${total.toLocaleString('id-ID')}</h2>
+            </div>
+            <div>
+                <label class="text-xs font-bold text-slate-500 block mb-1">Status Pencocokan Mutasi Bank</label>
+                <select id="mdl-rekon-status" class="w-full border-2 border-slate-200 rounded-xl px-4 py-3 font-bold text-sm bg-white outline-none focus:border-cyan-500 mb-3">
+                    <option value="Pending" ${saved.status === 'Pending' ? 'selected' : ''}>Menunggu Pengecekan</option>
+                    <option value="Sesuai" ${saved.status === 'Sesuai' ? 'selected' : ''}>✅ Sesuai M-Banking</option>
+                    <option value="Selisih" ${saved.status === 'Selisih' ? 'selected' : ''}>❌ Ada Selisih/Kurang</option>
+                </select>
+            </div>
+            ${this.makeInput('Catatan / Keterangan', 'mdl-rekon-note', saved.note, 'text', 'Boleh dikosongkan')}
+        `;
+
+        this.buildForm(`Rekon Bank: ${outlet} (${tgl})`, inputs, `superApp.saveRekonBank('${key}')`);
+    },
+
+    saveRekonBank: function(key) {
+        let st = document.getElementById('frm-mdl-rekon-status').value;
+        let nt = document.getElementById('frm-mdl-rekon-note').value;
+        this.rekonDataStore.qris[key] = { status: st, note: nt };
+        
+        this.saveRekonDataToCloud();
+        this.renderRekon();
+        this.closeModal('modal-form');
+    },
+
+    // --- MODAL TRACKING KASBON ---
+    openRekonKasbonModal: function(key, tgl, outlet, nama, nominal) {
+        let saved = this.rekonDataStore.kasbon[key] || { terbayar: 0, lunas: false };
+        let sisa = nominal - saved.terbayar;
+
+        let inputs = `
+            <div class="mb-4 text-center bg-slate-50 rounded-xl p-3 border border-slate-200">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">${nama}</p>
+                <h2 class="text-2xl font-black text-rose-600">Total: Rp ${nominal.toLocaleString('id-ID')}</h2>
+                <div class="flex justify-between mt-2 text-xs font-bold px-2">
+                    <span class="text-emerald-600">Terbayar: Rp ${saved.terbayar.toLocaleString('id-ID')}</span>
+                    <span class="text-amber-600">Sisa: Rp ${sisa.toLocaleString('id-ID')}</span>
+                </div>
+            </div>
+            ${this.makeInput('Catat Cicilan / Pembayaran Baru (Rp)', 'mdl-kasbon-bayar', '', 'number', 'Ketik angka yang dibayarkan sekarang', false, 'superApp.formatRupiahInput(this)')}
+            <div class="mt-3 flex items-center gap-2 bg-emerald-50 border border-emerald-200 p-3 rounded-xl">
+                <input type="checkbox" id="mdl-kasbon-lunas" class="w-5 h-5 accent-emerald-500 cursor-pointer" ${saved.lunas ? 'checked' : ''}>
+                <label for="mdl-kasbon-lunas" class="text-xs font-black text-emerald-700 cursor-pointer">Tandai Lunas Sepenuhnya</label>
+            </div>
+        `;
+
+        this.buildForm(`Tracking Kasbon: ${outlet}`, inputs, `superApp.saveRekonKasbon('${key}', ${nominal}, ${saved.terbayar})`);
+    },
+
+    saveRekonKasbon: function(key, totalNominal, oldTerbayar) {
+        let inputBayar = document.getElementById('frm-mdl-kasbon-bayar');
+        let tambahBayar = inputBayar ? this.getNumericValue(inputBayar.value) : 0;
+        let isLunas = document.getElementById('mdl-kasbon-lunas').checked;
+
+        let newTerbayar = oldTerbayar + tambahBayar;
+        if (newTerbayar >= totalNominal) isLunas = true;
+
+        this.rekonDataStore.kasbon[key] = { terbayar: newTerbayar, lunas: isLunas };
+        
+        this.saveRekonDataToCloud();
+        this.renderRekon();
+        this.closeModal('modal-form');
+    },
+
+
+
+    
 
     // 🚀 AUTO-SYNC BACKGROUND PROCESS (Setiap 3 Menit)
     initAutoSync: function() {

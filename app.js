@@ -13246,6 +13246,7 @@ openAIDeepDive: function(type, param) {
         let titleName = isQris ? 'Total QRIS Masuk' : 'Total Cash Tunai';
         let iconName = isQris ? 'fa-qrcode' : 'fa-money-bill-wave';
 
+        // 🚀 DESAIN SPLIT (RINCIAN SUMBER TARGET)
         let inputs = `
             <div class="grid grid-cols-2 gap-3 mb-3">
                  <div class="bg-amber-50/60 p-3 rounded-xl border border-amber-100 text-center shadow-inner relative">
@@ -13258,6 +13259,7 @@ openAIDeepDive: function(type, param) {
                  </div>
             </div>
 
+            <!-- Target Sistem Total -->
             <div class="mb-4 text-center ${bgHeader} border rounded-xl p-3 shadow-sm">
                 <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1"><i class="fas ${iconName} mr-1"></i> Target ${titleName} (Sistem)</p>
                 <h2 class="text-3xl font-black ${titleColor}">${total < 0 ? '-' : ''}Rp ${Math.abs(total).toLocaleString('id-ID')}</h2>
@@ -13271,8 +13273,9 @@ openAIDeepDive: function(type, param) {
                 <label class="text-xs font-black text-slate-600 block mb-2 uppercase tracking-widest">Input Mutasi M-Banking</label>
                 <div class="relative">
                     <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">Rp</span>
+                    <!-- 🛠️ PERBAIKAN 1: calcRekonDiff diubah jadi calcRekonDiffQris -->
                     <input type="text" inputmode="numeric" id="frm-mdl-rekon-actual" value="${saved.actual ? Number(saved.actual).toLocaleString('id-ID') : ''}" 
-                        oninput="superApp.formatRupiahInput(this); superApp.calcRekonDiff(${total});" 
+                        oninput="superApp.formatRupiahInput(this); superApp.calcRekonDiffQris(${total});" 
                         placeholder="Ketik mutasi bank yang masuk..." 
                         class="w-full border-2 border-slate-200 rounded-xl pl-9 pr-4 py-3 font-black text-lg bg-white outline-none focus:border-blue-500 transition shadow-inner">
                 </div>
@@ -13302,6 +13305,7 @@ openAIDeepDive: function(type, param) {
             </div>`;
         }
 
+        // 🚀 LIVE KALKULASI & STATUS
         inputs += `
             <div class="mb-4 flex justify-between items-center bg-slate-50 border border-slate-200 p-3 rounded-xl min-h-[60px]">
                 <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Kalkulasi Selisih:</span>
@@ -13323,9 +13327,9 @@ openAIDeepDive: function(type, param) {
 
         this.buildForm(`Cek Mutasi: ${outlet} (${tgl})`, inputs, `superApp.saveRekonMutasi('${type}', '${key}')`);
         
-        // Pemicu kalkulasi awal
+        // 🛠️ PERBAIKAN 2: calcRekonDiff diubah jadi calcRekonDiffQris
         setTimeout(() => {
-            if (isQris) this.calcRekonDiff(total);
+            if (isQris) this.calcRekonDiffQris(total);
             else this.calcRekonDiffCash(posVal, aichaVal);
         }, 100);
     },

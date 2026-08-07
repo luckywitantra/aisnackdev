@@ -12952,7 +12952,7 @@ openAIDeepDive: function(type, param) {
         if(!inpPos || !inpAicha || !diffEl) return;
 
         if (inpPos.value === '' && inpAicha.value === '') {
-            diffEl.innerHTML = `<span class="text-slate-400 text-[10px] font-bold italic">Menunggu input dari laci/brankas...</span>`;
+            diffEl.innerHTML = `<span class="text-slate-400 text-[10px] font-bold italic">Menunggu input laci/fisik...</span>`;
             if (statusSel) statusSel.value = 'Pending';
             return;
         }
@@ -12975,11 +12975,10 @@ openAIDeepDive: function(type, param) {
             
             html = `<div class="flex flex-col items-end"><span class="${color} px-2 py-1 rounded-md font-black shadow-sm border text-[10px]"><i class="fas ${icon} mr-1"></i> ${sign}Rp ${totalDiff.toLocaleString('id-ID')}</span>`;
             
-            // Tampilkan rincian "Siapa yang salah hitung?"
             if (diffPos !== 0 || diffAicha !== 0) {
                 html += `<div class="flex gap-2 mt-1 text-[8px] font-bold text-slate-500">`;
                 if(diffPos !== 0) html += `<span>POS: <b class="${diffPos < 0 ? 'text-rose-500' : 'text-blue-500'}">${diffPos > 0 ? '+' : ''}${diffPos.toLocaleString('id-ID')}</b></span>`;
-                if(diffAicha !== 0) html += `<span>AiCHA: <b class="${diffAicha < 0 ? 'text-rose-500' : 'text-blue-500'}">${diffAicha > 0 ? '+' : ''}${diffAicha.toLocaleString('id-ID')}</b></span>`;
+                if(diffAicha !== 0) html += `<span>Lap: <b class="${diffAicha < 0 ? 'text-rose-500' : 'text-blue-500'}">${diffAicha > 0 ? '+' : ''}${diffAicha.toLocaleString('id-ID')}</b></span>`;
                 html += `</div>`;
             }
             html += `</div>`;
@@ -12989,10 +12988,8 @@ openAIDeepDive: function(type, param) {
         diffEl.innerHTML = html;
     },
 
+   
     // =========================================================
-    // 🚀 ENGINE: RENDER TABEL REKON (DENGAN KOLOM AKTUAL & SELISIH)
-    // =========================================================
-   // =========================================================
     // 🚀 UPDATE ENGINE RENDER TABEL (KOLOM AKTUAL DIPISAH)
     // =========================================================
     renderRekon: function() {
@@ -13235,7 +13232,7 @@ openAIDeepDive: function(type, param) {
         document.getElementById('rekon-content-kasbon').innerHTML = htmlKasbon;
     },
 
-    // =========================================================
+  // =========================================================
     // 🚀 ENGINE: MODAL REKON MUTASI (DUAL INPUT UNTUK CASH)
     // =========================================================
     openRekonMutasiModal: function(type, key, tgl, outlet, posVal, aichaVal) {
@@ -13249,7 +13246,6 @@ openAIDeepDive: function(type, param) {
         let titleName = isQris ? 'Total QRIS Masuk' : 'Total Cash Tunai';
         let iconName = isQris ? 'fa-qrcode' : 'fa-money-bill-wave';
 
-        // 🚀 DESAIN SPLIT (RINCIAN SUMBER TARGET)
         let inputs = `
             <div class="grid grid-cols-2 gap-3 mb-3">
                  <div class="bg-amber-50/60 p-3 rounded-xl border border-amber-100 text-center shadow-inner relative">
@@ -13262,7 +13258,6 @@ openAIDeepDive: function(type, param) {
                  </div>
             </div>
 
-            <!-- Target Sistem Total -->
             <div class="mb-4 text-center ${bgHeader} border rounded-xl p-3 shadow-sm">
                 <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1"><i class="fas ${iconName} mr-1"></i> Target ${titleName} (Sistem)</p>
                 <h2 class="text-3xl font-black ${titleColor}">${total < 0 ? '-' : ''}Rp ${Math.abs(total).toLocaleString('id-ID')}</h2>
@@ -13277,17 +13272,17 @@ openAIDeepDive: function(type, param) {
                 <div class="relative">
                     <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">Rp</span>
                     <input type="text" inputmode="numeric" id="frm-mdl-rekon-actual" value="${saved.actual ? Number(saved.actual).toLocaleString('id-ID') : ''}" 
-                        oninput="superApp.formatRupiahInput(this); superApp.calcRekonDiffQris(${total});" 
+                        oninput="superApp.formatRupiahInput(this); superApp.calcRekonDiff(${total});" 
                         placeholder="Ketik mutasi bank yang masuk..." 
                         class="w-full border-2 border-slate-200 rounded-xl pl-9 pr-4 py-3 font-black text-lg bg-white outline-none focus:border-blue-500 transition shadow-inner">
                 </div>
             </div>`;
         } else {
             inputs += `
-            <label class="text-xs font-black text-slate-600 block mb-2 uppercase tracking-widest mt-2">Input Hitungan Fisik Asli</label>
+            <label class="text-xs font-black text-slate-600 block mb-2 uppercase tracking-widest mt-2">Input Hitungan Fisik Laci (Asli)</label>
             <div class="grid grid-cols-2 gap-3 mb-4">
                 <div class="bg-amber-50/30 p-2.5 border border-amber-100 rounded-xl shadow-inner">
-                    <label class="text-[9px] font-black text-amber-600 uppercase tracking-widest block mb-1.5"><i class="fas fa-hand-holding-usd"></i> Laci Ai-Snack</label>
+                    <label class="text-[9px] font-black text-amber-600 uppercase tracking-widest block mb-1.5"><i class="fas fa-hand-holding-usd"></i> Fisik POS</label>
                     <div class="relative">
                         <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">Rp</span>
                         <input type="text" inputmode="numeric" id="frm-mdl-rekon-act-pos" value="${saved.actualPos ? Number(saved.actualPos).toLocaleString('id-ID') : ''}" 
@@ -13296,7 +13291,7 @@ openAIDeepDive: function(type, param) {
                     </div>
                 </div>
                 <div class="bg-rose-50/30 p-2.5 border border-rose-100 rounded-xl shadow-inner">
-                    <label class="text-[9px] font-black text-rose-500 uppercase tracking-widest block mb-1.5"><i class="fas fa-hand-holding-usd"></i> Laci Ai-CHA</label>
+                    <label class="text-[9px] font-black text-rose-500 uppercase tracking-widest block mb-1.5"><i class="fas fa-hand-holding-usd"></i> Fisik Ai-CHA</label>
                     <div class="relative">
                         <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">Rp</span>
                         <input type="text" inputmode="numeric" id="frm-mdl-rekon-act-aicha" value="${saved.actualAicha ? Number(saved.actualAicha).toLocaleString('id-ID') : ''}" 
@@ -13307,7 +13302,6 @@ openAIDeepDive: function(type, param) {
             </div>`;
         }
 
-        // 🚀 LIVE KALKULASI & STATUS
         inputs += `
             <div class="mb-4 flex justify-between items-center bg-slate-50 border border-slate-200 p-3 rounded-xl min-h-[60px]">
                 <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Kalkulasi Selisih:</span>
@@ -13329,9 +13323,9 @@ openAIDeepDive: function(type, param) {
 
         this.buildForm(`Cek Mutasi: ${outlet} (${tgl})`, inputs, `superApp.saveRekonMutasi('${type}', '${key}')`);
         
-        // Picu kalkulasi selisih awal jika sudah ada datanya
+        // Pemicu kalkulasi awal
         setTimeout(() => {
-            if (isQris) this.calcRekonDiffQris(total);
+            if (isQris) this.calcRekonDiff(total);
             else this.calcRekonDiffCash(posVal, aichaVal);
         }, 100);
     },

@@ -12910,22 +12910,22 @@ openAIDeepDive: function(type, param) {
         }
     },
 
-  // =========================================================
-    // 🚀 ENGINE: KALKULATOR LIVE SELISIH REKON (FUNGSI BARU)
+ // =========================================================
+    // 🚀 ENGINE: KALKULATOR LIVE SELISIH REKON QRIS
     // =========================================================
-    calcRekonDiff: function(expectedAmount) {
+    calcRekonDiffQris: function(expectedAmount) {
         let actualInput = document.getElementById('frm-mdl-rekon-actual');
         let diffEl = document.getElementById('mdl-rekon-diff-badge');
         let statusSel = document.getElementById('frm-mdl-rekon-status');
         if(!actualInput || !diffEl) return;
 
-        let actual = this.getNumericValue(actualInput.value);
         if (actualInput.value === '') {
             diffEl.innerHTML = `<span class="text-slate-400 text-[10px] font-bold italic">Menunggu input...</span>`;
             if (statusSel) statusSel.value = 'Pending';
             return;
         }
 
+        let actual = this.getNumericValue(actualInput.value);
         let diff = actual - expectedAmount;
 
         if (diff === 0) {
@@ -12941,9 +12941,62 @@ openAIDeepDive: function(type, param) {
     },
 
     // =========================================================
+    // 🚀 ENGINE: KALKULATOR LIVE DUAL INPUT REKON CASH
+    // =========================================================
+    calcRekonDiffCash: function(expPos, expAicha) {
+        let inpPos = document.getElementById('frm-mdl-rekon-act-pos');
+        let inpAicha = document.getElementById('frm-mdl-rekon-act-aicha');
+        let diffEl = document.getElementById('mdl-rekon-diff-badge');
+        let statusSel = document.getElementById('frm-mdl-rekon-status');
+
+        if(!inpPos || !inpAicha || !diffEl) return;
+
+        if (inpPos.value === '' && inpAicha.value === '') {
+            diffEl.innerHTML = `<span class="text-slate-400 text-[10px] font-bold italic">Menunggu input dari laci/brankas...</span>`;
+            if (statusSel) statusSel.value = 'Pending';
+            return;
+        }
+
+        let actPos = this.getNumericValue(inpPos.value);
+        let actAicha = this.getNumericValue(inpAicha.value);
+        
+        let diffPos = actPos - expPos;
+        let diffAicha = actAicha - expAicha;
+        let totalDiff = diffPos + diffAicha;
+
+        let html = '';
+        if (totalDiff === 0 && diffPos === 0 && diffAicha === 0) {
+            html = `<span class="bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg font-black shadow-sm border border-emerald-200"><i class="fas fa-check-double mr-1"></i> SEMUA PAS (Rp 0)</span>`;
+            if(statusSel) statusSel.value = 'Sesuai';
+        } else {
+            let color = totalDiff >= 0 ? 'text-blue-700 bg-blue-100 border-blue-200' : 'text-rose-700 bg-rose-100 border-rose-200 animate-pulse';
+            let icon = totalDiff >= 0 ? 'fa-arrow-up' : 'fa-arrow-down';
+            let sign = totalDiff > 0 ? '+' : '';
+            
+            html = `<div class="flex flex-col items-end"><span class="${color} px-2 py-1 rounded-md font-black shadow-sm border text-[10px]"><i class="fas ${icon} mr-1"></i> ${sign}Rp ${totalDiff.toLocaleString('id-ID')}</span>`;
+            
+            // Tampilkan rincian "Siapa yang salah hitung?"
+            if (diffPos !== 0 || diffAicha !== 0) {
+                html += `<div class="flex gap-2 mt-1 text-[8px] font-bold text-slate-500">`;
+                if(diffPos !== 0) html += `<span>POS: <b class="${diffPos < 0 ? 'text-rose-500' : 'text-blue-500'}">${diffPos > 0 ? '+' : ''}${diffPos.toLocaleString('id-ID')}</b></span>`;
+                if(diffAicha !== 0) html += `<span>AiCHA: <b class="${diffAicha < 0 ? 'text-rose-500' : 'text-blue-500'}">${diffAicha > 0 ? '+' : ''}${diffAicha.toLocaleString('id-ID')}</b></span>`;
+                html += `</div>`;
+            }
+            html += `</div>`;
+            
+            if(statusSel) statusSel.value = 'Selisih';
+        }
+        diffEl.innerHTML = html;
+    },
+
+    // =========================================================
     // 🚀 ENGINE: RENDER TABEL REKON (DENGAN KOLOM AKTUAL & SELISIH)
     // =========================================================
+   // =========================================================
+    // 🚀 UPDATE ENGINE RENDER TABEL (KOLOM AKTUAL DIPISAH)
+    // =========================================================
     renderRekon: function() {
+        // ... (KODE AWAL TANGGAL DAN EKSTRAKSI DATA TETAP SAMA) ...
         this.loadRekonDataFromCloud(); 
 
         const startInput = document.getElementById('rekon-filter-start');
@@ -12966,9 +13019,7 @@ openAIDeepDive: function(type, param) {
 
         let totalAichaNet = 0; let totalAichaQris = 0;
         let totalPOSCash = 0; let totalPOSQris = 0;
-        
-        let mutasiMap = {}; 
-        let arrKasbon = [];
+        let mutasiMap = {}; let arrKasbon = [];
 
         const getStdDate = (str) => {
             let s = String(str || '').split(',').pop().trim();
@@ -13042,7 +13093,7 @@ openAIDeepDive: function(type, param) {
             }
         });
 
-        // --- UPDATE 3 KARTU KPI ATAS ---
+        // Update 3 Kartu KPI
         if(document.getElementById('rekon-aicha-net')) document.getElementById('rekon-aicha-net').innerText = `Rp ${totalAichaNet.toLocaleString('id-ID')}`;
         if(document.getElementById('rekon-aicha-qris')) document.getElementById('rekon-aicha-qris').innerText = `Rp ${totalAichaQris.toLocaleString('id-ID')}`;
         if(document.getElementById('rekon-aisnack-tunai')) document.getElementById('rekon-aisnack-tunai').innerText = `Rp ${totalPOSCash.toLocaleString('id-ID')}`;
@@ -13050,8 +13101,6 @@ openAIDeepDive: function(type, param) {
         if(document.getElementById('rekon-total-qris-bank')) document.getElementById('rekon-total-qris-bank').innerText = `Rp ${(totalAichaQris + totalPOSQris).toLocaleString('id-ID')}`;
 
         let mutasiKeys = Object.keys(mutasiMap).sort();
-
-        // 🚀 FUNGSI BANTUAN RENDER SELISIH BADGE DI TABEL
         const getDiffBadgeTable = (diff) => {
             if (diff === 0) return `<span class="text-emerald-500 font-black text-[10px]"><i class="fas fa-check"></i> Pas</span>`;
             if (diff > 0) return `<span class="text-blue-500 font-black text-[10px]"><i class="fas fa-arrow-up"></i> +${diff.toLocaleString('id-ID')}</span>`;
@@ -13068,7 +13117,8 @@ openAIDeepDive: function(type, param) {
             if (totalQ === 0) return; 
             countQris++;
 
-            let savedBank = this.rekonDataStore.qris[k] || { status: 'Pending', note: '', actual: 0 };
+            let savedBank = this.rekonDataStore.qris[k] || { status: 'Pending', note: '', actual: '' };
+            let isActEmpty = savedBank.actual === '';
             let actVal = Number(savedBank.actual || 0);
             let diffVal = actVal - totalQ;
 
@@ -13080,8 +13130,8 @@ openAIDeepDive: function(type, param) {
             <tr class="hover:bg-blue-50/50 transition cursor-pointer" onclick="superApp.openRekonMutasiModal('qris', '${k}', '${d.tgl}', '${d.outlet}', ${d.posQris}, ${d.aichaQris})">
                 <td class="p-3"><span class="font-extrabold text-slate-800">${d.tgl}</span><br><span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest"><i class="fas fa-store text-blue-400"></i> ${d.outlet}</span></td>
                 <td class="p-3 text-right font-black text-slate-600">Rp ${totalQ.toLocaleString('id-ID')}</td>
-                <td class="p-3 text-right font-black ${actVal === 0 ? 'text-slate-300' : 'text-blue-600'}">${actVal === 0 ? '-' : 'Rp ' + actVal.toLocaleString('id-ID')}</td>
-                <td class="p-3 text-center">${actVal === 0 ? '-' : getDiffBadgeTable(diffVal)}</td>
+                <td class="p-3 text-right font-black ${isActEmpty ? 'text-slate-300' : 'text-blue-600'}">${isActEmpty ? '-' : 'Rp ' + actVal.toLocaleString('id-ID')}</td>
+                <td class="p-3 text-center">${isActEmpty ? '-' : getDiffBadgeTable(diffVal)}</td>
                 <td class="p-3 text-center">${badge}</td>
             </tr>`;
         });
@@ -13089,8 +13139,8 @@ openAIDeepDive: function(type, param) {
         htmlQris += `</tbody></table>`;
         document.getElementById('rekon-content-qris').innerHTML = htmlQris;
 
-        // --- RENDER TABEL REKON CASH ---
-        let htmlCash = `<table class="w-full text-left whitespace-nowrap text-xs"><thead class="bg-emerald-50 text-emerald-700 sticky top-0 z-10 border-b border-emerald-100"><tr><th class="p-3">Tgl & Cabang</th><th class="p-3">Rincian Sistem</th><th class="p-3 text-right">Target Total</th><th class="p-3 text-right">Aktual Fisik</th><th class="p-3 text-center">Selisih & Status</th></tr></thead><tbody class="divide-y divide-slate-100 bg-white">`;
+        // --- RENDER TABEL REKON CASH (Pemisahan Nilai Aktual POS dan AiCHA) ---
+        let htmlCash = `<table class="w-full text-left whitespace-nowrap text-xs"><thead class="bg-emerald-50 text-emerald-700 sticky top-0 z-10 border-b border-emerald-100"><tr><th class="p-3">Tgl & Cabang</th><th class="p-3">Target Sistem</th><th class="p-3 text-right">Aktual Laci/Fisik</th><th class="p-3 text-center">Rincian Selisih</th><th class="p-3 text-center">Status</th></tr></thead><tbody class="divide-y divide-slate-100 bg-white">`;
         let countCash = 0;
 
         mutasiKeys.forEach(k => {
@@ -13099,9 +13149,16 @@ openAIDeepDive: function(type, param) {
             if (totalC === 0 && d.aichaCash === 0 && d.posCash === 0) return; 
             countCash++;
 
-            let savedCash = this.rekonDataStore.cash[k] || { status: 'Pending', note: '', actual: 0 };
-            let actVal = Number(savedCash.actual || 0);
-            let diffVal = actVal - totalC;
+            let savedCash = this.rekonDataStore.cash[k] || { status: 'Pending', note: '', actualPos: '', actualAicha: '' };
+            let isCashEmpty = (savedCash.actualPos === '' && savedCash.actualAicha === '') || savedCash.actualPos === undefined;
+            
+            let actPosVal = Number(savedCash.actualPos || 0);
+            let actAichaVal = Number(savedCash.actualAicha || 0);
+            let actTotal = actPosVal + actAichaVal;
+            
+            let diffPos = actPosVal - d.posCash;
+            let diffAicha = actAichaVal - d.aichaCash;
+            let totalDiff = actTotal - totalC;
 
             let badge = savedCash.status === 'Sesuai' ? `<span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[9px] font-black uppercase"><i class="fas fa-check"></i> Sesuai</span>` :
                         savedCash.status === 'Selisih' ? `<span class="bg-rose-100 text-rose-700 px-2 py-0.5 rounded text-[9px] font-black uppercase"><i class="fas fa-times"></i> Selisih</span>` :
@@ -13110,15 +13167,34 @@ openAIDeepDive: function(type, param) {
             htmlCash += `
             <tr class="hover:bg-emerald-50/50 transition cursor-pointer" onclick="superApp.openRekonMutasiModal('cash', '${k}', '${d.tgl}', '${d.outlet}', ${d.posCash}, ${d.aichaCash})">
                 <td class="p-3 align-top"><span class="font-extrabold text-slate-800">${d.tgl}</span><br><span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest"><i class="fas fa-store text-emerald-400"></i> ${d.outlet}</span></td>
-                <td class="p-3 align-top">
-                    <div class="text-[10px] font-bold text-amber-600 mb-0.5"><i class="fas fa-hamburger opacity-70 w-3"></i> POS: Rp ${d.posCash.toLocaleString('id-ID')}</div>
-                    <div class="text-[10px] font-bold text-rose-600"><i class="fas fa-clipboard-list opacity-70 w-3"></i> Lap: Rp ${d.aichaCash.toLocaleString('id-ID')}</div>
+                
+                <td class="p-3 align-top border-r border-slate-50">
+                    <div class="text-[10px] font-bold text-amber-600 mb-0.5 flex justify-between w-[130px]"><span>POS:</span> <span>Rp ${d.posCash.toLocaleString('id-ID')}</span></div>
+                    <div class="text-[10px] font-bold text-rose-600 flex justify-between w-[130px]"><span>Lap:</span> <span>${d.aichaCash < 0 ? '-' : ''}Rp ${Math.abs(d.aichaCash).toLocaleString('id-ID')}</span></div>
                 </td>
-                <td class="p-3 text-right align-top font-black text-slate-600">Rp ${totalC.toLocaleString('id-ID')}</td>
-                <td class="p-3 text-right align-top font-black ${actVal === 0 ? 'text-slate-300' : 'text-emerald-600'}">${actVal === 0 ? '-' : 'Rp ' + actVal.toLocaleString('id-ID')}</td>
-                <td class="p-3 text-center align-top">
-                    ${actVal === 0 ? '-' : getDiffBadgeTable(diffVal)}<br>
-                    <div class="mt-1">${badge}</div>
+                
+                <td class="p-3 text-right align-top border-r border-slate-50">
+                    ${isCashEmpty ? `<span class="text-slate-300">-</span>` : `
+                    <div class="text-[10px] font-bold text-slate-600 mb-0.5">Rp ${actPosVal.toLocaleString('id-ID')}</div>
+                    <div class="text-[10px] font-bold text-slate-600">Rp ${actAichaVal.toLocaleString('id-ID')}</div>
+                    <div class="mt-1 pt-1 border-t border-slate-200 font-black text-emerald-600">Rp ${actTotal.toLocaleString('id-ID')}</div>
+                    `}
+                </td>
+
+                <td class="p-3 text-center align-top border-r border-slate-50">
+                    ${isCashEmpty ? `<span class="text-slate-300">-</span>` : `
+                    <div class="flex flex-col gap-1 items-center">
+                        <div class="flex gap-2">
+                            ${diffPos !== 0 ? `<span class="text-[8px] font-bold ${diffPos > 0 ? 'text-blue-500' : 'text-rose-500'} bg-slate-50 px-1 rounded border">POS: ${diffPos > 0 ? '+' : ''}${diffPos.toLocaleString('id-ID')}</span>` : `<span class="text-[8px] font-bold text-emerald-500 bg-emerald-50 px-1 rounded border border-emerald-100">POS ✔</span>`}
+                            ${diffAicha !== 0 ? `<span class="text-[8px] font-bold ${diffAicha > 0 ? 'text-blue-500' : 'text-rose-500'} bg-slate-50 px-1 rounded border">Lap: ${diffAicha > 0 ? '+' : ''}${diffAicha.toLocaleString('id-ID')}</span>` : `<span class="text-[8px] font-bold text-emerald-500 bg-emerald-50 px-1 rounded border border-emerald-100">Lap ✔</span>`}
+                        </div>
+                        ${getDiffBadgeTable(totalDiff)}
+                    </div>
+                    `}
+                </td>
+
+                <td class="p-3 text-center align-middle">
+                    ${badge}
                 </td>
             </tr>`;
         });
@@ -13160,11 +13236,11 @@ openAIDeepDive: function(type, param) {
     },
 
     // =========================================================
-    // 🚀 ENGINE: MODAL REKON MUTASI (INPUT AKTUAL & SELISIH LIVE)
+    // 🚀 ENGINE: MODAL REKON MUTASI (DUAL INPUT UNTUK CASH)
     // =========================================================
     openRekonMutasiModal: function(type, key, tgl, outlet, posVal, aichaVal) {
         let isQris = type === 'qris';
-        let saved = this.rekonDataStore[type][key] || { status: 'Pending', note: '', actual: '' };
+        let saved = this.rekonDataStore[type][key] || { status: 'Pending', note: '', actual: '', actualPos: '', actualAicha: '' };
         let total = posVal + aichaVal;
 
         let themeColor = isQris ? 'blue' : 'emerald';
@@ -13173,44 +13249,71 @@ openAIDeepDive: function(type, param) {
         let titleName = isQris ? 'Total QRIS Masuk' : 'Total Cash Tunai';
         let iconName = isQris ? 'fa-qrcode' : 'fa-money-bill-wave';
 
-        // 🚀 DESAIN SPLIT (RINCIAN SUMBER vs TARGET)
+        // 🚀 DESAIN SPLIT (RINCIAN SUMBER TARGET)
         let inputs = `
-            <div class="grid grid-cols-2 gap-2 mb-3">
-                 <div class="bg-amber-50/60 p-3 rounded-xl border border-amber-100 text-center shadow-inner">
+            <div class="grid grid-cols-2 gap-3 mb-3">
+                 <div class="bg-amber-50/60 p-3 rounded-xl border border-amber-100 text-center shadow-inner relative">
                      <p class="text-[9px] text-amber-600 font-black uppercase tracking-widest mb-1"><i class="fas fa-hamburger mr-1"></i>POS Ai-Snack</p>
                      <p class="font-black text-slate-700 text-xs md:text-sm">Rp ${posVal.toLocaleString('id-ID')}</p>
                  </div>
-                 <div class="bg-rose-50/60 p-3 rounded-xl border border-rose-100 text-center shadow-inner">
+                 <div class="bg-rose-50/60 p-3 rounded-xl border border-rose-100 text-center shadow-inner relative">
                      <p class="text-[9px] text-rose-500 font-black uppercase tracking-widest mb-1"><i class="fas fa-clipboard-list mr-1"></i>Lap. Ai-CHA</p>
                      <p class="font-black text-slate-700 text-xs md:text-sm">${aichaVal < 0 ? '-' : ''}Rp ${Math.abs(aichaVal).toLocaleString('id-ID')}</p>
                  </div>
             </div>
 
-            <!-- Target Sistem -->
+            <!-- Target Sistem Total -->
             <div class="mb-4 text-center ${bgHeader} border rounded-xl p-3 shadow-sm">
                 <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1"><i class="fas ${iconName} mr-1"></i> Target ${titleName} (Sistem)</p>
                 <h2 class="text-3xl font-black ${titleColor}">${total < 0 ? '-' : ''}Rp ${Math.abs(total).toLocaleString('id-ID')}</h2>
             </div>
+        `;
 
-            <!-- Input Nilai Aktual Bank/Fisik -->
+        // 🚀 RENDER INPUT DYNAMIC (1 Input untuk QRIS, 2 Input untuk Cash)
+        if (isQris) {
+            inputs += `
             <div class="mb-4">
-                <label class="text-xs font-black text-slate-600 block mb-1 uppercase tracking-widest">Input Nominal Aktual ${isQris ? '(M-Banking)' : '(Fisik Brankas)'}</label>
+                <label class="text-xs font-black text-slate-600 block mb-2 uppercase tracking-widest">Input Mutasi M-Banking</label>
                 <div class="relative">
                     <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">Rp</span>
                     <input type="text" inputmode="numeric" id="frm-mdl-rekon-actual" value="${saved.actual ? Number(saved.actual).toLocaleString('id-ID') : ''}" 
-                        oninput="superApp.formatRupiahInput(this); superApp.calcRekonDiff(${total});" 
-                        placeholder="Ketik jumlah uang sebenarnya..." 
-                        class="w-full border-2 border-slate-200 rounded-xl pl-9 pr-4 py-3 font-black text-lg bg-white outline-none focus:border-${themeColor}-500 transition shadow-inner">
+                        oninput="superApp.formatRupiahInput(this); superApp.calcRekonDiffQris(${total});" 
+                        placeholder="Ketik mutasi bank yang masuk..." 
+                        class="w-full border-2 border-slate-200 rounded-xl pl-9 pr-4 py-3 font-black text-lg bg-white outline-none focus:border-blue-500 transition shadow-inner">
                 </div>
-            </div>
+            </div>`;
+        } else {
+            inputs += `
+            <label class="text-xs font-black text-slate-600 block mb-2 uppercase tracking-widest mt-2">Input Hitungan Fisik Asli</label>
+            <div class="grid grid-cols-2 gap-3 mb-4">
+                <div class="bg-amber-50/30 p-2.5 border border-amber-100 rounded-xl shadow-inner">
+                    <label class="text-[9px] font-black text-amber-600 uppercase tracking-widest block mb-1.5"><i class="fas fa-hand-holding-usd"></i> Laci Ai-Snack</label>
+                    <div class="relative">
+                        <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">Rp</span>
+                        <input type="text" inputmode="numeric" id="frm-mdl-rekon-act-pos" value="${saved.actualPos ? Number(saved.actualPos).toLocaleString('id-ID') : ''}" 
+                            oninput="superApp.formatRupiahInput(this); superApp.calcRekonDiffCash(${posVal}, ${aichaVal});" 
+                            placeholder="0" class="w-full border-2 border-slate-200 rounded-lg pl-8 pr-2 py-2 font-black text-sm bg-white outline-none focus:border-amber-500 transition shadow-sm">
+                    </div>
+                </div>
+                <div class="bg-rose-50/30 p-2.5 border border-rose-100 rounded-xl shadow-inner">
+                    <label class="text-[9px] font-black text-rose-500 uppercase tracking-widest block mb-1.5"><i class="fas fa-hand-holding-usd"></i> Laci Ai-CHA</label>
+                    <div class="relative">
+                        <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">Rp</span>
+                        <input type="text" inputmode="numeric" id="frm-mdl-rekon-act-aicha" value="${saved.actualAicha ? Number(saved.actualAicha).toLocaleString('id-ID') : ''}" 
+                            oninput="superApp.formatRupiahInput(this); superApp.calcRekonDiffCash(${posVal}, ${aichaVal});" 
+                            placeholder="0" class="w-full border-2 border-slate-200 rounded-lg pl-8 pr-2 py-2 font-black text-sm bg-white outline-none focus:border-rose-500 transition shadow-sm">
+                    </div>
+                </div>
+            </div>`;
+        }
 
-            <!-- Live Kalkulasi Selisih -->
-            <div class="mb-4 flex justify-between items-center bg-slate-50 border border-slate-200 p-3 rounded-xl">
-                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Selisih:</span>
+        // 🚀 LIVE KALKULASI & STATUS
+        inputs += `
+            <div class="mb-4 flex justify-between items-center bg-slate-50 border border-slate-200 p-3 rounded-xl min-h-[60px]">
+                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Kalkulasi Selisih:</span>
                 <div id="mdl-rekon-diff-badge"></div>
             </div>
 
-            <!-- Set Status & Catatan -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-2">
                 <div>
                     <label class="text-xs font-bold text-slate-500 block mb-1">Status Pencocokan</label>
@@ -13227,7 +13330,10 @@ openAIDeepDive: function(type, param) {
         this.buildForm(`Cek Mutasi: ${outlet} (${tgl})`, inputs, `superApp.saveRekonMutasi('${type}', '${key}')`);
         
         // Picu kalkulasi selisih awal jika sudah ada datanya
-        setTimeout(() => this.calcRekonDiff(total), 100);
+        setTimeout(() => {
+            if (isQris) this.calcRekonDiffQris(total);
+            else this.calcRekonDiffCash(posVal, aichaVal);
+        }, 100);
     },
 
     saveRekonMutasi: function(type, key) {
@@ -13235,11 +13341,22 @@ openAIDeepDive: function(type, param) {
         
         let st = document.getElementById('frm-mdl-rekon-status').value;
         let nt = document.getElementById('frm-mdl-rekon-note').value;
-        let actInput = document.getElementById('frm-mdl-rekon-actual');
-        let act = actInput && actInput.value !== '' ? this.getNumericValue(actInput.value) : '';
-
+        
         if (!this.rekonDataStore[type]) this.rekonDataStore[type] = {};
-        this.rekonDataStore[type][key] = { status: st, note: nt, actual: act };
+
+        if (type === 'qris') {
+            let actInput = document.getElementById('frm-mdl-rekon-actual');
+            let act = actInput && actInput.value !== '' ? this.getNumericValue(actInput.value) : '';
+            this.rekonDataStore[type][key] = { status: st, note: nt, actual: act };
+        } else {
+            let actPosInput = document.getElementById('frm-mdl-rekon-act-pos');
+            let actAichaInput = document.getElementById('frm-mdl-rekon-act-aicha');
+            
+            let actPos = actPosInput && actPosInput.value !== '' ? this.getNumericValue(actPosInput.value) : '';
+            let actAicha = actAichaInput && actAichaInput.value !== '' ? this.getNumericValue(actAichaInput.value) : '';
+            
+            this.rekonDataStore[type][key] = { status: st, note: nt, actualPos: actPos, actualAicha: actAicha };
+        }
         
         this.saveRekonDataToCloud();
         this.renderRekon();

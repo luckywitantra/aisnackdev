@@ -8966,6 +8966,159 @@ openDetailStokOpname: function(sku) {
         if (typeof this.renderBOMReport === 'function') this.renderBOMReport();  
     },
 
+    // =========================================================
+    // 🚀 ENGINE: POPUP DETAIL KARTU LAPORAN TERPADU
+    // =========================================================
+    openReportDeepDive: function(type) {
+        // 1. Ambil Filter Tanggal & Cabang yang sedang aktif di layar
+        let dStartEl = document.getElementById('filter-start'); 
+        let dEndEl = document.getElementById('filter-end');
+        let dStart = dStartEl ? dStartEl.value : ''; 
+        let dEnd = dEndEl ? dEndEl.value : '';
+        let dateStart = dStart ? new Date(dStart + "T00:00:00") : new Date(0);
+        let dateEnd = dEnd ? new Date(dEnd + "T23:59:59") : new Date();
+
+        const rof = document.getElementById('report-outlet-filter');
+        let roleStr = this.currentUser ? String(this.currentUser.Role).toLowerCase() : '';
+        let isAdmin = roleStr.includes('admin') || roleStr.includes('owner');
+        let filterVal = (isAdmin && rof) ? rof.value : this.outlet;
+
+        // 2. Setup Tema dan Judul Modal
+        let title = ''; let icon = ''; let colorBg = ''; let colorText = '';
+        if (type === 'omset') { title = "Rincian Transaksi - Total Omset"; icon = "fa-wallet"; colorBg = "bg-[#FFF5D1]"; colorText = "text-[#D49800]"; }
+        if (type === 'tunai') { title = "Rincian Transaksi - Kas Tunai"; icon = "fa-money-bill-wave"; colorBg = "bg-emerald-100"; colorText = "text-emerald-600"; }
+        if (type === 'qris') { title = "Rincian Transaksi - QRIS / Transfer"; icon = "fa-qrcode"; colorBg = "bg-blue-100"; colorText = "text-blue-600"; }
+        if (type === 'struk') { title = "Rincian Jumlah Struk Transaksi"; icon = "fa-receipt"; colorBg = "bg-rose-100"; colorText = "text-[#E5202B]"; }
+
+        let totalRp = 0; let totalPcs = 0; let totalStruk = 0;
+        let details = [];
+
+        // 3. Ekstraksi Database
+        (this.db.transactions || []).forEach(t => {
+            if (t.Status !== 'Sukses') return; // Hanya hitung transaksi sukses
+            let trxDate = typeof this.parseDateId === 'function' ? this.parseDateId(t.Tanggal) : new Date(t.Tanggal);
+            
+            if ((filterVal === 'Semua' || t.Outlet === filterVal) && trxDate >= dateStart && trxDate <= dateEnd) {
+                let isQris = String(t.Metode_Bayar).trim().toLowerCase().includes('qris');
+                let bayar = Number(t.Total_Bayar) || 0;
+                
+                // Sortir Berdasarkan Tipe Kartu yang Diklik
+                let match = false;
+                if (type === 'omset' || type === 'struk') match = true;
+                else if (type === 'tunai' && !isQris) match = true;
+                else if (type === 'qris' && isQris) match = true;
+
+                if (match) {
+                    let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
+                    let pcs = items.reduce((sum, it) => sum + Number(it.qty || 0), 0);
+                    
+                    let sortTime = new Date(`${t.Tanggal.split('/').reverse().join('-')}T${t.Waktu || '00:00:00'}`).getTime();
+                    
+                    details.push({
+                        sortTime, wkt: `${t.Tanggal} ${t.Waktu}`, id: t.ID_TRX, kasir: t.Kasir, outlet: t.Outlet,
+                        nominal: bayar, pcs: pcs, isQris: isQris
+                    });
+                    totalRp += bayar;
+                    totalPcs += pcs;
+                    totalStruk++;
+                }
+            }
+        });
+
+        // Urutkan struk dari yang paling baru ke paling lama
+        details.sort((a,b) => b.sortTime - a.sortTime);
+
+        // 4. Render Daftar Transaksi
+        let listHtml = details.length === 0 
+            ? `<div class="p-10 text-center text-slate-400 opacity-70 flex flex-col items-center justify-center h-full"><i class="fas fa-folder-open text-5xl mb-3"></i><p class="text-xs font-black uppercase tracking-widest">Tidak Ada Data</p></div>` 
+            : details.map((d, idx) => `
+            <div class="flex items-center justify-between p-3.5 border-b border-slate-100 hover:bg-slate-50 transition-colors group">
+                <div class="flex items-center gap-3 min-w-0 pr-2">
+                    <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${d.isQris ? 'bg-blue-50 text-blue-500 border border-blue-100' : 'bg-emerald-50 text-emerald-500 border border-emerald-100'} shadow-sm group-hover:scale-110 transition-transform">
+                        <i class="fas ${d.isQris ? 'fa-qrcode' : 'fa-money-bill-wave'} text-sm"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="font-extrabold text-xs text-slate-800 truncate cursor-pointer hover:text-[#E5202B] transition-colors" onclick="navigator.clipboard.writeText('${d.id}'); superApp.showToast('ID Struk disalin!','success')">${d.id}</div>
+                        <div class="text-[10px] font-bold text-slate-400 mt-0.5 flex flex-wrap gap-1.5 items-center">
+                            <span><i class="far fa-clock mr-0.5 opacity-70"></i>${String(d.wkt).split(' ')[1] || d.wkt}</span>
+                            <span class="text-slate-300">|</span>
+                            <span>Kasir: ${d.kasir}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-right shrink-0 flex flex-col items-end">
+                    <div class="font-black text-[#4A3B32] text-sm">Rp ${d.nominal.toLocaleString('id-ID')}</div>
+                    <div class="text-[9px] font-black text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md mt-1 border border-slate-200 shadow-sm">${d.pcs} Pcs</div>
+                </div>
+            </div>
+        `).join('');
+
+        // 5. Suntikkan Template Modal secara Dinamis
+        let modalHtml = `
+        <div id="modal-report-deepdive" class="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 transition-opacity duration-300 opacity-0">
+            <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden flex flex-col transform transition-transform duration-300 scale-95 border border-slate-100 relative h-[85vh] md:h-auto md:max-h-[85vh]">
+                
+                <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50 relative overflow-hidden shrink-0">
+                    <div class="absolute -right-6 -top-6 w-24 h-24 rounded-full blur-2xl ${colorBg} pointer-events-none"></div>
+                    <div class="flex items-center gap-3 relative z-10">
+                        <div class="w-12 h-12 rounded-[1rem] flex items-center justify-center text-xl shadow-inner border border-white ${colorBg} ${colorText}">
+                            <i class="fas ${icon}"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-black text-[#4A3B32] text-sm md:text-base leading-tight">${title}</h3>
+                            <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">${dStart} s/d ${dEnd}</p>
+                        </div>
+                    </div>
+                    <button onclick="superApp.closeReportDeepDive()" class="w-9 h-9 rounded-full bg-white border border-slate-200 text-slate-400 hover:text-rose-500 hover:bg-rose-50 flex items-center justify-center transition-all shadow-sm relative z-10 active:scale-90">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <div class="px-5 py-4 bg-white flex justify-between items-center border-b border-slate-100 shadow-sm z-10 relative shrink-0">
+                    <div>
+                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Total Akumulasi</p>
+                        <h4 class="font-black text-xl ${colorText}">Rp ${totalRp.toLocaleString('id-ID')}</h4>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Total Struk</p>
+                        <h4 class="font-black text-sm text-slate-700 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg">${totalStruk} Transaksi</h4>
+                    </div>
+                </div>
+
+                <div class="flex-1 overflow-y-auto custom-scroll bg-white relative z-0">
+                    ${listHtml}
+                </div>
+
+            </div>
+        </div>`;
+
+        let existingModal = document.getElementById('modal-report-deepdive');
+        if (existingModal) existingModal.remove();
+        
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Animasi Tampil Masuk
+        setTimeout(() => {
+            let el = document.getElementById('modal-report-deepdive');
+            if (el) {
+                el.classList.remove('opacity-0');
+                el.classList.add('opacity-100');
+                el.firstElementChild.classList.remove('scale-95');
+                el.firstElementChild.classList.add('scale-100');
+            }
+        }, 10);
+    },
+    
+    closeReportDeepDive: function() {
+        let el = document.getElementById('modal-report-deepdive');
+        if (el) {
+            el.classList.remove('opacity-100');
+            el.firstElementChild.classList.remove('scale-100');
+            el.firstElementChild.classList.add('scale-95');
+            setTimeout(() => el.remove(), 300);
+        }
+    },
+
     // ==============================================================================
     // 🚀 FUNGSI BARU: ANALITIK POPUP TREN & PRODUK (AI-SNACK PLAYFUL THEME)
     // ==============================================================================

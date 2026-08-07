@@ -12863,27 +12863,100 @@ openAIDeepDive: function(type, param) {
     _rekonState: { search: '', sort: 'date_desc', status: 'all' }, // State Filter Interaktif
     _rekonDataList: { qris: [], cash: [], kasbon: [] }, // Cache Array
 
-    loadRekonDataFromCloud: function() {
-        let saved = (this.db.pengaturan || []).find(x => x.Pengaturan === 'aisnack_rekon_data');
-        if (saved && saved.Nilai) {
-            try { 
-                let parsed = JSON.parse(saved.Nilai); 
-                this.rekonDataStore = {
-                    qris: parsed.qris || {},
-                    cash: parsed.cash || {},
-                    kasbon: parsed.kasbon || {}
-                };
-            } catch(e) { 
-                this.rekonDataStore = { qris: {}, cash: {}, kasbon: {} }; 
-            }
+   loadRekonDataFromCloud: function() {
+        this.rekonDataStore = { qris: {}, cash: {}, kasbon: {} };
+        
+        // 🚀 BACA DARI TABEL BARU: Log_Rekon
+        if (this.db && this.db.rekon) {
+            this.db.rekon.forEach(r => {
+                let t = String(r.Tipe).toLowerCase();
+                let key = r.ID_Rekon;
+                if (this.rekonDataStore[t]) {
+                    try {
+                        this.rekonDataStore[t][key] = JSON.parse(r.Data_JSON);
+                    } catch(e) {}
+                }
+            });
         }
     },
 
-    saveRekonDataToCloud: function() {
-        let dataStr = JSON.stringify(this.rekonDataStore);
-        this.apiPost({ action: 'update_pengaturan', kunci: 'aisnack_rekon_data', nilai: dataStr }).then(res => {
-            if(res.status === 'sukses') this.showToast("Data Rekon/Kasbon tersimpan ke cloud", "success");
+    saveRekonDataToCloud: function(type, key, dataObj) {
+        // 🚀 KIRIM KE TABEL BARU: Hanya kirim 1 baris yang baru saja diedit
+        const payload = { 
+            action: 'save_rekon', 
+            tipe: type,
+            id_rekon: key, 
+            data_json: JSON.stringify(dataObj) 
+        };
+        
+        // Kirim diam-diam di latar belakang
+        this.apiPost(payload).then(res => {
+            if(res.status === 'sukses') {
+                this.showToast("Berhasil mencatat rekon ke database!", "success");
+            }
         });
+    },
+
+    saveRekonMutasi: function(type, key) {
+        if(this.isProcessing) return;
+        
+        let st = document.getElementById('frm-mdl-rekon-status').value;
+        let nt = document.getElementById('frm-mdl-rekon-note').value;
+        
+        if (!this.rekonDataStore[type]) this.rekonDataStore[type] = {};
+        
+        let dataObj = {};
+
+        if (type === 'qris') {
+            let actInput = document.getElementById('frm-mdl-rekon-actual');
+            let act = actInput && actInput.value !== '' ? this.getNumericValue(actInput.value) : '';
+            dataObj = { status: st, note: nt, actual: act };
+        } else {
+            let actPosInput = document.getElementById('frm-mdl-rekon-act-pos');
+            let actAichaInput = document.getElementById('frm-mdl-rekon-act-aicha');
+            
+            let actPos = actPosInput && actPosInput.value !== '' ? this.getNumericValue(actPosInput.value) : '';
+            let actAicha = actAichaInput && actAichaInput.value !== '' ? this.getNumericValue(actAichaInput.value) : '';
+            
+            dataObj = { status: st, note: nt, actualPos: actPos, actualAicha: actAicha };
+        }
+        
+        // Simpan ke memori sementara
+        this.rekonDataStore[type][key] = dataObj;
+        
+        // 🚀 EKSEKUSI API BARU
+        this.saveRekonDataToCloud(type, key, dataObj);
+        
+        this.renderRekon();
+        this.closeModal('modal-form');
+    },
+
+    saveRekonKasbon: function(key, totalNominal) {
+        let saved = this.rekonDataStore.kasbon[key] || { history: [], lunas: false };
+        let inputBayar = document.getElementById('frm-mdl-kasbon-bayar');
+        let tambahBayar = inputBayar ? this.getNumericValue(inputBayar.value) : 0;
+        let isLunas = document.getElementById('mdl-kasbon-lunas').checked;
+
+        if (tambahBayar > 0) {
+            let now = new Date(); let pad = n => String(n).padStart(2, '0');
+            let wkt = `${pad(now.getDate())}/${pad(now.getMonth()+1)} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+            if(!saved.history) saved.history = [];
+            saved.history.push({ waktu: wkt, nominal: tambahBayar });
+        }
+
+        let totalTerbayar = (saved.history || []).reduce((sum, h) => sum + h.nominal, 0);
+        if (totalTerbayar >= totalNominal) isLunas = true;
+
+        let dataObj = { history: saved.history, lunas: isLunas };
+        
+        // Simpan ke memori sementara
+        this.rekonDataStore.kasbon[key] = dataObj;
+        
+        // 🚀 EKSEKUSI API BARU
+        this.saveRekonDataToCloud('kasbon', key, dataObj);
+        
+        this.renderRekon();
+        this.closeModal('modal-form');
     },
 
     switchRekonTab: function(tab) {
@@ -13410,32 +13483,7 @@ openAIDeepDive: function(type, param) {
         }, 100);
     },
 
-    saveRekonMutasi: function(type, key) {
-        if(this.isProcessing) return;
-        
-        let st = document.getElementById('frm-mdl-rekon-status').value;
-        let nt = document.getElementById('frm-mdl-rekon-note').value;
-        
-        if (!this.rekonDataStore[type]) this.rekonDataStore[type] = {};
-
-        if (type === 'qris') {
-            let actInput = document.getElementById('frm-mdl-rekon-actual');
-            let act = actInput && actInput.value !== '' ? this.getNumericValue(actInput.value) : '';
-            this.rekonDataStore[type][key] = { status: st, note: nt, actual: act };
-        } else {
-            let actPosInput = document.getElementById('frm-mdl-rekon-act-pos');
-            let actAichaInput = document.getElementById('frm-mdl-rekon-act-aicha');
-            
-            let actPos = actPosInput && actPosInput.value !== '' ? this.getNumericValue(actPosInput.value) : '';
-            let actAicha = actAichaInput && actAichaInput.value !== '' ? this.getNumericValue(actAichaInput.value) : '';
-            
-            this.rekonDataStore[type][key] = { status: st, note: nt, actualPos: actPos, actualAicha: actAicha };
-        }
-        
-        this.saveRekonDataToCloud();
-        this.renderRekon();
-        this.closeModal('modal-form');
-    },
+   
 
     // --- MODAL TRACKING KASBON & OPEX (DENGAN RIWAYAT CICILAN) ---
     openRekonKasbonModal: function(key, tgl, outlet, nama, nominal) {
@@ -13497,28 +13545,7 @@ openAIDeepDive: function(type, param) {
         this.buildForm(`Tracking: ${outlet}`, inputs, `superApp.saveRekonKasbon('${key}', ${nominal})`);
     },
 
-    saveRekonKasbon: function(key, totalNominal) {
-        let saved = this.rekonDataStore.kasbon[key] || { history: [], lunas: false };
-        let inputBayar = document.getElementById('frm-mdl-kasbon-bayar');
-        let tambahBayar = inputBayar ? this.getNumericValue(inputBayar.value) : 0;
-        let isLunas = document.getElementById('mdl-kasbon-lunas').checked;
-
-        if (tambahBayar > 0) {
-            let now = new Date(); let pad = n => String(n).padStart(2, '0');
-            let wkt = `${pad(now.getDate())}/${pad(now.getMonth()+1)} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-            if(!saved.history) saved.history = [];
-            saved.history.push({ waktu: wkt, nominal: tambahBayar });
-        }
-
-        let totalTerbayar = (saved.history || []).reduce((sum, h) => sum + h.nominal, 0);
-        if (totalTerbayar >= totalNominal) isLunas = true;
-
-        this.rekonDataStore.kasbon[key] = { history: saved.history, lunas: isLunas };
-        
-        this.saveRekonDataToCloud();
-        this.renderRekon();
-        this.closeModal('modal-form');
-    },
+    
 
     // --- EKSPOR KASBON (WA & PDF) ---
     exportKasbonWA: function(key, tgl, outlet, nama, nominal) {

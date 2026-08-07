@@ -12910,7 +12910,7 @@ openAIDeepDive: function(type, param) {
         }
     },
 
-    renderRekon: function() {
+   renderRekon: function() {
         this.loadRekonDataFromCloud(); 
 
         const startInput = document.getElementById('rekon-filter-start');
@@ -12920,8 +12920,8 @@ openAIDeepDive: function(type, param) {
         if (startInput && !startInput.value) startInput.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`;
         if (endInput && !endInput.value) endInput.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
-        let dStart = startInput.value; let dEnd = endInput.value;
-        let dateStart = new Date(dStart + "T00:00:00"); let dateEnd = new Date(dEnd + "T23:59:59");
+        let dateStart = new Date(startInput.value + "T00:00:00"); 
+        let dateEnd = new Date(endInput.value + "T23:59:59");
 
         const filterOutEl = document.getElementById('rekon-filter-outlet');
         if (filterOutEl && filterOutEl.options.length <= 1) {
@@ -12934,8 +12934,20 @@ openAIDeepDive: function(type, param) {
         let totalAichaNet = 0; let totalAichaQris = 0;
         let totalPOSCash = 0; let totalPOSQris = 0;
         
-        let mutasiMap = {}; // Penyimpan agregasi harian: { 'TGL_OUTLET': { tgl, outlet, aichaQris, aichaCash, posQris, posCash } }
+        let mutasiMap = {}; // Format: { 'DD/MM/YYYY_Outlet': { ... } }
         let arrKasbon = [];
+
+        // 🚀 FUNGSI HELPER TANGGAL UNIVERSAL (Pemecah Masalah Sinkronisasi)
+        const getStdDate = (str) => {
+            let s = String(str || '').split(',').pop().trim();
+            let m = s.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+            if (m) {
+                let p1 = parseInt(m[1], 10), p2 = parseInt(m[2], 10), p3 = parseInt(m[3], 10);
+                if (p1 > 1000) return { dObj: new Date(p1, p2 - 1, p3), stdStr: `${pad(p3)}/${pad(p2)}/${p1}` }; // Format YYYY-MM-DD
+                else return { dObj: new Date(p3, p2 - 1, p1), stdStr: `${pad(p1)}/${pad(p2)}/${p3}` }; // Format DD-MM-YYYY
+            }
+            return { dObj: new Date(s), stdStr: s.split(' ')[0] };
+        };
 
         // 1. Ekstrak Laporan Ai-CHA
         (this.db.laporanHarian || []).forEach(rep => {
@@ -12943,12 +12955,8 @@ openAIDeepDive: function(type, param) {
             let rOut = String(rep.Outlet).replace(/^Ai\-Snack\s+/i, '').trim();
             if (selOut !== 'Semua' && rOut !== selOut) return;
 
-            let repDateObj = null; let cleanStr = (rep.Tanggal || '').split(',').pop().trim();
-            let match = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-            if (match) {
-                repDateObj = new Date(parseInt(match[3],10), parseInt(match[2],10)-1, parseInt(match[1],10));
-                if (repDateObj < dateStart || repDateObj > dateEnd) return;
-            } else return;
+            let dt = getStdDate(rep.Tanggal);
+            if (isNaN(dt.dObj.getTime()) || dt.dObj < dateStart || dt.dObj > dateEnd) return;
 
             let csh = Number(rep.Cash || 0); let exp = Number(rep.Total_Pengeluaran || 0);
             let qris = Number(rep.QRIS || 0);
@@ -12958,8 +12966,8 @@ openAIDeepDive: function(type, param) {
             totalAichaQris += qris;
 
             // Injeksi ke Peta Mutasi
-            let dKey = `${cleanStr}_${rOut}`;
-            if(!mutasiMap[dKey]) mutasiMap[dKey] = { tgl: cleanStr, outlet: rOut, aichaQris: 0, aichaCash: 0, posQris: 0, posCash: 0 };
+            let dKey = `${dt.stdStr}_${rOut}`;
+            if(!mutasiMap[dKey]) mutasiMap[dKey] = { tgl: dt.stdStr, outlet: rOut, aichaQris: 0, aichaCash: 0, posQris: 0, posCash: 0 };
             mutasiMap[dKey].aichaQris += qris;
             mutasiMap[dKey].aichaCash += netLaci;
 
@@ -12972,7 +12980,7 @@ openAIDeepDive: function(type, param) {
                         let nLow = ex.nama.toLowerCase();
                         let isKasbon = nLow.includes('kasbon') || nLow.includes('pinjam') || nLow.includes('bon ');
                         arrKasbon.push({
-                            id_laporan: rep.ID_Laporan, idx: idx, tgl: rep.Tanggal, outlet: rOut,
+                            id_laporan: rep.ID_Laporan, idx: idx, tgl: dt.stdStr, outlet: rOut,
                             nama: ex.nama, nominal: nom, isKasbon: isKasbon
                         });
                     }
@@ -12980,28 +12988,27 @@ openAIDeepDive: function(type, param) {
             } catch(e) {}
         });
 
-        // 2. Ekstrak Transaksi POS Ai-Snack
+        // 2. Ekstrak Transaksi POS Ai-Snack (SEKARANG AKAN COCOK TANGGALNYA)
         (this.db.transactions || []).forEach(t => {
             if (t.Status !== 'Sukses') return;
             let tOut = String(t.Outlet).replace(/^Ai\-Snack\s+/i, '').trim();
             if (selOut !== 'Semua' && tOut !== selOut) return;
 
-            let tDate = this.parseDateId(t.Tanggal);
-            if (tDate >= dateStart && tDate <= dateEnd) {
-                let isQris = String(t.Metode_Bayar).trim().toLowerCase().includes('qris');
-                let byr = Number(t.Total_Bayar || 0);
-                let cleanTgl = this.cleanDateOnly(t.Tanggal);
+            let dt = getStdDate(t.Tanggal);
+            if (isNaN(dt.dObj.getTime()) || dt.dObj < dateStart || dt.dObj > dateEnd) return;
 
-                let dKey = `${cleanTgl}_${tOut}`;
-                if(!mutasiMap[dKey]) mutasiMap[dKey] = { tgl: cleanTgl, outlet: tOut, aichaQris: 0, aichaCash: 0, posQris: 0, posCash: 0 };
+            let isQris = String(t.Metode_Bayar).trim().toLowerCase().includes('qris');
+            let byr = Number(t.Total_Bayar || 0);
 
-                if (isQris) {
-                    totalPOSQris += byr;
-                    mutasiMap[dKey].posQris += byr;
-                } else {
-                    totalPOSCash += byr;
-                    mutasiMap[dKey].posCash += byr;
-                }
+            let dKey = `${dt.stdStr}_${tOut}`;
+            if(!mutasiMap[dKey]) mutasiMap[dKey] = { tgl: dt.stdStr, outlet: tOut, aichaQris: 0, aichaCash: 0, posQris: 0, posCash: 0 };
+
+            if (isQris) {
+                totalPOSQris += byr;
+                mutasiMap[dKey].posQris += byr;
+            } else {
+                totalPOSCash += byr;
+                mutasiMap[dKey].posCash += byr;
             }
         });
 
@@ -13016,51 +13023,53 @@ openAIDeepDive: function(type, param) {
 
         // --- RENDER TABEL REKON QRIS ---
         let htmlQris = `<table class="w-full text-left whitespace-nowrap text-xs"><thead class="bg-blue-50 text-blue-700 sticky top-0 z-10 border-b border-blue-100"><tr><th class="p-3">Tgl & Cabang</th><th class="p-3 text-right">Total QRIS Masuk</th><th class="p-3 text-center">Status Bank</th></tr></thead><tbody class="divide-y divide-slate-100 bg-white">`;
-        if (mutasiKeys.length === 0) htmlQris += `<tr><td colspan="3" class="p-8 text-center text-slate-400 font-bold">Tidak ada transaksi QRIS</td></tr>`;
-        else {
-            mutasiKeys.forEach(k => {
-                let d = mutasiMap[k];
-                let totalQ = d.aichaQris + d.posQris;
-                if (totalQ === 0) return; // Skip jika tidak ada QRIS hari itu
+        let countQris = 0;
+        
+        mutasiKeys.forEach(k => {
+            let d = mutasiMap[k];
+            let totalQ = d.aichaQris + d.posQris;
+            if (totalQ === 0) return; // Skip jika tidak ada QRIS hari itu
+            countQris++;
 
-                let savedBank = this.rekonDataStore.qris[k] || { status: 'Pending', note: '' };
-                let badge = savedBank.status === 'Sesuai' ? `<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded font-black"><i class="fas fa-check-circle"></i> Sesuai M-Bank</span>` :
-                            savedBank.status === 'Selisih' ? `<span class="bg-rose-100 text-rose-700 px-2 py-1 rounded font-black"><i class="fas fa-exclamation-circle"></i> Selisih</span>` :
-                            `<span class="bg-slate-100 text-slate-500 px-2 py-1 rounded font-black">Cek Manual</span>`;
+            let savedBank = this.rekonDataStore.qris[k] || { status: 'Pending', note: '' };
+            let badge = savedBank.status === 'Sesuai' ? `<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded font-black"><i class="fas fa-check-circle"></i> Sesuai M-Bank</span>` :
+                        savedBank.status === 'Selisih' ? `<span class="bg-rose-100 text-rose-700 px-2 py-1 rounded font-black"><i class="fas fa-exclamation-circle"></i> Selisih</span>` :
+                        `<span class="bg-slate-100 text-slate-500 px-2 py-1 rounded font-black">Cek Manual</span>`;
 
-                htmlQris += `
-                <tr class="hover:bg-blue-50/50 transition cursor-pointer" onclick="superApp.openRekonMutasiModal('qris', '${k}', '${d.tgl}', '${d.outlet}', ${d.posQris}, ${d.aichaQris})">
-                    <td class="p-3"><span class="font-extrabold text-slate-800">${d.tgl}</span><br><span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest"><i class="fas fa-store text-blue-400"></i> ${d.outlet}</span></td>
-                    <td class="p-3 text-right font-black text-blue-600">Rp ${totalQ.toLocaleString('id-ID')}</td>
-                    <td class="p-3 text-center">${badge}<br>${savedBank.note ? `<span class="text-[9px] italic text-slate-400 mt-1 block max-w-[120px] truncate mx-auto">${savedBank.note}</span>` : ''}</td>
-                </tr>`;
-            });
-        }
+            htmlQris += `
+            <tr class="hover:bg-blue-50/50 transition cursor-pointer" onclick="superApp.openRekonMutasiModal('qris', '${k}', '${d.tgl}', '${d.outlet}', ${d.posQris}, ${d.aichaQris})">
+                <td class="p-3"><span class="font-extrabold text-slate-800">${d.tgl}</span><br><span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest"><i class="fas fa-store text-blue-400"></i> ${d.outlet}</span></td>
+                <td class="p-3 text-right font-black text-blue-600">Rp ${totalQ.toLocaleString('id-ID')}</td>
+                <td class="p-3 text-center">${badge}<br>${savedBank.note ? `<span class="text-[9px] italic text-slate-400 mt-1 block max-w-[120px] truncate mx-auto">${savedBank.note}</span>` : ''}</td>
+            </tr>`;
+        });
+        if (countQris === 0) htmlQris += `<tr><td colspan="3" class="p-8 text-center text-slate-400 font-bold">Tidak ada transaksi QRIS di rentang tanggal ini</td></tr>`;
         htmlQris += `</tbody></table>`;
         document.getElementById('rekon-content-qris').innerHTML = htmlQris;
 
         // --- RENDER TABEL REKON CASH ---
         let htmlCash = `<table class="w-full text-left whitespace-nowrap text-xs"><thead class="bg-emerald-50 text-emerald-700 sticky top-0 z-10 border-b border-emerald-100"><tr><th class="p-3">Tgl & Cabang</th><th class="p-3 text-right">Total Cash Tunai</th><th class="p-3 text-center">Status Brankas</th></tr></thead><tbody class="divide-y divide-slate-100 bg-white">`;
-        if (mutasiKeys.length === 0) htmlCash += `<tr><td colspan="3" class="p-8 text-center text-slate-400 font-bold">Tidak ada transaksi Cash</td></tr>`;
-        else {
-            mutasiKeys.forEach(k => {
-                let d = mutasiMap[k];
-                let totalC = d.aichaCash + d.posCash;
-                if (totalC === 0 && d.aichaCash === 0 && d.posCash === 0) return; 
+        let countCash = 0;
 
-                let savedCash = this.rekonDataStore.cash[k] || { status: 'Pending', note: '' };
-                let badge = savedCash.status === 'Sesuai' ? `<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded font-black"><i class="fas fa-check-circle"></i> Sesuai Fisik</span>` :
-                            savedCash.status === 'Selisih' ? `<span class="bg-rose-100 text-rose-700 px-2 py-1 rounded font-black"><i class="fas fa-exclamation-circle"></i> Selisih</span>` :
-                            `<span class="bg-slate-100 text-slate-500 px-2 py-1 rounded font-black">Cek Manual</span>`;
+        mutasiKeys.forEach(k => {
+            let d = mutasiMap[k];
+            let totalC = d.aichaCash + d.posCash;
+            if (totalC === 0 && d.aichaCash === 0 && d.posCash === 0) return; 
+            countCash++;
 
-                htmlCash += `
-                <tr class="hover:bg-emerald-50/50 transition cursor-pointer" onclick="superApp.openRekonMutasiModal('cash', '${k}', '${d.tgl}', '${d.outlet}', ${d.posCash}, ${d.aichaCash})">
-                    <td class="p-3"><span class="font-extrabold text-slate-800">${d.tgl}</span><br><span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest"><i class="fas fa-store text-emerald-400"></i> ${d.outlet}</span></td>
-                    <td class="p-3 text-right font-black ${totalC < 0 ? 'text-rose-500' : 'text-emerald-600'}">${totalC < 0 ? '-' : ''}Rp ${Math.abs(totalC).toLocaleString('id-ID')}</td>
-                    <td class="p-3 text-center">${badge}<br>${savedCash.note ? `<span class="text-[9px] italic text-slate-400 mt-1 block max-w-[120px] truncate mx-auto">${savedCash.note}</span>` : ''}</td>
-                </tr>`;
-            });
-        }
+            let savedCash = this.rekonDataStore.cash[k] || { status: 'Pending', note: '' };
+            let badge = savedCash.status === 'Sesuai' ? `<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded font-black"><i class="fas fa-check-circle"></i> Sesuai Fisik</span>` :
+                        savedCash.status === 'Selisih' ? `<span class="bg-rose-100 text-rose-700 px-2 py-1 rounded font-black"><i class="fas fa-exclamation-circle"></i> Selisih</span>` :
+                        `<span class="bg-slate-100 text-slate-500 px-2 py-1 rounded font-black">Cek Manual</span>`;
+
+            htmlCash += `
+            <tr class="hover:bg-emerald-50/50 transition cursor-pointer" onclick="superApp.openRekonMutasiModal('cash', '${k}', '${d.tgl}', '${d.outlet}', ${d.posCash}, ${d.aichaCash})">
+                <td class="p-3"><span class="font-extrabold text-slate-800">${d.tgl}</span><br><span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest"><i class="fas fa-store text-emerald-400"></i> ${d.outlet}</span></td>
+                <td class="p-3 text-right font-black ${totalC < 0 ? 'text-rose-500' : 'text-emerald-600'}">${totalC < 0 ? '-' : ''}Rp ${Math.abs(totalC).toLocaleString('id-ID')}</td>
+                <td class="p-3 text-center">${badge}<br>${savedCash.note ? `<span class="text-[9px] italic text-slate-400 mt-1 block max-w-[120px] truncate mx-auto">${savedCash.note}</span>` : ''}</td>
+            </tr>`;
+        });
+        if (countCash === 0) htmlCash += `<tr><td colspan="3" class="p-8 text-center text-slate-400 font-bold">Tidak ada transaksi Cash di rentang tanggal ini</td></tr>`;
         htmlCash += `</tbody></table>`;
         document.getElementById('rekon-content-cash').innerHTML = htmlCash;
 
@@ -13068,11 +13077,13 @@ openAIDeepDive: function(type, param) {
         let htmlKasbon = `<table class="w-full text-left whitespace-nowrap text-xs"><thead class="bg-amber-50 text-amber-700 sticky top-0 z-10 border-b border-amber-100"><tr><th class="p-3">Tgl & Cabang</th><th class="p-3">Keterangan Biaya</th><th class="p-3 text-right">Nominal</th><th class="p-3 text-center">Status / Terbayar</th></tr></thead><tbody class="divide-y divide-slate-100 bg-white">`;
         if (arrKasbon.length === 0) htmlKasbon += `<tr><td colspan="4" class="p-8 text-center text-slate-400 font-bold">Tidak ada pengeluaran/kasbon tercatat</td></tr>`;
         else {
-            arrKasbon.reverse().forEach(d => {
+            arrKasbon.sort((a,b) => {
+                let da = getStdDate(a.tgl).dObj; let db = getStdDate(b.tgl).dObj;
+                return db - da; // Descending
+            }).forEach(d => {
                 let k = `${d.id_laporan}_${d.idx}`;
                 let savedKasbon = this.rekonDataStore.kasbon[k] || { history: [], lunas: false };
                 
-                // Migrasi struktur lama ke baru (Jika ada)
                 if (savedKasbon.terbayar !== undefined && !savedKasbon.history) {
                     savedKasbon.history = savedKasbon.terbayar > 0 ? [{ waktu: 'Data Lama', nominal: savedKasbon.terbayar }] : [];
                 }

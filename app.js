@@ -12993,7 +12993,6 @@ openAIDeepDive: function(type, param) {
     // 🚀 UPDATE ENGINE RENDER TABEL (KOLOM AKTUAL DIPISAH)
     // =========================================================
     renderRekon: function() {
-        // ... (KODE AWAL TANGGAL DAN EKSTRAKSI DATA TETAP SAMA) ...
         this.loadRekonDataFromCloud(); 
 
         const startInput = document.getElementById('rekon-filter-start');
@@ -13090,71 +13089,77 @@ openAIDeepDive: function(type, param) {
             }
         });
 
-        // Update 3 Kartu KPI
+        // --- UPDATE 3 KARTU KPI ATAS ---
         if(document.getElementById('rekon-aicha-net')) document.getElementById('rekon-aicha-net').innerText = `Rp ${totalAichaNet.toLocaleString('id-ID')}`;
         if(document.getElementById('rekon-aicha-qris')) document.getElementById('rekon-aicha-qris').innerText = `Rp ${totalAichaQris.toLocaleString('id-ID')}`;
         if(document.getElementById('rekon-aisnack-tunai')) document.getElementById('rekon-aisnack-tunai').innerText = `Rp ${totalPOSCash.toLocaleString('id-ID')}`;
         if(document.getElementById('rekon-aisnack-qris')) document.getElementById('rekon-aisnack-qris').innerText = `Rp ${totalPOSQris.toLocaleString('id-ID')}`;
         if(document.getElementById('rekon-total-qris-bank')) document.getElementById('rekon-total-qris-bank').innerText = `Rp ${(totalAichaQris + totalPOSQris).toLocaleString('id-ID')}`;
 
-        let mutasiKeys = Object.keys(mutasiMap).sort();
-        const getDiffBadgeTable = (diff) => {
-            if (diff === 0) return `<span class="text-emerald-500 font-black text-[10px]"><i class="fas fa-check"></i> Pas</span>`;
-            if (diff > 0) return `<span class="text-blue-500 font-black text-[10px]"><i class="fas fa-arrow-up"></i> +${diff.toLocaleString('id-ID')}</span>`;
-            return `<span class="text-rose-500 font-black text-[10px] animate-pulse"><i class="fas fa-arrow-down"></i> -${Math.abs(diff).toLocaleString('id-ID')}</span>`;
+        let mutasiKeys = Object.keys(mutasiMap).sort((a, b) => {
+            let dtA = getStdDate(mutasiMap[a].tgl).dObj; let dtB = getStdDate(mutasiMap[b].tgl).dObj;
+            return dtB - dtA; // Sort Terbaru ke Terlama
+        });
+
+        const getDiffBadgeCard = (diff) => {
+            if (diff === 0) return `<span class="text-emerald-500 font-black"><i class="fas fa-check"></i> Pas</span>`;
+            if (diff > 0) return `<span class="text-blue-500 font-black"><i class="fas fa-arrow-up"></i> +${diff.toLocaleString('id-ID')}</span>`;
+            return `<span class="text-rose-500 font-black"><i class="fas fa-arrow-down"></i> -${Math.abs(diff).toLocaleString('id-ID')}</span>`;
         };
 
-        // --- RENDER TABEL REKON QRIS ---
-        let htmlQris = `<table class="w-full text-left whitespace-nowrap text-xs"><thead class="bg-blue-50 text-blue-700 sticky top-0 z-10 border-b border-blue-100"><tr><th class="p-3">Tgl & Cabang</th><th class="p-3 text-right">Target Sistem (POS+Lap)</th><th class="p-3 text-right">Aktual M-Bank</th><th class="p-3 text-center">Selisih</th><th class="p-3 text-center">Status</th></tr></thead><tbody class="divide-y divide-slate-100 bg-white">`;
-        let countQris = 0;
-        
+        // =======================================================
+        // 🚀 RENDER LIST KARTU QRIS (MOBILE STYLE)
+        // =======================================================
+        let htmlQris = ''; let countQris = 0;
         mutasiKeys.forEach(k => {
-            let d = mutasiMap[k];
-            let totalQ = d.aichaQris + d.posQris;
-            if (totalQ === 0) return; 
-            countQris++;
+            let d = mutasiMap[k]; let totalQ = d.aichaQris + d.posQris;
+            if (totalQ === 0) return; countQris++;
 
             let savedBank = this.rekonDataStore.qris[k] || { status: 'Pending', note: '', actual: '' };
-            let isActEmpty = savedBank.actual === '';
-            let actVal = Number(savedBank.actual || 0);
+            let isActEmpty = savedBank.actual === ''; let actVal = Number(savedBank.actual || 0);
             let diffVal = actVal - totalQ;
 
-            let badge = savedBank.status === 'Sesuai' ? `<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded font-black"><i class="fas fa-check-circle"></i> Sesuai</span>` :
-                        savedBank.status === 'Selisih' ? `<span class="bg-rose-100 text-rose-700 px-2 py-1 rounded font-black"><i class="fas fa-exclamation-circle"></i> Selisih</span>` :
-                        `<span class="bg-slate-100 text-slate-500 px-2 py-1 rounded font-black">Pending</span>`;
+            let badge = savedBank.status === 'Sesuai' ? `<span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[9px] font-black"><i class="fas fa-check-circle"></i> Sesuai</span>` :
+                        savedBank.status === 'Selisih' ? `<span class="bg-rose-100 text-rose-700 px-2 py-0.5 rounded text-[9px] font-black"><i class="fas fa-exclamation-circle"></i> Selisih</span>` :
+                        `<span class="bg-slate-100 text-slate-500 px-2 py-0.5 rounded text-[9px] font-black">Pending</span>`;
 
             htmlQris += `
-            <tr class="hover:bg-blue-50/50 transition cursor-pointer" onclick="superApp.openRekonMutasiModal('qris', '${k}', '${d.tgl}', '${d.outlet}', ${d.posQris}, ${d.aichaQris})">
-                <td class="p-3"><span class="font-extrabold text-slate-800">${d.tgl}</span><br><span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest"><i class="fas fa-store text-blue-400"></i> ${d.outlet}</span></td>
-                <td class="p-3 text-right font-black text-slate-600">Rp ${totalQ.toLocaleString('id-ID')}</td>
-                <td class="p-3 text-right font-black ${isActEmpty ? 'text-slate-300' : 'text-blue-600'}">${isActEmpty ? '-' : 'Rp ' + actVal.toLocaleString('id-ID')}</td>
-                <td class="p-3 text-center">${isActEmpty ? '-' : getDiffBadgeTable(diffVal)}</td>
-                <td class="p-3 text-center">${badge}</td>
-            </tr>`;
+            <div class="bg-white border border-slate-200/80 p-3 rounded-[1rem] shadow-sm hover:border-blue-300 hover:shadow-md transition-all cursor-pointer active:scale-95 group" onclick="superApp.openRekonMutasiModal('qris', '${k}', '${d.tgl}', '${d.outlet}', ${d.posQris}, ${d.aichaQris})">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-2 mb-2">
+                    <div>
+                        <span class="font-extrabold text-slate-800 text-xs">${d.tgl}</span>
+                        <span class="text-[9px] font-black text-blue-500 uppercase tracking-widest ml-1 bg-blue-50 px-1.5 py-0.5 rounded"><i class="fas fa-store mr-0.5"></i> ${d.outlet}</span>
+                    </div>
+                    ${badge}
+                </div>
+                <div class="flex justify-between items-end">
+                    <div class="flex flex-col gap-1">
+                        <span class="text-[9px] font-bold text-slate-400">Target Sistem:</span>
+                        <span class="font-black text-slate-700 text-sm">Rp ${totalQ.toLocaleString('id-ID')}</span>
+                    </div>
+                    <div class="flex flex-col gap-1 items-end text-right">
+                        <span class="text-[9px] font-bold text-slate-400 flex items-center gap-1">Aktual Bank ${isActEmpty ? '' : getDiffBadgeCard(diffVal)}</span>
+                        <span class="font-black text-sm ${isActEmpty ? 'text-slate-300' : 'text-blue-600'}">${isActEmpty ? 'Menunggu Input' : 'Rp ' + actVal.toLocaleString('id-ID')}</span>
+                    </div>
+                </div>
+            </div>`;
         });
-        if (countQris === 0) htmlQris += `<tr><td colspan="5" class="p-8 text-center text-slate-400 font-bold">Tidak ada transaksi QRIS di rentang tanggal ini</td></tr>`;
-        htmlQris += `</tbody></table>`;
-        document.getElementById('rekon-content-qris').innerHTML = htmlQris;
+        document.getElementById('rekon-content-qris').innerHTML = countQris > 0 ? htmlQris : `<div class="p-8 text-center text-slate-400 font-bold text-xs italic">Tidak ada transaksi QRIS</div>`;
 
-        // --- RENDER TABEL REKON CASH (Pemisahan Nilai Aktual POS dan AiCHA) ---
-        let htmlCash = `<table class="w-full text-left whitespace-nowrap text-xs"><thead class="bg-emerald-50 text-emerald-700 sticky top-0 z-10 border-b border-emerald-100"><tr><th class="p-3">Tgl & Cabang</th><th class="p-3">Target Sistem</th><th class="p-3 text-right">Aktual Laci/Fisik</th><th class="p-3 text-center">Rincian Selisih</th><th class="p-3 text-center">Status</th></tr></thead><tbody class="divide-y divide-slate-100 bg-white">`;
-        let countCash = 0;
-
+        // =======================================================
+        // 🚀 RENDER LIST KARTU CASH (MOBILE STYLE & DUAL VALUE)
+        // =======================================================
+        let htmlCash = ''; let countCash = 0;
         mutasiKeys.forEach(k => {
-            let d = mutasiMap[k];
-            let totalC = d.aichaCash + d.posCash;
-            if (totalC === 0 && d.aichaCash === 0 && d.posCash === 0) return; 
-            countCash++;
+            let d = mutasiMap[k]; let totalC = d.aichaCash + d.posCash;
+            if (totalC === 0 && d.aichaCash === 0 && d.posCash === 0) return; countCash++;
 
             let savedCash = this.rekonDataStore.cash[k] || { status: 'Pending', note: '', actualPos: '', actualAicha: '' };
             let isCashEmpty = (savedCash.actualPos === '' && savedCash.actualAicha === '') || savedCash.actualPos === undefined;
             
-            let actPosVal = Number(savedCash.actualPos || 0);
-            let actAichaVal = Number(savedCash.actualAicha || 0);
+            let actPosVal = Number(savedCash.actualPos || 0); let actAichaVal = Number(savedCash.actualAicha || 0);
             let actTotal = actPosVal + actAichaVal;
-            
-            let diffPos = actPosVal - d.posCash;
-            let diffAicha = actAichaVal - d.aichaCash;
+            let diffPos = actPosVal - d.posCash; let diffAicha = actAichaVal - d.aichaCash;
             let totalDiff = actTotal - totalC;
 
             let badge = savedCash.status === 'Sesuai' ? `<span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[9px] font-black uppercase"><i class="fas fa-check"></i> Sesuai</span>` :
@@ -13162,73 +13167,80 @@ openAIDeepDive: function(type, param) {
                         `<span class="bg-slate-100 text-slate-500 px-2 py-0.5 rounded text-[9px] font-black uppercase">Pending</span>`;
 
             htmlCash += `
-            <tr class="hover:bg-emerald-50/50 transition cursor-pointer" onclick="superApp.openRekonMutasiModal('cash', '${k}', '${d.tgl}', '${d.outlet}', ${d.posCash}, ${d.aichaCash})">
-                <td class="p-3 align-top"><span class="font-extrabold text-slate-800">${d.tgl}</span><br><span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest"><i class="fas fa-store text-emerald-400"></i> ${d.outlet}</span></td>
-                
-                <td class="p-3 align-top border-r border-slate-50">
-                    <div class="text-[10px] font-bold text-amber-600 mb-0.5 flex justify-between w-[130px]"><span>POS:</span> <span>Rp ${d.posCash.toLocaleString('id-ID')}</span></div>
-                    <div class="text-[10px] font-bold text-rose-600 flex justify-between w-[130px]"><span>Lap:</span> <span>${d.aichaCash < 0 ? '-' : ''}Rp ${Math.abs(d.aichaCash).toLocaleString('id-ID')}</span></div>
-                </td>
-                
-                <td class="p-3 text-right align-top border-r border-slate-50">
-                    ${isCashEmpty ? `<span class="text-slate-300">-</span>` : `
-                    <div class="text-[10px] font-bold text-slate-600 mb-0.5">Rp ${actPosVal.toLocaleString('id-ID')}</div>
-                    <div class="text-[10px] font-bold text-slate-600">Rp ${actAichaVal.toLocaleString('id-ID')}</div>
-                    <div class="mt-1 pt-1 border-t border-slate-200 font-black text-emerald-600">Rp ${actTotal.toLocaleString('id-ID')}</div>
-                    `}
-                </td>
-
-                <td class="p-3 text-center align-top border-r border-slate-50">
-                    ${isCashEmpty ? `<span class="text-slate-300">-</span>` : `
-                    <div class="flex flex-col gap-1 items-center">
-                        <div class="flex gap-2">
-                            ${diffPos !== 0 ? `<span class="text-[8px] font-bold ${diffPos > 0 ? 'text-blue-500' : 'text-rose-500'} bg-slate-50 px-1 rounded border">POS: ${diffPos > 0 ? '+' : ''}${diffPos.toLocaleString('id-ID')}</span>` : `<span class="text-[8px] font-bold text-emerald-500 bg-emerald-50 px-1 rounded border border-emerald-100">POS ✔</span>`}
-                            ${diffAicha !== 0 ? `<span class="text-[8px] font-bold ${diffAicha > 0 ? 'text-blue-500' : 'text-rose-500'} bg-slate-50 px-1 rounded border">Lap: ${diffAicha > 0 ? '+' : ''}${diffAicha.toLocaleString('id-ID')}</span>` : `<span class="text-[8px] font-bold text-emerald-500 bg-emerald-50 px-1 rounded border border-emerald-100">Lap ✔</span>`}
-                        </div>
-                        ${getDiffBadgeTable(totalDiff)}
+            <div class="bg-white border border-slate-200/80 p-3 rounded-[1rem] shadow-sm hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer active:scale-95 group" onclick="superApp.openRekonMutasiModal('cash', '${k}', '${d.tgl}', '${d.outlet}', ${d.posCash}, ${d.aichaCash})">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-2 mb-2">
+                    <div>
+                        <span class="font-extrabold text-slate-800 text-xs">${d.tgl}</span>
+                        <span class="text-[9px] font-black text-emerald-500 uppercase tracking-widest ml-1 bg-emerald-50 px-1.5 py-0.5 rounded"><i class="fas fa-store mr-0.5"></i> ${d.outlet}</span>
                     </div>
-                    `}
-                </td>
-
-                <td class="p-3 text-center align-middle">
                     ${badge}
-                </td>
-            </tr>`;
-        });
-        if (countCash === 0) htmlCash += `<tr><td colspan="5" class="p-8 text-center text-slate-400 font-bold">Tidak ada transaksi Cash di rentang tanggal ini</td></tr>`;
-        htmlCash += `</tbody></table>`;
-        document.getElementById('rekon-content-cash').innerHTML = htmlCash;
+                </div>
+                
+                <!-- Sistem Row -->
+                <div class="flex justify-between items-center mb-1.5 bg-slate-50 p-1.5 rounded-lg border border-slate-100">
+                    <span class="text-[9px] font-bold text-slate-500">Target Sistem:</span>
+                    <div class="flex gap-2">
+                        <span class="text-[9px] font-black text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">POS: ${d.posCash.toLocaleString('id-ID')}</span>
+                        <span class="text-[9px] font-black text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">Lap: ${d.aichaCash.toLocaleString('id-ID')}</span>
+                    </div>
+                </div>
 
-        // --- RENDER TABEL KASBON & OPEX (TETAP SAMA SEPERTI SEBELUMNYA) ---
-        let htmlKasbon = `<table class="w-full text-left whitespace-nowrap text-xs"><thead class="bg-amber-50 text-amber-700 sticky top-0 z-10 border-b border-amber-100"><tr><th class="p-3">Tgl & Cabang</th><th class="p-3">Keterangan Biaya</th><th class="p-3 text-right">Nominal</th><th class="p-3 text-center">Status / Terbayar</th></tr></thead><tbody class="divide-y divide-slate-100 bg-white">`;
-        if (arrKasbon.length === 0) htmlKasbon += `<tr><td colspan="4" class="p-8 text-center text-slate-400 font-bold">Tidak ada pengeluaran/kasbon tercatat</td></tr>`;
-        else {
-            arrKasbon.sort((a,b) => {
-                let da = getStdDate(a.tgl).dObj; let db = getStdDate(b.tgl).dObj;
-                return db - da; 
-            }).forEach(d => {
+                <!-- Aktual Row -->
+                <div class="flex justify-between items-end">
+                    <div class="flex flex-col gap-0.5">
+                        <span class="text-[9px] font-bold text-slate-400">Aktual Fisik: ${isCashEmpty ? '' : getDiffBadgeCard(totalDiff)}</span>
+                        ${!isCashEmpty && (diffPos !== 0 || diffAicha !== 0) ? `
+                        <div class="flex gap-1 text-[8px] font-bold mt-0.5">
+                            ${diffPos !== 0 ? `<span class="${diffPos < 0 ? 'text-rose-500' : 'text-blue-500'}">POS: ${diffPos > 0 ? '+' : ''}${diffPos.toLocaleString('id-ID')}</span>` : `<span class="text-emerald-500">POS ✔</span>`}
+                            <span class="text-slate-300">|</span>
+                            ${diffAicha !== 0 ? `<span class="${diffAicha < 0 ? 'text-rose-500' : 'text-blue-500'}">Lap: ${diffAicha > 0 ? '+' : ''}${diffAicha.toLocaleString('id-ID')}</span>` : `<span class="text-emerald-500">Lap ✔</span>`}
+                        </div>` : ''}
+                    </div>
+                    <div class="text-right">
+                        <span class="font-black text-sm md:text-base ${isCashEmpty ? 'text-slate-300' : 'text-emerald-600'}">${isCashEmpty ? 'Menunggu Input' : 'Rp ' + actTotal.toLocaleString('id-ID')}</span>
+                    </div>
+                </div>
+            </div>`;
+        });
+        document.getElementById('rekon-content-cash').innerHTML = countCash > 0 ? htmlCash : `<div class="p-8 text-center text-slate-400 font-bold text-xs italic">Tidak ada transaksi Cash di rentang tanggal ini</div>`;
+
+        // =======================================================
+        // 🚀 RENDER LIST KARTU KASBON & OPEX (MOBILE STYLE)
+        // =======================================================
+        let htmlKasbon = ''; 
+        if (arrKasbon.length === 0) {
+            htmlKasbon = `<div class="p-8 text-center text-slate-400 font-bold text-xs italic">Tidak ada pengeluaran/kasbon tercatat</div>`;
+        } else {
+            arrKasbon.sort((a,b) => getStdDate(b.tgl).dObj - getStdDate(a.tgl).dObj).forEach(d => {
                 let k = `${d.id_laporan}_${d.idx}`;
                 let savedKasbon = this.rekonDataStore.kasbon[k] || { history: [], lunas: false };
-                if (savedKasbon.terbayar !== undefined && !savedKasbon.history) {
-                    savedKasbon.history = savedKasbon.terbayar > 0 ? [{ waktu: 'Data Lama', nominal: savedKasbon.terbayar }] : [];
-                }
+                if (savedKasbon.terbayar !== undefined && !savedKasbon.history) savedKasbon.history = savedKasbon.terbayar > 0 ? [{ waktu: 'Data Lama', nominal: savedKasbon.terbayar }] : [];
+                
                 let totalTerbayar = (savedKasbon.history || []).reduce((sum, h) => sum + h.nominal, 0);
                 let sisa = d.nominal - totalTerbayar;
                 
-                let sisaTeks = savedKasbon.lunas ? `<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded font-black"><i class="fas fa-check"></i> Lunas</span>` : 
-                               d.isKasbon ? `<span class="bg-orange-100 text-orange-700 px-2 py-1 rounded font-black border border-orange-200 shadow-sm">Sisa: Rp ${sisa.toLocaleString('id-ID')}</span>` :
-                               `<span class="bg-slate-100 text-slate-500 px-2 py-1 rounded font-black">OPEX Biasa</span>`;
+                let sisaTeks = savedKasbon.lunas ? `<span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[9px] font-black"><i class="fas fa-check"></i> Lunas</span>` : 
+                               d.isKasbon ? `<span class="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-[9px] font-black border border-orange-200 shadow-sm">Sisa: Rp ${sisa.toLocaleString('id-ID')}</span>` :
+                               `<span class="bg-slate-100 text-slate-500 px-2 py-0.5 rounded text-[9px] font-black">OPEX Biasa</span>`;
 
                 htmlKasbon += `
-                <tr class="hover:bg-amber-50/50 transition cursor-pointer" onclick="superApp.openRekonKasbonModal('${k}', '${d.tgl}', '${d.outlet}', '${d.nama}', ${d.nominal})">
-                    <td class="p-3"><span class="font-extrabold text-slate-800">${d.tgl}</span><br><span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest"><i class="fas fa-store text-amber-400"></i> ${d.outlet}</span></td>
-                    <td class="p-3"><span class="font-black text-slate-700 ${d.isKasbon ? 'text-amber-600' : ''}">${d.nama}</span></td>
-                    <td class="p-3 text-right font-black text-rose-600">Rp ${d.nominal.toLocaleString('id-ID')}</td>
-                    <td class="p-3 text-center">${sisaTeks}</td>
-                </tr>`;
+                <div class="bg-white border border-slate-200/80 p-3 rounded-[1rem] shadow-sm hover:border-amber-300 hover:shadow-md transition-all cursor-pointer active:scale-95 group" onclick="superApp.openRekonKasbonModal('${k}', '${d.tgl}', '${d.outlet}', '${d.nama}', ${d.nominal})">
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="flex-1 pr-2">
+                            <span class="font-black text-slate-800 text-xs line-clamp-2 leading-snug mb-1 ${d.isKasbon ? 'text-amber-700' : ''}">${d.nama}</span>
+                            <div class="flex items-center gap-1.5 text-[9px] font-bold text-slate-400">
+                                <span><i class="far fa-calendar-alt"></i> ${d.tgl}</span>
+                                <span class="bg-slate-100 px-1.5 py-0.5 rounded uppercase tracking-widest text-slate-500"><i class="fas fa-store text-amber-500"></i> ${d.outlet}</span>
+                            </div>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <div class="font-black text-sm text-rose-600 mb-1">Rp ${d.nominal.toLocaleString('id-ID')}</div>
+                            ${sisaTeks}
+                        </div>
+                    </div>
+                </div>`;
             });
         }
-        htmlKasbon += `</tbody></table>`;
         document.getElementById('rekon-content-kasbon').innerHTML = htmlKasbon;
     },
 

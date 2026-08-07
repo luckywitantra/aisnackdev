@@ -12856,16 +12856,24 @@ openAIDeepDive: function(type, param) {
     },
 
 
-
+// =========================================================
+    // 🚀 ENGINE: REKONSILIASI BANK, CASH & KASBON KARYAWAN
     // =========================================================
-    // 🚀 ENGINE: REKONSILIASI BANK & KASBON KARYAWAN (KHUSUS OWNER)
-    // =========================================================
-    rekonDataStore: { qris: {}, kasbon: {} },
+    rekonDataStore: { qris: {}, cash: {}, kasbon: {} },
 
     loadRekonDataFromCloud: function() {
         let saved = (this.db.pengaturan || []).find(x => x.Pengaturan === 'aisnack_rekon_data');
         if (saved && saved.Nilai) {
-            try { this.rekonDataStore = JSON.parse(saved.Nilai); } catch(e) { this.rekonDataStore = { qris: {}, kasbon: {} }; }
+            try { 
+                let parsed = JSON.parse(saved.Nilai); 
+                this.rekonDataStore = {
+                    qris: parsed.qris || {},
+                    cash: parsed.cash || {},
+                    kasbon: parsed.kasbon || {}
+                };
+            } catch(e) { 
+                this.rekonDataStore = { qris: {}, cash: {}, kasbon: {} }; 
+            }
         }
     },
 
@@ -12877,25 +12885,33 @@ openAIDeepDive: function(type, param) {
     },
 
     switchRekonTab: function(tab) {
-        const cBank = document.getElementById('rekon-content-bank');
+        const cQris = document.getElementById('rekon-content-qris');
+        const cCash = document.getElementById('rekon-content-cash');
         const cKasbon = document.getElementById('rekon-content-kasbon');
-        const bBank = document.getElementById('subtab-rekon-bank');
+        const bQris = document.getElementById('subtab-rekon-qris');
+        const bCash = document.getElementById('subtab-rekon-cash');
         const bKasbon = document.getElementById('subtab-rekon-kasbon');
 
-        const activeClass = 'flex-1 md:flex-none py-2 px-4 bg-white text-cyan-600 rounded-lg text-xs font-black shadow-sm transition flex items-center justify-center gap-1.5 border border-white';
+        const activeClass = 'flex-1 md:flex-none py-2 px-4 bg-white rounded-lg text-xs font-black shadow-sm transition flex items-center justify-center gap-1.5 border border-white';
         const inactiveClass = 'flex-1 md:flex-none py-2 px-4 text-slate-500 hover:text-slate-800 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 border border-transparent';
 
-        if (tab === 'bank') {
-            cBank.classList.replace('hidden', 'flex'); cKasbon.classList.replace('flex', 'hidden');
-            bBank.className = activeClass; bKasbon.className = inactiveClass;
-        } else {
-            cKasbon.classList.replace('hidden', 'flex'); cBank.classList.replace('flex', 'hidden');
-            bKasbon.className = activeClass; bBank.className = inactiveClass;
+        [cQris, cCash, cKasbon].forEach(c => c.classList.replace('flex', 'hidden'));
+        [bQris, bCash, bKasbon].forEach(b => { b.className = inactiveClass; b.classList.remove('text-blue-600', 'text-emerald-600', 'text-amber-600'); });
+
+        if (tab === 'qris') {
+            cQris.classList.replace('hidden', 'flex');
+            bQris.className = activeClass + ' text-blue-600';
+        } else if (tab === 'cash') {
+            cCash.classList.replace('hidden', 'flex');
+            bCash.className = activeClass + ' text-emerald-600';
+        } else if (tab === 'kasbon') {
+            cKasbon.classList.replace('hidden', 'flex');
+            bKasbon.className = activeClass + ' text-amber-600';
         }
     },
 
     renderRekon: function() {
-        this.loadRekonDataFromCloud(); // Tarik memori ceklis bank & kasbon terbaru
+        this.loadRekonDataFromCloud(); 
 
         const startInput = document.getElementById('rekon-filter-start');
         const endInput = document.getElementById('rekon-filter-end');
@@ -12918,7 +12934,8 @@ openAIDeepDive: function(type, param) {
         let totalAichaNet = 0; let totalAichaQris = 0;
         let totalPOSCash = 0; let totalPOSQris = 0;
         
-        let arrBank = []; let arrKasbon = [];
+        let mutasiMap = {}; // Penyimpan agregasi harian: { 'TGL_OUTLET': { tgl, outlet, aichaQris, aichaCash, posQris, posCash } }
+        let arrKasbon = [];
 
         // 1. Ekstrak Laporan Ai-CHA
         (this.db.laporanHarian || []).forEach(rep => {
@@ -12935,9 +12952,16 @@ openAIDeepDive: function(type, param) {
 
             let csh = Number(rep.Cash || 0); let exp = Number(rep.Total_Pengeluaran || 0);
             let qris = Number(rep.QRIS || 0);
+            let netLaci = csh - exp;
             
-            totalAichaNet += (csh - exp);
+            totalAichaNet += netLaci;
             totalAichaQris += qris;
+
+            // Injeksi ke Peta Mutasi
+            let dKey = `${cleanStr}_${rOut}`;
+            if(!mutasiMap[dKey]) mutasiMap[dKey] = { tgl: cleanStr, outlet: rOut, aichaQris: 0, aichaCash: 0, posQris: 0, posCash: 0 };
+            mutasiMap[dKey].aichaQris += qris;
+            mutasiMap[dKey].aichaCash += netLaci;
 
             // Ekstrak Kasbon & Opex
             try {
@@ -12945,7 +12969,8 @@ openAIDeepDive: function(type, param) {
                 expArr.forEach((ex, idx) => {
                     let nom = Number(ex.nominal);
                     if (nom > 0) {
-                        let isKasbon = ex.nama.toUpperCase().includes('KASBON') || ex.nama.toUpperCase().includes('PINJAM');
+                        let nLow = ex.nama.toLowerCase();
+                        let isKasbon = nLow.includes('kasbon') || nLow.includes('pinjam') || nLow.includes('bon ');
                         arrKasbon.push({
                             id_laporan: rep.ID_Laporan, idx: idx, tgl: rep.Tanggal, outlet: rOut,
                             nama: ex.nama, nominal: nom, isKasbon: isKasbon
@@ -12956,7 +12981,6 @@ openAIDeepDive: function(type, param) {
         });
 
         // 2. Ekstrak Transaksi POS Ai-Snack
-        let qrisByDateOutlet = {}; // Grouping QRIS per hari per cabang untuk tabel Bank
         (this.db.transactions || []).forEach(t => {
             if (t.Status !== 'Sukses') return;
             let tOut = String(t.Outlet).replace(/^Ai\-Snack\s+/i, '').trim();
@@ -12966,14 +12990,17 @@ openAIDeepDive: function(type, param) {
             if (tDate >= dateStart && tDate <= dateEnd) {
                 let isQris = String(t.Metode_Bayar).trim().toLowerCase().includes('qris');
                 let byr = Number(t.Total_Bayar || 0);
+                let cleanTgl = this.cleanDateOnly(t.Tanggal);
+
+                let dKey = `${cleanTgl}_${tOut}`;
+                if(!mutasiMap[dKey]) mutasiMap[dKey] = { tgl: cleanTgl, outlet: tOut, aichaQris: 0, aichaCash: 0, posQris: 0, posCash: 0 };
 
                 if (isQris) {
                     totalPOSQris += byr;
-                    let dKey = `${this.cleanDateOnly(t.Tanggal)}_${tOut}`;
-                    if(!qrisByDateOutlet[dKey]) qrisByDateOutlet[dKey] = { tgl: this.cleanDateOnly(t.Tanggal), outlet: tOut, total: 0 };
-                    qrisByDateOutlet[dKey].total += byr;
+                    mutasiMap[dKey].posQris += byr;
                 } else {
                     totalPOSCash += byr;
+                    mutasiMap[dKey].posCash += byr;
                 }
             }
         });
@@ -12985,46 +13012,73 @@ openAIDeepDive: function(type, param) {
         if(document.getElementById('rekon-aisnack-qris')) document.getElementById('rekon-aisnack-qris').innerText = `Rp ${totalPOSQris.toLocaleString('id-ID')}`;
         if(document.getElementById('rekon-total-qris-bank')) document.getElementById('rekon-total-qris-bank').innerText = `Rp ${(totalAichaQris + totalPOSQris).toLocaleString('id-ID')}`;
 
-        // --- RENDER TABEL REKON BANK (QRIS) ---
-        let htmlBank = `<table class="w-full text-left whitespace-nowrap text-xs"><thead class="bg-slate-100 text-slate-500 sticky top-0 z-10"><tr><th class="p-3">Tgl & Cabang</th><th class="p-3 text-right">QRIS Masuk</th><th class="p-3 text-center">Status Bank</th></tr></thead><tbody class="divide-y divide-slate-100 bg-white">`;
-        
-        let bankKeys = Object.keys(qrisByDateOutlet).sort();
-        if (bankKeys.length === 0) htmlBank += `<tr><td colspan="3" class="p-8 text-center text-slate-400 font-bold">Tidak ada transaksi QRIS</td></tr>`;
+        let mutasiKeys = Object.keys(mutasiMap).sort();
+
+        // --- RENDER TABEL REKON QRIS ---
+        let htmlQris = `<table class="w-full text-left whitespace-nowrap text-xs"><thead class="bg-blue-50 text-blue-700 sticky top-0 z-10 border-b border-blue-100"><tr><th class="p-3">Tgl & Cabang</th><th class="p-3 text-right">Total QRIS Masuk</th><th class="p-3 text-center">Status Bank</th></tr></thead><tbody class="divide-y divide-slate-100 bg-white">`;
+        if (mutasiKeys.length === 0) htmlQris += `<tr><td colspan="3" class="p-8 text-center text-slate-400 font-bold">Tidak ada transaksi QRIS</td></tr>`;
         else {
-            bankKeys.forEach(k => {
-                let d = qrisByDateOutlet[k];
+            mutasiKeys.forEach(k => {
+                let d = mutasiMap[k];
+                let totalQ = d.aichaQris + d.posQris;
+                if (totalQ === 0) return; // Skip jika tidak ada QRIS hari itu
+
                 let savedBank = this.rekonDataStore.qris[k] || { status: 'Pending', note: '' };
-                
                 let badge = savedBank.status === 'Sesuai' ? `<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded font-black"><i class="fas fa-check-circle"></i> Sesuai M-Bank</span>` :
                             savedBank.status === 'Selisih' ? `<span class="bg-rose-100 text-rose-700 px-2 py-1 rounded font-black"><i class="fas fa-exclamation-circle"></i> Selisih</span>` :
                             `<span class="bg-slate-100 text-slate-500 px-2 py-1 rounded font-black">Cek Manual</span>`;
 
-                htmlBank += `
-                <tr class="hover:bg-cyan-50/50 transition cursor-pointer" onclick="superApp.openRekonBankModal('${k}', '${d.tgl}', '${d.outlet}', ${d.total})">
-                    <td class="p-3">
-                        <span class="font-extrabold text-slate-800">${d.tgl}</span><br>
-                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest"><i class="fas fa-store text-cyan-400"></i> ${d.outlet}</span>
-                    </td>
-                    <td class="p-3 text-right font-black text-blue-600">Rp ${d.total.toLocaleString('id-ID')}</td>
-                    <td class="p-3 text-center">
-                        ${badge}<br>
-                        ${savedBank.note ? `<span class="text-[9px] italic text-slate-400 mt-1 block max-w-[120px] truncate mx-auto">${savedBank.note}</span>` : ''}
-                    </td>
+                htmlQris += `
+                <tr class="hover:bg-blue-50/50 transition cursor-pointer" onclick="superApp.openRekonMutasiModal('qris', '${k}', '${d.tgl}', '${d.outlet}', ${d.posQris}, ${d.aichaQris})">
+                    <td class="p-3"><span class="font-extrabold text-slate-800">${d.tgl}</span><br><span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest"><i class="fas fa-store text-blue-400"></i> ${d.outlet}</span></td>
+                    <td class="p-3 text-right font-black text-blue-600">Rp ${totalQ.toLocaleString('id-ID')}</td>
+                    <td class="p-3 text-center">${badge}<br>${savedBank.note ? `<span class="text-[9px] italic text-slate-400 mt-1 block max-w-[120px] truncate mx-auto">${savedBank.note}</span>` : ''}</td>
                 </tr>`;
             });
         }
-        htmlBank += `</tbody></table>`;
-        document.getElementById('rekon-content-bank').innerHTML = htmlBank;
+        htmlQris += `</tbody></table>`;
+        document.getElementById('rekon-content-qris').innerHTML = htmlQris;
+
+        // --- RENDER TABEL REKON CASH ---
+        let htmlCash = `<table class="w-full text-left whitespace-nowrap text-xs"><thead class="bg-emerald-50 text-emerald-700 sticky top-0 z-10 border-b border-emerald-100"><tr><th class="p-3">Tgl & Cabang</th><th class="p-3 text-right">Total Cash Tunai</th><th class="p-3 text-center">Status Brankas</th></tr></thead><tbody class="divide-y divide-slate-100 bg-white">`;
+        if (mutasiKeys.length === 0) htmlCash += `<tr><td colspan="3" class="p-8 text-center text-slate-400 font-bold">Tidak ada transaksi Cash</td></tr>`;
+        else {
+            mutasiKeys.forEach(k => {
+                let d = mutasiMap[k];
+                let totalC = d.aichaCash + d.posCash;
+                if (totalC === 0 && d.aichaCash === 0 && d.posCash === 0) return; 
+
+                let savedCash = this.rekonDataStore.cash[k] || { status: 'Pending', note: '' };
+                let badge = savedCash.status === 'Sesuai' ? `<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded font-black"><i class="fas fa-check-circle"></i> Sesuai Fisik</span>` :
+                            savedCash.status === 'Selisih' ? `<span class="bg-rose-100 text-rose-700 px-2 py-1 rounded font-black"><i class="fas fa-exclamation-circle"></i> Selisih</span>` :
+                            `<span class="bg-slate-100 text-slate-500 px-2 py-1 rounded font-black">Cek Manual</span>`;
+
+                htmlCash += `
+                <tr class="hover:bg-emerald-50/50 transition cursor-pointer" onclick="superApp.openRekonMutasiModal('cash', '${k}', '${d.tgl}', '${d.outlet}', ${d.posCash}, ${d.aichaCash})">
+                    <td class="p-3"><span class="font-extrabold text-slate-800">${d.tgl}</span><br><span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest"><i class="fas fa-store text-emerald-400"></i> ${d.outlet}</span></td>
+                    <td class="p-3 text-right font-black ${totalC < 0 ? 'text-rose-500' : 'text-emerald-600'}">${totalC < 0 ? '-' : ''}Rp ${Math.abs(totalC).toLocaleString('id-ID')}</td>
+                    <td class="p-3 text-center">${badge}<br>${savedCash.note ? `<span class="text-[9px] italic text-slate-400 mt-1 block max-w-[120px] truncate mx-auto">${savedCash.note}</span>` : ''}</td>
+                </tr>`;
+            });
+        }
+        htmlCash += `</tbody></table>`;
+        document.getElementById('rekon-content-cash').innerHTML = htmlCash;
 
         // --- RENDER TABEL KASBON & OPEX ---
-        let htmlKasbon = `<table class="w-full text-left whitespace-nowrap text-xs"><thead class="bg-slate-100 text-slate-500 sticky top-0 z-10"><tr><th class="p-3">Tgl & Cabang</th><th class="p-3">Keterangan Biaya</th><th class="p-3 text-right">Nominal</th><th class="p-3 text-center">Status / Terbayar</th></tr></thead><tbody class="divide-y divide-slate-100 bg-white">`;
-        
+        let htmlKasbon = `<table class="w-full text-left whitespace-nowrap text-xs"><thead class="bg-amber-50 text-amber-700 sticky top-0 z-10 border-b border-amber-100"><tr><th class="p-3">Tgl & Cabang</th><th class="p-3">Keterangan Biaya</th><th class="p-3 text-right">Nominal</th><th class="p-3 text-center">Status / Terbayar</th></tr></thead><tbody class="divide-y divide-slate-100 bg-white">`;
         if (arrKasbon.length === 0) htmlKasbon += `<tr><td colspan="4" class="p-8 text-center text-slate-400 font-bold">Tidak ada pengeluaran/kasbon tercatat</td></tr>`;
         else {
             arrKasbon.reverse().forEach(d => {
                 let k = `${d.id_laporan}_${d.idx}`;
-                let savedKasbon = this.rekonDataStore.kasbon[k] || { terbayar: 0, lunas: false };
-                let sisa = d.nominal - savedKasbon.terbayar;
+                let savedKasbon = this.rekonDataStore.kasbon[k] || { history: [], lunas: false };
+                
+                // Migrasi struktur lama ke baru (Jika ada)
+                if (savedKasbon.terbayar !== undefined && !savedKasbon.history) {
+                    savedKasbon.history = savedKasbon.terbayar > 0 ? [{ waktu: 'Data Lama', nominal: savedKasbon.terbayar }] : [];
+                }
+                
+                let totalTerbayar = (savedKasbon.history || []).reduce((sum, h) => sum + h.nominal, 0);
+                let sisa = d.nominal - totalTerbayar;
                 
                 let sisaTeks = savedKasbon.lunas ? `<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded font-black"><i class="fas fa-check"></i> Lunas</span>` : 
                                d.isKasbon ? `<span class="bg-orange-100 text-orange-700 px-2 py-1 rounded font-black border border-orange-200 shadow-sm">Sisa: Rp ${sisa.toLocaleString('id-ID')}</span>` :
@@ -13032,13 +13086,8 @@ openAIDeepDive: function(type, param) {
 
                 htmlKasbon += `
                 <tr class="hover:bg-amber-50/50 transition cursor-pointer" onclick="superApp.openRekonKasbonModal('${k}', '${d.tgl}', '${d.outlet}', '${d.nama}', ${d.nominal})">
-                    <td class="p-3">
-                        <span class="font-extrabold text-slate-800">${d.tgl}</span><br>
-                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest"><i class="fas fa-store text-amber-400"></i> ${d.outlet}</span>
-                    </td>
-                    <td class="p-3">
-                        <span class="font-black text-slate-700 ${d.isKasbon ? 'text-amber-600' : ''}">${d.nama}</span>
-                    </td>
+                    <td class="p-3"><span class="font-extrabold text-slate-800">${d.tgl}</span><br><span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest"><i class="fas fa-store text-amber-400"></i> ${d.outlet}</span></td>
+                    <td class="p-3"><span class="font-black text-slate-700 ${d.isKasbon ? 'text-amber-600' : ''}">${d.nama}</span></td>
                     <td class="p-3 text-right font-black text-rose-600">Rp ${d.nominal.toLocaleString('id-ID')}</td>
                     <td class="p-3 text-center">${sisaTeks}</td>
                 </tr>`;
@@ -13048,76 +13097,230 @@ openAIDeepDive: function(type, param) {
         document.getElementById('rekon-content-kasbon').innerHTML = htmlKasbon;
     },
 
-    // --- MODAL REKON BANK ---
-    openRekonBankModal: function(key, tgl, outlet, total) {
-        let saved = this.rekonDataStore.qris[key] || { status: 'Pending', note: '' };
-        
+    // --- MODAL REKON MUTASI (QRIS / CASH) ---
+    openRekonMutasiModal: function(type, key, tgl, outlet, posVal, aichaVal) {
+        let isQris = type === 'qris';
+        let saved = this.rekonDataStore[type][key] || { status: 'Pending', note: '' };
+        let total = posVal + aichaVal;
+
+        let themeColor = isQris ? 'blue' : 'emerald';
+        let titleColor = isQris ? 'text-blue-600' : 'text-emerald-600';
+        let titleName = isQris ? 'Total QRIS Masuk' : 'Total Cash Tunai';
+
         let inputs = `
-            <div class="mb-4 text-center">
-                <p class="text-xs font-bold text-slate-400">Total QRIS Masuk</p>
-                <h2 class="text-3xl font-black text-blue-600">Rp ${total.toLocaleString('id-ID')}</h2>
+            <div class="grid grid-cols-2 gap-2 mb-3">
+                 <div class="bg-rose-50 p-2 rounded-xl border border-rose-100 text-center">
+                     <p class="text-[9px] text-rose-500 font-black uppercase tracking-widest mb-0.5"><i class="fas fa-store mr-1"></i>Lap. Ai-CHA</p>
+                     <p class="font-black text-rose-600 text-sm">${aichaVal < 0 ? '-' : ''}Rp ${Math.abs(aichaVal).toLocaleString('id-ID')}</p>
+                 </div>
+                 <div class="bg-amber-50 p-2 rounded-xl border border-amber-100 text-center">
+                     <p class="text-[9px] text-amber-600 font-black uppercase tracking-widest mb-0.5"><i class="fas fa-hamburger mr-1"></i>POS Ai-Snack</p>
+                     <p class="font-black text-amber-600 text-sm">Rp ${posVal.toLocaleString('id-ID')}</p>
+                 </div>
+            </div>
+            <div class="mb-4 text-center bg-slate-50 border border-slate-200 rounded-xl p-3 shadow-inner">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">${titleName} (Gabungan)</p>
+                <h2 class="text-3xl font-black ${titleColor}">${total < 0 ? '-' : ''}Rp ${Math.abs(total).toLocaleString('id-ID')}</h2>
             </div>
             <div>
-                <label class="text-xs font-bold text-slate-500 block mb-1">Status Pencocokan Mutasi Bank</label>
-                <select id="mdl-rekon-status" class="w-full border-2 border-slate-200 rounded-xl px-4 py-3 font-bold text-sm bg-white outline-none focus:border-cyan-500 mb-3">
+                <label class="text-xs font-bold text-slate-500 block mb-1">Status Pencocokan Mutasi</label>
+                <select id="mdl-rekon-status" class="w-full border-2 border-slate-200 rounded-xl px-4 py-3 font-bold text-sm bg-white outline-none focus:border-${themeColor}-500 mb-3">
                     <option value="Pending" ${saved.status === 'Pending' ? 'selected' : ''}>Menunggu Pengecekan</option>
-                    <option value="Sesuai" ${saved.status === 'Sesuai' ? 'selected' : ''}>✅ Sesuai M-Banking</option>
+                    <option value="Sesuai" ${saved.status === 'Sesuai' ? 'selected' : ''}>✅ Sesuai Data Mutasi / Fisik</option>
                     <option value="Selisih" ${saved.status === 'Selisih' ? 'selected' : ''}>❌ Ada Selisih/Kurang</option>
                 </select>
             </div>
             ${this.makeInput('Catatan / Keterangan', 'mdl-rekon-note', saved.note, 'text', 'Boleh dikosongkan')}
         `;
 
-        this.buildForm(`Rekon Bank: ${outlet} (${tgl})`, inputs, `superApp.saveRekonBank('${key}')`);
+        this.buildForm(`Cek Mutasi: ${outlet} (${tgl})`, inputs, `superApp.saveRekonMutasi('${type}', '${key}')`);
     },
 
-    saveRekonBank: function(key) {
+    saveRekonMutasi: function(type, key) {
         let st = document.getElementById('frm-mdl-rekon-status').value;
         let nt = document.getElementById('frm-mdl-rekon-note').value;
-        this.rekonDataStore.qris[key] = { status: st, note: nt };
+        if (!this.rekonDataStore[type]) this.rekonDataStore[type] = {};
+        this.rekonDataStore[type][key] = { status: st, note: nt };
         
         this.saveRekonDataToCloud();
         this.renderRekon();
         this.closeModal('modal-form');
     },
 
-    // --- MODAL TRACKING KASBON ---
+    // --- MODAL TRACKING KASBON & OPEX (DENGAN RIWAYAT CICILAN) ---
     openRekonKasbonModal: function(key, tgl, outlet, nama, nominal) {
-        let saved = this.rekonDataStore.kasbon[key] || { terbayar: 0, lunas: false };
-        let sisa = nominal - saved.terbayar;
+        let saved = this.rekonDataStore.kasbon[key] || { history: [], lunas: false };
+        if (saved.terbayar !== undefined && !saved.history) {
+            saved.history = saved.terbayar > 0 ? [{ waktu: 'Awal (Data Lama)', nominal: saved.terbayar }] : [];
+        }
+
+        let historyHtml = '';
+        let totalTerbayar = 0;
+        
+        if (saved.history && saved.history.length > 0) {
+            historyHtml = saved.history.map((h, i) => {
+                totalTerbayar += h.nominal;
+                return `
+                <div class="flex justify-between items-center bg-white p-2 border-b border-slate-100 text-xs">
+                    <span class="font-bold text-slate-500">${h.waktu}</span>
+                    <span class="font-black text-emerald-600">Rp ${h.nominal.toLocaleString('id-ID')}</span>
+                </div>`;
+            }).join('');
+        } else {
+            historyHtml = `<div class="text-center text-slate-400 text-[10px] italic py-3">Belum ada riwayat cicilan/pembayaran</div>`;
+        }
+
+        let sisa = nominal - totalTerbayar;
+        let safeNama = nama.replace(/'/g, "\\'");
 
         let inputs = `
-            <div class="mb-4 text-center bg-slate-50 rounded-xl p-3 border border-slate-200">
+            <div class="mb-3 text-center bg-slate-50 rounded-xl p-3 border border-slate-200 shadow-inner">
                 <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">${nama}</p>
-                <h2 class="text-2xl font-black text-rose-600">Total: Rp ${nominal.toLocaleString('id-ID')}</h2>
-                <div class="flex justify-between mt-2 text-xs font-bold px-2">
-                    <span class="text-emerald-600">Terbayar: Rp ${saved.terbayar.toLocaleString('id-ID')}</span>
+                <h2 class="text-2xl font-black text-rose-600">Rp ${nominal.toLocaleString('id-ID')}</h2>
+                <div class="flex justify-between mt-2 text-[10px] font-bold px-2">
+                    <span class="text-emerald-600">Terbayar: Rp ${totalTerbayar.toLocaleString('id-ID')}</span>
                     <span class="text-amber-600">Sisa: Rp ${sisa.toLocaleString('id-ID')}</span>
                 </div>
             </div>
-            ${this.makeInput('Catat Cicilan / Pembayaran Baru (Rp)', 'mdl-kasbon-bayar', '', 'number', 'Ketik angka yang dibayarkan sekarang', false, 'superApp.formatRupiahInput(this)')}
-            <div class="mt-3 flex items-center gap-2 bg-emerald-50 border border-emerald-200 p-3 rounded-xl">
+            
+            <div class="mb-3">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 pl-1">Riwayat Pembayaran</p>
+                <div class="bg-slate-50 border border-slate-200 rounded-xl max-h-32 overflow-y-auto custom-scroll shadow-inner">
+                    ${historyHtml}
+                </div>
+            </div>
+
+            ${this.makeInput('Catat Pembayaran Baru (Rp)', 'mdl-kasbon-bayar', '', 'number', 'Ketik angka cicilan terbaru', false, 'superApp.formatRupiahInput(this)')}
+            
+            <div class="mt-3 flex items-center gap-2 bg-emerald-50 border border-emerald-200 p-3 rounded-xl shadow-sm">
                 <input type="checkbox" id="mdl-kasbon-lunas" class="w-5 h-5 accent-emerald-500 cursor-pointer" ${saved.lunas ? 'checked' : ''}>
-                <label for="mdl-kasbon-lunas" class="text-xs font-black text-emerald-700 cursor-pointer">Tandai Lunas Sepenuhnya</label>
+                <label for="mdl-kasbon-lunas" class="text-xs font-black text-emerald-700 cursor-pointer w-full">Tandai Lunas Sepenuhnya</label>
+            </div>
+            
+            <!-- Tombol Ekspor -->
+            <div class="flex gap-2 mt-4 pt-3 border-t border-slate-200">
+                <button type="button" onclick="superApp.exportKasbonWA('${key}', '${tgl}', '${outlet}', '${safeNama}', ${nominal})" class="flex-1 bg-gradient-to-r from-[#25D366] to-[#128C7E] hover:from-[#128C7E] hover:to-[#075E54] text-white rounded-xl py-2.5 text-[10px] font-black shadow-md transition active:scale-95 flex justify-center items-center gap-1.5"><i class="fab fa-whatsapp text-sm"></i> Kirim WA</button>
+                <button type="button" onclick="superApp.exportKasbonPDF('${key}', '${tgl}', '${outlet}', '${safeNama}', ${nominal})" class="flex-1 bg-rose-500 hover:bg-rose-600 text-white rounded-xl py-2.5 text-[10px] font-black shadow-md transition active:scale-95 flex justify-center items-center gap-1.5"><i class="fas fa-file-pdf text-sm"></i> Ekspor PDF</button>
             </div>
         `;
 
-        this.buildForm(`Tracking Kasbon: ${outlet}`, inputs, `superApp.saveRekonKasbon('${key}', ${nominal}, ${saved.terbayar})`);
+        this.buildForm(`Tracking: ${outlet}`, inputs, `superApp.saveRekonKasbon('${key}', ${nominal})`);
     },
 
-    saveRekonKasbon: function(key, totalNominal, oldTerbayar) {
+    saveRekonKasbon: function(key, totalNominal) {
+        let saved = this.rekonDataStore.kasbon[key] || { history: [], lunas: false };
         let inputBayar = document.getElementById('frm-mdl-kasbon-bayar');
         let tambahBayar = inputBayar ? this.getNumericValue(inputBayar.value) : 0;
         let isLunas = document.getElementById('mdl-kasbon-lunas').checked;
 
-        let newTerbayar = oldTerbayar + tambahBayar;
-        if (newTerbayar >= totalNominal) isLunas = true;
+        if (tambahBayar > 0) {
+            let now = new Date(); let pad = n => String(n).padStart(2, '0');
+            let wkt = `${pad(now.getDate())}/${pad(now.getMonth()+1)} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+            if(!saved.history) saved.history = [];
+            saved.history.push({ waktu: wkt, nominal: tambahBayar });
+        }
 
-        this.rekonDataStore.kasbon[key] = { terbayar: newTerbayar, lunas: isLunas };
+        let totalTerbayar = (saved.history || []).reduce((sum, h) => sum + h.nominal, 0);
+        if (totalTerbayar >= totalNominal) isLunas = true;
+
+        this.rekonDataStore.kasbon[key] = { history: saved.history, lunas: isLunas };
         
         this.saveRekonDataToCloud();
         this.renderRekon();
         this.closeModal('modal-form');
+    },
+
+    // --- EKSPOR KASBON (WA & PDF) ---
+    exportKasbonWA: function(key, tgl, outlet, nama, nominal) {
+        let saved = this.rekonDataStore.kasbon[key] || { history: [], lunas: false };
+        let totalTerbayar = (saved.history || []).reduce((sum, h) => sum + h.nominal, 0);
+        let sisa = nominal - totalTerbayar;
+
+        let txt = `*🧾 DETAIL KASBON / BIAYA OPERASIONAL*\n\n`;
+        txt += `Cabang: *Ai-CHA ${outlet}*\n`;
+        txt += `Tgl Input: ${tgl}\n`;
+        txt += `Keterangan: *${nama}*\n\n`;
+        txt += `💰 Total Kasbon : *Rp ${nominal.toLocaleString('id-ID')}*\n`;
+        txt += `✅ Terbayar    : Rp ${totalTerbayar.toLocaleString('id-ID')}\n`;
+        txt += `⚠️ Sisa Hutang  : *Rp ${sisa.toLocaleString('id-ID')}*\n`;
+        txt += `Status: ${saved.lunas ? 'LUNAS 🎉' : 'BELUM LUNAS'}\n\n`;
+        
+        if (saved.history && saved.history.length > 0) {
+            txt += `*Riwayat Pembayaran/Cicilan:*\n`;
+            saved.history.forEach((h, i) => {
+                txt += `${i+1}. [${h.waktu}] - Rp ${h.nominal.toLocaleString('id-ID')}\n`;
+            });
+        } else {
+            txt += `_Belum ada riwayat pembayaran._\n`;
+        }
+
+        let waUrl = `https://wa.me/?text=${encodeURIComponent(txt)}`;
+        window.open(waUrl, '_blank');
+    },
+
+    exportKasbonPDF: function(key, tgl, outlet, nama, nominal) {
+        let saved = this.rekonDataStore.kasbon[key] || { history: [], lunas: false };
+        let totalTerbayar = (saved.history || []).reduce((sum, h) => sum + h.nominal, 0);
+        let sisa = nominal - totalTerbayar;
+
+        let histHtml = '';
+        if (saved.history && saved.history.length > 0) {
+            saved.history.forEach((h, i) => {
+                histHtml += `<tr><td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${i+1}</td><td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${h.waktu}</td><td style="padding: 8px; text-align: right; font-weight: bold; color: #059669; border-bottom: 1px solid #e2e8f0;">Rp ${h.nominal.toLocaleString('id-ID')}</td></tr>`;
+            });
+        } else {
+            histHtml = `<tr><td colspan="3" style="padding: 8px; text-align: center; color: #94a3b8; font-style: italic;">Belum ada riwayat cicilan</td></tr>`;
+        }
+
+        let pdfHtml = `
+            <div style="padding: 30px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1e293b;">
+                <h2 style="color: #ea580c; border-bottom: 2px solid #fed7aa; padding-bottom: 10px; margin-bottom: 20px;">Laporan Kasbon & Biaya Khusus</h2>
+                <table style="width: 100%; margin-bottom: 20px; font-size: 14px;">
+                    <tr><td style="padding: 5px; color: #64748b;">Cabang</td><td style="padding: 5px; font-weight: bold;">: Ai-CHA ${outlet}</td></tr>
+                    <tr><td style="padding: 5px; color: #64748b;">Tgl Input</td><td style="padding: 5px; font-weight: bold;">: ${tgl}</td></tr>
+                    <tr><td style="padding: 5px; color: #64748b;">Keterangan</td><td style="padding: 5px; font-weight: bold;">: ${nama}</td></tr>
+                    <tr><td style="padding: 5px; color: #64748b;">Status</td><td style="padding: 5px; font-weight: bold;">: ${saved.lunas ? '<span style="color:#059669;">LUNAS</span>' : '<span style="color:#e11d48;">BELUM LUNAS</span>'}</td></tr>
+                </table>
+
+                <div style="display: flex; justify-content: space-between; background: #fff7ed; border: 1px solid #fed7aa; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 10px; color: #ea580c; text-transform: uppercase;">Total Kasbon</div>
+                        <div style="font-size: 18px; font-weight: bold; color: #9a3412;">Rp ${nominal.toLocaleString('id-ID')}</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 10px; color: #059669; text-transform: uppercase;">Terbayar</div>
+                        <div style="font-size: 18px; font-weight: bold; color: #065f46;">Rp ${totalTerbayar.toLocaleString('id-ID')}</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 10px; color: #e11d48; text-transform: uppercase;">Sisa Hutang</div>
+                        <div style="font-size: 18px; font-weight: bold; color: #9f1239;">Rp ${sisa.toLocaleString('id-ID')}</div>
+                    </div>
+                </div>
+
+                <h3 style="font-size: 14px; margin-bottom: 10px; color: #475569;">Riwayat Pembayaran:</h3>
+                <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">
+                    <thead style="background: #f1f5f9; color: #475569;">
+                        <tr><th style="padding: 8px;">No</th><th style="padding: 8px;">Waktu Bayar</th><th style="padding: 8px; text-align: right;">Nominal</th></tr>
+                    </thead>
+                    <tbody>${histHtml}</tbody>
+                </table>
+                <div style="margin-top: 30px; font-size: 10px; text-align: center; color: #94a3b8;">Dicetak dari Sistem ERP Ai-Snack pada ${new Date().toLocaleString('id-ID')}</div>
+            </div>
+        `;
+
+        this.showToast("Menyiapkan PDF...");
+        let tempDiv = document.createElement('div');
+        tempDiv.innerHTML = pdfHtml;
+        tempDiv.style.position = 'absolute'; tempDiv.style.left = '-9999px'; tempDiv.style.top = '-9999px';
+        document.body.appendChild(tempDiv);
+
+        const opt = { 
+            margin: 0.5, filename: `Detail_Kasbon_${nama.replace(/\s+/g, '_')}.pdf`, 
+            image: { type: 'jpeg', quality: 0.98 }, 
+            html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'a5', orientation: 'portrait' } 
+        };
+
+        html2pdf().set(opt).from(tempDiv).save().then(() => tempDiv.remove());
     },
 
 

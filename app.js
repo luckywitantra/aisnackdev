@@ -8966,9 +8966,12 @@ openDetailStokOpname: function(sku) {
         if (typeof this.renderBOMReport === 'function') this.renderBOMReport();  
     },
 
-    // =========================================================
+   // =========================================================
     // 🚀 ENGINE: POPUP DETAIL KARTU LAPORAN TERPADU
     // =========================================================
+    _deepDiveData: null, // Memori penyimpan data sementara untuk sorting & grouping
+    _deepDiveState: { sort: 'waktu_desc', mode: 'detail' }, // State aktif dropdown UI
+
     openReportDeepDive: function(type) {
         // 1. Ambil Filter Tanggal & Cabang yang sedang aktif di layar
         let dStartEl = document.getElementById('filter-start'); 
@@ -9015,7 +9018,7 @@ openDetailStokOpname: function(sku) {
                     let sortTime = new Date(`${t.Tanggal.split('/').reverse().join('-')}T${t.Waktu || '00:00:00'}`).getTime();
                     
                     details.push({
-                        sortTime, wkt: `${t.Tanggal} ${t.Waktu}`, id: t.ID_TRX, kasir: t.Kasir, outlet: t.Outlet,
+                        sortTime, dateStr: t.Tanggal, wkt: `${t.Tanggal} ${t.Waktu}`, id: t.ID_TRX, kasir: t.Kasir, outlet: t.Outlet,
                         nominal: bayar, pcs: pcs, isQris: isQris
                     });
                     totalRp += bayar;
@@ -9025,33 +9028,12 @@ openDetailStokOpname: function(sku) {
             }
         });
 
-        // Urutkan struk dari yang paling baru ke paling lama
-        details.sort((a,b) => b.sortTime - a.sortTime);
+        // 4. Analisis Mode (Apakah rentang tanggalnya lebih dari 1 hari?)
+        let isMultiDay = dStart !== dEnd;
 
-        // 4. Render Daftar Transaksi
-        let listHtml = details.length === 0 
-            ? `<div class="p-10 text-center text-slate-400 opacity-70 flex flex-col items-center justify-center h-full"><i class="fas fa-folder-open text-5xl mb-3"></i><p class="text-xs font-black uppercase tracking-widest">Tidak Ada Data</p></div>` 
-            : details.map((d, idx) => `
-            <div class="flex items-center justify-between p-3.5 border-b border-slate-100 hover:bg-slate-50 transition-colors group">
-                <div class="flex items-center gap-3 min-w-0 pr-2">
-                    <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${d.isQris ? 'bg-blue-50 text-blue-500 border border-blue-100' : 'bg-emerald-50 text-emerald-500 border border-emerald-100'} shadow-sm group-hover:scale-110 transition-transform">
-                        <i class="fas ${d.isQris ? 'fa-qrcode' : 'fa-money-bill-wave'} text-sm"></i>
-                    </div>
-                    <div class="min-w-0">
-                        <div class="font-extrabold text-xs text-slate-800 truncate cursor-pointer hover:text-[#E5202B] transition-colors" onclick="navigator.clipboard.writeText('${d.id}'); superApp.showToast('ID Struk disalin!','success')">${d.id}</div>
-                        <div class="text-[10px] font-bold text-slate-400 mt-0.5 flex flex-wrap gap-1.5 items-center">
-                            <span><i class="far fa-clock mr-0.5 opacity-70"></i>${String(d.wkt).split(' ')[1] || d.wkt}</span>
-                            <span class="text-slate-300">|</span>
-                            <span>Kasir: ${d.kasir}</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="text-right shrink-0 flex flex-col items-end">
-                    <div class="font-black text-[#4A3B32] text-sm">Rp ${d.nominal.toLocaleString('id-ID')}</div>
-                    <div class="text-[9px] font-black text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md mt-1 border border-slate-200 shadow-sm">${d.pcs} Pcs</div>
-                </div>
-            </div>
-        `).join('');
+        // Simpan Memori ke Global agar Dropdown Modal bisa memanipulasinya langsung
+        this._deepDiveData = { type, title, icon, colorBg, colorText, details, dStart, dEnd, totalRp, totalStruk, isMultiDay };
+        this._deepDiveState = { sort: 'waktu_desc', mode: 'detail' };
 
         // 5. Suntikkan Template Modal secara Dinamis
         let modalHtml = `
@@ -9074,20 +9056,46 @@ openDetailStokOpname: function(sku) {
                     </button>
                 </div>
 
-                <div class="px-5 py-4 bg-white flex justify-between items-center border-b border-slate-100 shadow-sm z-10 relative shrink-0">
-                    <div>
-                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Total Akumulasi</p>
-                        <h4 class="font-black text-xl ${colorText}">Rp ${totalRp.toLocaleString('id-ID')}</h4>
+                <div class="px-5 py-3 bg-white flex flex-col gap-3 border-b border-slate-100 shadow-sm z-10 relative shrink-0">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Total Akumulasi</p>
+                            <h4 class="font-black text-xl ${colorText}">Rp ${totalRp.toLocaleString('id-ID')}</h4>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Total Dokumen</p>
+                            <h4 class="font-black text-sm text-slate-700 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg">${totalStruk} Transaksi</h4>
+                        </div>
                     </div>
-                    <div class="text-right">
-                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Total Struk</p>
-                        <h4 class="font-black text-sm text-slate-700 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg">${totalStruk} Transaksi</h4>
+                    
+                    <div class="flex gap-2 mt-1">
+                        <!-- Dropdown Sorting -->
+                        <div class="flex-1 bg-slate-50 border border-slate-200 rounded-xl flex items-center px-3 shadow-inner relative group">
+                            <i class="fas fa-sort-amount-down text-slate-400 text-[10px] group-hover:text-brand-500 transition-colors"></i>
+                            <select onchange="superApp._deepDiveState.sort = this.value; superApp.renderDeepDiveList()" class="w-full bg-transparent border-none text-[10px] font-bold text-slate-600 py-2.5 pl-2 pr-4 outline-none appearance-none cursor-pointer">
+                                <option value="waktu_desc">Waktu (Baru - Lama)</option>
+                                <option value="waktu_asc">Waktu (Lama - Baru)</option>
+                                <option value="nilai_desc">Nilai (Besar - Kecil)</option>
+                                <option value="nilai_asc">Nilai (Kecil - Besar)</option>
+                            </select>
+                            <i class="fas fa-chevron-down absolute right-3 text-slate-400 text-[9px] pointer-events-none"></i>
+                        </div>
+                        
+                        <!-- Dropdown Mode Harian (Muncul Jika Tanggal > 1 Hari) -->
+                        ${isMultiDay ? `
+                        <div class="flex-1 bg-slate-50 border border-slate-200 rounded-xl flex items-center px-3 shadow-inner relative group">
+                            <i class="fas fa-layer-group text-slate-400 text-[10px] group-hover:text-brand-500 transition-colors"></i>
+                            <select onchange="superApp._deepDiveState.mode = this.value; superApp.renderDeepDiveList()" class="w-full bg-transparent border-none text-[10px] font-bold text-slate-600 py-2.5 pl-2 pr-4 outline-none appearance-none cursor-pointer">
+                                <option value="detail">Per Transaksi</option>
+                                <option value="harian">Total Per Hari</option>
+                            </select>
+                            <i class="fas fa-chevron-down absolute right-3 text-slate-400 text-[9px] pointer-events-none"></i>
+                        </div>` : ''}
                     </div>
                 </div>
 
-                <div class="flex-1 overflow-y-auto custom-scroll bg-white relative z-0">
-                    ${listHtml}
-                </div>
+                <!-- Kontainer List Dinamis -->
+                <div id="deepdive-list-container" class="flex-1 overflow-y-auto custom-scroll bg-slate-50 relative z-0 p-3"></div>
 
             </div>
         </div>`;
@@ -9096,6 +9104,9 @@ openDetailStokOpname: function(sku) {
         if (existingModal) existingModal.remove();
         
         document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // Render List Pertama Kali
+        this.renderDeepDiveList();
 
         // Animasi Tampil Masuk
         setTimeout(() => {
@@ -9109,6 +9120,112 @@ openDetailStokOpname: function(sku) {
         }, 10);
     },
     
+    renderDeepDiveList: function() {
+        const listCont = document.getElementById('deepdive-list-container');
+        if(!listCont || !this._deepDiveData) return;
+
+        let { details, type } = this._deepDiveData;
+        let { sort, mode } = this._deepDiveState;
+
+        let renderData = [];
+
+        // 1. Eksekusi Grouping (Jika mode harian dipilih)
+        if (mode === 'harian') {
+            let map = {};
+            details.forEach(d => {
+                if(!map[d.dateStr]) {
+                    // Konversi string tanggal ke format matematis untuk sorting
+                    let sortTime = 0;
+                    let mDate = d.dateStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+                    if(mDate) sortTime = new Date(`${mDate[3]}-${mDate[2].padStart(2,'0')}-${mDate[1].padStart(2,'0')}T00:00:00`).getTime();
+                    else sortTime = new Date(d.dateStr).getTime();
+                    
+                    map[d.dateStr] = { dateStr: d.dateStr, sortTime: sortTime, nominal: 0, pcs: 0, struk: 0 };
+                }
+                map[d.dateStr].nominal += d.nominal;
+                map[d.dateStr].pcs += d.pcs;
+                map[d.dateStr].struk++;
+            });
+            renderData = Object.values(map);
+        } else {
+            renderData = [...details];
+        }
+
+        // 2. Eksekusi Pengurutan (Sorting)
+        renderData.sort((a, b) => {
+            if (sort === 'waktu_desc') return b.sortTime - a.sortTime;
+            if (sort === 'waktu_asc') return a.sortTime - b.sortTime;
+            if (sort === 'nilai_desc') return b.nominal - a.nominal;
+            if (sort === 'nilai_asc') return a.nominal - b.nominal;
+            return 0;
+        });
+
+        // 3. Render HTML
+        let html = '';
+        if (renderData.length === 0) {
+            html = `<div class="p-10 text-center text-slate-400 opacity-70 flex flex-col items-center justify-center h-full"><i class="fas fa-folder-open text-5xl mb-3"></i><p class="text-xs font-black uppercase tracking-widest">Tidak Ada Data</p></div>`;
+        } else {
+            html = renderData.map(d => {
+                if (mode === 'harian') {
+                    // Tampilan Mode Total Harian
+                    return `
+                    <div class="flex items-center justify-between p-3.5 mb-2.5 bg-white rounded-[1rem] border border-slate-100 hover:border-[#FFB800]/50 hover:shadow-md transition-all group">
+                        <div class="flex items-center gap-3 min-w-0 pr-2">
+                            <div class="w-10 h-10 rounded-[0.85rem] flex items-center justify-center shrink-0 bg-[#FFF5D1] text-[#A87B00] border border-[#FFD874]/50 shadow-inner group-hover:scale-110 transition-transform">
+                                <i class="far fa-calendar-alt text-sm"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="font-extrabold text-xs text-slate-800 truncate group-hover:text-[#E5202B] transition-colors">${d.dateStr}</div>
+                                <div class="text-[10px] font-bold text-slate-400 mt-0.5 flex flex-wrap gap-1.5 items-center">
+                                    <span>${d.struk} Transaksi Hari Ini</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-right shrink-0 flex flex-col items-end">
+                            <div class="font-black text-[#4A3B32] text-sm">Rp ${d.nominal.toLocaleString('id-ID')}</div>
+                            <div class="text-[9px] font-black text-slate-500 bg-slate-50 px-2 py-0.5 rounded-md mt-1 border border-slate-200 shadow-sm">${d.pcs} Pcs Terjual</div>
+                        </div>
+                    </div>`;
+                } else {
+                    // Tampilan Mode Detail Transaksi (Per Struk)
+                    let iconBg = d.isQris ? 'bg-blue-50 text-blue-500 border-blue-100' : 'bg-emerald-50 text-emerald-500 border-emerald-100';
+                    let iconCl = d.isQris ? 'fa-qrcode' : 'fa-money-bill-wave';
+                    
+                    if (type === 'struk') {
+                        iconBg = 'bg-rose-50 text-rose-500 border-rose-100';
+                        iconCl = 'fa-receipt';
+                    } else if (type === 'omset') {
+                        iconBg = 'bg-[#FFF5D1] text-[#D49800] border-[#FFD874]/50';
+                        iconCl = 'fa-wallet';
+                    }
+
+                    return `
+                    <div class="flex items-center justify-between p-3.5 mb-2.5 bg-white rounded-[1rem] border border-slate-100 hover:border-brand-200 hover:shadow-md transition-all group">
+                        <div class="flex items-center gap-3 min-w-0 pr-2">
+                            <div class="w-10 h-10 rounded-[0.85rem] flex items-center justify-center shrink-0 shadow-inner ${iconBg} group-hover:scale-110 transition-transform">
+                                <i class="fas ${iconCl} text-sm"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="font-extrabold text-xs text-slate-800 truncate cursor-pointer hover:text-[#E5202B] transition-colors" onclick="navigator.clipboard.writeText('${d.id}'); superApp.showToast('ID Struk disalin!','success')" title="Klik untuk Salin">${d.id}</div>
+                                <div class="text-[10px] font-bold text-slate-400 mt-0.5 flex flex-wrap gap-1.5 items-center">
+                                    <span><i class="far fa-clock mr-0.5 opacity-70"></i>${String(d.wkt).split(' ')[1] || d.wkt}</span>
+                                    <span class="text-slate-200">|</span>
+                                    <span class="truncate max-w-[80px] sm:max-w-[120px]">Kasir: ${d.kasir}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-right shrink-0 flex flex-col items-end">
+                            <div class="font-black text-[#4A3B32] text-sm">Rp ${d.nominal.toLocaleString('id-ID')}</div>
+                            <div class="text-[9px] font-black text-slate-500 bg-slate-50 px-2 py-0.5 rounded-md mt-1 border border-slate-200 shadow-sm">${d.pcs} Pcs</div>
+                        </div>
+                    </div>`;
+                }
+            }).join('');
+        }
+
+        listCont.innerHTML = html;
+    },
+
     closeReportDeepDive: function() {
         let el = document.getElementById('modal-report-deepdive');
         if (el) {

@@ -13206,10 +13206,33 @@ openAIDeepDive: function(type, param) {
             return { key: k, ...d, saved: savedKasbon };
         });
 
-        // 4. Render Interface List (Akan disortir & filter otomatis)
+        // 🚀 HITUNG AKUMULASI (SUMMARY)
+        let countSesuai = 0, countSelisih = 0, countPending = 0;
+        
+        this._rekonDataList.qris.forEach(d => {
+            if(d.saved.status === 'Sesuai') countSesuai++;
+            else if(d.saved.status === 'Selisih') countSelisih++;
+            else countPending++;
+        });
+        this._rekonDataList.cash.forEach(d => {
+            if(d.saved.status === 'Sesuai') countSesuai++;
+            else if(d.saved.status === 'Selisih') countSelisih++;
+            else countPending++;
+        });
+        this._rekonDataList.kasbon.forEach(d => {
+            if(d.saved.lunas) countSesuai++; 
+            else countSelisih++; // Jika belum lunas masuk ke hutang/selisih
+        });
+
+        if(document.getElementById('rekon-sum-sesuai')) document.getElementById('rekon-sum-sesuai').innerText = countSesuai;
+        if(document.getElementById('rekon-sum-selisih')) document.getElementById('rekon-sum-selisih').innerText = countSelisih;
+        if(document.getElementById('rekon-sum-pending')) document.getElementById('rekon-sum-pending').innerText = countPending;
+
+        // 4. Render Interface List
         this.updateRekonListUI();
     },
-
+       
+     
     // =========================================================
     // 🚀 MESIN RENDER LIST INTERAKTIF (SEARCH, SORT, FILTER)
     // =========================================================
@@ -13638,6 +13661,153 @@ openAIDeepDive: function(type, param) {
         };
 
         html2pdf().set(opt).from(tempDiv).save().then(() => tempDiv.remove());
+    },
+
+    // =========================================================
+    // 🚀 ENGINE EKSPOR: WHATSAPP FORWARD & PDF CORPORATE
+    // =========================================================
+    exportRekonWA: function() {
+        let start = document.getElementById('rekon-filter-start').value;
+        let end = document.getElementById('rekon-filter-end').value;
+        let outlet = document.getElementById('rekon-filter-outlet').value;
+        
+        let cSesuai = document.getElementById('rekon-sum-sesuai').innerText;
+        let cSelisih = document.getElementById('rekon-sum-selisih').innerText;
+        let cPending = document.getElementById('rekon-sum-pending').innerText;
+
+        let txt = `*📊 LAPORAN AUDIT & REKONSILIASI KEUANGAN*\n\n`;
+        txt += `🏢 Cabang: *${outlet}*\n`;
+        txt += `📅 Periode: *${start} s/d ${end}*\n\n`;
+
+        txt += `*📈 RINGKASAN STATUS PENGECEKAN:*\n`;
+        txt += `✅ Sesuai / Lunas : *${cSesuai}* Data\n`;
+        txt += `❌ Selisih / Hutang : *${cSelisih}* Data\n`;
+        txt += `⏳ Belum Diperiksa : *${cPending}* Data\n\n`;
+
+        let selisihList = [];
+        this._rekonDataList.qris.forEach(d => { if(d.saved.status !== 'Sesuai') selisihList.push(`[QRIS] ${d.tgl} ${d.outlet} - ${d.saved.status.toUpperCase()}`); });
+        this._rekonDataList.cash.forEach(d => { if(d.saved.status !== 'Sesuai') selisihList.push(`[CASH] ${d.tgl} ${d.outlet} - ${d.saved.status.toUpperCase()}`); });
+        this._rekonDataList.kasbon.forEach(d => { if(!d.saved.lunas) selisihList.push(`[OPEX] ${d.tgl} ${d.nama} - BLM LUNAS`); });
+
+        if(selisihList.length > 0) {
+            txt += `*⚠️ DAFTAR ATENSI (BELUM BERES):*\n`;
+            selisihList.slice(0, 15).forEach((x, i) => txt += `${i+1}. ${x}\n`);
+            if(selisihList.length > 15) txt += `\n_...dan ${selisihList.length - 15} data bermasalah lainnya._\n`;
+            txt += `\n*Mohon segera diperiksa di Aplikasi ERP!*\n`;
+        } else {
+            txt += `_Semua mutasi bank & fisik kasir sudah *100% BALANCE & SESUAI!* 🎉_\n`;
+        }
+
+        let waUrl = `https://wa.me/?text=${encodeURIComponent(txt)}`;
+        window.open(waUrl, '_blank');
+    },
+
+    exportRekonPDF: function() {
+        this.showToast("Menyiapkan Laporan PDF...", "info");
+        
+        let start = document.getElementById('rekon-filter-start').value;
+        let end = document.getElementById('rekon-filter-end').value;
+        let outlet = document.getElementById('rekon-filter-outlet').value;
+
+        let totalQrisBank = document.getElementById('rekon-total-qris-bank').innerText;
+        let cSesuai = document.getElementById('rekon-sum-sesuai').innerText;
+        let cSelisih = document.getElementById('rekon-sum-selisih').innerText;
+        let cPending = document.getElementById('rekon-sum-pending').innerText;
+
+        // Fungsi Render Tabel Rincian PDF
+        const renderTableRows = (arr, type) => {
+            if(arr.length === 0) return `<tr><td colspan="4" style="text-align:center; padding:10px; color:#94a3b8; font-style:italic;">Tidak ada atensi/selisih</td></tr>`;
+            let rows = '';
+            arr.forEach(d => {
+                let badge = type === 'kasbon' ? (!d.saved.lunas ? '<span style="color:#e11d48; font-weight:bold;">HUTANG</span>' : '<span style="color:#059669;">LUNAS</span>') : 
+                            (d.saved.status === 'Selisih' ? '<span style="color:#e11d48; font-weight:bold;">SELISIH</span>' : (d.saved.status === 'Pending' ? '<span style="color:#d97706;">PENDING</span>' : '<span style="color:#059669;">SESUAI</span>'));
+                
+                let ket = type === 'kasbon' ? d.nama : (d.saved.note || '-');
+                let target = type === 'kasbon' ? d.nominal : d.total;
+                
+                rows += `<tr>
+                    <td style="padding:8px; border-bottom:1px solid #e2e8f0; font-size:11px;">${d.tgl} <br> <span style="font-size:9px; color:#64748b;">${d.outlet}</span></td>
+                    <td style="padding:8px; border-bottom:1px solid #e2e8f0; font-size:11px; text-align:right;">Rp ${target.toLocaleString('id-ID')}</td>
+                    <td style="padding:8px; border-bottom:1px solid #e2e8f0; font-size:11px; text-align:center;">${badge}</td>
+                    <td style="padding:8px; border-bottom:1px solid #e2e8f0; font-size:10px; color:#475569;">${ket}</td>
+                </tr>`;
+            });
+            return rows;
+        };
+
+        // Filter Hanya Menampilkan yang Bermasalah/Pending
+        let badQris = this._rekonDataList.qris.filter(d => d.saved.status !== 'Sesuai');
+        let badCash = this._rekonDataList.cash.filter(d => d.saved.status !== 'Sesuai');
+        let badKasbon = this._rekonDataList.kasbon.filter(d => !d.saved.lunas);
+
+        let pdfHtml = `
+            <div style="padding: 30px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1e293b;">
+                <div style="border-bottom: 2px solid #06b6d4; padding-bottom: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end;">
+                    <div>
+                        <h1 style="color: #0891b2; margin: 0; font-size: 24px;">Laporan Audit & Rekonsiliasi</h1>
+                        <p style="margin: 5px 0 0 0; color: #64748b; font-size: 12px;">Sistem ERP Terpadu - Ai-Snack & Ai-CHA</p>
+                    </div>
+                    <div style="text-align: right; font-size: 12px; color: #475569;">
+                        <strong>Tgl Cetak:</strong> ${new Date().toLocaleString('id-ID')}<br>
+                        <strong>Periode:</strong> ${start} s/d ${end}<br>
+                        <strong>Cabang:</strong> ${outlet}
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 15px; margin-bottom: 25px;">
+                    <div style="flex: 1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; text-align: center;">
+                        <div style="font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: bold;">✅ Sesuai / Lunas</div>
+                        <div style="font-size: 24px; font-weight: bold; color: #059669;">${cSesuai}</div>
+                    </div>
+                    <div style="flex: 1; background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 15px; text-align: center;">
+                        <div style="font-size: 10px; color: #e11d48; text-transform: uppercase; font-weight: bold;">❌ Selisih / Hutang</div>
+                        <div style="font-size: 24px; font-weight: bold; color: #be123c;">${cSelisih}</div>
+                    </div>
+                    <div style="flex: 1; background: #fdf6e3; border: 1px solid #fef08a; border-radius: 8px; padding: 15px; text-align: center;">
+                        <div style="font-size: 10px; color: #d97706; text-transform: uppercase; font-weight: bold;">⏳ Pending</div>
+                        <div style="font-size: 24px; font-weight: bold; color: #b45309;">${cPending}</div>
+                    </div>
+                </div>
+
+                <h3 style="font-size: 14px; margin-bottom: 10px; color: #0f172a; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">⚠️ Rincian Daftar Atensi (Selisih / Pending / Belum Lunas)</h3>
+                
+                <h4 style="font-size: 12px; margin-bottom: 5px; color: #0284c7;">1. Mutasi QRIS & Transfer</h4>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
+                    <thead style="background: #e0f2fe; color: #0369a1; font-size: 10px;"><tr><th style="padding:6px; text-align:left;">Tgl & Cabang</th><th style="padding:6px; text-align:right;">Target Sistem</th><th style="padding:6px; text-align:center;">Status</th><th style="padding:6px; text-align:left;">Catatan</th></tr></thead>
+                    <tbody>${renderTableRows(badQris, 'qris')}</tbody>
+                </table>
+
+                <h4 style="font-size: 12px; margin-bottom: 5px; color: #059669;">2. Mutasi Cash / Brankas</h4>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
+                    <thead style="background: #d1fae5; color: #047857; font-size: 10px;"><tr><th style="padding:6px; text-align:left;">Tgl & Cabang</th><th style="padding:6px; text-align:right;">Target Sistem</th><th style="padding:6px; text-align:center;">Status</th><th style="padding:6px; text-align:left;">Catatan</th></tr></thead>
+                    <tbody>${renderTableRows(badCash, 'cash')}</tbody>
+                </table>
+
+                <h4 style="font-size: 12px; margin-bottom: 5px; color: #b45309;">3. Piutang Kasbon & OPEX</h4>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
+                    <thead style="background: #fef3c7; color: #b45309; font-size: 10px;"><tr><th style="padding:6px; text-align:left;">Tgl & Cabang</th><th style="padding:6px; text-align:right;">Nominal Total</th><th style="padding:6px; text-align:center;">Status</th><th style="padding:6px; text-align:left;">Keterangan / Nama</th></tr></thead>
+                    <tbody>${renderTableRows(badKasbon, 'kasbon')}</tbody>
+                </table>
+            </div>
+        `;
+
+        let tempDiv = document.createElement('div');
+        tempDiv.innerHTML = pdfHtml;
+        tempDiv.style.position = 'absolute'; tempDiv.style.left = '-9999px'; tempDiv.style.top = '-9999px';
+        document.body.appendChild(tempDiv);
+
+        const opt = { 
+            margin: 0.5, 
+            filename: `Audit_Rekon_${outlet}_${start}.pdf`, 
+            image: { type: 'jpeg', quality: 0.98 }, 
+            html2canvas: { scale: 2, useCORS: true }, 
+            jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' } 
+        };
+
+        html2pdf().set(opt).from(tempDiv).save().then(() => {
+            tempDiv.remove();
+            this.showToast("Laporan PDF berhasil diunduh!", "success");
+        });
     },
 
 

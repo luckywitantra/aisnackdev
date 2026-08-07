@@ -925,7 +925,7 @@
         </div>
 
         <!-- Pill Tabs Selector Super Compact -->
-        <div class="flex bg-slate-100 p-1 rounded-xl border border-slate-200/80 w-full mb-2 shrink-0 z-10 shadow-inner">
+        <div class="flex bg-slate-100 p-1 rounded-xl border border-slate-200/80 w-full mb-2 shrink-0 z-20 shadow-inner">
             <button onclick="superApp.switchRekonTab('qris')" id="subtab-rekon-qris" class="flex-1 py-2 px-1 bg-white text-blue-600 rounded-lg text-[10px] font-black shadow-sm transition flex items-center justify-center gap-1.5 border border-slate-200/50">
                 <i class="fas fa-qrcode text-[11px]"></i> QRIS
             </button>
@@ -935,6 +935,37 @@
             <button onclick="superApp.switchRekonTab('kasbon')" id="subtab-rekon-kasbon" class="flex-1 py-2 px-1 text-slate-500 hover:text-slate-700 rounded-lg text-[10px] font-bold transition flex items-center justify-center gap-1.5 border border-transparent">
                 <i class="fas fa-hand-holding-usd text-[11px]"></i> OPEX
             </button>
+        </div>
+
+        <!-- 🚀 KONTROL LIST INTERAKTIF (SEARCH, SORT & FILTER) -->
+        <div class="flex flex-col sm:flex-row gap-2 mb-2 bg-white p-2 rounded-xl shadow-sm border border-slate-100 z-20 sticky top-0">
+            <div class="relative flex-1">
+                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]"></i>
+                <input type="text" id="rekon-search" oninput="superApp._rekonState.search = this.value; superApp.updateRekonListUI();" placeholder="Cari cabang, nominal, atau catatan..." class="w-full bg-slate-50 hover:bg-white border border-slate-200 rounded-lg pl-8 pr-3 py-1.5 text-[10px] font-bold text-slate-700 outline-none focus:border-cyan-400 transition-all shadow-inner focus:shadow-sm">
+            </div>
+            <div class="flex gap-2 shrink-0">
+                <div class="relative bg-slate-50 border border-slate-200 rounded-lg flex items-center px-2 shadow-inner group cursor-pointer hover:border-cyan-300 transition-colors">
+                    <i class="fas fa-sort-amount-down text-slate-400 text-[10px] group-hover:text-cyan-500 transition-colors"></i>
+                    <select id="rekon-sort" onchange="superApp._rekonState.sort = this.value; superApp.updateRekonListUI();" class="bg-transparent border-none text-[9px] font-black text-slate-600 py-2 pl-1.5 pr-4 outline-none appearance-none cursor-pointer">
+                        <option value="date_desc">Tgl Terbaru</option>
+                        <option value="date_asc">Tgl Terlama</option>
+                        <option value="nom_desc">Nominal Tertinggi</option>
+                        <option value="nom_asc">Nominal Terendah</option>
+                        <option value="out_az">Cabang A-Z</option>
+                    </select>
+                    <i class="fas fa-chevron-down absolute right-2 text-slate-400 text-[8px] pointer-events-none"></i>
+                </div>
+                <div class="relative bg-slate-50 border border-slate-200 rounded-lg flex items-center px-2 shadow-inner group cursor-pointer hover:border-cyan-300 transition-colors">
+                    <i class="fas fa-filter text-slate-400 text-[10px] group-hover:text-cyan-500 transition-colors"></i>
+                    <select id="rekon-status" onchange="superApp._rekonState.status = this.value; superApp.updateRekonListUI();" class="bg-transparent border-none text-[9px] font-black text-slate-600 py-2 pl-1.5 pr-4 outline-none appearance-none cursor-pointer">
+                        <option value="all">Semua Status</option>
+                        <option value="Sesuai">✅ Sesuai / Lunas</option>
+                        <option value="Selisih">❌ Selisih / Sisa</option>
+                        <option value="Pending">⏳ Pending</option>
+                    </select>
+                    <i class="fas fa-chevron-down absolute right-2 text-slate-400 text-[8px] pointer-events-none"></i>
+                </div>
+            </div>
         </div>
 
         <!-- 🚀 Area Daftar Dinamis (List Card View) -->
@@ -3421,7 +3452,7 @@
 
   
 <!-- 1. PANGGIL APP.JS TERLEBIH DAHULU -->
-  <script src="app.js?v=690"></script>
+  <script src="app.js?v=691"></script>
 
   <!-- 2. BARU JALANKAN SCRIPT INLINE ANDA -->
   <script>

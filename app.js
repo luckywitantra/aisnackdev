@@ -6439,7 +6439,7 @@ refreshData: function() {
     },
     
     // PENAMBAHAN SISTEM NOMOR ANTRIAN (OPTIMISTIC UI - INSTANT CHECKOUT)
-    executeCheckout: async function() {
+   executeCheckout: async function() {
         if (this.isProcessing) return; 
         if (this.cart.length === 0) {
             this.showToast("Keranjang kosong! Transaksi dicegah.", "error");
@@ -6532,22 +6532,32 @@ refreshData: function() {
 
         // 🚀 CETAK DUAL STRUK (PELANGGAN & DAPUR)
         if (isPrintSuccess) {
-            // 1. Cetak Struk Pelanggan (Mode Normal)
-            this.printReceipt(trxID, this.outlet, this.payTotal, this.payCash, this.payChange, this.cart, 'Sukses', null, noAntrian, false, this.payMethod, 'customer')
+            // 🛠️ PERBAIKAN 1: Kloning data keranjang sebelum dihapus oleh sistem di bawah
+            let printItems = JSON.parse(JSON.stringify(this.cart));
+            let printTotal = this.payTotal;
+            let printCash = this.payCash;
+            let printChange = this.payChange;
+            let printMethod = this.payMethod;
+
+            // Cetak Struk Pelanggan
+            this.printReceipt(trxID, this.outlet, printTotal, printCash, printChange, printItems, 'Sukses', null, noAntrian, false, printMethod, 'customer')
             .then(() => {
-                // 2. Beri jeda 2 detik agar kertas bisa disobek/terpotong, lalu cetak Struk Dapur
+                // Jeda 1.5 detik (dipercepat), lalu cetak Struk Dapur menggunakan memori kloning
                 setTimeout(() => {
-                    this.printReceipt(trxID, this.outlet, this.payTotal, this.payCash, this.payChange, this.cart, 'Sukses', null, noAntrian, false, this.payMethod, 'kitchen');
-                }, 2000);
+                    this.printReceipt(trxID, this.outlet, printTotal, printCash, printChange, printItems, 'Sukses', null, noAntrian, false, printMethod, 'kitchen');
+                }, 1500); 
             })
             .catch(e => console.log("Gagal print background"));
         }
 
         this._lastPaidTotal = this.payTotal;
         this._lastPaidChange = this.payChange;
+        
+        // Keranjang dikosongkan di sini (sekarang aman karena printer sudah punya kopiannya)
         this.cart = []; 
         this.payCash = 0; 
         this.payTotal = 0;
+        
         this.renderCart(); 
         this.syncStorage('paid', noAntrian); 
         this.closeModal('modal-payment'); 
@@ -14034,17 +14044,15 @@ openAIDeepDive: function(type, param) {
             let valKembali = Number(kembali || 0);
 
             let template = [];
-            // BACA TEMPLATE BERDASARKAN MODE
             let storageKey = receiptMode === 'kitchen' ? 'aisnack_kitchen_receipt_template' : 'aisnack_receipt_template';
             try { template = JSON.parse(localStorage.getItem(storageKey)); } catch(e) {}
             
-            // Fallback Template Dapur (Fokus ke Qty & Nama)
             if ((!template || template.length === 0) && receiptMode === 'kitchen') {
                 template = [
                     { type: 'text', content: '*** TIKET DAPUR ***', align: 'center', size: 'normal', bold: true },
                     { type: 'text', content: 'ANTRIAN: {{no_antrian}}', align: 'center', size: 'double', bold: true },
                     { type: 'divider', style: 'dashed' },
-                    { type: 'body_transaction' }, // Body Dapur akan otomatis menyembunyikan harga
+                    { type: 'body_transaction' }, 
                     { type: 'divider', style: 'dashed' }
                 ];
             } else if (!template || template.length === 0) {
@@ -14092,37 +14100,36 @@ openAIDeepDive: function(type, param) {
                     
                     if (statStr) str += `\x1B\x61\x01\x1B\x45\x01${statStr}\x1B\x45\x00\x1B\x61\x00`;
                     
-                    // Cetak Antrian hanya di Struk Pelanggan (Struk dapur pakai format text replace)
                     if (antrianStr && receiptMode === 'customer') str += `\x1B\x61\x01\x1B\x45\x01${antrianStr}\x1B\x45\x00\x1B\x61\x00`;
 
                     if (receiptMode === 'kitchen') {
-                        // 🚀 CETAKAN DAPUR: Tanpa Harga, Huruf Besar
-                        str += "\x1D\x21\x11"; // Double Height & Width
+                        str += "\x1D\x21\x11"; 
                         items.forEach(i => {
                             str += `${i.qty} x ${i.nama}\n`;
                             if (i.catatan) {
-                                str += `\x1D\x21\x00\x1B\x45\x01   *${i.catatan}*\x1B\x45\x00\n\x1D\x21\x11`; // Catatan kecil tebal
+                                str += `\x1D\x21\x00\x1B\x45\x01   *${i.catatan}*\x1B\x45\x00\n\x1D\x21\x11`; 
                             }
                         });
-                        str += "\x1D\x21\x00"; // Reset ukuran
+                        str += "\x1D\x21\x00"; 
                     } else {
-                        // 🚀 CETAKAN PELANGGAN: Normal
                         items.forEach(i => {
                             str += `${i.nama}\n${i.qty} x Rp ${Number(i.price).toLocaleString('id-ID')} = Rp ${(i.price * i.qty).toLocaleString('id-ID')}\n`;
                         });
 
                         str += "--------------------------------\n";
-                        str += "\x1B\x61\x02"; // Right Align
+                        str += "\x1B\x61\x02"; 
                         str += `\x1B\x45\x01TOTAL   : Rp ${Number(total).toLocaleString('id-ID')}\n\x1B\x45\x00`;
                         str += `${labelBayar.padEnd(8)}: Rp ${valBayar.toLocaleString('id-ID')}\n`;
                         str += `KEMBALI : Rp ${valKembali.toLocaleString('id-ID')}\n`;
-                        str += "\x1B\x61\x00"; // Reset to Left Align
+                        str += "\x1B\x61\x00"; 
                     }
                 }
             }
 
-            // Perintah ESC/POS potong kertas (Jika printer mendukung Full Cut)
-            str += "\n\n\n\n\x1D\x56\x41\x03"; 
+            // 🛠️ PERBAIKAN 2: Mengurangi \n dari 4 baris menjadi 2 baris agar kertas tidak terbuang sia-sia
+            // (Memperpendek jarak antara struk pelanggan dan struk dapur)
+            str += "\n\n\x1D\x56\x41\x03"; 
+            
             printQueue.push(new TextEncoder().encode(str));
             
             for (let chunk of printQueue) {

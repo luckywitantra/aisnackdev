@@ -9415,89 +9415,105 @@ openDetailStokOpname: function(sku) {
         let existing = document.getElementById('dynamic-insight-modal');
         if(existing) existing.remove(); // Bersihkan modal lama jika ada
 
-        // Format angka dengan titik pemisah ribuan jika berupa angka/number
+        // Format angka dengan titik pemisah ribuan
         const formatVal = (val, prefix = '') => {
             if (val === undefined || val === null || val === 'N/A') return '-';
             return !isNaN(val) ? prefix + Number(val).toLocaleString('id-ID') : val;
         };
 
+        // 🚀 SMART LOGIC: Deteksi Tren Naik/Turun untuk Warna Ikon
+        let isNaik = String(tren).toLowerCase().includes('naik') || String(tren).includes('+');
+        let trendColor = isNaik ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-rose-600 bg-rose-50 border-rose-100';
+        let trendIcon = isNaik ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down';
+
+        // 🚀 SMART LOGIC: Animasi Tutup Mulus (Bisa dipanggil dari tombol silang, tombol tutup, atau backdrop)
+        let closeLogic = "let m = document.getElementById('dynamic-insight-modal'); let c = document.getElementById('dim-card'); m.classList.add('opacity-0'); c.classList.replace('scale-100','scale-95'); setTimeout(()=>m.remove(), 300);";
+
         let modalHtml = `
-        <div id="dynamic-insight-modal" class="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4 animate-fade-in transition-opacity duration-300">
-            <div class="bg-white/95 backdrop-blur-md rounded-[2.5rem] shadow-[0_20px_60px_rgba(229,32,43,0.2)] border border-white w-full max-w-sm overflow-hidden flex flex-col transform scale-95 transition-transform duration-400" id="dim-card">
+        <div id="dynamic-insight-modal" class="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 transition-opacity duration-300 opacity-0" onclick="if(event.target === this) { ${closeLogic} }">
+            <div class="bg-white/95 backdrop-blur-md rounded-[2.5rem] shadow-[0_20px_60px_rgba(229,32,43,0.25)] border border-white w-full max-w-sm overflow-hidden flex flex-col transform scale-95 transition-transform duration-300" id="dim-card">
                 
                 <!-- HEADER AI-SNACK -->
-                <div class="bg-gradient-to-br from-[#E5202B] to-[#FFB800] p-6 relative overflow-hidden">
+                <div class="bg-gradient-to-br from-[#E5202B] to-[#FFB800] p-6 relative overflow-hidden shrink-0">
                     <div class="absolute -right-10 -top-10 w-32 h-32 bg-white/30 rounded-full blur-3xl"></div>
-                    <button onclick="document.getElementById('dynamic-insight-modal').remove()" class="absolute top-5 right-5 w-8 h-8 bg-black/10 hover:bg-black/20 rounded-full flex items-center justify-center text-white backdrop-blur-md z-10 transition-colors"><i class="fas fa-xmark text-sm"></i></button>
+                    
+                    <!-- 🚀 PERBAIKAN: Tombol Close digeser ke kanan (right-3), ukuran pas untuk jempol -->
+                    <button onclick="${closeLogic}" class="absolute top-4 right-3 w-8 h-8 bg-black/10 hover:bg-black/25 rounded-full flex items-center justify-center text-white backdrop-blur-md z-20 transition-all active:scale-95 cursor-pointer">
+                        <i class="fas fa-xmark text-sm drop-shadow-md"></i>
+                    </button>
                     
                     <div class="relative z-10 text-white pr-6">
-                        <span class="text-[9px] font-black text-[#FFF5D1] uppercase tracking-widest mb-1 bg-black/10 px-2.5 py-1 rounded-md shadow-sm inline-block"><i class="fas fa-brain mr-1"></i> AI ANALITIK</span>
-                        <h2 class="text-lg font-black leading-tight drop-shadow-md mt-1">${title}</h2>
-                        <p class="text-[10px] font-bold text-rose-100 mt-1 drop-shadow-sm">${subtitle}</p>
+                        <span class="text-[9px] font-black text-[#FFF5D1] uppercase tracking-widest mb-1.5 bg-black/20 px-2.5 py-1 rounded-lg shadow-sm inline-flex items-center gap-1.5 backdrop-blur-md"><i class="fas fa-sparkles text-amber-300"></i> AI ANALITIK</span>
+                        <h2 class="text-xl font-black leading-tight drop-shadow-md mt-1">${title}</h2>
+                        <p class="text-[10px] font-bold text-rose-100 mt-1 drop-shadow-sm opacity-95">${subtitle}</p>
                     </div>
                 </div>
                 
-                <div class="p-5 md:p-6 bg-[#FFF5D1]/30 flex-1 overflow-y-auto custom-scroll max-h-[60vh]">
-                    <!-- JAM SIBUK -->
-                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-4 flex items-center gap-4 group hover:-translate-y-0.5 transition-transform">
-                        <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center text-lg shrink-0 group-hover:scale-110 transition-transform"><i class="fas fa-clock"></i></div>
+                <div class="p-5 md:p-6 bg-[#FFF5D1]/20 flex-1 overflow-y-auto custom-scroll max-h-[65vh]">
+                    
+                    <!-- 🚀 FITUR BARU: Kotak Saran AI Assistant -->
+                    <div class="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/60 p-3.5 rounded-2xl mb-4 flex gap-3 items-start shadow-inner">
+                        <div class="w-8 h-8 rounded-full bg-amber-200/50 flex justify-center items-center text-amber-600 shrink-0 mt-0.5"><i class="fas fa-robot text-sm"></i></div>
                         <div>
-                            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Waktu Paling Sibuk</p>
-                            <p class="font-black text-[#4A3B32] text-sm">${peakHour}</p>
+                            <p class="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-0.5">Saran Asisten AI</p>
+                            <p class="text-[10px] font-bold text-slate-600 leading-relaxed">Persiapkan stok operasional ekstra pada <b class="text-amber-700">${peakHour}</b> untuk memaksimalkan omzet harian Anda!</p>
                         </div>
                     </div>
-                    
-                    <!-- 📊 GRID METRIK BARU (Cash, QRIS, Stok, Tren) -->
-                    <div class="grid grid-cols-2 gap-3 mb-5">
-                        <!-- Kartu Cash -->
-                        <div class="bg-white p-3 rounded-2xl shadow-sm border border-emerald-100 flex flex-col gap-1 relative overflow-hidden group">
-                            <div class="absolute -right-2 -bottom-2 text-emerald-50 opacity-60 group-hover:scale-110 transition-transform duration-300"><i class="fas fa-money-bill-wave text-5xl"></i></div>
-                            <span class="text-[9px] font-black text-emerald-600 uppercase tracking-widest relative z-10">Cash</span>
+
+                    <!-- 📊 GRID METRIK MODERN -->
+                    <div class="grid grid-cols-2 gap-3 mb-4">
+                        <div class="bg-white p-3.5 rounded-2xl shadow-sm border border-emerald-100 flex flex-col gap-1 relative overflow-hidden group hover:border-emerald-300 transition-colors cursor-default">
+                            <div class="absolute -right-2 -bottom-2 text-emerald-50 opacity-60 group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-300"><i class="fas fa-money-bill-wave text-5xl"></i></div>
+                            <span class="text-[9px] font-black text-emerald-600 uppercase tracking-widest relative z-10">Total Cash</span>
                             <span class="font-black text-slate-800 text-sm relative z-10 truncate">${formatVal(totalCash, 'Rp ')}</span>
                         </div>
                         
-                        <!-- Kartu QRIS -->
-                        <div class="bg-white p-3 rounded-2xl shadow-sm border border-sky-100 flex flex-col gap-1 relative overflow-hidden group">
-                            <div class="absolute -right-2 -bottom-2 text-sky-50 opacity-60 group-hover:scale-110 transition-transform duration-300"><i class="fas fa-qrcode text-5xl"></i></div>
-                            <span class="text-[9px] font-black text-sky-600 uppercase tracking-widest relative z-10">QRIS</span>
+                        <div class="bg-white p-3.5 rounded-2xl shadow-sm border border-sky-100 flex flex-col gap-1 relative overflow-hidden group hover:border-sky-300 transition-colors cursor-default">
+                            <div class="absolute -right-2 -bottom-2 text-sky-50 opacity-60 group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-300"><i class="fas fa-qrcode text-5xl"></i></div>
+                            <span class="text-[9px] font-black text-sky-600 uppercase tracking-widest relative z-10">Total QRIS</span>
                             <span class="font-black text-slate-800 text-sm relative z-10 truncate">${formatVal(totalQris, 'Rp ')}</span>
                         </div>
 
-                        <!-- Kartu Stok -->
-                        <div class="bg-white p-3 rounded-2xl shadow-sm border border-amber-100 flex flex-col gap-1 relative overflow-hidden group">
-                            <div class="absolute -right-2 -bottom-2 text-amber-50 opacity-60 group-hover:scale-110 transition-transform duration-300"><i class="fas fa-box-open text-5xl"></i></div>
+                        <div class="bg-white p-3.5 rounded-2xl shadow-sm border border-amber-100 flex flex-col gap-1 relative overflow-hidden group hover:border-amber-300 transition-colors cursor-default">
+                            <div class="absolute -right-2 -bottom-2 text-amber-50 opacity-60 group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300"><i class="fas fa-box-open text-5xl"></i></div>
                             <span class="text-[9px] font-black text-amber-600 uppercase tracking-widest relative z-10">Sisa Stok</span>
                             <span class="font-black text-slate-800 text-sm relative z-10 truncate">${formatVal(stok)} Pcs</span>
                         </div>
 
-                        <!-- Kartu Tren -->
-                        <div class="bg-white p-3 rounded-2xl shadow-sm border border-fuchsia-100 flex flex-col gap-1 relative overflow-hidden group">
-                            <div class="absolute -right-2 -bottom-2 text-fuchsia-50 opacity-60 group-hover:scale-110 transition-transform duration-300"><i class="fas fa-chart-line text-5xl"></i></div>
-                            <span class="text-[9px] font-black text-fuchsia-600 uppercase tracking-widest relative z-10">Tren (7 Hari)</span>
-                            <span class="font-black text-slate-800 text-sm relative z-10 truncate">${tren}</span>
+                        <div class="bg-white p-3.5 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-1 relative overflow-hidden group hover:shadow-md transition-shadow cursor-default">
+                            <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest relative z-10">Tren (7 Hari)</span>
+                            <div class="flex items-center gap-1.5 mt-0.5 relative z-10">
+                                <div class="w-6 h-6 rounded-full ${trendColor} flex items-center justify-center text-[10px] shadow-inner"><i class="fas ${trendIcon}"></i></div>
+                                <span class="font-black text-slate-700 text-[11px] truncate">${tren}</span>
+                            </div>
                         </div>
                     </div>
                     
                     <!-- KONTEN DINAMIS -->
-                    <div class="space-y-2.5">
-                        <p class="text-[9px] font-black text-[#A87B00] uppercase tracking-widest ml-1 mb-1 flex items-center gap-1.5"><i class="fas fa-list-ul"></i> Rincian Data</p>
-                        ${contentHtml}
+                    <div class="space-y-2 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm relative z-10">
+                        <p class="text-[9px] font-black text-[#A87B00] uppercase tracking-widest flex items-center gap-1.5 border-b border-slate-100 pb-2 mb-2"><i class="fas fa-chart-pie text-[#E5202B]"></i> Rincian Data</p>
+                        <div class="text-xs font-medium text-slate-600 space-y-1">
+                            ${contentHtml}
+                        </div>
                     </div>
                 </div>
 
-                <!-- FOOTER TOMBOL -->
-                <div class="p-4 bg-white border-t border-slate-100 text-center shrink-0">
-                    <button onclick="document.getElementById('dynamic-insight-modal').remove()" class="w-full py-3 bg-slate-100 hover:bg-rose-50 hover:text-[#E5202B] text-[#4A3B32] font-black rounded-[1.25rem] text-xs transition-colors shadow-sm active:scale-95 border border-transparent hover:border-rose-100">Tutup Analitik</button>
+                <!-- 🚀 FOOTER TOMBOL GANDA -->
+                <div class="p-4 bg-white border-t border-slate-100 flex gap-2 shrink-0 z-10">
+                    <button onclick="${closeLogic}" class="flex-1 py-3.5 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-[#E5202B] font-black rounded-xl text-xs transition-colors shadow-sm active:scale-95 border border-transparent flex items-center justify-center gap-1.5"><i class="fas fa-times"></i> Tutup</button>
+                    <button onclick="if(typeof superApp !== 'undefined' && superApp.showToast) superApp.showToast('Membuka menu bagikan...', 'info'); else alert('Laporan Siap Dibagikan!');" class="flex-1 py-3.5 bg-gradient-to-r from-[#E5202B] to-[#FFB800] hover:from-[#d11c26] hover:to-[#e6a600] text-white font-black rounded-xl text-xs transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5"><i class="fas fa-share-nodes"></i> Bagikan</button>
                 </div>
             </div>
         </div>`;
 
         document.body.insertAdjacentHTML('beforeend', modalHtml);
         
-        // Picu animasi scale up (Bouncy effect)
+        // 🚀 Picu animasi masuk (Fade & Bounce)
         setTimeout(() => {
+            const modal = document.getElementById('dynamic-insight-modal');
             const card = document.getElementById('dim-card');
-            if(card) {
+            if(modal && card) {
+                modal.classList.remove('opacity-0');
                 card.classList.remove('scale-95');
                 card.classList.add('scale-100');
             }

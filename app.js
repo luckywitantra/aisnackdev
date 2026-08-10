@@ -1794,38 +1794,63 @@ const superApp = {
     },
 
    // ==========================================
-    // DYNAMIC RECEIPT BUILDER ENGINE
+    // DYNAMIC RECEIPT BUILDER ENGINE (DUAL MODE)
     // ==========================================
-    receiptBlocks: [], // State memori desain
+    receiptBlocks: [], 
     activeBlockId: null,
+    currentBuilderMode: 'customer', // 'customer' atau 'kitchen'
 
-    // Template Dasar Jika Belum Pernah Dibuat
     defaultReceiptTemplate: [
         { id: 1, type: 'logo', image: 'https://cdn-icons-png.flaticon.com/512/3081/3081308.png', align: 'center' },
         { id: 2, type: 'text', content: '{{nama_toko}}', align: 'center', size: 'double', bold: true },
-        { id: 3, type: 'text', content: 'Pusat Jajanan Kekinian\nCab. {{cabang}}', align: 'center', size: 'normal', bold: false },
+        { id: 3, type: 'text', content: 'Cab. {{cabang}}', align: 'center', size: 'normal', bold: false },
         { id: 4, type: 'divider', style: 'dashed' },
         { id: 5, type: 'text', content: 'TRX: {{no_resi}}\nTgl: {{waktu}}\nKsr: {{kasir}}', align: 'left', size: 'normal', bold: false },
         { id: 6, type: 'divider', style: 'dashed' },
-        { id: 7, type: 'body_transaction' }, // Blok absolut daftar pesanan
+        { id: 7, type: 'body_transaction' }, 
         { id: 8, type: 'divider', style: 'dashed' },
-        { id: 9, type: 'text', content: 'Terima kasih atas kunjungannya!\nWiFi: {{wifi}}', align: 'center', size: 'normal', bold: true }
+        { id: 9, type: 'text', content: 'Terima kasih!\nWiFi: {{wifi}}', align: 'center', size: 'normal', bold: true }
     ],
 
-    openReceiptBuilder: function() {
-        let savedTemplate = localStorage.getItem('aisnack_receipt_template');
+    defaultKitchenTemplate: [
+        { id: 1, type: 'text', content: '*** TIKET DAPUR ***', align: 'center', size: 'normal', bold: true },
+        { id: 2, type: 'text', content: 'ANTRIAN: {{no_antrian}}', align: 'center', size: 'double', bold: true },
+        { id: 3, type: 'divider', style: 'dashed' },
+        { id: 4, type: 'body_transaction' }, 
+        { id: 5, type: 'divider', style: 'dashed' }
+    ],
+
+    openReceiptBuilder: function(mode = 'customer') {
+        this.currentBuilderMode = mode;
+        let storageKey = mode === 'kitchen' ? 'aisnack_kitchen_receipt_template' : 'aisnack_receipt_template';
+        let fallbackTemp = mode === 'kitchen' ? this.defaultKitchenTemplate : this.defaultReceiptTemplate;
+
+        let savedTemplate = localStorage.getItem(storageKey);
         if (savedTemplate) {
             try { this.receiptBlocks = JSON.parse(savedTemplate); } 
-            catch(e) { this.receiptBlocks = JSON.parse(JSON.stringify(this.defaultReceiptTemplate)); }
+            catch(e) { this.receiptBlocks = JSON.parse(JSON.stringify(fallbackTemp)); }
         } else {
-            this.receiptBlocks = JSON.parse(JSON.stringify(this.defaultReceiptTemplate));
+            this.receiptBlocks = JSON.parse(JSON.stringify(fallbackTemp));
         }
         
         this.activeBlockId = null;
+        
+        // 🚀 INJEKSI TOGGLE KE JUDUL MODAL BUILDER
+        const titleEl = document.getElementById('modal-receipt-builder').querySelector('h3');
+        if (titleEl) {
+            titleEl.innerHTML = `
+                Desain Kertas Struk 
+                <span class="ml-2 bg-slate-100 p-1 rounded-lg border inline-flex text-[10px]">
+                    <button onclick="superApp.openReceiptBuilder('customer')" class="px-2 py-1 rounded ${mode === 'customer' ? 'bg-brand-500 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-200'}">Pelanggan</button>
+                    <button onclick="superApp.openReceiptBuilder('kitchen')" class="px-2 py-1 rounded ${mode === 'kitchen' ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-200'}">Dapur (Barista)</button>
+                </span>
+            `;
+        }
+
         this.renderReceiptCanvas();
         this.renderReceiptInspector();
-        this.closeModal('modal-system-settings'); // Tutup modal pengaturan
-        this.openModal('modal-receipt-builder'); // Buka modal canvas
+        this.closeModal('modal-system-settings'); 
+        this.openModal('modal-receipt-builder'); 
     },
 
     addReceiptBlock: function(type) {
@@ -1842,7 +1867,6 @@ const superApp = {
         this.renderReceiptCanvas();
         this.renderReceiptInspector();
         
-        // Auto scroll ke bawah
         let canvas = document.getElementById('receipt-canvas-container');
         if(canvas) setTimeout(()=> canvas.scrollTop = canvas.scrollHeight, 100);
     },
@@ -1872,7 +1896,7 @@ const superApp = {
 
     selectReceiptBlock: function(id) {
         this.activeBlockId = id;
-        this.renderReceiptCanvas(); // Re-render untuk efek Highlight
+        this.renderReceiptCanvas(); 
         this.renderReceiptInspector();
     },
 
@@ -1893,7 +1917,6 @@ const superApp = {
             let file = e.target.files[0]; 
             if (!file) return;
 
-            // Batasan ukuran awal agar browser tidak hang saat membaca file raksasa (maks 5MB)
             if (file.size > 5 * 1024 * 1024) { 
                 this.showToast("File terlalu besar. Maksimal 5MB sebelum dikompresi.", "error"); 
                 return; 
@@ -1905,16 +1928,13 @@ const superApp = {
             reader.onload = event => { 
                 let img = new Image();
                 img.onload = () => {
-                    // MESIN KOMPRESI CANVAS
                     let canvas = document.createElement('canvas');
                     let ctx = canvas.getContext('2d');
 
-                    // Tentukan ukuran maksimal (Printer thermal ukuran 58mm optimal di lebar 200px-250px)
                     let MAX_WIDTH = 250;
                     let width = img.width;
                     let height = img.height;
 
-                    // Hitung rasio aspek (menjaga gambar tidak gepeng)
                     if (width > MAX_WIDTH) {
                         height = Math.floor(height * (MAX_WIDTH / width));
                         width = MAX_WIDTH;
@@ -1923,19 +1943,12 @@ const superApp = {
                     canvas.width = width;
                     canvas.height = height;
 
-                    // Opsional: Isi background putih jika gambar transparan (PNG), 
-                    // karena printer thermal butuh kontras tegas antara hitam dan putih.
                     ctx.fillStyle = "#FFFFFF"; 
                     ctx.fillRect(0, 0, width, height);
-
-                    // Gambar ulang logo yang sudah dikecilkan ke dalam canvas
                     ctx.drawImage(img, 0, 0, width, height);
 
-                    // Konversi kembali menjadi base64 dengan kualitas medium
-                    // Kualitas 0.8 sudah lebih dari cukup untuk printer hitam putih
                     let compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
 
-                    // Simpan gambar yang sudah dikompres ke blok yang aktif
                     this.updateBlockProp('image', compressedBase64);
                     this.showToast("Logo berhasil dipasang!", "success");
                 };
@@ -1956,7 +1969,6 @@ const superApp = {
             let isActive = b.id === this.activeBlockId;
             let activeClass = isActive ? 'border-brand-500 bg-brand-50/50 shadow-md transform scale-[1.02] z-10' : 'border-transparent hover:border-slate-300 hover:bg-slate-50';
             
-            // Tampilan Tools Overlay
             let toolsHtml = isActive ? `
                 <div class="absolute -right-4 -top-3 flex gap-1 z-20">
                     <button onclick="superApp.moveReceiptBlock(${b.id}, 'up'); event.stopPropagation();" class="w-7 h-7 bg-slate-800 text-white rounded-md shadow-md hover:bg-slate-700 text-xs"><i class="fas fa-arrow-up"></i></button>
@@ -1964,20 +1976,20 @@ const superApp = {
                     ${b.type !== 'body_transaction' ? `<button onclick="superApp.deleteReceiptBlock(${b.id}); event.stopPropagation();" class="w-7 h-7 bg-rose-500 text-white rounded-md shadow-md hover:bg-rose-600 text-xs"><i class="fas fa-trash"></i></button>` : ''}
                 </div>` : '';
 
-            // Rendering Elemen Spesifik
             let contentHtml = '';
             let alignClass = b.align === 'center' ? 'text-center' : (b.align === 'right' ? 'text-right' : 'text-left');
             
             if (b.type === 'text') {
                 let sizeClass = b.size === 'double' ? 'text-lg' : 'text-xs';
                 let weightClass = b.bold ? 'font-black' : 'font-medium';
-                // Parser Live Simulasi (Ubah Variabel ke Teks Dummy)
+                
                 let parsedText = (b.content || '')
                     .replace(/{{nama_toko}}/g, 'AI-SNACK')
                     .replace(/{{cabang}}/g, 'Cabang Penajam')
                     .replace(/{{kasir}}/g, 'Staf Beby')
                     .replace(/{{no_resi}}/g, 'TRX-123456789')
                     .replace(/{{waktu}}/g, '12/12/2026 14:00')
+                    .replace(/{{no_antrian}}/g, '99')
                     .replace(/{{wifi}}/g, 'AisnackJaya');
                 
                 contentHtml = `<div class="${alignClass} ${sizeClass} ${weightClass} whitespace-pre-wrap leading-tight font-mono text-black">${parsedText}</div>`;
@@ -1994,7 +2006,16 @@ const superApp = {
                 contentHtml = `<div class="${alignClass}"><div class="inline-flex flex-col items-center justify-center border-4 border-black p-2"><i class="fas fa-qrcode text-6xl text-black"></i><span class="text-[8px] font-black mt-1 uppercase text-black max-w-[80px] truncate">${b.content}</span></div></div>`;
             }
             else if (b.type === 'body_transaction') {
-                contentHtml = `
+                // Tampilan Body Transaksi Menyesuaikan Mode (Pelanggan vs Dapur)
+                if (this.currentBuilderMode === 'kitchen') {
+                    contentHtml = `
+                    <div class="font-mono text-black text-sm font-black text-left">
+                        <div>1 x Kopi Aren</div>
+                        <div>2 x Roti Bakar</div>
+                        <div class="text-[10px] ml-4 italic">* Tanpa Keju</div>
+                    </div>`;
+                } else {
+                    contentHtml = `
                     <div class="font-mono text-black text-xs">
                         <div class="flex justify-between font-black border-b border-dashed border-black pb-1 mb-1"><span>ITEM</span><span>TOTAL</span></div>
                         <div class="flex justify-between font-bold"><span>1x Kopi Aren</span><span>15.000</span></div>
@@ -2004,6 +2025,7 @@ const superApp = {
                         <div class="flex justify-between font-bold text-[10px]"><span>TUNAI</span><span>50.000</span></div>
                         <div class="flex justify-between font-bold text-[10px]"><span>KEMBALI</span><span>5.000</span></div>
                     </div>`;
+                }
             }
 
             html += `<div onclick="superApp.selectReceiptBlock(${b.id})" class="relative border-[2px] p-2 m-1 rounded cursor-pointer transition-all ${activeClass}">${toolsHtml}${contentHtml}</div>`;
@@ -2024,7 +2046,6 @@ const superApp = {
         let b = this.receiptBlocks.find(x => x.id === this.activeBlockId);
         let html = '';
 
-        // Teks Bantuan Umum Alignment
         let alignEditor = `
             <div class="mb-4">
                 <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Posisi (Alignment)</label>
@@ -2040,13 +2061,14 @@ const superApp = {
                 <div class="mb-4">
                     <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Isi Teks</label>
                     <textarea rows="4" class="w-full border-2 border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-brand-500 transition custom-scroll" oninput="superApp.updateBlockProp('content', this.value)">${b.content || ''}</textarea>
+                    <p class="text-[9px] text-slate-400 mt-1">Variabel: {{nama_toko}}, {{cabang}}, {{kasir}}, {{no_resi}}, {{waktu}}, {{no_antrian}}, {{wifi}}</p>
                 </div>
                 ${alignEditor}
                 <div class="mb-4">
                     <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Ukuran Huruf</label>
                     <select class="w-full border-2 border-slate-200 rounded-xl p-2.5 text-sm font-bold text-slate-700 outline-none" onchange="superApp.updateBlockProp('size', this.value)">
                         <option value="normal" ${b.size==='normal'?'selected':''}>Normal (Kecil)</option>
-                        <option value="double" ${b.size==='double'?'selected':''}>Raksasa (Heading)</option>
+                        <option value="double" ${b.size==='double'?'selected':''}>Raksasa (Heading/Antrian)</option>
                     </select>
                 </div>
                 <div class="mb-4 flex items-center justify-between bg-slate-50 border border-slate-100 p-3 rounded-xl">
@@ -2078,34 +2100,35 @@ const superApp = {
                     <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Link / Data QR Code</label>
                     <input type="text" class="w-full border-2 border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-brand-500 transition" oninput="superApp.updateBlockProp('content', this.value)" value="${b.content || ''}">
                 </div>
-                ${alignEditor}
-                <p class="text-[9px] text-brand-600 bg-brand-50 p-2 border border-brand-100 rounded mt-4 font-bold"><i class="fas fa-info-circle"></i> Berguna untuk Link Menu Digital, Alamat Maps, atau Akun Instagram toko Anda.</p>`;
+                ${alignEditor}`;
         }
         else if (b.type === 'body_transaction') {
             html += `
                 <div class="bg-blue-50 border border-blue-200 p-4 rounded-xl text-center">
                     <i class="fas fa-lock text-3xl text-blue-300 mb-2"></i>
                     <h4 class="font-extrabold text-blue-800 text-sm">Blok Inti Transaksi</h4>
-                    <p class="text-[10px] text-blue-600 mt-1 font-medium leading-relaxed">Blok ini adalah area dinamis dimana sistem akan menyuntikkan pesanan, harga, dan kembalian pelanggan. Blok ini tidak bisa diedit isinya, namun bisa Anda pindahkan letaknya.</p>
+                    <p class="text-[10px] text-blue-600 mt-1 font-medium leading-relaxed">Blok ini adalah area dinamis dimana sistem akan menyuntikkan pesanan. Pada Struk Dapur, blok ini otomatis memperbesar ukuran huruf dan menghilangkan data harga.</p>
                 </div>`;
         }
 
         panel.innerHTML = html;
     },
 
-   saveReceiptTemplate: function() {
+    saveReceiptTemplate: function() {
         let templateData = JSON.stringify(this.receiptBlocks);
-        localStorage.setItem('aisnack_receipt_template', templateData);
+        let storageKey = this.currentBuilderMode === 'kitchen' ? 'aisnack_kitchen_receipt_template' : 'aisnack_receipt_template';
         
-        this.showToast("Mengunggah desain ke Database Pusat...", "info");
+        localStorage.setItem(storageKey, templateData);
+        
+        this.showToast(`Mengunggah desain struk ${this.currentBuilderMode} ke Cloud...`, "info");
 
         this.apiPost({
             action: 'update_pengaturan',
-            kunci: 'aisnack_receipt_template', 
+            kunci: storageKey, 
             nilai: templateData
         }).then(res => {
             if (res && res.status === 'sukses') {
-                this.showToast("Desain Struk Global Berhasil Disimpan!", "success");
+                this.showToast("Desain Berhasil Disimpan Global!", "success");
             } else {
                 this.showToast("Tersimpan di alat ini. Akan disinkronkan nanti.", "warning");
             }
@@ -2113,7 +2136,6 @@ const superApp = {
             this.showToast("Tersimpan di alat ini (Mode Offline).", "warning");
         });
 
-        // Panggil fungsi penutup yang aman
         this.closeReceiptBuilder();
     },
 
@@ -6418,7 +6440,6 @@ refreshData: function() {
     
     // PENAMBAHAN SISTEM NOMOR ANTRIAN (OPTIMISTIC UI - INSTANT CHECKOUT)
     executeCheckout: async function() {
-        // 1. GEMBOK ANTI DOUBLE-CLICK & KERANJANG KOSONG
         if (this.isProcessing) return; 
         if (this.cart.length === 0) {
             this.showToast("Keranjang kosong! Transaksi dicegah.", "error");
@@ -6428,7 +6449,6 @@ refreshData: function() {
 
         this.isProcessing = true;
 
-        // Kunci tombol secara visual (Teks diganti jadi "Memproses..." karena tidak ada lagi ritual "Cek Server")
         let btnPay = document.getElementById('btn-execute-pay');
         let originalBtnHtml = '';
         if (btnPay) {
@@ -6438,12 +6458,6 @@ refreshData: function() {
             btnPay.classList.add('opacity-70', 'cursor-not-allowed');
         }
         
-        // ======================================================================
-        // 🚀 SINKRONISASI KILAT DIHAPUS DARI SINI AGAR TRANSAKSI INSTAN (0 DETIK)!
-        // Kita percaya sepenuhnya pada data stok yang ada di RAM lokal saat ini.
-        // ======================================================================
-
-        // 🚀 VALIDASI STOK TERAKHIR (Dilakukan secara instan di memori lokal)
         let stokAman = true;
         let barangHabis = '';
         
@@ -6462,7 +6476,6 @@ refreshData: function() {
             }
         }
 
-        // Jika stok lokal tidak cukup, tolak transaksi!
         if (!stokAman) {
             this.isProcessing = false;
             if (btnPay) {
@@ -6473,35 +6486,24 @@ refreshData: function() {
             this.showToast(`Gagal! Stok ${barangHabis} tidak mencukupi (Sisa lokal kurang).`, "error");
             return;
         }
-        // ======================================================================
 
         let d = new Date(); let pad = (n) => n < 10 ? '0' + n : n;
         let todayStrLocal = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
         
-        // ======================================================================
-        // 🚀 1. LOCAL QUEUE TRACKER (CEGAH DOUBLE ANTREAN DI DEVICE YANG SAMA)
-        // ======================================================================
         let countToday = 0;
         (this.db.transactions || []).forEach(t => {
             let tglTrx = typeof this.cleanDateOnly === 'function' ? this.cleanDateOnly(t.Tanggal) : t.Tanggal;
             if (t.Outlet === this.outlet && tglTrx === todayStrLocal) { 
                 let num = Number(t.Antrian || 0);
-                if (num > countToday) countToday = num; // Cari nomor antrean tertinggi hari ini
+                if (num > countToday) countToday = num; 
             }
         });
 
-        // Ambil juga memori nomor antrean terakhir yang pernah dicetak HP ini hari ini
         let queueKey = `aisnack_last_queue_${this.outlet}_${todayStrLocal}`;
         let lastSavedQueue = Number(localStorage.getItem(queueKey) || 0);
-
-        // KUNCI AMAN: Antrean baru ADALAH angka tertinggi di antara (Array DB vs Memori HP) + 1
         let noAntrian = Math.max(countToday, lastSavedQueue) + 1;
-        
-        // Simpan langsung nomor baru ini ke memori HP agar tidak bisa mundur lagi hari ini
         localStorage.setItem(queueKey, noAntrian);
-        // ======================================================================
         
-        // ID Resi Dijamin Unik
         let kasirPrefix = this.currentUser ? this.currentUser.Username.substring(0,3).toUpperCase() : 'KSR';
         let trxID = `TRX-${kasirPrefix}-${d.getTime()}`;
 
@@ -6509,7 +6511,6 @@ refreshData: function() {
         
         const payload = { action: 'checkout', trx_id: trxID, outlet: this.outlet, kasir: this.currentUser.Username, metode_bayar: this.payMethod, total: this.payTotal, tunai: this.payCash, kembali: this.payChange, items: this.cart, id_shift: this.activeShiftId, tim_operasional: this.activeStaffTeam, antrian: noAntrian, status_cetak: isPrintSuccess ? 'Sudah' : 'Belum' };
 
-        // 1. UPDATE MEMORI LOKAL SECARA INSTAN
         if (!this.db.transactions) this.db.transactions = [];
         this.db.transactions.push({ 
             ID_TRX: trxID, Tanggal: todayStrLocal, Waktu: `${pad(d.getHours())}.${pad(d.getMinutes())}.${pad(d.getSeconds())}`, 
@@ -6519,7 +6520,6 @@ refreshData: function() {
             Status_Cetak: isPrintSuccess ? 'Sudah' : 'Belum'
         });
 
-        // 🚀 Kurangi visual stok langsung di layar kasir device ini
         this.cart.forEach(item => {
             let refBahan = item.sku_bahan || item.sku;
             let realStokData = (this.db.hargaStokOutlet || []).find(x => x.SKU === refBahan && x.ID_Outlet === this.outlet);
@@ -6530,12 +6530,19 @@ refreshData: function() {
         this.refreshData(); 
         this.showToast(`Transaksi Sukses! No Antrian: ${noAntrian}`);
 
-        // 2. JALANKAN PRINTER DI BACKGROUND (Tanpa memblokir layar kasir)
+        // 🚀 CETAK DUAL STRUK (PELANGGAN & DAPUR)
         if (isPrintSuccess) {
-            this.printReceipt(trxID, this.outlet, this.payTotal, this.payCash, this.payChange, this.cart, 'Sukses', null, noAntrian, false).catch(e => console.log("Gagal print background"));
+            // 1. Cetak Struk Pelanggan (Mode Normal)
+            this.printReceipt(trxID, this.outlet, this.payTotal, this.payCash, this.payChange, this.cart, 'Sukses', null, noAntrian, false, this.payMethod, 'customer')
+            .then(() => {
+                // 2. Beri jeda 2 detik agar kertas bisa disobek/terpotong, lalu cetak Struk Dapur
+                setTimeout(() => {
+                    this.printReceipt(trxID, this.outlet, this.payTotal, this.payCash, this.payChange, this.cart, 'Sukses', null, noAntrian, false, this.payMethod, 'kitchen');
+                }, 2000);
+            })
+            .catch(e => console.log("Gagal print background"));
         }
 
-        // 3. RESET KASIR & CFD SECARA INSTAN
         this._lastPaidTotal = this.payTotal;
         this._lastPaidChange = this.payChange;
         this.cart = []; 
@@ -6545,7 +6552,6 @@ refreshData: function() {
         this.syncStorage('paid', noAntrian); 
         this.closeModal('modal-payment'); 
         
-        // JEDA WAKTU UNTUK MENCEGAH DOUBLE CLICK SELAMA ANIMASI
         setTimeout(() => {
             this.isProcessing = false;
             if (btnPay) {
@@ -6555,17 +6561,11 @@ refreshData: function() {
             }
         }, 500);
 
-        // ======================================================================
-        // 4. 🚀 SINKRONISASI SERVER DI LATAR BELAKANG (NON-BLOCKING)
-        // ======================================================================
-        // Kasir sudah bisa melayani pelanggan berikutnya saat kode di bawah ini bekerja!
         this.apiPost(payload).then(res => {
             if (res && res.status === 'sukses' && !res.is_offline) {
                 if (isPrintSuccess) {
                     this.laporStrukDicetak(trxID);
                 }
-                // 🚀 TARIK STOK TERBARU DI LATAR BELAKANG SETELAH TRANSAKSI BERHASIL
-                // Agar stok di device ini tetap akurat tanpa mengorbankan kecepatan checkout
                 if (typeof this.refreshStokOnly === 'function') {
                     this.refreshStokOnly(); 
                 }
@@ -14013,7 +14013,7 @@ openAIDeepDive: function(type, param) {
     },
     
 // 🚀 FUNGSI PRINT FINAL DENGAN ANTISIPASI NaN & LOGIKA REPRINT
-   printReceipt: async function(id, outlet, total, tunai, kembali, items, status, explicitDate, antrian, isReprint = false, metodeBayar = 'TUNAI') {
+  printReceipt: async function(id, outlet, total, tunai, kembali, items, status, explicitDate, antrian, isReprint = false, metodeBayar = 'TUNAI', receiptMode = 'customer') {
         if (!this.printerCharacteristic) {
             this.showToast("Printer belum terhubung!", "error");
             throw new Error("Printer tidak siap");
@@ -14021,34 +14021,40 @@ openAIDeepDive: function(type, param) {
         
         try {
             let statStr = status === 'Sukses' ? '' : '\n*** DIBATALKAN ***\n';
-            
-            // Format fallback date if explicitDate is not provided
             let printTime = explicitDate ? explicitDate : new Date().toLocaleString('id-ID', {
                 day: '2-digit', month: '2-digit', year: 'numeric',
                 hour: '2-digit', minute: '2-digit', second: '2-digit'
             }).replace(',', '');
             
             let antrianStr = antrian ? `\nANTRIAN : ${antrian}\n` : '';
-            
-            // 1. INJEKSI KETERANGAN REPRINT KE PRINTER
-            if (isReprint) {
-                statStr += '\n*** REPRINT / CETAK ULANG ***\n';
-            }
+            if (isReprint) statStr += '\n*** REPRINT / CETAK ULANG ***\n';
 
-            // 2. CEK QRIS AGAR TIDAK NaN
             let labelBayar = String(metodeBayar).toUpperCase();
             let valBayar = labelBayar.includes('QRIS') ? Number(total || 0) : Number(tunai || 0);
             let valKembali = Number(kembali || 0);
 
             let template = [];
-            try { template = JSON.parse(localStorage.getItem('aisnack_receipt_template')); } catch(e) {}
-            if (!template || template.length === 0) template = this.defaultReceiptTemplate;
+            // BACA TEMPLATE BERDASARKAN MODE
+            let storageKey = receiptMode === 'kitchen' ? 'aisnack_kitchen_receipt_template' : 'aisnack_receipt_template';
+            try { template = JSON.parse(localStorage.getItem(storageKey)); } catch(e) {}
+            
+            // Fallback Template Dapur (Fokus ke Qty & Nama)
+            if ((!template || template.length === 0) && receiptMode === 'kitchen') {
+                template = [
+                    { type: 'text', content: '*** TIKET DAPUR ***', align: 'center', size: 'normal', bold: true },
+                    { type: 'text', content: 'ANTRIAN: {{no_antrian}}', align: 'center', size: 'double', bold: true },
+                    { type: 'divider', style: 'dashed' },
+                    { type: 'body_transaction' }, // Body Dapur akan otomatis menyembunyikan harga
+                    { type: 'divider', style: 'dashed' }
+                ];
+            } else if (!template || template.length === 0) {
+                template = this.defaultReceiptTemplate;
+            }
 
             let printQueue = [];
             let str = "\x1B\x40"; 
 
             for (let b of template) {
-                
                 if (b.type === 'logo' && b.image) {
                     if (str !== '') { printQueue.push(new TextEncoder().encode(str)); str = ''; }
                     let alignStr = "\x1B\x61" + (b.align === 'center' ? "\x01" : (b.align === 'right' ? "\x02" : "\x00"));
@@ -14072,6 +14078,7 @@ openAIDeepDive: function(type, param) {
                         .replace(/{{kasir}}/g, this.currentUser ? this.currentUser.Username : 'Kasir')
                         .replace(/{{no_resi}}/g, id || '-')
                         .replace(/{{waktu}}/g, printTime)
+                        .replace(/{{no_antrian}}/g, antrian || '-')
                         .replace(/{{wifi}}/g, 'Tanya Kasir');
 
                     str += txt + "\n";
@@ -14084,26 +14091,38 @@ openAIDeepDive: function(type, param) {
                     str += "\x1D\x21\x00\x1B\x61\x00\x1B\x45\x00"; 
                     
                     if (statStr) str += `\x1B\x61\x01\x1B\x45\x01${statStr}\x1B\x45\x00\x1B\x61\x00`;
-                    if (antrianStr) str += `\x1B\x61\x01\x1B\x45\x01${antrianStr}\x1B\x45\x00\x1B\x61\x00`;
-
-                    items.forEach(i => {
-                        str += `${i.nama}\n${i.qty} x Rp ${Number(i.price).toLocaleString('id-ID')} = Rp ${(i.price * i.qty).toLocaleString('id-ID')}\n`;
-                    });
-
-                    // 3. CETAK LABEL METODE BAYAR DINAMIS (Aligned)
-                    str += "--------------------------------\n";
-                    str += "\x1B\x61\x02"; // Right Align
-                    str += `\x1B\x45\x01TOTAL   : Rp ${Number(total).toLocaleString('id-ID')}\n\x1B\x45\x00`;
                     
-                    // PadEnd ensures the label takes up consistent space before the colon
-                    str += `${labelBayar.padEnd(8)}: Rp ${valBayar.toLocaleString('id-ID')}\n`;
-                    str += `KEMBALI : Rp ${valKembali.toLocaleString('id-ID')}\n`;
-                    
-                    str += "\x1B\x61\x00"; // Reset to Left Align
+                    // Cetak Antrian hanya di Struk Pelanggan (Struk dapur pakai format text replace)
+                    if (antrianStr && receiptMode === 'customer') str += `\x1B\x61\x01\x1B\x45\x01${antrianStr}\x1B\x45\x00\x1B\x61\x00`;
+
+                    if (receiptMode === 'kitchen') {
+                        // 🚀 CETAKAN DAPUR: Tanpa Harga, Huruf Besar
+                        str += "\x1D\x21\x11"; // Double Height & Width
+                        items.forEach(i => {
+                            str += `${i.qty} x ${i.nama}\n`;
+                            if (i.catatan) {
+                                str += `\x1D\x21\x00\x1B\x45\x01   *${i.catatan}*\x1B\x45\x00\n\x1D\x21\x11`; // Catatan kecil tebal
+                            }
+                        });
+                        str += "\x1D\x21\x00"; // Reset ukuran
+                    } else {
+                        // 🚀 CETAKAN PELANGGAN: Normal
+                        items.forEach(i => {
+                            str += `${i.nama}\n${i.qty} x Rp ${Number(i.price).toLocaleString('id-ID')} = Rp ${(i.price * i.qty).toLocaleString('id-ID')}\n`;
+                        });
+
+                        str += "--------------------------------\n";
+                        str += "\x1B\x61\x02"; // Right Align
+                        str += `\x1B\x45\x01TOTAL   : Rp ${Number(total).toLocaleString('id-ID')}\n\x1B\x45\x00`;
+                        str += `${labelBayar.padEnd(8)}: Rp ${valBayar.toLocaleString('id-ID')}\n`;
+                        str += `KEMBALI : Rp ${valKembali.toLocaleString('id-ID')}\n`;
+                        str += "\x1B\x61\x00"; // Reset to Left Align
+                    }
                 }
             }
 
-            str += "\x1B\x40\n\n\n\n";
+            // Perintah ESC/POS potong kertas (Jika printer mendukung Full Cut)
+            str += "\n\n\n\n\x1D\x56\x41\x03"; 
             printQueue.push(new TextEncoder().encode(str));
             
             for (let chunk of printQueue) {
@@ -14114,7 +14133,7 @@ openAIDeepDive: function(type, param) {
                 }
             }
 
-            if (isReprint && id && status === 'Sukses') {
+            if (isReprint && id && status === 'Sukses' && receiptMode === 'customer') {
                 this.laporStrukDicetak(id);
             }
 

@@ -8409,68 +8409,22 @@ openDetailStokOpname: function(sku) {
     },
 
     renderAudit: function() {
-        // =====================================================================
-        // 🚀 PERBAIKAN KRITIS: 
-        // Rendering tabel 'Pending Opname' DIHAPUS DARI SINI karena sudah 
-        // dikerjakan secara elegan (Grouped) oleh fungsi renderAuditOpname().
-        // Jika tidak dihapus, kodingan ini akan merusak/menimpa tabel tersebut.
-        // =====================================================================
-
-        // Fungsi ini sekarang HANYA FOKUS merender tabel 'Pending Terima Barang'
-        const tbodyTr = document.getElementById('audit-terima-tbody');
-        if (tbodyTr) {
-            let html = '';
-            
-            // Hitung dulu berapa kali tiap outlet sudah melakukan mutasi hari ini
-            let mutasiHistoryHariIni = {};
-            (this.db.mutasi || []).forEach(mt => {
-                if (mt.Status_Approval === 'Disetujui' && mt.Waktu) {
-                    let tgl = this.cleanDateOnly(mt.Waktu);
-                    if (tgl) {
-                        let key = `${mt.Outlet_Tujuan}_${tgl}`;
-                        mutasiHistoryHariIni[key] = (mutasiHistoryHariIni[key] || 0) + 1;
-                    }
-                }
-            });
-
-            (this.db.mutasi || []).forEach(mt => {
-                if (mt.Status_Approval === 'Pending') {
-                    let itemName = (this.db.masterProduk || []).find(m => m.SKU === mt.SKU)?.Nama_Produk || mt.SKU || 'Unknown';
-                    let tgl = this.cleanDateOnly(mt.Waktu);
-                    
-                    let key = `${mt.Outlet_Tujuan}_${tgl}`;
-                    let sudahAda = mutasiHistoryHariIni[key] || 0;
-                    
-                    let warningBadge = sudahAda > 0 ? 
-                        `<span class="text-[10px] font-black bg-rose-100/80 text-rose-600 px-2 py-0.5 rounded shadow-sm animate-pulse block mt-1">⚠️ Sudah ${sudahAda}x kirim hari ini!</span>` : '';
-
-                    let wStr = mt.Waktu ? (this.cleanDateOnly(mt.Waktu) + ' ' + this.cleanTimeOnly(mt.Waktu)) : '-';
-
-                    // 🎨 Tabel Terima Barang ini tetap dipertahankan sesuai aslinya
-                    html += `
-                    <tr class="hover:bg-slate-50 transition-colors border-b border-slate-100/70">
-                        <td class="py-4 px-4 text-center w-12 align-middle">
-                            <input type="checkbox" class="cb-audit-terima w-5 h-5 rounded cursor-pointer accent-indigo-500" value="${mt.ID_Mutasi}" onchange="superApp.checkBulkAudit()">
-                        </td>
-                        <td class="py-4 px-4 text-[11px] font-bold text-slate-700 whitespace-nowrap align-middle">${wStr}</td>
-                        
-                        <td class="py-4 px-4 whitespace-nowrap align-middle">
-                            ${this.getOutletBadge(mt.Outlet_Tujuan)}<br>
-                            <span class="text-slate-400 font-bold text-[9px] uppercase mt-0.5 inline-block">Oleh: ${mt.Kasir || '-'}</span>
-                            ${warningBadge}
-                        </td>
-                        
-                        <td class="py-4 px-4 text-xs font-bold text-slate-700 whitespace-normal min-w-[150px] align-middle">${itemName}</td>
-                        <td class="py-4 px-4 text-center text-sm font-black text-indigo-600 whitespace-nowrap align-middle">${mt.Qty} Pcs</td>
-                        <td class="py-4 px-4 text-[10px] font-bold text-slate-500 italic whitespace-normal min-w-[150px] align-middle">${mt.Keterangan || '-'}</td>
-                    </tr>`;
-                }
-            });
-            tbodyTr.innerHTML = html || `<tr><td colspan="6" class="py-10 text-center text-slate-400 font-bold text-xs border border-dashed border-slate-200 rounded-xl bg-slate-50/50">Tidak ada pengajuan Restok yang menunggu persetujuan</td></tr>`;
+        // 1. Render Grup Opname
+        if (typeof this.renderAuditOpname === 'function') {
+            this.renderAuditOpname();
         }
-        
-        // Cek jika ada checkbox yang aktif
-        this.checkBulkAudit();
+
+        // 2. Render Grup Terima Barang (Restok)
+        if (typeof this.renderAuditTerima === 'function') {
+            this.renderAuditTerima();
+        }
+
+        // 3. Matikan / Sembunyikan Action Bar Masal (Bulk Action) lawas 
+        // karena sekarang approval dilakukan per-Surat Jalan di dalam Modal
+        let bulkBar = document.getElementById('bulk-action-bar');
+        if (bulkBar) {
+            bulkBar.classList.add('hidden');
+        }
     },
 
     // =========================================================

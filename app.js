@@ -490,6 +490,12 @@ const superApp = {
                 let pTransaksi = (this.db.pengaturan || []).find(x => x.Pengaturan === 'Promo_Transaksi');
                 if (pTransaksi) localStorage.setItem('cfd_promo_transaksi', pTransaksi.Nilai);
 
+                let tPelanggan = (this.db.pengaturan || []).find(x => x.Pengaturan === 'aisnack_receipt_template');
+                if (tPelanggan && tPelanggan.Nilai) localStorage.setItem('aisnack_receipt_template', tPelanggan.Nilai);
+
+                let tDapur = (this.db.pengaturan || []).find(x => x.Pengaturan === 'aisnack_kitchen_receipt_template');
+                if (tDapur && tDapur.Nilai) localStorage.setItem('aisnack_kitchen_receipt_template', tDapur.Nilai);
+
                 let today = new Date(); let yyyy = today.getFullYear(); let mm = String(today.getMonth() + 1).padStart(2, '0'); let dd = String(today.getDate()).padStart(2, '0');
                 let todayStr = `${yyyy}-${mm}-${dd}`; 
                 const fs = document.getElementById('filter-start'); const fe = document.getElementById('filter-end');
@@ -720,7 +726,7 @@ const superApp = {
         this.isProcessing = false;
     },
     
-  pullFreshData: async function(silent = false) {
+ pullFreshData: async function(silent = false) {
         if (this.isProcessing && !silent) return; 
         
         if (!silent) this.setLoading(true, "Menyinkronkan Database Terkini...");
@@ -796,11 +802,14 @@ const superApp = {
             }
             localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
 
+            // 🚀 PENARIK DATA PENGATURAN DARI CLOUD KE LOKAL
             let configs = [
                 { key: 'Logo_Aplikasi', storage: 'app_logo_url', callback: (val) => typeof this.updateAppLogos === 'function' && this.updateAppLogos(val) },
                 { key: 'Promo_Standby', storage: 'cfd_promo_standby' },
                 { key: 'Promo_Transaksi', storage: 'cfd_promo_transaksi' },
-                { key: 'aisnack_receipt_template', storage: 'aisnack_receipt_template' }
+                { key: 'aisnack_receipt_template', storage: 'aisnack_receipt_template' },
+                // 🛠️ PERBAIKAN: Masukkan template dapur ke radar penarik!
+                { key: 'aisnack_kitchen_receipt_template', storage: 'aisnack_kitchen_receipt_template' }
             ];
 
             configs.forEach(c => {

@@ -2148,28 +2148,24 @@ const superApp = {
         }, 300);
     },
 
-  executeReprint: async function() {
+  executeReprint: async function(receiptMode = 'customer') {
         if(!this.activeReprintTrx) return; 
         
         let t = this.activeReprintTrx; 
         let items = []; 
         try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
         
-        // Mengambil nominal dengan aman
         let tunaiVal = t.Tunai !== undefined ? t.Tunai : (t.Dibayar || 0);
         
-        // Membersihkan format tanggal dan waktu
         let cleanDate = this.cleanDateOnly(t.Tanggal);
         let cleanTime = this.cleanTimeOnly(t.Waktu);
         let explicitDate = cleanDate + ' ' + cleanTime;
 
-        // Mengambil metode bayar dari riwayat transaksi
         let metodeBayar = t.Metode_Bayar || 'TUNAI';
         
         this.setLoading(true, "Mencetak Ulang Struk...");
 
         try { 
-            // 🚀 PERBAIKAN: Parameter ke-10 (true) untuk Cetak Ulang, Parameter ke-11 untuk Metode Bayar
             await this.printReceipt(
                 t.ID_TRX, 
                 t.Outlet, 
@@ -2181,9 +2177,10 @@ const superApp = {
                 explicitDate, 
                 t.Antrian, 
                 true,          // isReprint = true
-                metodeBayar    // Mencegah NaN jika ini adalah transaksi QRIS
+                metodeBayar,   
+                receiptMode    // 🚀 TERUSKAN MODE CETAK KE MESIN PRINTER
             ); 
-            this.showToast("Perintah cetak ulang dikirim ke printer!", "success");
+            this.showToast(`Perintah cetak ulang (${receiptMode === 'kitchen' ? 'Dapur' : 'Pelanggan'}) dikirim ke printer!`, "success");
         } catch(e) {
             this.showToast("Gagal mencetak. Printer belum terhubung.", "error");
         } finally {
@@ -10463,14 +10460,13 @@ openDetailStokOpname: function(sku) {
     },
 
     // Membuka Modal Detail Struk di Tab Laporan
-    openDetailTrx: function(trxID) {
+   openDetailTrx: function(trxID) {
         let t = (this.db.transactions || []).find(x => x.ID_TRX === trxID);
         if(!t) return;
         
         let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
         let itemsHtml = items.map(i => `<div class="w-full text-left font-bold flex justify-between"><span>${i.qty}x ${i.nama}</span><span>${(Number(i.price) * Number(i.qty)).toLocaleString('id-ID')}</span></div>`).join('');
         
-        // 🚀 CEK METODE BAYAR AGAR TIDAK NaN
         let labelBayar = String(t.Metode_Bayar || 'Tunai').toUpperCase();
         let valBayar = labelBayar.includes('QRIS') ? Number(t.Total_Bayar || 0) : Number(t.Dibayar || 0);
         let valKembali = Number(t.Kembalian || 0);
@@ -10485,7 +10481,6 @@ openDetailStokOpname: function(sku) {
                 <div class="flex justify-between font-bold text-[10px]"><span>KEMBALI</span><span>${valKembali.toLocaleString('id-ID')}</span></div>
             </div>`;
 
-        // 🚀 TARIK TEMPLATE DINAMIS (Agar Popup 100% Mirip Kertas)
         let template = [];
         try { template = JSON.parse(localStorage.getItem('aisnack_receipt_template')); } catch(e) {}
         if (!template || template.length === 0) template = this.defaultReceiptTemplate;
@@ -10517,12 +10512,16 @@ openDetailStokOpname: function(sku) {
             }
         });
 
-        // Tampilkan Label Preview Reprint di Layar Popup
         parsedStrukHtml = `<div class="text-center w-full mb-3 pb-2 border-b border-slate-200"><span class="bg-slate-800 text-white px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest"><i class="fas fa-print mr-1"></i> Preview Cetak Ulang</span></div>` + parsedStrukHtml;
 
+        // 🚀 INJEKSI DUA TOMBOL CETAK
         document.getElementById('detail-struk-body').innerHTML = `
             <div class="flex flex-col items-center w-full max-w-[220px] mx-auto p-2 bg-white shadow-md relative">
                 ${parsedStrukHtml}
+            </div>
+            <div class="flex gap-2 w-full mt-4 justify-center">
+                <button onclick="superApp.executeReprint('customer')" class="bg-brand-50 hover:bg-brand-500 text-brand-600 hover:text-white border border-brand-200 px-3 py-2 rounded-xl text-[10px] font-black transition-all active:scale-95 shadow-sm"><i class="fas fa-print mr-1"></i> Struk Pelanggan</button>
+                <button onclick="superApp.executeReprint('kitchen')" class="bg-rose-50 hover:bg-rose-500 text-rose-600 hover:text-white border border-rose-200 px-3 py-2 rounded-xl text-[10px] font-black transition-all active:scale-95 shadow-sm"><i class="fas fa-print mr-1"></i> Tiket Dapur</button>
             </div>`;
             
         this.activeReprintTrx = t; 
@@ -14103,14 +14102,15 @@ openAIDeepDive: function(type, param) {
                     if (antrianStr && receiptMode === 'customer') str += `\x1B\x61\x01\x1B\x45\x01${antrianStr}\x1B\x45\x00\x1B\x61\x00`;
 
                     if (receiptMode === 'kitchen') {
-                        str += "\x1D\x21\x11"; 
+                        // 🚀 PERBAIKAN: Huruf Normal & Cetak Tebal untuk Dapur
+                        str += "\x1D\x21\x00\x1B\x45\x01"; 
                         items.forEach(i => {
                             str += `${i.qty} x ${i.nama}\n`;
                             if (i.catatan) {
-                                str += `\x1D\x21\x00\x1B\x45\x01   *${i.catatan}*\x1B\x45\x00\n\x1D\x21\x11`; 
+                                str += `   *${i.catatan}*\n`; 
                             }
                         });
-                        str += "\x1D\x21\x00"; 
+                        str += "\x1B\x45\x00"; // Matikan bold
                     } else {
                         items.forEach(i => {
                             str += `${i.nama}\n${i.qty} x Rp ${Number(i.price).toLocaleString('id-ID')} = Rp ${(i.price * i.qty).toLocaleString('id-ID')}\n`;
@@ -14126,9 +14126,7 @@ openAIDeepDive: function(type, param) {
                 }
             }
 
-            // 🛠️ PERBAIKAN 2: Mengurangi \n dari 4 baris menjadi 2 baris agar kertas tidak terbuang sia-sia
-            // (Memperpendek jarak antara struk pelanggan dan struk dapur)
-            str += "\n\n\x1D\x56\x41\x03"; 
+            str += "\x1D\x56\x41\x03"; 
             
             printQueue.push(new TextEncoder().encode(str));
             

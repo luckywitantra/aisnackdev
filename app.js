@@ -802,14 +802,11 @@ const superApp = {
             }
             localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
 
-            // 🚀 PENARIK DATA PENGATURAN DARI CLOUD KE LOKAL
             let configs = [
                 { key: 'Logo_Aplikasi', storage: 'app_logo_url', callback: (val) => typeof this.updateAppLogos === 'function' && this.updateAppLogos(val) },
                 { key: 'Promo_Standby', storage: 'cfd_promo_standby' },
                 { key: 'Promo_Transaksi', storage: 'cfd_promo_transaksi' },
-                { key: 'aisnack_receipt_template', storage: 'aisnack_receipt_template' },
-                // 🛠️ PERBAIKAN: Masukkan template dapur ke radar penarik!
-                { key: 'aisnack_kitchen_receipt_template', storage: 'aisnack_kitchen_receipt_template' }
+                { key: 'aisnack_receipt_template', storage: 'aisnack_receipt_template' }
             ];
 
             configs.forEach(c => {

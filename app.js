@@ -838,7 +838,7 @@ const superApp = {
     },
 
 
-    mergeDatabase: function(oldDb, newDb) {
+   mergeDatabase: function(oldDb, newDb) {
         if (!oldDb || !oldDb.masterProduk) return newDb;
         if (!newDb) return oldDb;
 
@@ -850,11 +850,12 @@ const superApp = {
         merged.outlets = newDb.outlets || oldDb.outlets;
         merged.hargaStokOutlet = newDb.hargaStokOutlet || oldDb.hargaStokOutlet;
         
-        // (Baris "merged.barangMasuk" yang keliru telah dihapus dari kelompok ini)
-
         merged.users = newDb.users || oldDb.users;
         merged.pengaturan = newDb.pengaturan || oldDb.pengaturan;
         merged.masterPengeluaran = newDb.masterPengeluaran || oldDb.masterPengeluaran;
+        
+        // 🚀 PERBAIKAN KRITIS: Selamatkan data Rekon agar tidak terhapus saat ditarik!
+        merged.rekon = newDb.rekon || oldDb.rekon;
 
         // --- B. HELPER PENGGABUNG ARRAY RIWAYAT ---
         const mergeHistoryArray = (oldArr = [], newArr = [], primaryKey, secondaryKey) => {
@@ -889,7 +890,7 @@ const superApp = {
         merged.opname = mergeHistoryArray(oldOpname, newOpname, 'ID_Opname', 'id_opname');
         merged.riwayatOpname = merged.opname; 
         
-        // 🚀 PROSES BARANG MASUK YANG BENAR (Digabung secara ketat di bawah ini)
+        // 🚀 PROSES BARANG MASUK
         let oldMutasi = oldDb.mutasi || oldDb.barangMasuk || [];
         let newMutasi = newDb.mutasi || newDb.barangMasuk || [];
         merged.mutasi = mergeHistoryArray(oldMutasi, newMutasi, 'ID_Mutasi', 'id_mutasi');

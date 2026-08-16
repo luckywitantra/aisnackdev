@@ -120,6 +120,56 @@ const osKeyboard = {
             preview.innerHTML = val === '' ? '<span class="animate-pulse text-[#FFB800]/50">_</span>' : val;
         }
     },
+
+    checkDeviceActivation: function() {
+        let isActivated = localStorage.getItem('aisnack_device_activated');
+        
+        if (isActivated !== 'true') {
+            // 🚀 PERBAIKAN: Gunakan ID 'login-screen' sesuai dengan HTML Anda
+            let views = ['login-screen', 'view-main', 'view-pos'];
+            views.forEach(v => {
+                let el = document.getElementById(v);
+                if (el) { el.classList.add('hidden'); el.classList.remove('flex'); }
+            });
+            
+            let actView = document.getElementById('view-activation');
+            if (actView) {
+                actView.classList.remove('hidden');
+                actView.classList.add('flex');
+            }
+            return false; 
+        }
+        return true; 
+    },
+
+    verifyActivation: function() {
+        let input = document.getElementById('input-activation-code').value;
+        if (!input) {
+            this.showToast("Kode tidak boleh kosong!", "error");
+            return;
+        }
+
+        // 🚀 SMART CODE: Ambil kode master dari Sheet Pengaturan, jika tidak ada pakai default "OWNER2026"
+        let dbKode = (this.db && this.db.pengaturan) ? this.db.pengaturan.find(x => x.Pengaturan === 'Kode_Aktivasi') : null;
+        let masterCode = dbKode ? dbKode.Nilai : "OWNER2026"; 
+
+        if (input === masterCode) {
+            // SIMPAN STEMPEL SAH KE DALAM HP INI PERMANEN
+            localStorage.setItem('aisnack_device_activated', 'true');
+            this.showToast("Perangkat Berhasil Disahkan!", "success");
+            
+            // Sembunyikan gembok
+            let actView = document.getElementById('view-activation');
+            if (actView) { actView.classList.add('hidden'); actView.classList.remove('flex'); }
+            
+            // Refresh aplikasi agar langsung meluncur ke layar PIN Kasir
+            setTimeout(() => { window.location.reload(); }, 500);
+            
+        } else {
+            this.showToast("Kode Aktivasi Salah!", "error");
+            document.getElementById('input-activation-code').value = '';
+        }
+    }
     
     render: function() {
         const container = document.getElementById('vk-keys'); 
@@ -367,6 +417,7 @@ const superApp = {
     // STARTUP & LOGIN (INIT)
     // =========================================================================
     init: async function() {
+        if (!this.checkDeviceActivation()) return;
         
         // --- 🚀 SERVICE WORKER REGISTRATION ---
         if ('serviceWorker' in navigator) {

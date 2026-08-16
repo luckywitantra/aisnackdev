@@ -169,7 +169,7 @@ const osKeyboard = {
             this.showToast("Kode Aktivasi Salah!", "error");
             document.getElementById('input-activation-code').value = '';
         }
-    }
+    },
     
     render: function() {
         const container = document.getElementById('vk-keys'); 

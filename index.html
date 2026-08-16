@@ -191,29 +191,50 @@
     </div>
 </div>
 
-<!-- ========================================================================= -->
-<!-- 🔐 VIEW: PIN LOGIN SCREEN (AI-SNACK PLAYFUL BRANDING)                   -->
-<!-- ========================================================================= -->
 <!-- ================= VIEW AKTIVASI PERANGKAT (KEAMANAN LAPIS 1) ================= -->
 <div id="view-activation" class="app-view hidden flex-col items-center justify-center min-h-screen w-screen bg-slate-900/95 backdrop-blur-md p-6 fixed inset-0 z-[99999]">
-    <div class="bg-white p-8 rounded-[2.5rem] shadow-[0_20px_60px_rgba(229,32,43,0.3)] w-full max-w-sm text-center relative overflow-hidden border border-rose-100">
-        <!-- Latar Ornamen -->
-        <div class="absolute -right-10 -top-10 w-32 h-32 bg-rose-50 rounded-full blur-3xl z-0"></div>
+    <div class="bg-white p-8 rounded-[2.5rem] shadow-[0_20px_60px_rgba(229,32,43,0.3)] w-full max-w-sm text-center relative overflow-hidden border border-rose-100 flex flex-col max-h-[90vh]">
         
-        <div class="w-20 h-20 bg-gradient-to-br from-rose-500 to-red-600 text-white rounded-[1.5rem] flex items-center justify-center text-4xl mx-auto mb-5 shadow-lg shadow-rose-500/40 relative z-10 transform -rotate-3">
-            <i class="fas fa-shield-halved"></i>
+        <!-- Area Konten (Bisa di-scroll jika layar PC/HP terlalu pendek) -->
+        <div class="overflow-y-auto custom-scroll pb-2">
+            <!-- Latar Ornamen -->
+            <div class="absolute -right-10 -top-10 w-32 h-32 bg-rose-50 rounded-full blur-3xl z-0"></div>
+            
+            <div class="w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br from-rose-500 to-red-600 text-white rounded-[1.25rem] md:rounded-[1.5rem] flex items-center justify-center text-3xl md:text-4xl mx-auto mb-4 md:mb-5 shadow-lg shadow-rose-500/40 relative z-10 transform -rotate-3">
+                <i class="fas fa-shield-halved"></i>
+            </div>
+            
+            <h2 class="text-xl md:text-2xl font-black text-slate-800 mb-1.5 relative z-10 tracking-tight">Perangkat Asing</h2>
+            <p class="text-[9px] md:text-[10px] text-slate-500 mb-5 font-bold leading-relaxed relative z-10 px-2">Masukkan Kode PIN Aktivasi untuk mengesahkan alat ini.</p>
+            
+            <!-- Kolom Input (Readonly agar keyboard bawaan HP/PC tidak muncul mengganggu) -->
+            <div class="relative z-10 mb-4">
+                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"><i class="fas fa-key"></i></span>
+                <input type="password" id="input-activation-code" placeholder="PIN Aktivasi..." readonly class="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl pl-10 pr-4 py-3 text-center font-black text-xl tracking-[0.3em] text-slate-700 outline-none transition-all shadow-inner">
+            </div>
+
+            <!-- 🔢 Numpad Aktivasi 3x4 -->
+            <div class="grid grid-cols-3 gap-2.5 md:gap-3 w-full mb-4 relative z-10">
+                <button onclick="superApp.addActCode('1')" class="h-12 rounded-[1rem] bg-white border border-slate-100 shadow-[0_4px_10px_rgba(0,0,0,0.05)] active:translate-y-1 text-xl font-black text-slate-700 hover:bg-rose-50 hover:text-[#E5202B] transition-all touch-manipulation">1</button>
+                <button onclick="superApp.addActCode('2')" class="h-12 rounded-[1rem] bg-white border border-slate-100 shadow-[0_4px_10px_rgba(0,0,0,0.05)] active:translate-y-1 text-xl font-black text-slate-700 hover:bg-rose-50 hover:text-[#E5202B] transition-all touch-manipulation">2</button>
+                <button onclick="superApp.addActCode('3')" class="h-12 rounded-[1rem] bg-white border border-slate-100 shadow-[0_4px_10px_rgba(0,0,0,0.05)] active:translate-y-1 text-xl font-black text-slate-700 hover:bg-rose-50 hover:text-[#E5202B] transition-all touch-manipulation">3</button>
+                
+                <button onclick="superApp.addActCode('4')" class="h-12 rounded-[1rem] bg-white border border-slate-100 shadow-[0_4px_10px_rgba(0,0,0,0.05)] active:translate-y-1 text-xl font-black text-slate-700 hover:bg-rose-50 hover:text-[#E5202B] transition-all touch-manipulation">4</button>
+                <button onclick="superApp.addActCode('5')" class="h-12 rounded-[1rem] bg-white border border-slate-100 shadow-[0_4px_10px_rgba(0,0,0,0.05)] active:translate-y-1 text-xl font-black text-slate-700 hover:bg-rose-50 hover:text-[#E5202B] transition-all touch-manipulation">5</button>
+                <button onclick="superApp.addActCode('6')" class="h-12 rounded-[1rem] bg-white border border-slate-100 shadow-[0_4px_10px_rgba(0,0,0,0.05)] active:translate-y-1 text-xl font-black text-slate-700 hover:bg-rose-50 hover:text-[#E5202B] transition-all touch-manipulation">6</button>
+                
+                <button onclick="superApp.addActCode('7')" class="h-12 rounded-[1rem] bg-white border border-slate-100 shadow-[0_4px_10px_rgba(0,0,0,0.05)] active:translate-y-1 text-xl font-black text-slate-700 hover:bg-rose-50 hover:text-[#E5202B] transition-all touch-manipulation">7</button>
+                <button onclick="superApp.addActCode('8')" class="h-12 rounded-[1rem] bg-white border border-slate-100 shadow-[0_4px_10px_rgba(0,0,0,0.05)] active:translate-y-1 text-xl font-black text-slate-700 hover:bg-rose-50 hover:text-[#E5202B] transition-all touch-manipulation">8</button>
+                <button onclick="superApp.addActCode('9')" class="h-12 rounded-[1rem] bg-white border border-slate-100 shadow-[0_4px_10px_rgba(0,0,0,0.05)] active:translate-y-1 text-xl font-black text-slate-700 hover:bg-rose-50 hover:text-[#E5202B] transition-all touch-manipulation">9</button>
+                
+                <button onclick="superApp.clearActCode()" class="h-12 rounded-[1rem] bg-[#FFB800] hover:bg-[#F0A800] shadow-[0_4px_10px_rgba(255,184,0,0.4)] active:translate-y-1 text-xs font-black text-white transition-all touch-manipulation"><i class="fas fa-trash-can mb-1 block"></i>Reset</button>
+                <button onclick="superApp.addActCode('0')" class="h-12 rounded-[1rem] bg-white border border-slate-100 shadow-[0_4px_10px_rgba(0,0,0,0.05)] active:translate-y-1 text-xl font-black text-slate-700 hover:bg-rose-50 hover:text-[#E5202B] transition-all touch-manipulation">0</button>
+                <button onclick="superApp.delActCode()" class="h-12 rounded-[1rem] bg-[#E5202B] hover:bg-[#CC1A24] shadow-[0_4px_10px_rgba(229,32,43,0.4)] active:translate-y-1 text-lg font-black text-white transition-all touch-manipulation"><i class="fas fa-backspace"></i></button>
+            </div>
         </div>
         
-        <h2 class="text-2xl font-black text-slate-800 mb-2 relative z-10 tracking-tight">Perangkat Asing</h2>
-        <p class="text-[10px] text-slate-500 mb-6 font-bold leading-relaxed relative z-10 px-2">Perangkat ini belum dikenali oleh sistem. Masukkan Kode Aktivasi Master untuk memberikan akses pada alat ini.</p>
-        
-        <div class="relative z-10 mb-5">
-            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"><i class="fas fa-key"></i></span>
-            <input type="password" id="input-activation-code" placeholder="Kode Aktivasi..." class="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl pl-10 pr-4 py-3.5 text-center font-black text-lg text-slate-700 outline-none focus:border-rose-500 focus:bg-white transition-all shadow-inner focus:shadow-sm">
-        </div>
-        
-        <button onclick="superApp.verifyActivation()" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-black py-4 rounded-xl shadow-lg transition-all active:scale-95 flex justify-center items-center gap-2 relative z-10">
-            <i class="fas fa-unlock-keyhole"></i> Sahkan Perangkat
+        <button onclick="superApp.verifyActivation()" class="w-full shrink-0 bg-slate-900 hover:bg-slate-800 text-white font-black py-3.5 rounded-xl shadow-lg transition-all active:scale-95 flex justify-center items-center gap-2 relative z-10 mt-2">
+            <i class="fas fa-unlock-keyhole text-[#FFB800]"></i> Sahkan Perangkat
         </button>
     </div>
 </div>

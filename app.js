@@ -418,6 +418,24 @@ const superApp = {
         }
     },
 
+    // 🚀 ENGINE NUMPAD KHUSUS LAYAR AKTIVASI
+    addActCode: function(num) {
+        let input = document.getElementById('input-activation-code');
+        if (input) input.value += num;
+    },
+
+    delActCode: function() {
+        let input = document.getElementById('input-activation-code');
+        if (input && input.value.length > 0) {
+            input.value = input.value.slice(0, -1);
+        }
+    },
+
+    clearActCode: function() {
+        let input = document.getElementById('input-activation-code');
+        if (input) input.value = '';
+    },
+
     // =========================================================================
     // STARTUP & LOGIN (INIT)
     // =========================================================================

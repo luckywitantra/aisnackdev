@@ -368,20 +368,26 @@ const superApp = {
     // =========================================================
     // 🚀 ENGINE: SISTEM KEAMANAN AKTIVASI PERANGKAT (DEVICE BINDING)
     // =========================================================
-    checkDeviceActivation: function() {
+   checkDeviceActivation: function() {
         let isActivated = localStorage.getItem('aisnack_device_activated');
         
+        let actView = document.getElementById('view-activation');
+        if (actView) {
+            // 🚀 JURUS UI: Pindahkan elemen gembok langsung ke dalam root <body> 
+            // agar ia lepas dari jebakan layout dan mutlak menutupi sidebar!
+            document.body.appendChild(actView);
+            actView.style.zIndex = "999999"; 
+        }
+
         if (isActivated !== 'true') {
-            let views = ['login-screen', 'view-main', 'view-pos'];
-            views.forEach(v => {
-                let el = document.getElementById(v);
-                if (el) { el.classList.add('hidden'); el.classList.remove('flex'); }
-            });
-            
-            let actView = document.getElementById('view-activation');
+            // Sembunyikan layar login PIN
+            let loginScreen = document.getElementById('login-screen');
+            if (loginScreen) { loginScreen.classList.add('hidden'); loginScreen.classList.remove('flex'); }
+
+            // Tampilkan Layar Gembok dengan Latar Solid (agar menu di belakangnya tertutup rapat)
             if (actView) {
-                actView.classList.remove('hidden');
-                actView.classList.add('flex');
+                actView.classList.remove('bg-slate-900/95', 'hidden');
+                actView.classList.add('bg-slate-900', 'flex'); 
             }
             return false; 
         }
@@ -416,7 +422,8 @@ const superApp = {
     // STARTUP & LOGIN (INIT)
     // =========================================================================
     init: async function() {
-        if (!this.checkDeviceActivation()) return;
+        // 🚀 PERBAIKAN: Hapus kata 'return' agar proses download database ke Google Sheets tetap berjalan di latar belakang!
+        this.checkDeviceActivation();
         
         // --- 🚀 SERVICE WORKER REGISTRATION ---
         if ('serviceWorker' in navigator) {

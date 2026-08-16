@@ -401,17 +401,32 @@ const superApp = {
             return;
         }
 
-        let dbKode = (this.db && this.db.pengaturan) ? this.db.pengaturan.find(x => x.Pengaturan === 'Kode_Aktivasi') : null;
-        let masterCode = dbKode ? dbKode.Nilai : "OWNER2026"; 
+        // 🚀 SMART CHECK 1: Apakah database sudah selesai terunduh?
+        if (!this.db || !this.db.pengaturan) {
+            this.showToast("⏳ Sedang memuat sistem keamanan server, klik tombol sekali lagi...", "warning");
+            return; // Hentikan proses, paksa user menunggu sebentar
+        }
+
+        // 🚀 SMART CHECK 2: Cari kode di database (Kebal Typo, Spasi, dan Huruf Besar/Kecil)
+        let dbKode = this.db.pengaturan.find(x => {
+            let keyClean = String(x.Pengaturan || '').replace(/_/g, ' ').trim().toLowerCase();
+            return keyClean === 'kode aktivasi';
+        });
+        
+        let masterCode = (dbKode && dbKode.Nilai) ? String(dbKode.Nilai).trim() : "OWNER2026"; 
 
         if (input === masterCode) {
+            // SAHKAN PERANGKAT PERMANEN
             localStorage.setItem('aisnack_device_activated', 'true');
             this.showToast("Perangkat Berhasil Disahkan!", "success");
             
+            // Sembunyikan gembok
             let actView = document.getElementById('view-activation');
             if (actView) { actView.classList.add('hidden'); actView.classList.remove('flex'); }
             
+            // Refresh aplikasi agar langsung meluncur ke layar PIN Kasir
             setTimeout(() => { window.location.reload(); }, 500);
+            
         } else {
             this.showToast("Kode Aktivasi Salah!", "error");
             document.getElementById('input-activation-code').value = '';

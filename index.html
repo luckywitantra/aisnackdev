@@ -194,6 +194,31 @@
 <!-- ========================================================================= -->
 <!-- 🔐 VIEW: PIN LOGIN SCREEN (AI-SNACK PLAYFUL BRANDING)                   -->
 <!-- ========================================================================= -->
+<!-- ================= VIEW AKTIVASI PERANGKAT (KEAMANAN LAPIS 1) ================= -->
+<div id="view-activation" class="app-view hidden flex-col items-center justify-center min-h-screen w-screen bg-slate-900/95 backdrop-blur-md p-6 relative z-[99999]">
+    <div class="bg-white p-8 rounded-[2.5rem] shadow-[0_20px_60px_rgba(229,32,43,0.3)] w-full max-w-sm text-center relative overflow-hidden border border-rose-100">
+        <!-- Latar Ornamen -->
+        <div class="absolute -right-10 -top-10 w-32 h-32 bg-rose-50 rounded-full blur-3xl z-0"></div>
+        
+        <div class="w-20 h-20 bg-gradient-to-br from-rose-500 to-red-600 text-white rounded-[1.5rem] flex items-center justify-center text-4xl mx-auto mb-5 shadow-lg shadow-rose-500/40 relative z-10 transform -rotate-3">
+            <i class="fas fa-shield-halved"></i>
+        </div>
+        
+        <h2 class="text-2xl font-black text-slate-800 mb-2 relative z-10 tracking-tight">Perangkat Asing</h2>
+        <p class="text-[10px] text-slate-500 mb-6 font-bold leading-relaxed relative z-10 px-2">Perangkat ini belum dikenali oleh sistem. Masukkan Kode Aktivasi Master untuk memberikan akses pada alat ini.</p>
+        
+        <div class="relative z-10 mb-5">
+            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"><i class="fas fa-key"></i></span>
+            <input type="password" id="input-activation-code" placeholder="Kode Aktivasi..." class="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl pl-10 pr-4 py-3.5 text-center font-black text-lg text-slate-700 outline-none focus:border-rose-500 focus:bg-white transition-all shadow-inner focus:shadow-sm">
+        </div>
+        
+        <button onclick="superApp.verifyActivation()" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-black py-4 rounded-xl shadow-lg transition-all active:scale-95 flex justify-center items-center gap-2 relative z-10">
+            <i class="fas fa-unlock-keyhole"></i> Sahkan Perangkat
+        </button>
+    </div>
+</div>
+
+<!-- ================= VIEW LOGIN PIN KASIR ================= -->
 <div id="login-screen" class="fixed inset-0 w-screen h-screen z-[9999] flex flex-col items-center p-4 md:p-6 overflow-y-auto overflow-x-hidden select-none bg-gradient-to-b from-[#FFF5D1] to-[#FFD874]">
     
     <!-- 🔴 Ornamen Latar Merah Melengkung di Bawah -->
@@ -204,7 +229,7 @@
         <!-- Bingkai Logo -->
         <div class="w-24 h-24 md:w-28 md:h-28 bg-white/80 backdrop-blur-md rounded-[1.8rem] border-4 border-white flex items-center justify-center shadow-[0_15px_30px_rgba(229,32,43,0.2)] mb-4 p-4 relative group hover:scale-105 transition-transform duration-300">
             <!-- Gambar Logo Dinamis -->
-            <img src="https://cdn-icons-png.flaticon.com/512/3081/3081308.png" class="app-logo-img w-full h-full object-contain filter drop-shadow-md transform group-hover:rotate-3 transition-transform duration-300">
+            <img src="https://cdn-icons-png.flaticon.com/512/3081/3081308.png" id="app-main-logo" class="app-logo-img w-full h-full object-contain filter drop-shadow-md transform group-hover:rotate-3 transition-transform duration-300">
         </div>
     </div>
 

@@ -120,8 +120,6 @@ const osKeyboard = {
             preview.innerHTML = val === '' ? '<span class="animate-pulse text-[#FFB800]/50">_</span>' : val;
         }
     },
-
-   
     
     render: function() {
         const container = document.getElementById('vk-keys'); 
@@ -365,98 +363,10 @@ const superApp = {
         }
     },
 
-    // =========================================================
-    // 🚀 ENGINE: SISTEM KEAMANAN AKTIVASI PERANGKAT (DEVICE BINDING)
-    // =========================================================
-   checkDeviceActivation: function() {
-        let isActivated = localStorage.getItem('aisnack_device_activated');
-        
-        let actView = document.getElementById('view-activation');
-        if (actView) {
-            // 🚀 JURUS UI: Pindahkan elemen gembok langsung ke dalam root <body> 
-            // agar ia lepas dari jebakan layout dan mutlak menutupi sidebar!
-            document.body.appendChild(actView);
-            actView.style.zIndex = "999999"; 
-        }
-
-        if (isActivated !== 'true') {
-            // Sembunyikan layar login PIN
-            let loginScreen = document.getElementById('login-screen');
-            if (loginScreen) { loginScreen.classList.add('hidden'); loginScreen.classList.remove('flex'); }
-
-            // Tampilkan Layar Gembok dengan Latar Solid (agar menu di belakangnya tertutup rapat)
-            if (actView) {
-                actView.classList.remove('bg-slate-900/95', 'hidden');
-                actView.classList.add('bg-slate-900', 'flex'); 
-            }
-            return false; 
-        }
-        return true; 
-    },
-
-    verifyActivation: function() {
-        let input = document.getElementById('input-activation-code').value;
-        if (!input) {
-            this.showToast("Kode tidak boleh kosong!", "error");
-            return;
-        }
-
-        // 🚀 SMART CHECK 1: Apakah database sudah selesai terunduh?
-        if (!this.db || !this.db.pengaturan) {
-            this.showToast("⏳ Sedang memuat sistem keamanan server, klik tombol sekali lagi...", "warning");
-            return; // Hentikan proses, paksa user menunggu sebentar
-        }
-
-        // 🚀 SMART CHECK 2: Cari kode di database (Kebal Typo, Spasi, dan Huruf Besar/Kecil)
-        let dbKode = this.db.pengaturan.find(x => {
-            let keyClean = String(x.Pengaturan || '').replace(/_/g, ' ').trim().toLowerCase();
-            return keyClean === 'kode aktivasi';
-        });
-        
-        let masterCode = (dbKode && dbKode.Nilai) ? String(dbKode.Nilai).trim() : "OWNER2026"; 
-
-        if (input === masterCode) {
-            // SAHKAN PERANGKAT PERMANEN
-            localStorage.setItem('aisnack_device_activated', 'true');
-            this.showToast("Perangkat Berhasil Disahkan!", "success");
-            
-            // Sembunyikan gembok
-            let actView = document.getElementById('view-activation');
-            if (actView) { actView.classList.add('hidden'); actView.classList.remove('flex'); }
-            
-            // Refresh aplikasi agar langsung meluncur ke layar PIN Kasir
-            setTimeout(() => { window.location.reload(); }, 500);
-            
-        } else {
-            this.showToast("Kode Aktivasi Salah!", "error");
-            document.getElementById('input-activation-code').value = '';
-        }
-    },
-
-    // 🚀 ENGINE NUMPAD KHUSUS LAYAR AKTIVASI
-    addActCode: function(num) {
-        let input = document.getElementById('input-activation-code');
-        if (input) input.value += num;
-    },
-
-    delActCode: function() {
-        let input = document.getElementById('input-activation-code');
-        if (input && input.value.length > 0) {
-            input.value = input.value.slice(0, -1);
-        }
-    },
-
-    clearActCode: function() {
-        let input = document.getElementById('input-activation-code');
-        if (input) input.value = '';
-    },
-
     // =========================================================================
     // STARTUP & LOGIN (INIT)
     // =========================================================================
     init: async function() {
-        // 🚀 PERBAIKAN: Hapus kata 'return' agar proses download database ke Google Sheets tetap berjalan di latar belakang!
-        this.checkDeviceActivation();
         
         // --- 🚀 SERVICE WORKER REGISTRATION ---
         if ('serviceWorker' in navigator) {

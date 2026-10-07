@@ -1,32 +1,72 @@
-// STORAGE SAFETY PATCH: preserve transaction history; never silently truncate business data.
+// STORAGE SAFETY PATCH: database cache besar disimpan ke IndexedDB; tidak memangkas riwayat.
 (function () {
     const nativeSetItem = Storage.prototype.setItem;
+    let quotaNoticeShown = false;
     Storage.prototype.setItem = function (key, value) {
         try {
-            return nativeSetItem.call(this, key, value);
+            const result = nativeSetItem.call(this, key, value);
+            if (String(key) === 'aisnack_db_cache') {
+                try { nativeSetItem.call(this, 'aisnack_db_cache_saved_at', String(Date.now())); } catch (_) {}
+                // Mirror only large caches; small cache writes stay lightweight.
+                if (String(value).length > 1500000 && typeof AisnackOfflineStore !== 'undefined') {
+                    AisnackOfflineStore.saveDatabaseCache(String(value)).catch(() => {});
+                }
+            }
+            return result;
         } catch (e) {
             const quota = e && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || e.code === 22 || e.code === 1014 || /quota/i.test(String(e.message || '')));
             if (!quota) throw e;
-            console.error('Penyimpanan browser penuh. Data lama tidak dipangkas otomatis:', key, e);
+            if (String(key) === 'aisnack_db_cache' && typeof AisnackOfflineStore !== 'undefined') {
+                // Keep the full cache in IndexedDB instead of dropping history or replacing it with a truncated copy.
+                AisnackOfflineStore.saveDatabaseCache(String(value)).catch(err => {
+                    console.warn('Cache database tidak dapat disimpan ke IndexedDB:', err && err.message ? err.message : err);
+                });
+            }
+            if (!quotaNoticeShown) {
+                quotaNoticeShown = true;
+                console.warn('Kuota localStorage tercapai. Cache besar dialihkan ke IndexedDB bila tersedia; data bisnis tidak dipangkas otomatis.');
+            }
             try { window.dispatchEvent(new CustomEvent('aisnack:storagequota', { detail: { key: String(key) } })); } catch (_) {}
-            // Keep the existing value intact. Queue writes are also persisted to IndexedDB below.
+            // Preserve the old value if the write fails; do not throw and interrupt login/rendering.
             return undefined;
         }
     };
 })();
 
-// IndexedDB is the durable fallback for offline transaction queue when localStorage is full.
+// IndexedDB stores both the durable offline queue and a full database-cache fallback.
 const AisnackOfflineStore = (() => {
     const DB_NAME = 'aisnack-offline-v1';
     const STORE = 'queue';
+    const DB_CACHE_STORE = 'databaseCache';
     function openDb() {
         return new Promise((resolve, reject) => {
             if (!('indexedDB' in window)) return reject(new Error('IndexedDB tidak tersedia'));
-            const req = indexedDB.open(DB_NAME, 1);
-            req.onupgradeneeded = () => { if (!req.result.objectStoreNames.contains(STORE)) req.result.createObjectStore(STORE, { keyPath: '_req_id' }); };
+            const req = indexedDB.open(DB_NAME, 2);
+            req.onupgradeneeded = () => {
+                if (!req.result.objectStoreNames.contains(STORE)) req.result.createObjectStore(STORE, { keyPath: '_req_id' });
+                if (!req.result.objectStoreNames.contains(DB_CACHE_STORE)) req.result.createObjectStore(DB_CACHE_STORE, { keyPath: 'id' });
+            };
             req.onsuccess = () => resolve(req.result);
             req.onerror = () => reject(req.error || new Error('Gagal membuka IndexedDB'));
         });
+    }
+    async function saveDatabaseCache(value) {
+        const db = await openDb();
+        await new Promise((resolve, reject) => {
+            const tx = db.transaction(DB_CACHE_STORE, 'readwrite');
+            tx.objectStore(DB_CACHE_STORE).put({ id: 'main', value: String(value), savedAt: Date.now() });
+            tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error);
+        });
+        db.close();
+    }
+    async function getDatabaseCache() {
+        const db = await openDb();
+        const record = await new Promise((resolve, reject) => {
+            const req = db.transaction(DB_CACHE_STORE, 'readonly').objectStore(DB_CACHE_STORE).get('main');
+            req.onsuccess = () => resolve(req.result || null); req.onerror = () => reject(req.error);
+        });
+        db.close();
+        return record;
     }
     async function putAll(items) {
         const db = await openDb();
@@ -46,7 +86,7 @@ const AisnackOfflineStore = (() => {
         });
         db.close(); return items;
     }
-    return { putAll, getAll };
+    return { putAll, getAll, saveDatabaseCache, getDatabaseCache };
 })();
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxakixSuG2N-FXrTXUhlcZV25_Ey1C702_bWd58mZN1ylGMBrLrgoOBX8tN_LNB4gx0/exec"; // <-- GANTI DENGAN URL API ANDA
@@ -423,6 +463,17 @@ const superApp = {
         try {
             const logStat = document.getElementById('login-status');
             let cacheDb = localStorage.getItem('aisnack_db_cache');
+            // Use the newest full cache if localStorage is over quota; never truncate history to fit.
+            try {
+                const idbCache = await AisnackOfflineStore.getDatabaseCache();
+                const localSavedAt = Number(localStorage.getItem('aisnack_db_cache_saved_at') || 0);
+                if (idbCache && idbCache.value && Number(idbCache.savedAt || 0) > localSavedAt) {
+                    cacheDb = idbCache.value;
+                    console.info('Cache database dipulihkan dari IndexedDB.');
+                }
+            } catch (cacheFallbackError) {
+                console.warn('Cache IndexedDB tidak tersedia; melanjutkan dengan cache lokal/server:', cacheFallbackError.message || cacheFallbackError);
+            }
             
             if (cacheDb) { 
                 this.db = JSON.parse(cacheDb); 

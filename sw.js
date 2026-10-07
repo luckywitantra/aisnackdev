@@ -1,8 +1,8 @@
 /* Ai-Snack ERP & POS service worker — safe, scoped cache lifecycle */
 'use strict';
 const CACHE_PREFIX = 'aisnack-erp-pos-';
-const CACHE_NAME = CACHE_PREFIX + '2026.10.07.2';
-const APP_SHELL = ['./', './index.html', './app.js', './style.css', './manifest.json', './icon-192.svg', './icon-512.svg'];
+const CACHE_NAME = CACHE_PREFIX + '2026.10.07.3';
+const APP_SHELL = ['./', './index.html', './app.js', './offline-hardening.js', './style.css', './manifest.json', './icon-192.svg', './icon-512.svg'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)).catch(err => { console.warn('Precache parsial; aplikasi tetap dapat dimuat dari jaringan.', err); }));
 });

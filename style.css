@@ -298,3 +298,78 @@ td, th { overflow-wrap: anywhere; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+
+/* Laporan Harian Ai-CHA — responsive finishing layer v3.3 */
+#view-laporan-harian { min-width: 0; }
+#view-laporan-harian #lapharian-sec-input,
+#view-laporan-harian #lapharian-sec-riwayat { min-width: 0; }
+#view-laporan-harian #daily-smart-save-notice { line-height: 1.45; }
+#view-laporan-harian input,
+#view-laporan-harian select,
+#view-laporan-harian button { -webkit-tap-highlight-color: transparent; }
+#view-laporan-harian input[type="number"],
+#view-laporan-harian input[inputmode="numeric"] { font-variant-numeric: tabular-nums; }
+#view-laporan-harian #daily-expenses-list { max-height: min(32vh, 260px); overscroll-behavior: contain; }
+#view-laporan-harian #history-table-wrapper { min-width: 0; }
+#view-laporan-harian #laporan-harian-mobile > div { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 639px) {
+  #view-laporan-harian { border-radius: 1rem; }
+  #view-laporan-harian > div:first-child { border-radius: 1rem; }
+  #view-laporan-harian #lapharian-sec-input { padding: .9rem !important; border-radius: 1.15rem !important; }
+  #view-laporan-harian #form-input-wrapper { gap: .75rem; }
+  #view-laporan-harian #daily-cash,
+  #view-laporan-harian #daily-qris,
+  #view-laporan-harian #daily-bill,
+  #view-laporan-harian #daily-pcs { min-height: 2.8rem; font-size: 1rem; }
+  #view-laporan-harian #daily-expenses-list > div { gap: .4rem; }
+  #view-laporan-harian #daily-expenses-list input { min-width: 0; }
+  #view-laporan-harian #daily-expenses-list input[inputmode="numeric"] { width: 6.25rem; }
+  #view-laporan-harian #lapharian-sec-riwayat { min-height: 60vh; }
+  #view-laporan-harian #laporan-harian-mobile { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+}
+@media (min-width: 1024px) {
+  #view-laporan-harian #lapharian-sec-input { width: min(100%, 440px); }
+}
+
+/* Gudang & Master responsive hardening v3.5 */
+#gudang-content-stok input,
+#gudang-content-menu input,
+#gudang-content-outlet input,
+#gudang-content-hpp input,
+#gudang-content-stok button,
+#gudang-content-menu button,
+#gudang-content-outlet button,
+#gudang-content-hpp button { -webkit-tap-highlight-color: transparent; }
+#gudang-content-stok input:focus-visible,
+#gudang-content-menu input:focus-visible,
+#gudang-content-outlet input:focus-visible,
+#gudang-content-hpp input:focus-visible,
+#gudang-content-stok button:focus-visible,
+#gudang-content-menu button:focus-visible,
+#gudang-content-outlet button:focus-visible,
+#gudang-content-hpp button:focus-visible { outline: 3px solid rgba(245, 158, 11, .45); outline-offset: 2px; }
+#gudang-content-menu .gudang-master-card,
+#gudang-content-outlet .gudang-outlet-card,
+#gudang-content-outlet .gudang-outlet-price-card,
+#gudang-content-hpp .gudang-hpp-card { overflow-wrap: anywhere; }
+#gudang-content-stok [data-stock-state].hidden,
+#gudang-content-menu .gudang-master-card.hidden,
+#gudang-content-outlet .gudang-outlet-card.hidden,
+#gudang-content-outlet .gudang-outlet-price-card.hidden,
+#gudang-content-outlet #heatmap-mobile-container [data-search].hidden,
+#gudang-content-hpp .gudang-hpp-card.hidden { display: none !important; }
+@media (max-width: 767px) {
+  #view-gudang { padding-bottom: 5.5rem; }
+  #view-gudang > div:first-child { border-radius: 1.25rem; }
+  #gudang-content-stok, #gudang-content-menu, #gudang-content-outlet, #gudang-content-hpp { overscroll-behavior: contain; }
+  #gudang-content-stok .stock-filter-btn { min-height: 42px; padding-left: .8rem; padding-right: .8rem; }
+  #gudang-mobile-bottom-bar { padding-bottom: max(.75rem, env(safe-area-inset-bottom)); }
+  #master-menu-mobile-cards, #crud-outlet-mobile-cards, #outlet-manage-mobile-cards, #gudang-hpp-mobile-cards { scroll-padding-bottom: 7rem; }
+  #gudang-content-menu .gudang-master-card button,
+  #gudang-content-outlet .gudang-outlet-card button,
+  #gudang-content-outlet .gudang-outlet-price-card button { min-height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #gudang-content-stok *, #gudang-content-menu *, #gudang-content-outlet *, #gudang-content-hpp * { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}

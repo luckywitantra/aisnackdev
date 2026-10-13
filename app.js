@@ -609,6 +609,25 @@ const superApp = {
 
     
     
+  // Verify stored salted PIN hashes while retaining legacy plaintext compatibility until migration is run.
+    hashPinForCache: async function(pin) {
+        if (!window.crypto || !window.crypto.subtle) throw new Error('Peramban tidak mendukung verifikasi PIN aman. Buka aplikasi melalui HTTPS.');
+        const bytes = new Uint8Array(16); window.crypto.getRandomValues(bytes);
+        const salt = Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join('');
+        const digest = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${salt}:${String(pin)}`));
+        const hex = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2,'0')).join('');
+        return `sha256$${salt}$${hex}`;
+    },
+    verifyStoredPin: async function(pin, storedValue) {
+        const stored = String(storedValue == null ? '' : storedValue);
+        if (!stored.startsWith('sha256$')) return stored === String(pin); // legacy records work until migration
+        const parts = stored.split('$');
+        if (parts.length !== 3 || !window.crypto || !window.crypto.subtle) return false;
+        const digest = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${parts[1]}:${String(pin)}`));
+        const hex = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2,'0')).join('');
+        return hex === parts[2];
+    },
+
   addPin: function(num) {
         // 🛑 SATPAM 1: Tolak ketikan jika aplikasi sedang proses update / bersiap reload
         if (this.isSystemUpdating) {
@@ -659,7 +678,7 @@ const superApp = {
         }
     },
     
-    processLogin: function() {
+    processLogin: async function() {
         if (this.isProcessing) return; this.isProcessing = true;
         if (!this.db || !this.db.users) { 
             this.showToast('Koneksi ke Database belum siap.', 'error'); 
@@ -667,7 +686,10 @@ const superApp = {
         }
 
         // 🚀 Cek PIN Kasir
-        let user = this.db.users.find(u => String(u.PIN) === String(this.pinBuffer));
+        let user = null;
+        for (const candidate of (this.db.users || [])) {
+            if (await this.verifyStoredPin(this.pinBuffer, candidate.PIN)) { user = candidate; break; }
+        }
         
         if (user) {
             this.currentUser = user; 
@@ -942,6 +964,9 @@ pullFreshData: async function(silent = false) {
         // --- C. TERAPKAN KE SELURUH TABEL RIWAYAT ---
         merged.laporanHarian = mergeHistoryArray(oldDb.laporanHarian, newDb.laporanHarian, 'ID_Laporan', 'id_laporan');
         merged.transactions = mergeHistoryArray(oldDb.transactions, newDb.transactions, 'ID_TRX', 'id_trx');
+        // A server snapshot may lag behind a just-written Bluetooth print event.
+        const pendingPrints = new Map((oldDb.transactions || []).filter(t => t._cetak_sync_pending).map(t => [String(t.ID_TRX), t]));
+        merged.transactions.forEach(t => { const pending = pendingPrints.get(String(t.ID_TRX)); if (pending && t.Status_Cetak !== 'Sudah' && t.Status_Cetak !== 'Terkirim') { t.Status_Cetak = pending.Status_Cetak; t._cetak_sync_pending = true; } });
         merged.shifts = mergeHistoryArray(oldDb.shifts, newDb.shifts, 'ID_Shift', 'id_shift');
         merged.kasKeluar = mergeHistoryArray(oldDb.kasKeluar, newDb.kasKeluar, 'ID_Kas', 'id_kas_keluar');
         
@@ -1350,6 +1375,7 @@ pullFreshData: async function(silent = false) {
                         const response = JSON.parse(xhr.responseText || '{}');
                         const acknowledged = response && (response.status === 'sukses' || response.status === 'success' || response.pesan === 'Already Synced');
                         if (acknowledged) finish(response);
+                        else if (payload.action === 'checkout' && response && response.status === 'error') finish(response);
                         else queue('server-unconfirmed');
                     } catch (_) { queue('invalid-response'); }
                 } else queue('http-' + xhr.status);
@@ -1437,7 +1463,31 @@ pullFreshData: async function(silent = false) {
         html += createCard('Data Lainnya', 'fa-database', cLain, 'bg-slate-500 text-white', 'bg-slate-500', 'lain');
 
         if (html === '') html = createCard('Antrean Sistem', 'fa-server', totalQueue, 'bg-[#FFB800] text-white', 'bg-[#FFB800]', 'sistem');
+        const blocked = offlineData.filter(x => x && typeof x === 'object' && x._queue_status === 'blocked');
+        if (blocked.length) {
+            const esc = v => String(v == null ? '' : v).replace(/[&<>\"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[ch]));
+            html += `<div class="mt-4 border border-amber-200 bg-amber-50 rounded-2xl p-3"><h4 class="font-black text-amber-900 text-xs mb-2">Transaksi perlu pemeriksaan (${blocked.length})</h4><p class="text-[10px] text-amber-800 mb-3">Antrean ini tidak dicoba ulang otomatis agar tidak membuat ketidakpastian transaksi. Periksa stok dan log server sebelum mencoba lagi.</p>`;
+            blocked.forEach(item => {
+                const key = esc(item._req_id || '');
+                const label = esc(item.trx_id || item.id_transaksi || item._req_id || 'Transaksi');
+                const err = esc(item._last_error || item._queue_reason || 'Perlu pemeriksaan server');
+                html += `<div class="border-t border-amber-200 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"><div class="min-w-0"><div class="font-bold text-[11px] text-slate-800 break-all">${label}</div><div class="text-[10px] text-amber-800 break-words">${err}</div></div><button class="shrink-0 rounded-lg bg-amber-700 text-white px-3 py-2 text-[10px] font-black" onclick="superApp.retryBlockedQueueItem('${key}')">Periksa & Coba Lagi</button></div>`;
+            });
+            html += `</div>`;
+        }
         listEl.innerHTML = html;
+    },
+
+    retryBlockedQueueItem: async function(reqId) {
+        const item = (this.offlineQueue || []).find(x => x && x._req_id === reqId);
+        if (!item) return this.showToast('Antrean tidak ditemukan. Muat ulang daftar antrean.', 'error');
+        item._queue_status = 'pending';
+        item._queue_reason = 'manual-retry-after-review';
+        delete item._last_error;
+        await this.persistOfflineQueue();
+        this.renderSyncQueue();
+        if (this.isOnline) await this.syncOfflineQueue();
+        else this.showToast('Jaringan offline. Transaksi tetap tersimpan di antrean.', 'warning');
     },
 
     executeVisualSync: function() {
@@ -1500,12 +1550,24 @@ pullFreshData: async function(silent = false) {
         try {
             this.showToast('Menyinkronkan antrean data offline...', 'warning');
             for (const item of [...this.offlineQueue]) {
+                if (item && item._queue_status === 'blocked') { remaining.push(item); continue; }
                 try {
                     const response = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(item) });
                     if (!response.ok) throw new Error('HTTP ' + response.status);
                     const body = await response.json();
                     const acknowledged = body && (body.status === 'sukses' || body.status === 'success' || body.pesan === 'Already Synced');
-                    if (!acknowledged) { item._queue_status = 'failed'; item._last_error = 'Server belum mengonfirmasi'; remaining.push(item); }
+                    if (acknowledged && item.action === 'update_status_cetak') {
+                        const trx = (this.db.transactions || []).find(t => String(t.ID_TRX) === String(item.id_transaksi));
+                        if (trx) { if (!(this.receiptAuditState(trx) === 'sent' && item.status_cetak === 'Gagal')) trx.Status_Cetak = item.status_cetak; delete trx._cetak_sync_pending; }
+                    }
+                    if (!acknowledged) {
+                        if (item.action === 'checkout' && body && body.status === 'error') {
+                            item._queue_status = 'blocked';
+                            item._queue_reason = 'server-rejected';
+                            item._last_error = String(body.pesan || 'Server menolak checkout; perlu pemeriksaan sebelum dicoba ulang');
+                        } else { item._queue_status = 'failed'; item._last_error = 'Server belum mengonfirmasi'; }
+                        remaining.push(item);
+                    }
                 } catch (e) {
                     item._queue_status = 'pending'; item._last_error = String(e.message || e);
                     remaining.push(item);
@@ -5271,7 +5333,7 @@ selectOutlet: function(id) {
         // Update Memori Lokal Secara Instan (Agar UI Cepat)
         if (!this.db.users) this.db.users = [];
         if (mode === 'add') {
-            this.db.users.push({ Username: fId, ID_User: fId, Nama: fNama, Role: fRole, Outlet: fOutlet, ID_Outlet: fOutlet, PIN: fPin });
+            this.db.users.push({ Username: fId, ID_User: fId, Nama: fNama, Role: fRole, Outlet: fOutlet, ID_Outlet: fOutlet, PIN: await this.hashPinForCache(fPin) });
         } else {
             let idx = this.db.users.findIndex(x => (x.Username || x.ID_User) === oldUsername);
             if (idx > -1) {
@@ -5279,7 +5341,7 @@ selectOutlet: function(id) {
                 this.db.users[idx].Role = fRole;
                 this.db.users[idx].Outlet = fOutlet;
                 this.db.users[idx].ID_Outlet = fOutlet;
-                if (fPin && fPin.length === 4) this.db.users[idx].PIN = fPin;
+                if (fPin && fPin.length === 4) this.db.users[idx].PIN = await this.hashPinForCache(fPin);
             }
         }
         localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
@@ -6701,9 +6763,9 @@ refreshData: function() {
         let kasirPrefix = this.currentUser ? this.currentUser.Username.substring(0,3).toUpperCase() : 'KSR';
         let trxID = `TRX-${kasirPrefix}-${d.getTime()}`;
 
-        let isPrintSuccess = this.printerCharacteristic ? true : false;
+        let isPrintReady = !!this.printerCharacteristic;
         
-        const payload = { action: 'checkout', trx_id: trxID, outlet: this.outlet, kasir: this.currentUser.Username, metode_bayar: this.payMethod, total: this.payTotal, tunai: this.payCash, kembali: this.payChange, items: this.cart, id_shift: this.activeShiftId, tim_operasional: this.activeStaffTeam, antrian: noAntrian, status_cetak: isPrintSuccess ? 'Sudah' : 'Belum' };
+        const payload = { action: 'checkout', trx_id: trxID, outlet: this.outlet, kasir: this.currentUser.Username, metode_bayar: this.payMethod, total: this.payTotal, tunai: this.payCash, kembali: this.payChange, items: this.cart, id_shift: this.activeShiftId, tim_operasional: this.activeStaffTeam, antrian: noAntrian, status_cetak: isPrintReady ? 'Belum' : 'Tidak Dicetak' };
 
         if (!this.db.transactions) this.db.transactions = [];
         this.db.transactions.push({ 
@@ -6711,7 +6773,7 @@ refreshData: function() {
             Outlet: this.outlet, Kasir: this.currentUser.Username, Metode_Bayar: this.payMethod, 
             Total_Bayar: this.payTotal, Tunai: this.payCash, Kembalian: this.payChange, 
             Items_JSON: JSON.stringify(this.cart), ID_Shift: this.activeShiftId, Status: 'Sukses', Antrian: noAntrian,
-            Status_Cetak: isPrintSuccess ? 'Sudah' : 'Belum'
+            Status_Cetak: isPrintReady ? 'Menunggu' : 'Tidak Dicetak'
         });
 
         this.cart.forEach(item => {
@@ -6725,7 +6787,7 @@ refreshData: function() {
         this.showToast(`Transaksi Sukses! No Antrian: ${noAntrian}`);
 
         // 🚀 CETAK DUAL STRUK (PELANGGAN & DAPUR)
-        if (isPrintSuccess) {
+        if (isPrintReady) {
             // 🛠️ PERBAIKAN 1: Kloning data keranjang sebelum dihapus oleh sistem di bawah
             let printItems = JSON.parse(JSON.stringify(this.cart));
             let printTotal = this.payTotal;
@@ -6738,10 +6800,10 @@ refreshData: function() {
             .then(() => {
                 // Jeda 1.5 detik (dipercepat), lalu cetak Struk Dapur menggunakan memori kloning
                 setTimeout(() => {
-                    this.printReceipt(trxID, this.outlet, printTotal, printCash, printChange, printItems, 'Sukses', null, noAntrian, false, printMethod, 'kitchen');
+                    this.printReceipt(trxID, this.outlet, printTotal, printCash, printChange, printItems, 'Sukses', null, noAntrian, false, printMethod, 'kitchen').catch(e => console.warn('Cetak tiket dapur gagal:', e));
                 }, 1500); 
             })
-            .catch(e => console.log("Gagal print background"));
+            .catch(e => { console.warn('Gagal cetak struk pelanggan:', e); this.laporStrukGagal(trxID); });
         }
 
         this._lastPaidTotal = this.payTotal;
@@ -6765,16 +6827,33 @@ refreshData: function() {
             }
         }, 500);
 
-        this.apiPost(payload).then(res => {
+        this.apiPost(payload).then(async res => {
             if (res && res.status === 'sukses' && !res.is_offline) {
-                if (isPrintSuccess) {
-                    this.laporStrukDicetak(trxID);
+                // Checkout now exists server-side; retry any print event that arrived first.
+                if (this.isOnline && this.offlineQueue.some(x => x.action === 'update_status_cetak' && x.id_transaksi === trxID)) {
+                    setTimeout(() => this.syncOfflineQueue(), 1200);
                 }
                 if (typeof this.refreshStokOnly === 'function') {
                     this.refreshStokOnly(); 
                 }
+            } else if (res && res.status === 'error' && !res.is_offline) {
+               // A definite server rejection is not a transient timeout. Preserve the paid/printed local record,
+               // but block automatic retries until an operator reviews the server reason and stock state.
+               const localTrx = (this.db.transactions || []).find(t => String(t.ID_TRX) === String(trxID));
+               if (localTrx) { localTrx._server_sync_status = 'rejected'; localTrx._server_sync_error = String(res.pesan || 'Server menolak transaksi'); }
+               payload._queue_status = 'blocked';
+               payload._queue_reason = 'server-rejected';
+               payload._last_error = String(res.pesan || 'Server menolak transaksi; perlu pemeriksaan');
+               await this.enqueueOfflinePayload(payload, 'server-rejected-review-required');
+               const queued = this.offlineQueue.find(x => x && x._req_id === payload._req_id);
+               if (queued) { queued._queue_status = 'blocked'; queued._queue_reason = 'server-rejected'; queued._last_error = payload._last_error; }
+               await this.persistOfflineQueue();
+               try { localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db)); } catch (_) {}
+               this.refreshData();
+               this.showToast('Server menolak transaksi. Catatan lokal dipertahankan dan ditahan untuk pemeriksaan; jangan lakukan pembayaran ulang.', 'error');
+               this.renderSyncQueue();
             } else if (res && res.status !== 'sukses' && !res.is_offline) {
-               this.enqueueOfflinePayload(payload, 'transaction-unconfirmed');
+               await this.enqueueOfflinePayload(payload, 'transaction-unconfirmed');
             }
         }).catch(err => { console.log("Masuk ke antrean offline."); });
     },
@@ -8989,7 +9068,8 @@ openDetailStokOpname: function(sku) {
                         let cleanTime = this.cleanTimeOnly(t.Waktu);
                         let antrianTeks = t.Antrian ? `<span class="text-[9px] font-black bg-[#FFB800] text-white px-2 py-0.5 rounded shadow-sm">Q:${t.Antrian}</span>` : '';
                         let statusCetak = t.Status_Cetak || 'Belum';
-                        let warningStruk = (isAdmin && t.Status === 'Sukses' && statusCetak !== 'Sudah') ? `<span class="text-[8px] font-black bg-rose-100 text-[#E5202B] px-1.5 py-0.5 rounded border border-rose-200 animate-pulse">NO PRINT</span>` : '';
+                        let auditCetak = this.receiptAuditState(t);
+                        let warningStruk = (isAdmin && t.Status === 'Sukses' && auditCetak === 'not_printed') ? `<span class="text-[8px] font-black bg-rose-100 text-[#E5202B] px-1.5 py-0.5 rounded border border-rose-200">NO PRINT</span>` : ((isAdmin && t.Status === 'Sukses' && auditCetak === 'unverified') ? `<span class="text-[8px] font-black bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded border border-amber-200">BELUM TERVERIFIKASI</span>` : '');
 
                         trxHtml += `<tr class="${rowBg} transition-colors border-b border-slate-100">
                             <td class="py-3.5 px-4 whitespace-nowrap text-xs">
@@ -10826,9 +10906,13 @@ openDetailStokOpname: function(sku) {
         this.openModal('modal-detail');
     },
 
-    promptVoidTrx: function() {
+    promptVoidTrx: async function() {
         let pin = prompt("Masukkan PIN Super Admin (Owner) untuk Membatalkan & Mengembalikan Stok:");
-        let adminUser = (this.db.users || []).find(u => String(u.Role).toLowerCase().includes('admin') && String(u.PIN) === String(pin));
+        if (pin === null) return;
+        let adminUser = null;
+        for (const u of (this.db.users || [])) {
+            if (String(u.Role).toLowerCase().includes('admin') && await this.verifyStoredPin(pin, u.PIN)) { adminUser = u; break; }
+        }
         if(adminUser) { this.executeVoidTrx(this.activeReprintTrx.ID_TRX); } else { this.showToast("PIN Salah atau Anda bukan Admin! Batal ditolak.", "error"); }
     },
 executeVoidTrx: async function(trxId) {
@@ -10904,7 +10988,7 @@ executeVoidTrx: async function(trxId) {
         const filterOutEl = document.getElementById('ai-filter-outlet');
         if(filterOutEl && filterOutEl.options.length <= 1) {
             let opts = '<option value="Semua">Semua Cabang (Global)</option>';
-            let uniqueOutlets = [...new Set((this.db.transactions || []).map(t => t.Outlet))];
+            let uniqueOutlets = [...new Set(this.uniqueTransactionsById(this.db.transactions || []).map(t => t.Outlet))];
             uniqueOutlets.forEach(o => { if(o) opts += `<option value="${o}">${o}</option>`; });
             filterOutEl.innerHTML = opts;
             
@@ -10925,7 +11009,12 @@ executeVoidTrx: async function(trxId) {
         let itemStats = {}; 
 
         // 4. Looping Ekstraksi Transaksi LENGKAP (Termasuk Kalkulasi HPP)
-        (this.db.transactions || []).forEach(t => {
+        const financialTransactions = this.uniqueTransactionsById(this.db.transactions || []);
+        if (this.lastAnalyticsDuplicateRows > 0 && this._lastCfoDuplicateWarningCount !== this.lastAnalyticsDuplicateRows) {
+            this._lastCfoDuplicateWarningCount = this.lastAnalyticsDuplicateRows;
+            this.showToast(`CFO mengecualikan ${this.lastAnalyticsDuplicateRows} baris transaksi ber-ID ganda dari perhitungan. Periksa Audit_Integritas sebelum koreksi data historis.`, 'warning');
+        }
+        financialTransactions.forEach(t => {
             if (t.Status !== 'Sukses') return;
             let trxDate = this.parseDateId(t.Tanggal);
 
@@ -11605,7 +11694,7 @@ openAIDeepDive: function(type, param) {
                 }
             }
             if (!skuTarget) {
-                for (let t of (this.db.transactions || [])) {
+                for (let t of this.uniqueTransactionsById(this.db.transactions || [])) {
                     let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
                     for (let it of items) {
                         if (String(it.nama || '').trim().toLowerCase() === paramLower) {
@@ -11667,7 +11756,7 @@ openAIDeepDive: function(type, param) {
         // 🚀 2. KUMPULKAN TRANSAKSI & PREPARE SPARKLINE DATA
         // ====================================================================
         if (['hourly', 'branch', 'product', 'payment', 'pcs'].includes(type)) {
-            (this.db.transactions || []).forEach(t => {
+            this.uniqueTransactionsById(this.db.transactions || []).forEach(t => {
                 if (t.Status !== 'Sukses') return;
                 if (!isDataValid(t.Tanggal, t.Outlet)) return;
 
@@ -12664,8 +12753,8 @@ openAIDeepDive: function(type, param) {
 
                 if (t.Status === 'Sukses') {
                     staffData[kasir].trxCount += 1;
-                    if (t.Status_Cetak === 'Sudah') staffData[kasir].printCount += 1;
-                    else globalNoPrint += 1; // Transaksi sukses tapi tidak di-print
+                    if (this.receiptAuditState(t) === 'sent') staffData[kasir].printCount += 1;
+                    else if (this.receiptAuditState(t) === 'not_printed') globalNoPrint += 1; // Transaksi sukses tapi tidak di-print
                 } else {
                     staffData[kasir].batalCount += 1;
                     globalVoid += 1;
@@ -12768,7 +12857,7 @@ openAIDeepDive: function(type, param) {
                 let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
                 let itemStr = items.map(i => `${i.qty}x ${i.nama}`).join(', ');
 
-                if (t.Status === 'Sukses' && t.Status_Cetak !== 'Sudah') {
+                if (t.Status === 'Sukses' && this.receiptAuditState(t) === 'not_printed') {
                     countNoPrint++;
                     htmlNoPrint += `<tr class="border-b border-slate-100"><td class="py-2 px-3 text-xs">${wStr}</td><td class="py-2 px-3 text-xs font-bold text-slate-700">${t.ID_TRX}</td><td class="py-2 px-3 text-xs max-w-[150px] truncate" title="${itemStr}">${itemStr}</td><td class="py-2 px-3 text-right font-black text-brand-600">Rp ${(Number(t.Total_Bayar)||0).toLocaleString('id-ID')}</td></tr>`;
                 } else if (t.Status !== 'Sukses') {
@@ -12846,29 +12935,60 @@ openAIDeepDive: function(type, param) {
         if(modal && modalContent) { modal.classList.remove('hidden'); setTimeout(() => modalContent.classList.add('modal-enter-active'), 10); }
     },
 
-    laporStrukDicetak: async function(idTrx) {
-        try {
-            // 1. Kirim laporan ke Google Sheets di latar belakang
-            this.apiPost({ action: 'update_status_cetak', id_transaksi: idTrx });
-            
-            // 2. Cari transaksinya
-            let trx = (this.db.transactions || []).find(t => String(t.ID_TRX) === String(idTrx));
-            if (trx) {
-                trx.Status_Cetak = 'Sudah';
-                
-                // 🚀 PERBAIKAN 3: Simpan ke Database Lokal yang benar
-                localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
-                
-                // Segarkan Layar Histori Transaksi secara paksa (agar lencana NO PRINT langsung menghilang di depan mata kasir)
-                if (document.getElementById('view-report') && !document.getElementById('view-report').classList.contains('hidden')) {
-                    if (typeof this.renderReport === 'function') this.renderReport();
-                }
-            }
-        } catch (e) {
-            console.log("Gagal mengirim laporan status cetak ke server", e);
+    // Status 'Terkirim' means Bluetooth accepted all bytes, NOT proof of paper output.
+    // Persist the event before trying the network; checkout is always queued first when offline.
+    laporStrukDicetak: async function(idTrx, isReprint = false) {
+        const trx = (this.db.transactions || []).find(t => String(t.ID_TRX) === String(idTrx));
+        if (!idTrx || !trx) return;
+        trx.Status_Cetak = 'Terkirim';
+        trx._cetak_sync_pending = true;
+        try { localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db)); } catch (e) { console.warn('Cache status cetak penuh:', e); }
+        const event = {
+            action: 'update_status_cetak', id_transaksi: idTrx,
+            status_cetak: 'Terkirim', jenis_cetak: isReprint ? 'Cetak Ulang' : 'Cetak Awal',
+            waktu_cetak: new Date().toISOString(),
+            _req_id: 'PRINT-' + idTrx + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8)
+        };
+        await this.enqueueOfflinePayload(event, 'print-status-ack-pending');
+        if (this.isOnline) this.syncOfflineQueue();
+        if (document.getElementById('view-report') && !document.getElementById('view-report').classList.contains('hidden')) {
+            if (typeof this.renderReport === 'function') this.renderReport();
         }
     },
 
+    laporStrukGagal: async function(idTrx) {
+        const trx = (this.db.transactions || []).find(t => String(t.ID_TRX) === String(idTrx));
+        if (!trx || this.receiptAuditState(trx) === 'sent') return;
+        trx.Status_Cetak = 'Gagal';
+        trx._cetak_sync_pending = true;
+        try { localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db)); } catch (_) {}
+        await this.enqueueOfflinePayload({action:'update_status_cetak', id_transaksi:idTrx, status_cetak:'Gagal',
+            jenis_cetak:'Cetak Awal', waktu_cetak:new Date().toISOString(),
+            _req_id:'PRINT-FAIL-'+idTrx+'-'+Date.now()}, 'print-failed');
+        if (this.isOnline) this.syncOfflineQueue();
+    },
+
+    // Historical 'Belum' is ambiguous in older releases, not proof of cashier fault.
+    receiptAuditState: function(t) {
+        const status = String(t.Status_Cetak || 'Belum').trim();
+        if (status === 'Sudah' || status === 'Terkirim') return 'sent';
+        if (status === 'Tidak Dicetak' || status === 'Gagal') return 'not_printed';
+        return 'unverified';
+    },
+
+    // Financial analytics use one row per transaction ID; raw history remains untouched for audit/review.
+    uniqueTransactionsById: function(rows) {
+        const result = [], seen = new Set();
+        let duplicateRows = 0;
+        (Array.isArray(rows) ? rows : []).forEach(t => {
+            const id = String((t && t.ID_TRX) || '').trim();
+            if (!id) { result.push(t); return; }
+            if (seen.has(id)) { duplicateRows++; return; }
+            seen.add(id); result.push(t);
+        });
+        this.lastAnalyticsDuplicateRows = duplicateRows;
+        return result;
+    },
 
     toggleMobileCart: function() {
         const aside = document.getElementById('cart-aside');
@@ -14527,8 +14647,8 @@ openAIDeepDive: function(type, param) {
                 }
             }
 
-            if (isReprint && id && status === 'Sukses' && receiptMode === 'customer') {
-                this.laporStrukDicetak(id);
+            if (id && status === 'Sukses' && receiptMode === 'customer') {
+                await this.laporStrukDicetak(id, isReprint);
             }
 
         } catch(e) { 

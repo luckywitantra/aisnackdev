@@ -2910,9 +2910,47 @@ pullFreshData: async function(silent = false) {
         // buat request update/Pending Edit baru dan jangan minta otorisasi Owner.
         const currentSignature = this.dailyReportDataSignature({ cash, qris, bill, pcs, expenses: expValid });
         const baseline = this.dailyEditBaseline;
-        if (this.editReportId && baseline && String(baseline.id) === String(idRep) && baseline.signature === currentSignature) {
-            const original = (this.db.laporanHarian || []).find(x => String(x.ID_Laporan) === String(idRep));
-            const isPendingDraft = !!(original && original.Status_Approval === 'Pending Edit' && original.Revisi_JSON);
+        const original = this.editReportId
+            ? (this.db.laporanHarian || []).find(x => String(x.ID_Laporan) === String(idRep))
+            : null;
+        // No-op guard uses both the form snapshot and the authoritative values loaded
+        // from the report. This covers stale/missing baseline state and expense JSON
+        // that was normalized differently by older app versions.
+        let storedSignature = null;
+        if (original) {
+            let compareCash = original.Cash;
+            let compareQris = original.QRIS;
+            let compareBill = original.Bill;
+            let comparePcs = original.Pcs;
+            let compareExpensesJson = original.Pengeluaran_JSON;
+            if (String(original.Status_Approval || '').trim().toLowerCase() === 'pending edit' && original.Revisi_JSON) {
+                try {
+                    const revObj = typeof original.Revisi_JSON === 'string' ? JSON.parse(original.Revisi_JSON || '{}') : original.Revisi_JSON;
+                    if (revObj && revObj.net_sales !== undefined) {
+                        compareCash = revObj.cash;
+                        compareQris = revObj.qris;
+                        compareBill = revObj.bill;
+                        comparePcs = revObj.pcs;
+                        compareExpensesJson = revObj.pengeluaran_json;
+                    }
+                } catch (e) { /* fallback to approved values */ }
+            }
+            let compareExpenses = [];
+            try {
+                compareExpenses = typeof compareExpensesJson === 'string'
+                    ? JSON.parse(compareExpensesJson || '[]')
+                    : (compareExpensesJson || []);
+                if (!Array.isArray(compareExpenses)) compareExpenses = [];
+            } catch (e) { compareExpenses = []; }
+            storedSignature = this.dailyReportDataSignature({
+                cash: compareCash, qris: compareQris, bill: compareBill,
+                pcs: comparePcs, expenses: compareExpenses
+            });
+        }
+        const baselineMatches = !!(baseline && String(baseline.id) === String(idRep) && baseline.signature === currentSignature);
+        const storedMatches = !!(storedSignature && storedSignature === currentSignature);
+        if (this.editReportId && (baselineMatches || storedMatches)) {
+            const isPendingDraft = !!(original && String(original.Status_Approval || '').trim().toLowerCase() === 'pending edit' && original.Revisi_JSON);
             const waText = this.buildDailyReportWaText({
                 cash, qris, bill, pcs, expenses: expValid,
                 outlet: cleanCurrOutlet, tanggal: tglTeks,

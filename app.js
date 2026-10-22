@@ -1175,6 +1175,116 @@ pullFreshData: async function(silent = false) {
         if (loader && lText) { lText.innerText = text; if (show) { loader.classList.remove('hidden'); loader.classList.add('flex'); } else { loader.classList.add('hidden'); loader.classList.remove('flex'); } }
     },
     // FUNGSI UNTUK MEMBUKA MODAL APAPUN
+    openBackdatedTransactionModal: function() {
+        const role = String(this.currentUser && this.currentUser.Role || '').toLowerCase();
+        if (!role.includes('admin') && !role.includes('owner')) return this.showToast('Fitur ini hanya untuk Admin/Owner.', 'error');
+        const products = (this.db && this.db.masterProduk || []).filter(p => {
+            const c = String(p.Kategori || '').toLowerCase();
+            return p.SKU && c !== 'bahan' && c !== 'pendukung' && !c.includes('bahan') && !c.includes('pendukung');
+        });
+        const outlets = [...new Set([...(this.db && this.db.outlets || []).map(o => String(o.ID_Outlet || o.Nama_Outlet || '').trim()), ...(this.db && this.db.hargaStokOutlet || []).map(o => String(o.ID_Outlet || '').trim())].filter(Boolean))];
+        const cashiers = (this.db && this.db.users || []).filter(u => !/admin|owner/i.test(String(u.Role || '')));
+        const safe = v => String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+        const outletOptions = outlets.map(o => `<option value="${safe(o)}" ${String(o).toLowerCase()===String(this.outlet||'').toLowerCase()?'selected':''}>${safe(o)}</option>`).join('');
+        const cashierOptions = cashiers.map(u => `<option value="${safe(u.Username)}" data-role="${safe(u.Role||'Kasir')}">${safe(u.Username)} — ${safe(u.Role||'Kasir')}</option>`).join('');
+        const productOptions = products.map(p => `<option value="${safe(p.SKU)}" data-name="${safe(p.Nama_Produk)}" data-bahan="${safe(p.SKU_Bahan||p.SKU)}">${safe(p.Nama_Produk)} (${safe(p.SKU)})</option>`).join('');
+        const body = document.getElementById('modal-form-body');
+        const title = document.getElementById('modal-form-title');
+        const btn = document.getElementById('modal-form-btn');
+        const modalContent = document.getElementById('modal-form-content');
+        if (!body || !btn) return;
+        if (modalContent) modalContent.classList.remove('max-w-md');
+        if (modalContent) modalContent.classList.add('max-w-3xl');
+        if (title) title.textContent = 'Input Transaksi Susulan Admin';
+        const now = new Date(); const localDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+        body.innerHTML = `
+          <div class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><b>Transaksi susulan:</b> tanggal transaksi dan tanggal input akan disimpan terpisah. Pastikan transaksi belum tercatat sebelumnya. Setiap input membutuhkan PIN Admin/Owner dan alasan.</div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <label class="text-xs font-bold">Tanggal transaksi sebenarnya<input id="susulan-date" type="date" max="${localDate}" value="${localDate}" class="mt-1 w-full border rounded-xl p-3 text-sm" required></label>
+            <label class="text-xs font-bold">Waktu transaksi<input id="susulan-time" type="time" value="12:00" class="mt-1 w-full border rounded-xl p-3 text-sm" required></label>
+            <label class="text-xs font-bold">Outlet<select id="susulan-outlet" class="mt-1 w-full border rounded-xl p-3 text-sm" required>${outletOptions}</select></label>
+            <label class="text-xs font-bold">Kasir yang melakukan transaksi<select id="susulan-cashier" class="mt-1 w-full border rounded-xl p-3 text-sm" required>${cashierOptions}</select></label>
+            <label class="text-xs font-bold">Metode pembayaran<select id="susulan-payment" class="mt-1 w-full border rounded-xl p-3 text-sm"><option>Tunai</option><option>QRIS</option><option>Transfer</option><option>Kartu</option><option>Lainnya</option></select></label>
+            <label class="text-xs font-bold">Nominal dibayar (tunai)<input id="susulan-paid" type="number" min="0" value="0" class="mt-1 w-full border rounded-xl p-3 text-sm"></label>
+          </div>
+          <div class="flex items-center justify-between mt-2"><b class="text-sm">Rincian produk</b><button id="susulan-add-item" type="button" class="px-3 py-2 rounded-lg bg-slate-100 text-slate-700 text-xs font-black">+ Tambah barang</button></div>
+          <div id="susulan-items" class="space-y-2"></div>
+          <div class="rounded-xl bg-slate-50 border p-3 flex items-center justify-between"><span class="text-sm font-bold">Total transaksi</span><strong id="susulan-total" class="text-lg">Rp0</strong></div>
+          <div class="space-y-2"><div class="text-xs font-black">Perlakuan stok saat ini</div>
+            <label class="flex gap-2 items-start text-xs border rounded-xl p-3"><input type="radio" name="susulan-stock-mode" value="kurangi" checked class="mt-0.5"><span><b>Kurangi stok sekarang</b><br>Gunakan jika transaksi yang terlupa belum tercermin pada saldo stok sistem.</span></label>
+            <label class="flex gap-2 items-start text-xs border rounded-xl p-3"><input type="radio" name="susulan-stock-mode" value="sudah_tercermin" class="mt-0.5"><span><b>Stok sudah tercermin</b><br>Jangan kurangi lagi hanya jika stok transaksi ini sudah diperhitungkan pada saldo sekarang. Alasan wajib lebih rinci.</span></label>
+          </div>
+          <label class="block text-xs font-bold">Alasan input susulan (wajib)<textarea id="susulan-reason" rows="2" class="mt-1 w-full border rounded-xl p-3 text-sm" placeholder="Contoh: transaksi 20 Oktober belum tersimpan karena gangguan jaringan; bukti pembayaran diverifikasi." required></textarea></label>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3"><label class="text-xs font-bold">Username Admin/Owner<input id="susulan-admin-user" value="${safe(this.currentUser && this.currentUser.Username || '')}" class="mt-1 w-full border rounded-xl p-3 text-sm" required></label><label class="text-xs font-bold">Konfirmasi PIN Admin (4 digit)<input id="susulan-admin-pin" type="password" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" class="mt-1 w-full border rounded-xl p-3 text-sm" autocomplete="off" required></label></div>
+          <div id="susulan-error" class="hidden rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700"></div>`;
+        const itemWrap = document.getElementById('susulan-items');
+        const addRow = () => {
+            const row = document.createElement('div'); row.className='susulan-item grid grid-cols-1 md:grid-cols-12 gap-2 p-2 border rounded-xl';
+            row.innerHTML = `<select class="susulan-product md:col-span-5 border rounded-lg p-2 text-xs" required><option value="">Pilih produk</option>${productOptions}</select><input class="susulan-qty md:col-span-2 border rounded-lg p-2 text-xs" type="number" min="1" step="1" value="1" placeholder="Qty"><input class="susulan-price md:col-span-3 border rounded-lg p-2 text-xs" type="number" min="0" step="1" value="0" placeholder="Harga/unit"><button type="button" class="susulan-remove md:col-span-2 rounded-lg bg-rose-50 text-rose-600 text-xs font-bold">Hapus</button>`;
+            itemWrap.appendChild(row);
+            const productSelect=row.querySelector('.susulan-product'), priceInput=row.querySelector('.susulan-price');
+            productSelect.addEventListener('change',()=>{
+                const selected=productSelect.selectedOptions[0]; const sku=productSelect.value; const outlet=document.getElementById('susulan-outlet').value;
+                const priceRow=(this.db.hargaStokOutlet||[]).find(x=>String(x.SKU)===sku && String(x.ID_Outlet).replace(/^Ai-Snack\s+/i,'').trim().toLowerCase()===String(outlet).replace(/^Ai-Snack\s+/i,'').trim().toLowerCase());
+                const price=priceRow?Number(priceRow.Harga_Jual||0):0; priceInput.value=String(price); this._recalcBackdatedTotal();
+            });
+            row.querySelector('.susulan-qty').addEventListener('input',()=>this._recalcBackdatedTotal());
+            priceInput.addEventListener('input',()=>this._recalcBackdatedTotal());
+            row.querySelector('.susulan-remove').addEventListener('click',()=>{row.remove();this._recalcBackdatedTotal();});
+        };
+        this._backdatedProductOptions = productOptions;
+        this._recalcBackdatedTotal = function(){
+            let total=0; itemWrap.querySelectorAll('.susulan-item').forEach(r=>{total+=Math.max(0,Number(r.querySelector('.susulan-qty').value)||0)*Math.max(0,Number(r.querySelector('.susulan-price').value)||0);});
+            const el=document.getElementById('susulan-total'); if(el) el.textContent='Rp'+Math.round(total).toLocaleString('id-ID');
+            const pay=document.getElementById('susulan-payment'), paid=document.getElementById('susulan-paid'); if(pay && paid && pay.value!=='Tunai') paid.value=String(Math.round(total));
+            return Math.round(total);
+        };
+        document.getElementById('susulan-add-item').addEventListener('click',addRow);
+        document.getElementById('susulan-outlet').addEventListener('change',()=>{itemWrap.querySelectorAll('.susulan-product').forEach(sel=>sel.dispatchEvent(new Event('change')));});
+        document.getElementById('susulan-payment').addEventListener('change',()=>this._recalcBackdatedTotal());
+        addRow();
+        btn.textContent='Validasi & Simpan Transaksi Susulan';
+        btn.onclick=()=>this.submitBackdatedTransaction(false);
+        this.openModal('modal-form');
+    },
+
+    submitBackdatedTransaction: async function(overridePossibleDuplicate) {
+        const el=id=>document.getElementById(id);
+        const date=el('susulan-date')?.value, time=el('susulan-time')?.value, outlet=el('susulan-outlet')?.value, cashier=el('susulan-cashier')?.value;
+        const payment=el('susulan-payment')?.value, reason=String(el('susulan-reason')?.value||'').trim(), admin=String(el('susulan-admin-user')?.value||'').trim(), pin=String(el('susulan-admin-pin')?.value||'').trim();
+        const errorBox=el('susulan-error'); if(errorBox){errorBox.classList.add('hidden');errorBox.textContent='';}
+        const showError=msg=>{if(errorBox){errorBox.textContent=msg;errorBox.classList.remove('hidden');}else this.showToast(msg,'error');};
+        if(!date||!time||!outlet||!cashier||reason.length<10||!/^\d{4}$/.test(pin)) return showError('Lengkapi tanggal, waktu, outlet, kasir, alasan minimal 10 karakter, dan PIN Admin 4 digit.');
+        const items=[]; let invalid=false;
+        document.querySelectorAll('#susulan-items .susulan-item').forEach(row=>{
+            const sel=row.querySelector('.susulan-product'), opt=sel?.selectedOptions[0], qty=Number(row.querySelector('.susulan-qty')?.value), price=Number(row.querySelector('.susulan-price')?.value);
+            if(!sel?.value||!opt||!Number.isInteger(qty)||qty<=0||!Number.isFinite(price)||price<0){invalid=true;return;}
+            items.push({sku:sel.value,sku_bahan:opt.dataset.bahan||sel.value,nama:opt.dataset.name||opt.textContent,qty,price});
+        });
+        if(invalid||!items.length) return showError('Pilih produk dan pastikan kuantitas serta harga setiap item valid.');
+        const total=items.reduce((sum,x)=>sum+x.qty*x.price,0); const paid=payment==='Tunai'?Number(el('susulan-paid')?.value||0):total;
+        if(!Number.isFinite(total)||total<=0||!Number.isFinite(paid)||paid<total) return showError('Total harus lebih dari nol dan nominal dibayar tidak boleh kurang dari total.');
+        const stockMode=document.querySelector('input[name="susulan-stock-mode"]:checked')?.value||'kurangi';
+        if(stockMode==='sudah_tercermin'&&reason.length<20) return showError('Jika stok sudah tercermin, alasan wajib minimal 20 karakter dan menjelaskan alasannya.');
+        const role=String((this.db.users||[]).find(u=>String(u.Username).toLowerCase()===admin.toLowerCase())?.Role||'Kasir');
+        const payload={action:'input_transaksi_susulan',_req_id:'BACKDATED-'+Date.now()+'-'+Math.random().toString(36).slice(2,9),admin_username:admin,admin_pin:pin,tanggal_transaksi:date,waktu_transaksi:time,outlet,kasir:cashier,role_kasir:role,metode_bayar:payment,dibayar:paid,total_konfirmasi:Math.round(total),items,alasan:reason,mode_stok:stockMode,override_possible_duplicate:!!overridePossibleDuplicate};
+        const btn=el('modal-form-btn'); if(btn){btn.disabled=true;btn.textContent='Memvalidasi dan menyimpan…';}
+        try {
+            const res=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)});
+            const data=await res.json();
+            if(data.status==='perlu_konfirmasi_duplikat'&&!overridePossibleDuplicate){
+                const lines=(data.duplikat||[]).map(d=>`${d.id} (baris ${d.row})`).join('\n');
+                if(confirm(`${data.pesan}\n\n${lines}\n\nApakah Anda sudah memastikan transaksi ini memang berbeda dan tetap ingin melanjutkan?`)) return await this.submitBackdatedTransaction(true);
+                return;
+            }
+            if(data.status!=='sukses') throw new Error(data.pesan||'Server menolak transaksi susulan.');
+            this.showToast(`Transaksi susulan tersimpan: ${data.trx_id}`,'success');
+            this.closeModal('modal-form');
+            try { const fresh=await fetch(API_URL+'?ts='+Date.now()+'&history=31',{redirect:'follow',cache:'no-store'}); const db=await fresh.json(); if(db&&db.status==='sukses'){this.db={...this.db,...db};try{localStorage.setItem('aisnack_db_cache',JSON.stringify(this.db));}catch(_){} this.refreshData();} } catch(refreshErr){console.warn('Transaksi tersimpan; refresh data perlu diulang.',refreshErr);}
+        } catch(err) { showError(String(err.message||err)); }
+        finally { if(btn && document.getElementById('modal-form')&&!document.getElementById('modal-form').classList.contains('hidden')){btn.disabled=false;btn.textContent='Validasi & Simpan Transaksi Susulan';} }
+    },
+
     openModal: function(modalId) {
         const modal = document.getElementById(modalId);
         if (modal) {
@@ -1217,7 +1327,13 @@ pullFreshData: async function(silent = false) {
                 // Jalur B: Jaga-jaga jika ID -content lupa dibuat di HTML, langsung tutup paksa!
                 modal.classList.add('hidden'); 
             }
-        } 
+        }
+        if (id === 'modal-form') {
+            const formContent = document.getElementById('modal-form-content');
+            if (formContent) { formContent.classList.remove('max-w-3xl'); formContent.classList.add('max-w-md'); }
+            const pinField = document.getElementById('susulan-admin-pin');
+            if (pinField) pinField.value = '';
+        }
     },
 
     // 🚀 FUNGSI BARU: Menampilkan Popup Peringatan Fungsi Menu

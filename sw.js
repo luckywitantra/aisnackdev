@@ -21,7 +21,7 @@ self.addEventListener('install', event => { event.waitUntil(precache()); });
 self.addEventListener('activate', event => {
   event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME).map(key => caches.delete(key)))).then(() => self.clients.claim()));
 });
-self.addEventListener('message', event => { if (event.data && event.data.action === 'skipWaiting') self.skipWaiting(); });
+self.addEventListener('message', event => { if (event.data && (event.data.action === 'skipWaiting' || event.data.action === 'safeActivate')) self.skipWaiting(); });
 self.addEventListener('fetch', event => {
   const req = event.request; const url = new URL(req.url);
   if (req.method !== 'GET') return;

@@ -2736,6 +2736,7 @@ pullFreshData: async function(silent = false) {
 
         let daftarPengeluaran = [...new Set((this.db.masterPengeluaran || []).map(x => (x.Nama || x.NAMA_PENGELUARAN || '').toUpperCase()).filter(Boolean))];
 
+        cont.classList.add('aicha-expense-list');
         cont.innerHTML = this.dailyExpensesList.map(item => `
             <div class="flex items-center gap-2">
                 <input type="text" list="exp-datalist" value="${item.nama}" 
@@ -3753,9 +3754,36 @@ pullFreshData: async function(silent = false) {
     },
 
     // =========================================================
+    // MOBILE-FIRST UX: laporan Ai-CHA, touch target dan aksi sticky
+    // =========================================================
+    enhanceDailyReportResponsiveUI: function() {
+        const section = document.getElementById('lapharian-sec-input');
+        if (!section || section.dataset.aichaResponsiveEnhanced === '1') return;
+        section.dataset.aichaResponsiveEnhanced = '1';
+        section.classList.add('aicha-report-form');
+        const fields = ['daily-cash','daily-qris','daily-bill','daily-pcs'];
+        fields.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.classList.add('aicha-report-input');
+                if (id === 'daily-cash' || id === 'daily-qris') el.setAttribute('inputmode','numeric');
+                else el.setAttribute('inputmode','numeric');
+                el.setAttribute('autocomplete','off');
+            }
+        });
+        const expenses = document.getElementById('daily-expenses-list');
+        if (expenses) expenses.classList.add('aicha-expense-list');
+        const submit = section.querySelector('button[onclick="superApp.submitLaporanHarian()"]');
+        if (submit) submit.classList.add('aicha-report-submit');
+        const cancel = document.getElementById('btn-cancel-edit');
+        if (cancel) cancel.classList.add('aicha-report-cancel');
+    },
+
+    // =========================================================
     // 🚀 SWITCHER SUB-TAB LAPORAN HARIAN (RESPONSIVE FULL HEIGHT)
     // =========================================================
     switchLapHarianSubTab: function(tab) {
+        this.enhanceDailyReportResponsiveUI();
         const secInput = document.getElementById('lapharian-sec-input');
         const secRiwayat = document.getElementById('lapharian-sec-riwayat');
         const btnInput = document.getElementById('subtab-lapharian-input');

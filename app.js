@@ -1193,34 +1193,52 @@ pullFreshData: async function(silent = false) {
         const btn = document.getElementById('modal-form-btn');
         const modalContent = document.getElementById('modal-form-content');
         if (!body || !btn) return;
-        if (modalContent) modalContent.classList.remove('max-w-md');
-        if (modalContent) modalContent.classList.add('max-w-3xl');
+        if (modalContent) { modalContent.classList.remove('max-w-md','p-6','lg:p-8','rounded-[2.5rem]'); modalContent.classList.add('susulan-modal-content'); }
         if (title) title.textContent = 'Input Transaksi Susulan Admin';
         const now = new Date(); const localDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
         body.innerHTML = `
-          <div class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><b>Transaksi susulan:</b> tanggal transaksi dan tanggal input akan disimpan terpisah. Pastikan transaksi belum tercatat sebelumnya. Setiap input membutuhkan PIN Admin/Owner dan alasan.</div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <label class="text-xs font-bold">Tanggal transaksi sebenarnya<input id="susulan-date" type="date" max="${localDate}" value="${localDate}" class="mt-1 w-full border rounded-xl p-3 text-sm" required></label>
-            <label class="text-xs font-bold">Waktu transaksi<input id="susulan-time" type="time" value="12:00" class="mt-1 w-full border rounded-xl p-3 text-sm" required></label>
-            <label class="text-xs font-bold">Outlet<select id="susulan-outlet" class="mt-1 w-full border rounded-xl p-3 text-sm" required>${outletOptions}</select></label>
-            <label class="text-xs font-bold">Kasir yang melakukan transaksi<select id="susulan-cashier" class="mt-1 w-full border rounded-xl p-3 text-sm" required>${cashierOptions}</select></label>
-            <label class="text-xs font-bold">Metode pembayaran<select id="susulan-payment" class="mt-1 w-full border rounded-xl p-3 text-sm"><option>Tunai</option><option>QRIS</option><option>Transfer</option><option>Kartu</option><option>Lainnya</option></select></label>
-            <label class="text-xs font-bold">Nominal dibayar (tunai)<input id="susulan-paid" type="number" min="0" value="0" class="mt-1 w-full border rounded-xl p-3 text-sm"></label>
-          </div>
-          <div class="flex items-center justify-between mt-2"><b class="text-sm">Rincian produk</b><button id="susulan-add-item" type="button" class="px-3 py-2 rounded-lg bg-slate-100 text-slate-700 text-xs font-black">+ Tambah barang</button></div>
-          <div id="susulan-items" class="space-y-2"></div>
-          <div class="rounded-xl bg-slate-50 border p-3 flex items-center justify-between"><span class="text-sm font-bold">Total transaksi</span><strong id="susulan-total" class="text-lg">Rp0</strong></div>
-          <div class="space-y-2"><div class="text-xs font-black">Perlakuan stok saat ini</div>
-            <label class="flex gap-2 items-start text-xs border rounded-xl p-3"><input type="radio" name="susulan-stock-mode" value="kurangi" checked class="mt-0.5"><span><b>Kurangi stok sekarang</b><br>Gunakan jika transaksi yang terlupa belum tercermin pada saldo stok sistem.</span></label>
-            <label class="flex gap-2 items-start text-xs border rounded-xl p-3"><input type="radio" name="susulan-stock-mode" value="sudah_tercermin" class="mt-0.5"><span><b>Stok sudah tercermin</b><br>Jangan kurangi lagi hanya jika stok transaksi ini sudah diperhitungkan pada saldo sekarang. Alasan wajib lebih rinci.</span></label>
-          </div>
-          <label class="block text-xs font-bold">Alasan input susulan (wajib)<textarea id="susulan-reason" rows="2" class="mt-1 w-full border rounded-xl p-3 text-sm" placeholder="Contoh: transaksi 20 Oktober belum tersimpan karena gangguan jaringan; bukti pembayaran diverifikasi." required></textarea></label>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3"><label class="text-xs font-bold">Username Admin/Owner<input id="susulan-admin-user" value="${safe(this.currentUser && this.currentUser.Username || '')}" class="mt-1 w-full border rounded-xl p-3 text-sm" required></label><label class="text-xs font-bold">Konfirmasi PIN Admin (4 digit)<input id="susulan-admin-pin" type="password" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" class="mt-1 w-full border rounded-xl p-3 text-sm" autocomplete="off" required></label></div>
-          <div id="susulan-error" class="hidden rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700"></div>`;
+          <div class="susulan-shell">
+            <div class="susulan-hero">
+              <div class="susulan-hero-icon"><i class="fas fa-calendar-check"></i></div>
+              <div class="susulan-hero-copy"><div class="susulan-eyebrow">ADMIN WORKSPACE · AUDIT READY</div><h4>Transaksi Susulan</h4><p>Catat transaksi yang terjadi sebelumnya dengan kontrol stok dan jejak audit yang jelas.</p></div>
+              <div class="susulan-status-pill"><i class="fas fa-shield-alt"></i><span>Mode Admin</span></div>
+            </div>
+            <div class="susulan-alert"><i class="fas fa-info-circle"></i><div><b>Periksa sebelum menyimpan</b><span>Tanggal transaksi dan tanggal input dicatat terpisah. Pastikan transaksi belum tercatat agar omzet dan stok tidak dihitung ganda.</span></div></div>
+            <div class="susulan-layout">
+              <section class="susulan-panel susulan-details-panel">
+                <div class="susulan-section-head"><span class="susulan-section-icon"><i class="fas fa-calendar-alt"></i></span><div><h5>Informasi transaksi</h5><p>Waktu, outlet, kasir, dan pembayaran</p></div></div>
+                <div class="susulan-fields-grid">
+                  <label class="susulan-field"><span>Tanggal transaksi <em>*</em></span><input id="susulan-date" type="date" max="${localDate}" value="${localDate}" required></label>
+                  <label class="susulan-field"><span>Waktu transaksi <em>*</em></span><input id="susulan-time" type="time" value="12:00" required></label>
+                  <label class="susulan-field"><span>Outlet <em>*</em></span><select id="susulan-outlet" required>${outletOptions}</select></label>
+                  <label class="susulan-field"><span>Kasir yang bertugas <em>*</em></span><select id="susulan-cashier" required>${cashierOptions}</select></label>
+                  <label class="susulan-field"><span>Metode pembayaran</span><select id="susulan-payment"><option>Tunai</option><option>QRIS</option><option>Transfer</option><option>Kartu</option><option>Lainnya</option></select></label>
+                  <label class="susulan-field"><span>Nominal dibayar (tunai)</span><input id="susulan-paid" type="number" min="0" value="0" inputmode="numeric"></label>
+                </div>
+                <div class="susulan-subnote"><i class="fas fa-history"></i><span>Gunakan waktu transaksi sebenarnya, bukan waktu saat data dimasukkan.</span></div>
+              </section>
+              <section class="susulan-panel susulan-items-panel">
+                <div class="susulan-section-head"><span class="susulan-section-icon"><i class="fas fa-shopping-basket"></i></span><div><h5>Rincian produk</h5><p>Tambahkan barang, jumlah, dan harga pada transaksi</p></div><button id="susulan-add-item" type="button" class="susulan-add-btn"><i class="fas fa-plus"></i><span>Tambah barang</span></button></div>
+                <div id="susulan-items" class="susulan-items-list"></div>
+                <div class="susulan-total-card"><div><span>Nilai transaksi</span><small>Jumlah seluruh item</small></div><strong id="susulan-total">Rp0</strong></div>
+                <div class="susulan-stock-block"><div class="susulan-block-title"><i class="fas fa-boxes-stacked"></i> Perlakuan stok</div>
+                  <label class="susulan-choice"><input type="radio" name="susulan-stock-mode" value="kurangi" checked><span class="susulan-choice-mark"></span><span class="susulan-choice-copy"><b>Kurangi stok sekarang</b><small>Gunakan jika transaksi belum tercermin pada saldo stok sistem.</small></span></label>
+                  <label class="susulan-choice"><input type="radio" name="susulan-stock-mode" value="sudah_tercermin"><span class="susulan-choice-mark"></span><span class="susulan-choice-copy"><b>Stok sudah tercermin</b><small>Jangan kurangi lagi hanya jika stok ini sudah diperhitungkan pada saldo sekarang.</small></span></label>
+                </div>
+              </section>
+              <section class="susulan-panel susulan-audit-panel">
+                <div class="susulan-section-head"><span class="susulan-section-icon"><i class="fas fa-clipboard-check"></i></span><div><h5>Alasan dan otorisasi</h5><p>Informasi wajib untuk jejak audit</p></div></div>
+                <label class="susulan-field"><span>Alasan input susulan <em>*</em></span><textarea id="susulan-reason" rows="3" placeholder="Contoh: transaksi tanggal 20 Oktober belum tersimpan karena gangguan jaringan; bukti pembayaran telah diverifikasi." required></textarea><small>Minimal 10 karakter. Untuk stok yang sudah tercermin, alasan minimal 20 karakter.</small></label>
+                <div class="susulan-fields-grid susulan-auth-grid"><label class="susulan-field"><span>Username Admin/Owner <em>*</em></span><input id="susulan-admin-user" value="${safe(this.currentUser && this.currentUser.Username || '')}" autocomplete="username" required></label><label class="susulan-field"><span>Konfirmasi PIN (4 digit) <em>*</em></span><input id="susulan-admin-pin" type="password" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" autocomplete="new-password" placeholder="••••" required></label></div>
+                <div id="susulan-error" class="susulan-error hidden" role="alert"></div>
+              </section>
+            </div>
+            <div class="susulan-footer-note"><i class="fas fa-lock"></i><span>Data akan divalidasi oleh server dan dicatat pada log audit. Jangan masukkan transaksi yang sudah tercatat.</span></div>
+          </div>`;
         const itemWrap = document.getElementById('susulan-items');
         const addRow = () => {
-            const row = document.createElement('div'); row.className='susulan-item grid grid-cols-1 md:grid-cols-12 gap-2 p-2 border rounded-xl';
-            row.innerHTML = `<select class="susulan-product md:col-span-5 border rounded-lg p-2 text-xs" required><option value="">Pilih produk</option>${productOptions}</select><input class="susulan-qty md:col-span-2 border rounded-lg p-2 text-xs" type="number" min="1" step="1" value="1" placeholder="Qty"><input class="susulan-price md:col-span-3 border rounded-lg p-2 text-xs" type="number" min="0" step="1" value="0" placeholder="Harga/unit"><button type="button" class="susulan-remove md:col-span-2 rounded-lg bg-rose-50 text-rose-600 text-xs font-bold">Hapus</button>`;
+            const row = document.createElement('div'); row.className='susulan-item';
+            row.innerHTML = `<label class="susulan-product-wrap"><span>Produk</span><select class="susulan-product" required><option value="">Pilih produk…</option>${productOptions}</select></label><label class="susulan-qty-wrap"><span>Qty</span><input class="susulan-qty" type="number" min="1" step="1" value="1" inputmode="numeric" aria-label="Kuantitas"></label><label class="susulan-price-wrap"><span>Harga / unit (Rp)</span><input class="susulan-price" type="number" min="0" step="1" value="0" inputmode="numeric" aria-label="Harga per unit"></label><button type="button" class="susulan-remove" aria-label="Hapus barang" title="Hapus barang"><i class="fas fa-trash-alt"></i><span>Hapus</span></button>`;
             itemWrap.appendChild(row);
             const productSelect=row.querySelector('.susulan-product'), priceInput=row.querySelector('.susulan-price');
             productSelect.addEventListener('change',()=>{

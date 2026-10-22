@@ -348,50 +348,80 @@ const superApp = {
     // =========================================================================
     // 🚀 RADAR SILUMAN: CEK UPDATE OTOMATIS SAAT APLIKASI DIBUKA
     // =========================================================================
-   // =========================================================================
-    // 🚀 RADAR UPDATE SILUMAN (VERSI OPTIMASI TANPA FETCH GANDA)
+    // SAFE AUTO UPDATE MANAGER — download automatically, activate only when safe
     // =========================================================================
+    _pendingUpdateWorker: null,
+    _autoUpdateTimer: null,
+    _updateReloading: false,
+    _updateNoticeShown: false,
+
     checkVersionFromData: async function(pengaturanData) {
         try {
-            if (!pengaturanData || !Array.isArray(pengaturanData)) return;
-            
-            let serverVersion = pengaturanData.find(x => x.Pengaturan === 'Versi_Aplikasi');
-            if (serverVersion) {
-                let localVersion = localStorage.getItem('app_version');
-                
-                if (!localVersion) {
-                    localStorage.setItem('app_version', serverVersion.Nilai);
-                } 
-                else if (localVersion !== serverVersion.Nilai) {
-                    console.log(`🚀 Versi baru terdeteksi! (Lokal: ${localVersion} -> Server: ${serverVersion.Nilai})`);
-                    
-                    // 1. Kunci versi baru di memori
-                    localStorage.setItem('app_version', serverVersion.Nilai);
-                    
-                    // 2. Notifikasi Playful
-                    if (typeof this.showToast === 'function') {
-                        this.showToast("✨ Yeay! Versi baru tersedia. Memuat ulang...", "success");
-                    }
-                    
-                    // Jangan menghapus cache milik aplikasi/origin lain dan jangan reload saat antrean belum aman.
-                    const pending = this.getPendingQueueCount();
-                    if (pending > 0) {
-                        if (typeof this.showToast === 'function') this.showToast(`Pembaruan ditunda: ${pending} transaksi/data masih menunggu sinkronisasi.`, 'warning');
-                    } else if ('serviceWorker' in navigator) {
-                        const regs = await navigator.serviceWorker.getRegistrations();
-                        for (const reg of regs) {
-                            const swUrl = (reg.active && reg.active.scriptURL) || (reg.waiting && reg.waiting.scriptURL) || '';
-                            if (swUrl && new URL(swUrl).origin === location.origin && /(^|\/)sw\.js(?:$|[?#])/.test(swUrl)) reg.update().catch(() => {});
-                        }
-                        if (typeof this.showToast === 'function') this.showToast('Versi baru terdeteksi. Gunakan tombol pembaruan setelah antrean tersinkron.', 'success');
-                    }
-                } else {
-                    console.log("✅ Aplikasi sudah menggunakan versi paling mutakhir.");
-                }
+            if (!Array.isArray(pengaturanData)) return;
+            const entry = pengaturanData.find(x => x.Pengaturan === 'Versi_Aplikasi');
+            if (!entry || !entry.Nilai) return;
+            const serverVersion = String(entry.Nilai).trim();
+            const localVersion = localStorage.getItem('app_version');
+            if (!localVersion) {
+                localStorage.setItem('app_version', serverVersion);
+                return;
             }
-        } catch (e) {
-            console.warn("📡 Gagal mengecek versi dari data:", e.message);
+            if (localVersion !== serverVersion) {
+                console.info(`Versi backend baru terdeteksi (${localVersion} → ${serverVersion}); menunggu worker dan kondisi aman.`);
+                if ('serviceWorker' in navigator) {
+                    const regs = await navigator.serviceWorker.getRegistrations();
+                    for (const reg of regs) {
+                        const swUrl = (reg.active && reg.active.scriptURL) || (reg.waiting && reg.waiting.scriptURL) || '';
+                        if (swUrl && new URL(swUrl).origin === location.origin && /(^|\/)sw\.js(?:$|[?#])/.test(swUrl)) reg.update().catch(() => {});
+                    }
+                }
+                this._pendingServerVersion = serverVersion;
+                this.scheduleSafeAutoUpdateCheck();
+            }
+        } catch (e) { console.warn('Gagal memeriksa versi aplikasi:', e.message); }
+    },
+
+    hasUnsavedCriticalWork: function() {
+        if (this.isProcessing) return true;
+        if (Array.isArray(this.cart) && this.cart.length > 0) return true;
+        if (this.getPendingQueueCount() > 0) return true;
+        // Guard against forms whose values differ from their initial values.
+        const selectors = '#lapharian-sec-input input, #lapharian-sec-input select, #lapharian-sec-input textarea, #modal-transaksi-susulan input, #modal-transaksi-susulan select, #modal-transaksi-susulan textarea';
+        for (const el of document.querySelectorAll(selectors)) {
+            if (el.disabled || el.type === 'button' || el.type === 'submit' || el.type === 'hidden') continue;
+            if (el.type === 'checkbox' || el.type === 'radio') {
+                if (el.checked !== el.defaultChecked) return true;
+            } else if (el.tagName === 'SELECT') {
+                if ([...el.options].some(o => o.selected !== o.defaultSelected)) return true;
+            } else if (el.value !== el.defaultValue) return true;
         }
+        return false;
+    },
+
+    scheduleSafeAutoUpdateCheck: function() {
+        if (this._autoUpdateTimer) clearTimeout(this._autoUpdateTimer);
+        this._autoUpdateTimer = setTimeout(() => this.tryApplyPendingUpdate(), 2500);
+    },
+
+    tryApplyPendingUpdate: function() {
+        if (!this._pendingUpdateWorker || this._updateReloading) return;
+        if (this.hasUnsavedCriticalWork()) {
+            const pending = this.getPendingQueueCount();
+            if (!this._updateNoticeShown && typeof this.showToast === 'function') {
+                this.showToast(pending > 0 ? `Pembaruan otomatis menunggu ${pending} data tersinkron.` : 'Pembaruan tersedia dan akan diterapkan otomatis setelah pekerjaan penting selesai.', 'warning');
+                this._updateNoticeShown = true;
+            }
+            this._autoUpdateTimer = setTimeout(() => this.tryApplyPendingUpdate(), 10000);
+            return;
+        }
+        if (!navigator.onLine) {
+            this._autoUpdateTimer = setTimeout(() => this.tryApplyPendingUpdate(), 15000);
+            return;
+        }
+        this._updateReloading = true;
+        if (typeof this.showToast === 'function') this.showToast('Pembaruan siap. Aplikasi akan diperbarui otomatis karena kondisi sudah aman.', 'success');
+        try { this._pendingUpdateWorker.postMessage({ action: 'safeActivate' }); }
+        catch (e) { this._updateReloading = false; console.warn('Aktivasi update ditunda:', e); }
     },
 
     // =========================================================================
@@ -399,43 +429,57 @@ const superApp = {
     // =========================================================================
     init: async function() {
         
-        // --- 🚀 SERVICE WORKER REGISTRATION ---
+        // --- SAFE AUTO UPDATE REGISTRATION ---
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js').then(registration => {
-                registration.addEventListener('updatefound', () => {
-                    const newWorker = registration.installing;
-                    newWorker.addEventListener('statechange', () => {
-                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                const inspectWorker = worker => {
+                    if (!worker) return;
+                    worker.addEventListener('statechange', () => {
+                        if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+                            this._pendingUpdateWorker = worker;
                             const banner = document.getElementById('update-banner');
                             if (banner) {
-                                banner.classList.remove('hidden');
-                                setTimeout(() => {
-                                    banner.classList.remove('translate-y-20', 'opacity-0');
-                                }, 100);
+                                banner.classList.remove('hidden', 'translate-y-20', 'opacity-0');
+                                const p = banner.querySelector('p');
+                                if (p) p.textContent = 'Pembaruan sudah diunduh. Aplikasi akan memasangnya otomatis setelah transaksi dan data aman.';
                             }
-                            
                             const btn = document.getElementById('btn-update-app');
                             if (btn) {
+                                btn.innerHTML = '<span>Update sekarang</span> <i class="fas fa-rotate text-[10px]"></i>';
                                 btn.onclick = () => {
-                                    const pending = this.getPendingQueueCount();
-                                    if (pending > 0) { this.showToast(`Sinkronkan ${pending} data tertunda sebelum memperbarui aplikasi.`, 'warning'); return; }
-                                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-                                    newWorker.postMessage({ action: 'skipWaiting' });
+                                    if (this.hasUnsavedCriticalWork()) {
+                                        this.showToast('Update ditunda agar transaksi, formulir, dan antrean tidak terganggu.', 'warning');
+                                        this.scheduleSafeAutoUpdateCheck();
+                                        return;
+                                    }
+                                    this.tryApplyPendingUpdate();
                                 };
                             }
+                            this.scheduleSafeAutoUpdateCheck();
                         }
                     });
-                });
-            }).catch(err => console.log('SW Reg Error:', err));
+                };
+                if (registration.waiting && navigator.serviceWorker.controller) {
+                    this._pendingUpdateWorker = registration.waiting;
+                    this.scheduleSafeAutoUpdateCheck();
+                }
+                inspectWorker(registration.installing);
+                registration.addEventListener('updatefound', () => inspectWorker(registration.installing));
+                registration.update().catch(() => {});
+            }).catch(err => console.warn('Registrasi service worker gagal:', err));
 
-            let refreshing;
             navigator.serviceWorker.addEventListener('controllerchange', () => {
-                if (refreshing) return;
-                if (this.getPendingQueueCount() > 0) { this.showToast('Pembaruan siap. Antrean offline tetap disimpan; muat ulang setelah sinkronisasi.', 'warning'); return; }
-                refreshing = true;
-                window.location.reload();
+                if (this._updateReloading) {
+                    const version = this._pendingServerVersion || localStorage.getItem('app_version');
+                    if (version) localStorage.setItem('app_version', version);
+                    window.location.reload();
+                }
             });
         }
+        // Check again whenever work may have completed or the device comes back online.
+        window.addEventListener('online', () => this.scheduleSafeAutoUpdateCheck());
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) this.scheduleSafeAutoUpdateCheck(); });
+        document.addEventListener('focusout', () => this.scheduleSafeAutoUpdateCheck(), true);
         // ----------------------------------------------
 
         if (new URLSearchParams(window.location.search).get('mode') === 'cfd') { this.initCFD(); return; }

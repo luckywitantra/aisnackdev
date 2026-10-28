@@ -1043,26 +1043,6 @@ pullFreshData: async function(silent = false) {
             const data = JSON.parse(rawText);
             if (!res.ok || !data || data.status !== 'sukses') throw new Error((data && data.pesan) || ('HTTP ' + res.status));
             this.db = this.mergeDatabase(this.db, data);
-
-            // Sumber akumulasi laporan harian: tarik seluruh arsip laporan dari server,
-            // terpisah dari riwayat transaksi 90 hari agar payload transaksi tetap ringan.
-            try {
-                const reportRes = await fetch(API_URL + "?action=get_laporan_only&ts=" + Date.now(), {
-                    method: 'GET', redirect: 'follow', cache: 'no-store'
-                });
-                const reportText = await reportRes.text();
-                if (reportText.trim().startsWith('<!DOCTYPE') || reportText.trim().startsWith('<html')) {
-                    throw new Error('Server mengembalikan HTML, bukan JSON laporan.');
-                }
-                const reportData = JSON.parse(reportText);
-                if (!reportRes.ok || !reportData || reportData.status !== 'sukses' || !Array.isArray(reportData.laporanHarian)) {
-                    throw new Error((reportData && reportData.pesan) || 'Respons arsip laporan tidak valid.');
-                }
-                this.db = this.mergeDatabase(this.db, { laporanHarian: reportData.laporanHarian });
-                console.log(`✅ Arsip laporan harian tersinkron: ${reportData.laporanHarian.length} baris.`);
-            } catch (reportSyncError) {
-                console.warn('Arsip laporan penuh gagal disinkronkan; data cache tetap dipertahankan:', reportSyncError.message || reportSyncError);
-            }
             try { localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db)); }
             catch (cacheWriteError) {
                 console.warn('Cache localStorage penuh saat sinkronisasi riwayat:', cacheWriteError.message || cacheWriteError);
@@ -1116,14 +1096,7 @@ pullFreshData: async function(silent = false) {
             if (data && data.status === 'sukses') {
                 // 🛠️ PERBAIKAN 3: GANTI this.db = data MENJADI MERGE (Anti hapus data offline)
                 this.db = this.mergeDatabase(this.db, data);
-                try {
-                    localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
-                } catch (cacheWriteError) {
-                    console.warn('Cache localStorage penuh saat arsip diunduh:', cacheWriteError.message || cacheWriteError);
-                    if (typeof AisnackOfflineStore !== 'undefined' && AisnackOfflineStore.saveDatabaseCache) {
-                        await AisnackOfflineStore.saveDatabaseCache(JSON.stringify(this.db));
-                    }
-                }
+                localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
                 
                 this.showToast("✅ Seluruh arsip data lawas berhasil dimuat & digabung!", "success");
                 
@@ -1285,6 +1258,12 @@ pullFreshData: async function(silent = false) {
                   <label class="susulan-field"><span>Kasir yang bertugas <em>*</em></span><select id="susulan-cashier" required>${cashierOptions}</select></label>
                   <label class="susulan-field"><span>Metode pembayaran</span><select id="susulan-payment"><option>Tunai</option><option>QRIS</option><option>Transfer</option><option>Kartu</option><option>Lainnya</option></select></label>
                   <label class="susulan-field"><span>Nominal dibayar (tunai)</span><input id="susulan-paid" type="number" min="0" value="0" inputmode="numeric"></label>
+                  <div class="susulan-field" style="grid-column:1/-1">
+                    <span>Rincian pembayaran (bisa lebih dari satu metode)</span>
+                    <div id="susulan-payment-splits" class="grid gap-2"></div>
+                    <button id="susulan-add-payment" type="button" class="susulan-add-btn mt-2"><i class="fas fa-plus"></i><span>Tambah metode pembayaran</span></button>
+                    <small class="text-slate-500">Gunakan jika satu transaksi dibayar gabungan, misalnya Tunai + QRIS. Total nominal harus sama dengan total transaksi.</small>
+                  </div>
                 </div>
                 <div class="susulan-subnote"><i class="fas fa-history"></i><span>Gunakan waktu transaksi sebenarnya, bukan waktu saat data dimasukkan.</span></div>
               </section>
@@ -1331,6 +1310,20 @@ pullFreshData: async function(silent = false) {
         document.getElementById('susulan-add-item').addEventListener('click',addRow);
         document.getElementById('susulan-outlet').addEventListener('change',()=>{itemWrap.querySelectorAll('.susulan-product').forEach(sel=>sel.dispatchEvent(new Event('change')));});
         document.getElementById('susulan-payment').addEventListener('change',()=>this._recalcBackdatedTotal());
+        const splitWrap=document.getElementById('susulan-payment-splits');
+        const paymentOptions=['Tunai','QRIS','Transfer','Kartu','Lainnya'];
+        const addPaymentSplit=()=>{
+          if(!splitWrap) return;
+          const row=document.createElement('div');
+          row.className='grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 items-center';
+          row.innerHTML=`<select class="susulan-split-method rounded-xl border border-slate-200 p-3 min-w-0">${paymentOptions.map(p=>`<option>${p}</option>`).join('')}</select><input class="susulan-split-amount rounded-xl border border-slate-200 p-3 min-w-0" type="number" min="0" step="1" inputmode="numeric" placeholder="Nominal"><button type="button" class="susulan-remove-payment rounded-xl bg-rose-50 text-rose-600 px-3 py-3" aria-label="Hapus metode pembayaran"><i class="fas fa-trash"></i></button>`;
+          row.querySelector('.susulan-remove-payment').onclick=()=>{row.remove();this._recalcBackdatedTotal();};
+          row.querySelector('.susulan-split-amount').addEventListener('input',()=>this._recalcBackdatedTotal());
+          splitWrap.appendChild(row);
+        };
+        document.getElementById('susulan-add-payment')?.addEventListener('click',addPaymentSplit);
+        addPaymentSplit();
+
         addRow();
         btn.textContent='Validasi & Simpan Transaksi Susulan';
         btn.onclick=()=>this.submitBackdatedTransaction(false);
@@ -1351,12 +1344,20 @@ pullFreshData: async function(silent = false) {
             items.push({sku:sel.value,sku_bahan:opt.dataset.bahan||sel.value,nama:opt.dataset.name||opt.textContent,qty,price});
         });
         if(invalid||!items.length) return showError('Pilih produk dan pastikan kuantitas serta harga setiap item valid.');
-        const total=items.reduce((sum,x)=>sum+x.qty*x.price,0); const paid=payment==='Tunai'?Number(el('susulan-paid')?.value||0):total;
-        if(!Number.isFinite(total)||total<=0||!Number.isFinite(paid)||paid<total) return showError('Total harus lebih dari nol dan nominal dibayar tidak boleh kurang dari total.');
+        const total=items.reduce((sum,x)=>sum+x.qty*x.price,0);
+        const splitRows=[...document.querySelectorAll('#susulan-payment-splits > div')];
+        const paymentSplits=splitRows.map(row=>({metode:String(row.querySelector('.susulan-split-method')?.value||'').trim(),nominal:Number(row.querySelector('.susulan-split-amount')?.value||0)})).filter(x=>x.metode&&x.nominal>0);
+        const hasSplit=paymentSplits.length>0;
+        const splitTotal=paymentSplits.reduce((s,x)=>s+x.nominal,0);
+        const paid=hasSplit?splitTotal:(payment==='Tunai'?Number(el('susulan-paid')?.value||0):total);
+        const effectivePayment=hasSplit?[...new Set(paymentSplits.map(x=>x.metode))].join(' + '):payment;
+        if(!Number.isFinite(total)||total<=0||!Number.isFinite(paid)||paid<total) return showError('Total harus lebih dari nol dan nominal pembayaran tidak boleh kurang dari total.');
+        if(hasSplit && Math.round(paid)!==Math.round(total)) return showError('Jika memakai beberapa metode pembayaran, jumlah seluruh nominal harus sama persis dengan total transaksi.');
+        if(hasSplit && paymentSplits.length<2) return showError('Tambahkan minimal dua metode pembayaran atau kosongkan seluruh rincian untuk memakai metode tunggal.');
         const stockMode=document.querySelector('input[name="susulan-stock-mode"]:checked')?.value||'kurangi';
         if(stockMode==='sudah_tercermin'&&reason.length<20) return showError('Jika stok sudah tercermin, alasan wajib minimal 20 karakter dan menjelaskan alasannya.');
         const role=String((this.db.users||[]).find(u=>String(u.Username).toLowerCase()===admin.toLowerCase())?.Role||'Kasir');
-        const payload={action:'input_transaksi_susulan',_req_id:'BACKDATED-'+Date.now()+'-'+Math.random().toString(36).slice(2,9),admin_username:admin,admin_pin:pin,tanggal_transaksi:date,waktu_transaksi:time,outlet,kasir:cashier,role_kasir:role,metode_bayar:payment,dibayar:paid,total_konfirmasi:Math.round(total),items,alasan:reason,mode_stok:stockMode,override_possible_duplicate:!!overridePossibleDuplicate};
+        const payload={action:'input_transaksi_susulan',_req_id:'BACKDATED-'+Date.now()+'-'+Math.random().toString(36).slice(2,9),admin_username:admin,admin_pin:pin,tanggal_transaksi:date,waktu_transaksi:time,outlet,kasir:cashier,role_kasir:role,metode_bayar:effectivePayment,dibayar:paid,pembayaran_rinci:paymentSplits,total_konfirmasi:Math.round(total),items,alasan:reason,mode_stok:stockMode,override_possible_duplicate:!!overridePossibleDuplicate};
         const btn=el('modal-form-btn'); if(btn){btn.disabled=true;btn.textContent='Memvalidasi dan menyimpan…';}
         try {
             const res=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)});
@@ -2968,15 +2969,7 @@ pullFreshData: async function(silent = false) {
             if (x.Status_Approval === 'Ditolak') return false;
             let xOut = String(x.Outlet || '').replace(/^Ai\-Snack\s+/i, '').replace(/^Ai\-CHA\s+/i, '').trim().toLowerCase();
             let xTgl = String(x.Tanggal || '').trim().toLowerCase();
-            const normalizeDateKey = (v) => {
-                const s = String(v || '').trim();
-                let m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
-                if (m) return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
-                m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
-                if (m) return `${m[3]}-${String(m[2]).padStart(2,'0')}-${String(m[1]).padStart(2,'0')}`;
-                return s.toLowerCase();
-            };
-            return xOut === cleanCurrOutlet.toLowerCase() && normalizeDateKey(xTgl) === normalizeDateKey(cleanCurrTanggal);
+            return xOut === cleanCurrOutlet.toLowerCase() && xTgl === cleanCurrTanggal;
         });
 
         let isEdit = (this.editReportId !== null) || (existingRep !== undefined);
@@ -3488,43 +3481,24 @@ pullFreshData: async function(silent = false) {
         let isConsolidated = (this.outlet === 'Pusat' || this.outlet === 'Semua' || !this.outlet);
         let currOutletClean = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
 
-        // Normalisasi tanggal historis: data lama bisa DD-MM-YYYY, DD/MM/YYYY,
-        // sedangkan sebagian sumber/API mengirim YYYY-MM-DD atau timestamp.
-        const parseReportDate = (raw) => {
-            let s = String(raw == null ? '' : raw).trim();
-            if (!s) return null;
-            if (s.includes(',')) s = s.split(',').pop().trim();
-            let m = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:$|[T\s])/);
-            if (m) {
-                const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-                return d.getFullYear() === Number(m[1]) && d.getMonth() === Number(m[2]) - 1 && d.getDate() === Number(m[3]) ? d : null;
-            }
-            m = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
-            if (m) {
-                const d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
-                return d.getFullYear() === Number(m[3]) && d.getMonth() === Number(m[2]) - 1 && d.getDate() === Number(m[1]) ? d : null;
-            }
-            const fallback = new Date(s);
-            if (!Number.isNaN(fallback.getTime())) return new Date(fallback.getFullYear(), fallback.getMonth(), fallback.getDate());
-            return null;
-        };
-
         let list = [...(this.db.laporanHarian || [])].filter(x => {
             let repOutlet = String(x.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
             let cocokOutlet = isConsolidated || (repOutlet === currOutletClean);
             if (!cocokOutlet) return false;
+
             if (startObj || endObj) {
-                const repDateObj = parseReportDate(x.Tanggal || x.tanggal || x.Date || x.date);
-                if (!repDateObj) return false;
-                if (startObj && repDateObj < new Date(startObj.getFullYear(), startObj.getMonth(), startObj.getDate())) return false;
-                if (endObj && repDateObj > new Date(endObj.getFullYear(), endObj.getMonth(), endObj.getDate())) return false;
+                let cleanStr = (x.Tanggal || '').split(',').pop().trim();
+                let match = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+                if (match) {
+                    let repDateObj = new Date(parseInt(match[3], 10), parseInt(match[2], 10) - 1, parseInt(match[1], 10));
+                    if (startObj && repDateObj < startObj) return false;
+                    if (endObj && repDateObj > endObj) return false;
+                } else {
+                    return false;
+                }
             }
             return true;
-        }).sort((a, b) => {
-            const da = parseReportDate(a.Tanggal || a.tanggal || a.Date || a.date);
-            const db = parseReportDate(b.Tanggal || b.tanggal || b.Date || b.date);
-            return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
-        });
+        }).reverse();
 
         list.forEach(item => {
             count++;
@@ -14966,3 +14940,4 @@ setInterval(() => {
         superApp.pullFreshData(true); 
     }
 }, 300000);
+

@@ -563,15 +563,102 @@ td, th { overflow-wrap: anywhere; }
 @media(prefers-color-scheme:dark){#aisnack-pwa-card{background:#111827;color:#f8fafc;border-color:#334155}#aisnack-pwa-card .pwa-status{background:#1e293b;color:#cbd5e1;border-color:#334155}#aisnack-pwa-card .pwa-secondary{background:#334155;color:#f8fafc}#aisnack-pwa-card .pwa-instructions{color:#cbd5e1}}
 
 
-/* Laporan Harian history visibility fix v4.0.1 */
-#view-laporan-harian #lapharian-sec-riwayat { min-width:0; min-height:0; height:auto; }
-#view-laporan-harian #history-table-wrapper { display:flex; flex:1 1 auto; min-height:280px; height:auto; width:100%; }
-#view-laporan-harian #history-table-wrapper > div:first-child { min-width:0; min-height:260px; height:100%; flex:1 1 auto; }
-@media (min-width:1024px) {
-  #view-laporan-harian #lapharian-sec-riwayat { display:flex !important; flex:1 1 0%; min-height:520px; height:100%; }
-  #view-laporan-harian #history-table-wrapper { min-height:360px; }
+/* v4.1.0 — Mobile UX: Laporan Harian Ai-CHA + scrollable history */
+#view-laporan-harian, #view-lapharian, [id*="view-laporan-harian"] {
+  min-width: 0;
 }
-@media (max-width:1023px) {
-  #view-laporan-harian #history-table-wrapper { min-height:50vh; }
-  #view-laporan-harian #history-table-wrapper.hidden { display:none !important; }
+#view-laporan-harian #lapharian-sec-riwayat,
+#view-laporan-harian #history-table-wrapper,
+#view-laporan-harian #laporan-harian-mobile {
+  min-width: 0;
+  min-height: 0;
+}
+#view-laporan-harian #history-table-wrapper {
+  display: block;
+  width: 100%;
+  max-height: min(68vh, 720px);
+  overflow-y: auto !important;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y pan-x;
+}
+#view-laporan-harian #history-table-wrapper > div {
+  min-height: 0;
+}
+#view-laporan-harian #laporan-harian-mobile {
+  display: grid;
+  gap: .65rem;
+  max-height: min(68vh, 720px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: .15rem .15rem .75rem;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+}
+#view-laporan-harian #laporan-harian-tbody tr {
+  break-inside: avoid;
+}
+#view-laporan-harian .custom-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+@media (max-width: 767px) {
+  #view-laporan-harian {
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+  }
+  #view-laporan-harian .grid {
+    min-width: 0;
+  }
+  #view-laporan-harian #lapharian-sec-riwayat {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+  #view-laporan-harian #history-table-wrapper {
+    max-height: 65vh;
+    min-height: 320px;
+  }
+  #view-laporan-harian #laporan-harian-mobile {
+    max-height: 65vh;
+    min-height: 240px;
+  }
+  #view-laporan-harian input,
+  #view-laporan-harian select,
+  #view-laporan-harian button {
+    max-width: 100%;
+  }
+}
+/* Transaction-susulan form: comfortable mobile viewport and scrolling */
+#modal-transaksi-susulan,
+#modal-form {
+  overscroll-behavior: contain;
+}
+#modal-form {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+#modal-form #modal-form-content {
+  max-height: calc(100dvh - 1rem);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+@media (max-width: 767px) {
+  #modal-form {
+    align-items: flex-start !important;
+    padding: .5rem !important;
+  }
+  #modal-form #modal-form-content {
+    width: 100% !important;
+    max-width: none !important;
+    max-height: calc(100dvh - 1rem);
+    margin: 0 auto;
+    border-radius: 1.15rem;
+  }
 }

@@ -857,3 +857,108 @@ html, body {
 @media (prefers-reduced-motion: reduce) {
   #main-content-scroll { scroll-behavior: auto; }
 }
+
+
+/* ========================================================================== */
+/* v4.3.1 — POS PORTRAIT TOUCH FIX + CASHIER TOUCHSCREEN HARDENING              */
+/* ========================================================================== */
+
+/* Explicitly allow touch/pen/mouse-wheel scrolling across the app shell. */
+#main-content-scroll,
+#view-pos,
+#product-list,
+#cart-container,
+#mobile-cart-overlay,
+#cart-aside {
+  overscroll-behavior: auto;
+  -webkit-overflow-scrolling: touch;
+}
+#main-content-scroll { touch-action: pan-y pan-x; }
+#product-list, #cart-container { touch-action: pan-y; }
+
+/* Portrait phone: avoid nested fixed-height/flex scroll traps in POS.
+   The page scrolls naturally; product results get their own bounded viewport. */
+@media (max-width: 767px) and (orientation: portrait) {
+  #main-content-scroll {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    flex: 1 1 auto !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    overscroll-behavior-y: auto !important;
+    touch-action: pan-y !important;
+    -webkit-overflow-scrolling: touch !important;
+    scroll-behavior: auto !important;
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  #view-pos:not(.hidden) {
+    display: flex !important;
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    touch-action: pan-y !important;
+  }
+  #view-pos:not(.hidden) > .flex-1.flex.flex-col {
+    flex: 0 0 auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    padding-bottom: 1rem !important;
+  }
+  #product-list {
+    flex: 0 0 auto !important;
+    height: auto !important;
+    min-height: 180px !important;
+    max-height: 52vh !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    touch-action: pan-y !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-y: contain !important;
+    padding-bottom: 1rem !important;
+  }
+  #cart-aside {
+    touch-action: pan-y !important;
+  }
+  #cart-container {
+    min-height: 100px !important;
+    max-height: 38vh !important;
+    overflow-y: auto !important;
+    touch-action: pan-y !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+}
+
+/* Coarse-pointer devices include cashier touchscreens. Make gestures reliable
+   without disabling native controls or changing mouse/keyboard behavior. */
+@media (pointer: coarse) {
+  #main-content-scroll,
+  .overflow-y-auto,
+  .overflow-auto,
+  .custom-scroll {
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y pan-x;
+  }
+  #product-list, #cart-container {
+    touch-action: pan-y;
+  }
+  button, [role="button"], a, input, select, textarea {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Desktop touchscreen + trackpad: do not require scrollbar-thumb targeting. */
+@media (min-width: 768px) {
+  #main-content-scroll {
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y pan-x;
+  }
+  #product-list, #cart-container {
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
+  }
+}

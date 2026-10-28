@@ -89,7 +89,7 @@ const AisnackOfflineStore = (() => {
     return { putAll, getAll, saveDatabaseCache, getDatabaseCache };
 })();
 
-const API_URL = "https://script.google.com/macros/s/AKfycbxakixSuG2N-FXrTXUhlcZV25_Ey1C702_bWd58mZN1ylGMBrLrgoOBX8tN_LNB4gx0/exec"; // <-- GANTI DENGAN URL API ANDA
+const API_URL = "https://script.google.com/macros/s/AKfycbwyjTGzyHjswnVFWNTvdbx6U2ukHShfs6YVM_fI7yG2kGLVab66_YCwi4um7V7Sh70n3Q/exec"; // <-- GANTI DENGAN URL API ANDA
 
 /* ========================================== */
 /* 1. MESIN VIRTUAL KEYBOARD (ENTERPRISE OSK) */
@@ -1043,6 +1043,26 @@ pullFreshData: async function(silent = false) {
             const data = JSON.parse(rawText);
             if (!res.ok || !data || data.status !== 'sukses') throw new Error((data && data.pesan) || ('HTTP ' + res.status));
             this.db = this.mergeDatabase(this.db, data);
+
+            // Sumber akumulasi laporan harian: tarik seluruh arsip laporan dari server,
+            // terpisah dari riwayat transaksi 90 hari agar payload transaksi tetap ringan.
+            try {
+                const reportRes = await fetch(API_URL + "?action=get_laporan_only&ts=" + Date.now(), {
+                    method: 'GET', redirect: 'follow', cache: 'no-store'
+                });
+                const reportText = await reportRes.text();
+                if (reportText.trim().startsWith('<!DOCTYPE') || reportText.trim().startsWith('<html')) {
+                    throw new Error('Server mengembalikan HTML, bukan JSON laporan.');
+                }
+                const reportData = JSON.parse(reportText);
+                if (!reportRes.ok || !reportData || reportData.status !== 'sukses' || !Array.isArray(reportData.laporanHarian)) {
+                    throw new Error((reportData && reportData.pesan) || 'Respons arsip laporan tidak valid.');
+                }
+                this.db = this.mergeDatabase(this.db, { laporanHarian: reportData.laporanHarian });
+                console.log(`✅ Arsip laporan harian tersinkron: ${reportData.laporanHarian.length} baris.`);
+            } catch (reportSyncError) {
+                console.warn('Arsip laporan penuh gagal disinkronkan; data cache tetap dipertahankan:', reportSyncError.message || reportSyncError);
+            }
             try { localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db)); }
             catch (cacheWriteError) {
                 console.warn('Cache localStorage penuh saat sinkronisasi riwayat:', cacheWriteError.message || cacheWriteError);
@@ -1096,7 +1116,14 @@ pullFreshData: async function(silent = false) {
             if (data && data.status === 'sukses') {
                 // 🛠️ PERBAIKAN 3: GANTI this.db = data MENJADI MERGE (Anti hapus data offline)
                 this.db = this.mergeDatabase(this.db, data);
-                localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
+                try {
+                    localStorage.setItem('aisnack_db_cache', JSON.stringify(this.db));
+                } catch (cacheWriteError) {
+                    console.warn('Cache localStorage penuh saat arsip diunduh:', cacheWriteError.message || cacheWriteError);
+                    if (typeof AisnackOfflineStore !== 'undefined' && AisnackOfflineStore.saveDatabaseCache) {
+                        await AisnackOfflineStore.saveDatabaseCache(JSON.stringify(this.db));
+                    }
+                }
                 
                 this.showToast("✅ Seluruh arsip data lawas berhasil dimuat & digabung!", "success");
                 
@@ -2941,7 +2968,15 @@ pullFreshData: async function(silent = false) {
             if (x.Status_Approval === 'Ditolak') return false;
             let xOut = String(x.Outlet || '').replace(/^Ai\-Snack\s+/i, '').replace(/^Ai\-CHA\s+/i, '').trim().toLowerCase();
             let xTgl = String(x.Tanggal || '').trim().toLowerCase();
-            return xOut === cleanCurrOutlet.toLowerCase() && xTgl === cleanCurrTanggal;
+            const normalizeDateKey = (v) => {
+                const s = String(v || '').trim();
+                let m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+                if (m) return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+                m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
+                if (m) return `${m[3]}-${String(m[2]).padStart(2,'0')}-${String(m[1]).padStart(2,'0')}`;
+                return s.toLowerCase();
+            };
+            return xOut === cleanCurrOutlet.toLowerCase() && normalizeDateKey(xTgl) === normalizeDateKey(cleanCurrTanggal);
         });
 
         let isEdit = (this.editReportId !== null) || (existingRep !== undefined);

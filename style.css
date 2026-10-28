@@ -694,40 +694,40 @@ body { overscroll-behavior-y: none; }
     padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px)) !important;
     scroll-margin-top: .5rem;
   }
-  #view-laporan-harian {
+  #view-laporan-harian:not(.hidden) {
     display: flex !important;
     flex-direction: column !important;
     height: auto !important;
     min-height: 0 !important;
     overflow: visible !important;
   }
-  #view-laporan-harian > div:first-child {
+  #view-laporan-harian:not(.hidden) > div:first-child {
     height: auto !important;
     min-height: 0 !important;
     overflow: visible !important;
     display: flex !important;
     flex-direction: column !important;
   }
-  #view-laporan-harian > div:first-child > div.flex-1.overflow-y-auto,
-  #view-laporan-harian #lapharian-sec-riwayat,
-  #view-laporan-harian #history-table-wrapper {
+  #view-laporan-harian:not(.hidden) > div:first-child > div.flex-1.overflow-y-auto,
+  #view-laporan-harian:not(.hidden) #lapharian-sec-riwayat,
+  #view-laporan-harian:not(.hidden) #history-table-wrapper {
     height: auto !important;
     max-height: none !important;
     min-height: 0 !important;
     overflow: visible !important;
   }
-  #view-laporan-harian #lapharian-sec-riwayat {
+  #view-laporan-harian:not(.hidden) #lapharian-sec-riwayat {
     display: flex !important;
     flex-direction: column !important;
     gap: .75rem !important;
     width: 100% !important;
   }
-  #view-laporan-harian #history-table-wrapper {
+  #view-laporan-harian:not(.hidden) #history-table-wrapper {
     display: flex !important;
     flex-direction: column !important;
     gap: .5rem;
   }
-  #view-laporan-harian #laporan-harian-mobile {
+  #view-laporan-harian:not(.hidden) #laporan-harian-mobile {
     display: grid !important;
     grid-template-columns: minmax(0,1fr) !important;
     gap: .65rem !important;
@@ -739,7 +739,7 @@ body { overscroll-behavior-y: none; }
     touch-action: pan-y;
     -webkit-overflow-scrolling: touch;
   }
-  #view-laporan-harian .overflow-y-auto {
+  #view-laporan-harian:not(.hidden) .overflow-y-auto {
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
   }
@@ -765,4 +765,10 @@ body { overscroll-behavior-y: none; }
     animation-iteration-count: 1 !important;
     transition-duration: .01ms !important;
   }
+}
+
+/* Critical visibility guard: hidden views must remain hidden at every breakpoint. */
+.app-view.hidden,
+.app-view[hidden] {
+  display: none !important;
 }

@@ -561,3 +561,17 @@ td, th { overflow-wrap: anywhere; }
 #aisnack-pwa-card .pwa-close{background:transparent;border:0;color:inherit;font-size:25px;line-height:1;cursor:pointer;margin-left:auto}
 #aisnack-pwa-card .pwa-instructions{font-size:13px;line-height:1.55;margin-top:12px;color:#334155}
 @media(prefers-color-scheme:dark){#aisnack-pwa-card{background:#111827;color:#f8fafc;border-color:#334155}#aisnack-pwa-card .pwa-status{background:#1e293b;color:#cbd5e1;border-color:#334155}#aisnack-pwa-card .pwa-secondary{background:#334155;color:#f8fafc}#aisnack-pwa-card .pwa-instructions{color:#cbd5e1}}
+
+
+/* Laporan Harian history visibility fix v4.0.1 */
+#view-laporan-harian #lapharian-sec-riwayat { min-width:0; min-height:0; height:auto; }
+#view-laporan-harian #history-table-wrapper { display:flex; flex:1 1 auto; min-height:280px; height:auto; width:100%; }
+#view-laporan-harian #history-table-wrapper > div:first-child { min-width:0; min-height:260px; height:100%; flex:1 1 auto; }
+@media (min-width:1024px) {
+  #view-laporan-harian #lapharian-sec-riwayat { display:flex !important; flex:1 1 0%; min-height:520px; height:100%; }
+  #view-laporan-harian #history-table-wrapper { min-height:360px; }
+}
+@media (max-width:1023px) {
+  #view-laporan-harian #history-table-wrapper { min-height:50vh; }
+  #view-laporan-harian #history-table-wrapper.hidden { display:none !important; }
+}

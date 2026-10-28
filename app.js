@@ -1315,8 +1315,8 @@ pullFreshData: async function(silent = false) {
         const addPaymentSplit=()=>{
           if(!splitWrap) return;
           const row=document.createElement('div');
-          row.className='grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 items-center';
-          row.innerHTML=`<select class="susulan-split-method rounded-xl border border-slate-200 p-3 min-w-0">${paymentOptions.map(p=>`<option>${p}</option>`).join('')}</select><input class="susulan-split-amount rounded-xl border border-slate-200 p-3 min-w-0" type="number" min="0" step="1" inputmode="numeric" placeholder="Nominal"><button type="button" class="susulan-remove-payment rounded-xl bg-rose-50 text-rose-600 px-3 py-3" aria-label="Hapus metode pembayaran"><i class="fas fa-trash"></i></button>`;
+          row.className='susulan-payment-row';
+          row.innerHTML=`<label class="min-w-0"><span class="block text-[10px] font-extrabold text-slate-500 mb-1">Metode</span><select class="susulan-split-method">${paymentOptions.map(p=>`<option>${p}</option>`).join('')}</select></label><label class="min-w-0"><span class="block text-[10px] font-extrabold text-slate-500 mb-1">Nominal (Rp)</span><input class="susulan-split-amount" type="number" min="0" step="1" inputmode="numeric" placeholder="Contoh: 150000"></label><button type="button" class="susulan-remove-payment bg-rose-50 text-rose-600" aria-label="Hapus metode pembayaran" title="Hapus metode"><i class="fas fa-trash"></i></button>`;
           row.querySelector('.susulan-remove-payment').onclick=()=>{row.remove();this._recalcBackdatedTotal();};
           row.querySelector('.susulan-split-amount').addEventListener('input',()=>this._recalcBackdatedTotal());
           splitWrap.appendChild(row);

@@ -3481,24 +3481,38 @@ pullFreshData: async function(silent = false) {
         let isConsolidated = (this.outlet === 'Pusat' || this.outlet === 'Semua' || !this.outlet);
         let currOutletClean = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
 
+        const parseReportDate = (raw) => {
+            let s = String(raw == null ? '' : raw).trim();
+            if (!s) return null;
+            if (s.includes(',')) s = s.split(',').pop().trim();
+            let m = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:$|[T\s])/);
+            if (m) {
+                const d = new Date(Number(m[1]), Number(m[2])-1, Number(m[3]));
+                return d.getFullYear()===Number(m[1]) && d.getMonth()===Number(m[2])-1 && d.getDate()===Number(m[3]) ? d : null;
+            }
+            m = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+            if (m) {
+                const d = new Date(Number(m[3]), Number(m[2])-1, Number(m[1]));
+                return d.getFullYear()===Number(m[3]) && d.getMonth()===Number(m[2])-1 && d.getDate()===Number(m[1]) ? d : null;
+            }
+            const fallback = new Date(s);
+            return Number.isNaN(fallback.getTime()) ? null : new Date(fallback.getFullYear(),fallback.getMonth(),fallback.getDate());
+        };
         let list = [...(this.db.laporanHarian || [])].filter(x => {
-            let repOutlet = String(x.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
-            let cocokOutlet = isConsolidated || (repOutlet === currOutletClean);
-            if (!cocokOutlet) return false;
-
+            const repOutlet = String(x.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
+            if (!(isConsolidated || repOutlet === currOutletClean)) return false;
             if (startObj || endObj) {
-                let cleanStr = (x.Tanggal || '').split(',').pop().trim();
-                let match = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-                if (match) {
-                    let repDateObj = new Date(parseInt(match[3], 10), parseInt(match[2], 10) - 1, parseInt(match[1], 10));
-                    if (startObj && repDateObj < startObj) return false;
-                    if (endObj && repDateObj > endObj) return false;
-                } else {
-                    return false;
-                }
+                const d = parseReportDate(x.Tanggal || x.tanggal || x.Date || x.date);
+                if (!d) return false;
+                if (startObj && d < new Date(startObj.getFullYear(),startObj.getMonth(),startObj.getDate())) return false;
+                if (endObj && d > new Date(endObj.getFullYear(),endObj.getMonth(),endObj.getDate())) return false;
             }
             return true;
-        }).reverse();
+        }).sort((a,b) => {
+            const da=parseReportDate(a.Tanggal || a.tanggal || a.Date || a.date);
+            const db=parseReportDate(b.Tanggal || b.tanggal || b.Date || b.date);
+            return (db ? db.getTime():0)-(da ? da.getTime():0);
+        });
 
         list.forEach(item => {
             count++;

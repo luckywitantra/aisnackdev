@@ -1105,3 +1105,16 @@ html, body {
   #modal-form:has(.susulan-shell) .susulan-field input[type="date"],
   #modal-form:has(.susulan-shell) .susulan-field input[type="time"] { min-height:50px; font-size:14px; padding:12px 13px; }
 }
+
+
+/* Global logo personalization effects; respects reduced-motion preferences. */
+.app-logo-effect-host { position: relative; isolation: isolate; overflow: hidden; }
+.app-logo-effect-host .app-logo-img { position: relative; z-index: 1; }
+.logo-effect-shimmer::after { content: ''; position: absolute; z-index: 2; inset: -35% auto -35% -70%; width: 45%; pointer-events: none; transform: skewX(-22deg); background: linear-gradient(90deg,transparent,rgba(255,255,255,.78),transparent); animation: aisnackLogoShimmer 3.8s ease-in-out infinite; }
+.logo-effect-glow { filter: drop-shadow(0 0 5px rgba(16,185,129,.45)) drop-shadow(0 0 12px rgba(59,130,246,.18)); }
+.logo-effect-float .app-logo-img { animation: aisnackLogoFloat 3.4s ease-in-out infinite; }
+.logo-effect-pulse .app-logo-img { animation: aisnackLogoPulse 2.8s ease-in-out infinite; }
+@keyframes aisnackLogoShimmer { 0%,45% { left:-70%; } 85%,100% { left:135%; } }
+@keyframes aisnackLogoFloat { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-3px); } }
+@keyframes aisnackLogoPulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.035); } }
+@media (prefers-reduced-motion: reduce) { .logo-effect-shimmer::after,.logo-effect-float .app-logo-img,.logo-effect-pulse .app-logo-img { animation:none !important; } }

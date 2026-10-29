@@ -1074,3 +1074,9 @@ html, body {
 .cfd-slide-enter { animation: cfdPromoFade 850ms ease both; }
 @keyframes cfdPromoFade { from { opacity: .25; transform: scale(1.015); } to { opacity: 1; transform: scale(1); } }
 @media (prefers-reduced-motion: reduce) { .cfd-slide-enter { animation: none !important; } }
+
+/* Promo slideshow manager: touch-friendly controls */
+.promo-manager-row button { touch-action: manipulation; min-width: 36px; min-height: 36px; }
+#modal-promo-manager input[type="range"] { min-height: 32px; touch-action: pan-x; }
+#modal-promo-manager { overscroll-behavior: contain; }
+#modal-promo-manager > section { overscroll-behavior: contain; }

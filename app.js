@@ -619,12 +619,9 @@ const superApp = {
                     this.checkVersionFromData(data.pengaturan);
                 }
                 
+                if (typeof this.applyCFDPromoSettings === 'function') this.applyCFDPromoSettings(this.db.pengaturan || data.pengaturan || []);
                 let logoData = (this.db.pengaturan || []).find(x => x.Pengaturan === 'Logo_Aplikasi');
                 if (logoData) { localStorage.setItem('app_logo_url', logoData.Nilai); this.updateAppLogos(logoData.Nilai); }
-                let pStandby = (this.db.pengaturan || []).find(x => x.Pengaturan === 'Promo_Standby');
-                if (pStandby) localStorage.setItem('cfd_promo_standby', pStandby.Nilai);
-                let pTransaksi = (this.db.pengaturan || []).find(x => x.Pengaturan === 'Promo_Transaksi');
-                if (pTransaksi) localStorage.setItem('cfd_promo_transaksi', pTransaksi.Nilai);
 
                 let tPelanggan = (this.db.pengaturan || []).find(x => x.Pengaturan === 'aisnack_receipt_template');
                 if (tPelanggan && tPelanggan.Nilai) localStorage.setItem('aisnack_receipt_template', tPelanggan.Nilai);
@@ -1927,12 +1924,53 @@ pullFreshData: async function(silent = false) {
         }
     },
     
+   // Slideshow settings are backed by Google Sheets; localStorage is only a fast cache.
+    applyCFDPromoSettings: function(rows) {
+        if (!Array.isArray(rows)) return;
+        const map = {};
+        rows.forEach(r => { if (r && r.Pengaturan) map[String(r.Pengaturan)] = r.Nilai; });
+        const applyList = (type, key) => {
+            const raw = map[key]; if (raw == null || raw === '') return;
+            let urls = [];
+            try { const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw; if (Array.isArray(parsed)) urls = parsed; else if (typeof parsed === 'string' && /^https?:/i.test(parsed)) urls = [parsed]; }
+            catch (_) { if (typeof raw === 'string' && /^https?:/i.test(raw)) urls = [raw]; }
+            urls = Array.from(new Set(urls.filter(u => typeof u === 'string' && /^https?:/i.test(u)))).slice(0,30);
+            localStorage.setItem(type === 'standby' ? 'cfd_promo_standby_list' : 'cfd_promo_transaksi_list', JSON.stringify(urls));
+            localStorage.setItem(type === 'standby' ? 'cfd_promo_standby' : 'cfd_promo_transaksi', urls[0] || '');
+        };
+        applyList('standby','Promo_Standby'); applyList('transaksi','Promo_Transaksi');
+        const settings = map['CFD_Slideshow_Settings'];
+        if (settings) {
+            try {
+                const cfg = typeof settings === 'string' ? JSON.parse(settings) : settings;
+                ['standby','transaksi'].forEach(type => {
+                    const v = cfg[type] || {};
+                    if (v.duration != null) localStorage.setItem(`cfd_promo_${type}_duration`, String(Math.max(1,Math.min(30,parseInt(v.duration,10)||7))));
+                    if (v.enabled != null) localStorage.setItem(`cfd_promo_${type}_enabled`, String(v.enabled !== false));
+                    if (Array.isArray(v.flags)) localStorage.setItem(`cfd_promo_${type}_slide_flags`, JSON.stringify(v.flags));
+                });
+            } catch(e) { console.warn('Pengaturan slideshow server tidak dapat dibaca',e); }
+        }
+        if (map['Logo_Aplikasi']) { localStorage.setItem('app_logo_url', String(map['Logo_Aplikasi'])); if (this.updateAppLogos) this.updateAppLogos(String(map['Logo_Aplikasi'])); }
+        if (map['Logo_Effect']) { localStorage.setItem('app_logo_effect', String(map['Logo_Effect'])); if (this.applyLogoEffect) this.applyLogoEffect(String(map['Logo_Effect'])); const effectSelect=document.getElementById('global-logo-effect'); if(effectSelect) effectSelect.value=String(map['Logo_Effect']); } else { const effectSelect=document.getElementById('global-logo-effect'); if(effectSelect) effectSelect.value=localStorage.getItem('app_logo_effect')||'shimmer'; }
+        if (new URLSearchParams(location.search).get('mode') === 'cfd') { this._cfdStartSlideshow('standby'); this._cfdStartSlideshow('transaksi'); }
+    },
+    persistCFDSlideshowSettings: async function() {
+        const cfg = {};
+        ['standby','transaksi'].forEach(type => {
+            let flags=[]; try { flags=JSON.parse(localStorage.getItem(`cfd_promo_${type}_slide_flags`)||'[]'); } catch(_) {}
+            cfg[type] = { duration:this._promoGetDuration(type), enabled:this._promoGetEnabled(type), flags:flags };
+        });
+        const res = await this.apiPost({action:'save_cfd_slideshow_settings',settings:cfg,_req_id:'CFDSET-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)});
+        if (!res || res.status !== 'sukses') throw new Error((res && res.pesan) || 'Gagal menyimpan pengaturan slideshow ke server.');
+        return res;
+    },
    _promoManagerType: 'standby',
     _promoManagerPreviewTimer: null,
     _promoManagerPreviewIndex: 0,
     _promoGetDuration: function(type) { const key = type === 'standby' ? 'cfd_promo_standby_duration' : 'cfd_promo_transaksi_duration'; const n = parseInt(localStorage.getItem(key) || '7', 10); return Math.max(1, Math.min(30, Number.isFinite(n) ? n : 7)); },
     _promoGetEnabled: function(type) { const key = type === 'standby' ? 'cfd_promo_standby_enabled' : 'cfd_promo_transaksi_enabled'; return localStorage.getItem(key) !== 'false'; },
-    _promoSaveList: function(type, urls) { const listKey = type === 'standby' ? 'cfd_promo_standby_list' : 'cfd_promo_transaksi_list'; const legacyKey = type === 'standby' ? 'cfd_promo_standby' : 'cfd_promo_transaksi'; urls = Array.from(new Set((urls || []).filter(u => typeof u === 'string' && /^https?:/i.test(u)))).slice(0,30); localStorage.setItem(listKey, JSON.stringify(urls)); localStorage.setItem(legacyKey, urls[0] || ''); this.syncStorage(); return urls; },
+    _promoSaveList: function(type, urls) { const listKey = type === 'standby' ? 'cfd_promo_standby_list' : 'cfd_promo_transaksi_list'; const legacyKey = type === 'standby' ? 'cfd_promo_standby' : 'cfd_promo_transaksi'; const settingKey = type === 'standby' ? 'Promo_Standby' : 'Promo_Transaksi'; urls = Array.from(new Set((urls || []).filter(u => typeof u === 'string' && /^https?:/i.test(u)))).slice(0,30); localStorage.setItem(listKey, JSON.stringify(urls)); localStorage.setItem(legacyKey, urls[0] || ''); this.syncStorage(); this.apiPost({action:'update_pengaturan',kunci:settingKey,nilai:JSON.stringify(urls)}).then(r=>{if(!r||r.status!=='sukses')console.warn('Daftar promo belum tersimpan di server',r);}).catch(e=>console.warn('Gagal menyimpan daftar promo ke server',e)); return urls; },
     openPromoManager: function(type) {
         this._promoManagerType = type === 'transaksi' ? 'transaksi' : 'standby';
         const modal = document.getElementById('modal-promo-manager'); if (!modal) return;
@@ -1970,7 +2008,7 @@ pullFreshData: async function(silent = false) {
         // Persist ordered list plus enabled flags, without deleting disabled URLs.
         const enabledKey=type==='standby'?'cfd_promo_standby_slide_flags':'cfd_promo_transaksi_slide_flags'; const flags=urls.map((_,i)=>!disabledIndices.includes(i)); localStorage.setItem(enabledKey,JSON.stringify(flags));
         localStorage.setItem(type==='standby'?'cfd_promo_standby_duration':'cfd_promo_transaksi_duration',String(duration)); localStorage.setItem(type==='standby'?'cfd_promo_standby_enabled':'cfd_promo_transaksi_enabled',String(enabled));
-        this._cfdSlideIndex[type]=0; this._cfdStartSlideshow(type); this.closePromoManager(); this.showToast('Pengaturan slideshow berhasil disimpan.','success');
+        this._cfdSlideIndex[type]=0; this._cfdStartSlideshow(type); this.persistCFDSlideshowSettings().then(()=>this.showToast('Pengaturan slideshow tersimpan di server dan perangkat.','success')).catch(e=>this.showToast('Tersimpan lokal, tetapi sinkronisasi server gagal: '+e.message,'warning')); this.closePromoManager();
     },
 
    changePromoImage: function(type) {
@@ -1978,7 +2016,8 @@ pullFreshData: async function(silent = false) {
         fileInput.type = 'file'; fileInput.accept = 'image/*'; fileInput.multiple = true;
         fileInput.onchange = async (event) => {
             const files = Array.from(event.target.files || []).filter(f => /^image\//i.test(f.type));
-            if (!files.length || this.isProcessing) return;
+            if (!files.length || this.isProcessing || this._promoUploadInFlight) return;
+            this._promoUploadInFlight = true;
             if (files.length > 20) { this.showToast('Maksimal 20 foto sekali unggah.', 'error'); return; }
             const storageKey = type === 'standby' ? 'cfd_promo_standby_list' : 'cfd_promo_transaksi_list';
             const legacyKey = type === 'standby' ? 'cfd_promo_standby' : 'cfd_promo_transaksi';
@@ -1988,25 +2027,28 @@ pullFreshData: async function(silent = false) {
             this.setLoading(true, `Mengunggah ${files.length} foto promo ${type}...`);
             const readFile = file => new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = () => reject(new Error('Gagal membaca ' + file.name)); reader.readAsDataURL(file); });
             try {
-                // Tambahkan foto baru secara berurutan agar request Apps Script tidak terlalu besar.
+                // Tambahkan foto baru secara berurutan; ID stabil per file mencegah duplikasi saat retry jaringan.
+                const uploadSessionId = 'PROMO-' + type + '-' + Date.now() + '-' + Math.random().toString(36).slice(2,9);
                 for (let idx = 0; idx < files.length; idx++) {
                     const file = files[idx];
                     this.setLoading(true, `Mengunggah foto ${idx + 1}/${files.length}...`);
                     const dataUrl = await readFile(file);
-                    const res = await this.apiPost({ action:'update_promo_dual', promoType:type, base64:dataUrl, fileName:file.name, mimeType:file.type, appendToSlideshow:true });
+                    const uploadReqId = uploadSessionId + '-' + idx;
+                    const res = await this.apiPost({ action:'update_promo_dual', promoType:type, base64:dataUrl, fileName:file.name, mimeType:file.type, appendToSlideshow:true, _req_id:uploadReqId });
                     if (!res || res.status !== 'sukses' || !res.url) throw new Error((res && res.pesan) || ('Upload gagal: ' + file.name));
-                    urls = Array.from(new Set(urls.concat([res.url]))).slice(-30);
+                    urls = Array.from(new Set((Array.isArray(res.urls) ? res.urls : urls.concat([res.url])).filter(Boolean))).slice(-30);
                 }
                 localStorage.setItem(storageKey, JSON.stringify(urls));
                 localStorage.setItem(legacyKey, urls[0] || '');
                 this.syncStorage();
+                await this.persistCFDSlideshowSettings().catch(e => console.warn('Pengaturan slideshow belum tersinkron:',e));
                 this.setLoading(false);
                 if (this._promoManagerType === type && document.getElementById('modal-promo-manager') && !document.getElementById('modal-promo-manager').classList.contains('hidden')) this.renderPromoManagerList();
                 this.showToast(`${files.length} foto promo ${type.toUpperCase()} berhasil ditambahkan. Total ${urls.length} foto.`);
             } catch (err) {
                 this.setLoading(false);
                 this.showToast('Upload promo belum selesai: ' + (err.message || err), 'error');
-            }
+            } finally { this._promoUploadInFlight = false; fileInput.value = ''; }
         };
         fileInput.click();
     },
@@ -2014,13 +2056,28 @@ pullFreshData: async function(silent = false) {
     // Fungsi untuk merubah gambar logo secara serempak di seluruh sudut aplikasi
     updateAppLogos: function(url) {
         if (!url) return;
-        document.querySelectorAll('.app-logo-img').forEach(img => {
-            img.src = url;
-        });
+        document.querySelectorAll('.app-logo-img').forEach(img => { img.src = url; });
+        this.applyLogoEffect(localStorage.getItem('app_logo_effect') || 'shimmer');
     },
 
+    applyLogoEffect: function(effect) {
+        const allowed = ['none','shimmer','glow','float','pulse']; effect = allowed.includes(effect) ? effect : 'shimmer';
+        document.querySelectorAll('.app-logo-img').forEach(img => {
+            const holder = img.closest('.app-logo-effect-host') || img.parentElement;
+            if (!holder) return;
+            holder.classList.remove('logo-effect-shimmer','logo-effect-glow','logo-effect-float','logo-effect-pulse');
+            if (effect !== 'none') holder.classList.add('app-logo-effect-host','logo-effect-' + effect);
+        });
+    },
+    setGlobalLogoEffect: async function(effect) {
+        const allowed=['none','shimmer','glow','float','pulse']; if(!allowed.includes(effect)) effect='shimmer';
+        localStorage.setItem('app_logo_effect',effect); this.applyLogoEffect(effect);
+        try { const r=await this.apiPost({action:'update_pengaturan',kunci:'Logo_Effect',nilai:effect}); if(!r||r.status!=='sukses') throw new Error((r&&r.pesan)||'Gagal menyimpan efek logo'); this.showToast('Efek logo global berhasil disimpan.','success'); }
+        catch(e) { this.showToast('Efek diterapkan di perangkat ini, tetapi belum tersimpan di server: '+e.message,'warning'); }
+    },
     // Fungsi pengunggah file logo baru langsung menuju Google Drive
     changeAppLogo: function() {
+        if (this._logoUploadInFlight) { this.showToast('Unggahan logo sedang berjalan.','warning'); return; }
         let fileInput = document.createElement('input');
         fileInput.type = 'file';
         fileInput.accept = 'image/*';
@@ -2030,6 +2087,7 @@ pullFreshData: async function(silent = false) {
             if (!file) return;
             if (this.isProcessing) return;
             
+            this._logoUploadInFlight = true;
             this.setLoading(true, "Mengunggah Logo Baru ke Google Drive...");
             const reader = new FileReader();
             reader.onload = (e) => {
@@ -2046,14 +2104,14 @@ pullFreshData: async function(silent = false) {
                         this.updateAppLogos(res.url); // Ubah visual logo kasir saat itu juga
                         this.syncStorage(); // Sinkronkan ke layar pelanggan (CFD)
                         this.setLoading(false);
-                        this.showToast("Logo Aplikasi Berhasil Diperbarui Secara Global!");
+                        this.showToast("Logo Aplikasi Berhasil Diperbarui Secara Global!"); this._logoUploadInFlight = false;
                     } else {
                         this.setLoading(false);
-                        this.showToast("Gagal menyimpan logo: " + res.pesan, "error");
+                        this.showToast("Gagal menyimpan logo: " + res.pesan, "error"); this._logoUploadInFlight = false;
                     }
                 }).catch(() => {
                     this.setLoading(false);
-                    this.showToast("Koneksi internet bermasalah saat upload", "error");
+                    this.showToast("Koneksi internet bermasalah saat upload", "error"); this._logoUploadInFlight = false;
                 });
             };
             reader.readAsDataURL(file);
@@ -2154,6 +2212,13 @@ pullFreshData: async function(silent = false) {
         if (initialData.outlet) this.renderCFD(initialData);
         const savedLogo = localStorage.getItem('app_logo_url'); if (savedLogo) this.updateAppLogos(savedLogo);
         this._cfdStartSlideshow('standby'); this._cfdStartSlideshow('transaksi');
+        // A cleared browser must rehydrate promo URLs/settings from Google Sheets, not remain blank.
+        try {
+            const apiUrl = (typeof API_URL !== 'undefined') ? API_URL : this.webAppUrl;
+            if (apiUrl) fetch(apiUrl + (apiUrl.includes('?') ? '&' : '?') + 'ts=' + Date.now(), {cache:'no-store', redirect:'follow'})
+                .then(r=>r.json()).then(data=>{ if(data && data.status==='sukses' && Array.isArray(data.pengaturan)) { this.applyCFDPromoSettings(data.pengaturan); this._cfdStartSlideshow('standby'); this._cfdStartSlideshow('transaksi'); const logo=localStorage.getItem('app_logo_url'); if(logo)this.updateAppLogos(logo); } })
+                .catch(e=>console.warn('Sinkronisasi promo CFD dari server gagal:',e));
+        } catch(e) { console.warn('CFD settings refresh skipped:',e); }
         // Refresh list from local cache periodically; preserves slides after tab wakes from sleep.
         document.addEventListener('visibilitychange', () => { if (!document.hidden) { this._cfdStartSlideshow('standby'); this._cfdStartSlideshow('transaksi'); } });
     },

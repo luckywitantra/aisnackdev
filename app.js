@@ -1927,6 +1927,52 @@ pullFreshData: async function(silent = false) {
         }
     },
     
+   _promoManagerType: 'standby',
+    _promoManagerPreviewTimer: null,
+    _promoManagerPreviewIndex: 0,
+    _promoGetDuration: function(type) { const key = type === 'standby' ? 'cfd_promo_standby_duration' : 'cfd_promo_transaksi_duration'; const n = parseInt(localStorage.getItem(key) || '7', 10); return Math.max(3, Math.min(30, Number.isFinite(n) ? n : 7)); },
+    _promoGetEnabled: function(type) { const key = type === 'standby' ? 'cfd_promo_standby_enabled' : 'cfd_promo_transaksi_enabled'; return localStorage.getItem(key) !== 'false'; },
+    _promoSaveList: function(type, urls) { const listKey = type === 'standby' ? 'cfd_promo_standby_list' : 'cfd_promo_transaksi_list'; const legacyKey = type === 'standby' ? 'cfd_promo_standby' : 'cfd_promo_transaksi'; urls = Array.from(new Set((urls || []).filter(u => typeof u === 'string' && /^https?:/i.test(u)))).slice(0,30); localStorage.setItem(listKey, JSON.stringify(urls)); localStorage.setItem(legacyKey, urls[0] || ''); this.syncStorage(); return urls; },
+    openPromoManager: function(type) {
+        this._promoManagerType = type === 'transaksi' ? 'transaksi' : 'standby';
+        const modal = document.getElementById('modal-promo-manager'); if (!modal) return;
+        const isStandby = this._promoManagerType === 'standby';
+        document.getElementById('promo-manager-title').textContent = isStandby ? 'Slideshow Promo Standby' : 'Slideshow Promo Transaksi';
+        document.getElementById('promo-manager-kicker').textContent = isStandby ? 'LAYAR STANDBY' : 'LAYAR TRANSAKSI';
+        const duration = this._promoGetDuration(this._promoManagerType); document.getElementById('promo-manager-duration').value = duration; this.updatePromoDurationLabel(duration);
+        document.getElementById('promo-manager-enabled').checked = this._promoGetEnabled(this._promoManagerType);
+        modal.classList.remove('hidden'); modal.classList.add('flex'); this.renderPromoManagerList();
+    },
+    closePromoManager: function() { const modal = document.getElementById('modal-promo-manager'); if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); } if (this._promoManagerPreviewTimer) clearInterval(this._promoManagerPreviewTimer); this._promoManagerPreviewTimer = null; },
+    updatePromoDurationLabel: function(value) { const el = document.getElementById('promo-manager-duration-label'); if (el) el.textContent = `${value} detik`; },
+    renderPromoManagerList: function() {
+        const type = this._promoManagerType; const urls = this._cfdGetSlides(type); const list = document.getElementById('promo-manager-list'); if (!list) return;
+        document.getElementById('promo-manager-total').textContent = `${urls.length} foto`;
+        const preview = document.getElementById('promo-manager-preview-img'); const empty = document.getElementById('promo-manager-empty');
+        if (urls.length) { preview.src = urls[Math.min(this._promoManagerPreviewIndex, urls.length - 1)] || urls[0]; preview.classList.remove('hidden'); empty.classList.add('hidden'); document.getElementById('promo-manager-preview-count').textContent = `Foto ${Math.min(this._promoManagerPreviewIndex, urls.length - 1) + 1} dari ${urls.length}`; }
+        else { preview.removeAttribute('src'); preview.classList.add('hidden'); empty.classList.remove('hidden'); document.getElementById('promo-manager-preview-count').textContent = 'Foto 0 dari 0'; }
+        list.innerHTML = '';
+        if (!urls.length) { list.innerHTML = '<div class="p-5 rounded-2xl border border-dashed border-slate-300 text-center text-sm text-slate-500">Belum ada foto. Tekan Tambah foto untuk mulai membuat slideshow.</div>'; return; }
+        urls.forEach((url, i) => {
+            const row = document.createElement('div'); row.className = 'promo-manager-row flex items-center gap-3 p-3 rounded-2xl border border-slate-200 bg-white';
+            const img = document.createElement('img'); img.src = url; img.alt = `Promo ${i+1}`; img.className = 'w-20 h-14 sm:w-28 sm:h-16 object-cover rounded-lg bg-slate-100 shrink-0';
+            const meta = document.createElement('div'); meta.className = 'min-w-0 flex-1'; meta.innerHTML = `<div class="font-extrabold text-sm text-slate-800">Foto ${i+1}</div><div class="text-[11px] text-slate-500 truncate" title="${String(url).replace(/"/g,'&quot;')}">${String(url).replace(/[<>]/g,'')}</div><label class="inline-flex items-center gap-2 mt-2 text-xs font-bold text-slate-600"><input type="checkbox" class="promo-slide-enabled accent-blue-600" data-index="${i}" checked> Tampilkan</label>`;
+            const controls = document.createElement('div'); controls.className = 'flex flex-col sm:flex-row gap-1 shrink-0';
+            [['↑','up',i===0],['↓','down',i===urls.length-1],['×','remove',false]].forEach(([label,act,disabled])=>{ const b=document.createElement('button'); b.type='button'; b.textContent=label; b.title=act==='up'?'Geser ke atas':act==='down'?'Geser ke bawah':'Hapus foto'; b.className='w-9 h-9 rounded-lg font-black '+(act==='remove'?'bg-rose-50 text-rose-600 hover:bg-rose-100':'bg-slate-100 text-slate-700 hover:bg-slate-200'); b.disabled=disabled; b.style.opacity=disabled?'.35':'1'; b.onclick=()=>this.reorderPromoSlide(i,act); controls.appendChild(b); });
+            row.append(img,meta,controls); list.appendChild(row);
+        });
+    },
+    reorderPromoSlide: function(index, action) { const type=this._promoManagerType; let urls=this._cfdGetSlides(type); const flagsKey=type==='standby'?'cfd_promo_standby_slide_flags':'cfd_promo_transaksi_slide_flags'; let flags=[]; try{flags=JSON.parse(localStorage.getItem(flagsKey)||'[]')}catch(_){} if(flags.length!==urls.length)flags=urls.map(()=>true); if (action==='remove') { if (!confirm(`Hapus foto ${index+1} dari slideshow perangkat ini? File di Google Drive tidak dihapus.`)) return; urls.splice(index,1); flags.splice(index,1); } else { const target=action==='up'?index-1:index+1; if(target<0||target>=urls.length)return; [urls[index],urls[target]]=[urls[target],urls[index]]; [flags[index],flags[target]]=[flags[target],flags[index]]; } this._promoSaveList(type,urls); localStorage.setItem(flagsKey,JSON.stringify(flags)); this._promoManagerPreviewIndex=Math.min(this._promoManagerPreviewIndex,Math.max(0,urls.length-1)); this.renderPromoManagerList(); },
+    previewPromoSlideshow: function() { if (this._promoManagerPreviewTimer) clearInterval(this._promoManagerPreviewTimer); const urls=this._cfdGetSlides(this._promoManagerType); if (!urls.length) { this.showToast('Tambahkan foto terlebih dahulu untuk melihat preview.','warning'); return; } this._promoManagerPreviewIndex=0; this.renderPromoManagerList(); this._promoManagerPreviewTimer=setInterval(()=>{ const latest=this._cfdGetSlides(this._promoManagerType); if(!latest.length){clearInterval(this._promoManagerPreviewTimer);return;} this._promoManagerPreviewIndex=(this._promoManagerPreviewIndex+1)%latest.length; this.renderPromoManagerList(); }, this._promoGetDuration(this._promoManagerType)*1000); this.showToast('Preview slideshow berjalan.','success'); },
+    savePromoManager: function() {
+        const type=this._promoManagerType; const duration=Math.max(3,Math.min(30,parseInt(document.getElementById('promo-manager-duration').value||'7',10))); const enabled=document.getElementById('promo-manager-enabled').checked;
+        const list=document.getElementById('promo-manager-list'); const checks=Array.from(list.querySelectorAll('.promo-slide-enabled')); let urls=this._cfdGetSlides(type); const disabledIndices=checks.filter(c=>!c.checked).map(c=>Number(c.dataset.index));
+        // Persist ordered list plus enabled flags, without deleting disabled URLs.
+        const enabledKey=type==='standby'?'cfd_promo_standby_slide_flags':'cfd_promo_transaksi_slide_flags'; const flags=urls.map((_,i)=>!disabledIndices.includes(i)); localStorage.setItem(enabledKey,JSON.stringify(flags));
+        localStorage.setItem(type==='standby'?'cfd_promo_standby_duration':'cfd_promo_transaksi_duration',String(duration)); localStorage.setItem(type==='standby'?'cfd_promo_standby_enabled':'cfd_promo_transaksi_enabled',String(enabled));
+        this._cfdSlideIndex[type]=0; this._cfdStartSlideshow(type); this.closePromoManager(); this.showToast('Pengaturan slideshow berhasil disimpan.','success');
+    },
+
    changePromoImage: function(type) {
         const fileInput = document.createElement('input');
         fileInput.type = 'file'; fileInput.accept = 'image/*'; fileInput.multiple = true;
@@ -1955,6 +2001,7 @@ pullFreshData: async function(silent = false) {
                 localStorage.setItem(legacyKey, urls[0] || '');
                 this.syncStorage();
                 this.setLoading(false);
+                if (this._promoManagerType === type && document.getElementById('modal-promo-manager') && !document.getElementById('modal-promo-manager').classList.contains('hidden')) this.renderPromoManagerList();
                 this.showToast(`${files.length} foto promo ${type.toUpperCase()} berhasil ditambahkan. Total ${urls.length} foto.`);
             } catch (err) {
                 this.setLoading(false);
@@ -2074,7 +2121,12 @@ pullFreshData: async function(silent = false) {
     },
     _cfdStartSlideshow: function(type) {
         if (this._cfdSlideTimers[type]) clearInterval(this._cfdSlideTimers[type]);
-        this._cfdSlides[type] = this._cfdGetSlides(type);
+        const allSlides = this._cfdGetSlides(type);
+        const flagsKey = type === 'standby' ? 'cfd_promo_standby_slide_flags' : 'cfd_promo_transaksi_slide_flags';
+        let flags = []; try { flags = JSON.parse(localStorage.getItem(flagsKey) || '[]'); } catch (_) {}
+        this._cfdSlides[type] = allSlides.filter((_, i) => flags.length === allSlides.length ? flags[i] !== false : true);
+        const enabledKey = type === 'standby' ? 'cfd_promo_standby_enabled' : 'cfd_promo_transaksi_enabled';
+        const enabled = localStorage.getItem(enabledKey) !== 'false';
         const legacy = type === 'standby' ? 'cfd_promo_standby' : 'cfd_promo_transaksi';
         if (!this._cfdSlides[type].length) {
             const fallback = document.getElementById(type === 'standby' ? 'cfd-bg-standby' : 'cfd-bg-screen');
@@ -2082,10 +2134,10 @@ pullFreshData: async function(silent = false) {
             return;
         }
         this._cfdApplySlide(type, this._cfdSlideIndex[type] || 0);
-        if (this._cfdSlides[type].length > 1) this._cfdSlideTimers[type] = setInterval(() => {
+        if (enabled && this._cfdSlides[type].length > 1) this._cfdSlideTimers[type] = setInterval(() => {
             if (document.hidden) return;
             this._cfdApplySlide(type, (this._cfdSlideIndex[type] + 1) % this._cfdSlides[type].length);
-        }, 7000);
+        }, this._promoGetDuration(type) * 1000);
     },
     initCFD: function() {
         ['login-screen','sidebar','main-app'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('hidden'); });

@@ -1068,3 +1068,9 @@ html, body {
   .susulan-payment-row .susulan-payment-amount { grid-column:1; }
   .susulan-payment-row .susulan-remove-payment { grid-column:2; grid-row:1 / span 2; align-self:center; }
 }
+
+/* v4.5.0 — CFD independent promo slideshows */
+#cfd-bg-screen, #cfd-bg-standby { background-size: cover; background-position: center; will-change: opacity, transform; }
+.cfd-slide-enter { animation: cfdPromoFade 850ms ease both; }
+@keyframes cfdPromoFade { from { opacity: .25; transform: scale(1.015); } to { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .cfd-slide-enter { animation: none !important; } }

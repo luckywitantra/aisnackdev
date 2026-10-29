@@ -1,3 +1,37 @@
+
+// v4.4.2: Normalize payment breakdown for legacy and split-payment transactions.
+function aisnackGetPaymentBreakdown(transaction) {
+    const t = transaction || {};
+    const findValue = (names) => {
+        const keys = Object.keys(t);
+        for (const name of names) {
+            if (t[name] !== undefined && t[name] !== null && String(t[name]).trim() !== '') return t[name];
+            const key = keys.find(k => String(k).trim().toLowerCase() === String(name).trim().toLowerCase());
+            if (key && t[key] !== undefined && t[key] !== null && String(t[key]).trim() !== '') return t[key];
+        }
+        return '';
+    };
+    const total = Math.max(0, Number(findValue(['Total_Bayar','Total Bayar','Total_Bayar_Rp'])) || 0);
+    const raw = findValue(['Pembayaran_Rinci_JSON','pembayaran_rinci','Pembayaran Rinci JSON','Pembayaran_Rinci']);
+    let rows = [];
+    if (Array.isArray(raw)) rows = raw;
+    else if (raw && typeof raw === 'object') rows = [raw];
+    else if (typeof raw === 'string' && raw.trim()) {
+        try { const parsed = JSON.parse(raw); rows = Array.isArray(parsed) ? parsed : (parsed && typeof parsed === 'object' ? [parsed] : []); } catch (_) { rows = []; }
+    }
+    let cash = 0, qris = 0;
+    rows.forEach(row => {
+        const method = String(row && (row.metode ?? row.Metode ?? row.method ?? row.METHOD) || '').trim().toLowerCase();
+        const amount = Math.max(0, Number(row && (row.nominal ?? row.Nominal ?? row.amount ?? row.Amount)) || 0);
+        if (method === 'tunai') cash += amount;
+        else if (method === 'qris') qris += amount;
+    });
+    if (rows.length && Math.round(cash + qris) === Math.round(total)) return { cash, qris, total, hasBreakdown: true };
+    const method = String(findValue(['Metode_Bayar','Metode Bayar','metode_bayar']) || 'Tunai').trim().toLowerCase();
+    if (method === 'qris') return { cash: 0, qris: total, total, hasBreakdown: false };
+    return { cash: total, qris: 0, total, hasBreakdown: false };
+}
+
 // STORAGE SAFETY PATCH: database cache besar disimpan ke IndexedDB; tidak memangkas riwayat.
 (function () {
     const nativeSetItem = Storage.prototype.setItem;
@@ -1305,7 +1339,7 @@ pullFreshData: async function(silent = false) {
         };
         this._backdatedProductOptions = productOptions;
         const paymentWrap=document.getElementById('susulan-payment-splits');
-        const paymentOptions=['Tunai','QRIS'];
+        const paymentOptions=['Tunai','QRIS','Transfer','Kartu','Lainnya'];
         const money=value=>'Rp'+Math.round(Number(value)||0).toLocaleString('id-ID');
         const addPaymentSplit=()=>{
           if(!paymentWrap) return;
@@ -9358,7 +9392,9 @@ openDetailStokOpname: function(sku) {
                 
                 if (t.Status === 'Sukses') { 
                     totalOmset += bayar; countTrx++;
-                    if(String(t.Metode_Bayar||'').toUpperCase() === 'QRIS') totalQris += bayar; else totalTunai += bayar;
+                    const paymentBreakdown = aisnackGetPaymentBreakdown(t);
+                    totalQris += paymentBreakdown.qris;
+                    totalTunai += paymentBreakdown.cash;
                     
                     let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
                     items.forEach(item => {
@@ -9641,14 +9677,15 @@ openDetailStokOpname: function(sku) {
             let trxDate = typeof this.parseDateId === 'function' ? this.parseDateId(t.Tanggal) : new Date(t.Tanggal);
             
             if ((filterVal === 'Semua' || t.Outlet === filterVal) && trxDate >= dateStart && trxDate <= dateEnd) {
-                let isQris = String(t.Metode_Bayar).trim().toLowerCase().includes('qris');
+                const paymentBreakdown = aisnackGetPaymentBreakdown(t);
                 let bayar = Number(t.Total_Bayar) || 0;
-                
-                // Sortir Berdasarkan Tipe Kartu yang Diklik
+                let isQris = paymentBreakdown.qris > 0 && paymentBreakdown.cash === 0;
+                // Untuk kartu Tunai/QRIS, ambil nominal parsial metode terkait.
+                let displayAmount = bayar;
                 let match = false;
                 if (type === 'omset' || type === 'struk') match = true;
-                else if (type === 'tunai' && !isQris) match = true;
-                else if (type === 'qris' && isQris) match = true;
+                else if (type === 'tunai') { displayAmount = paymentBreakdown.cash; match = displayAmount > 0; }
+                else if (type === 'qris') { displayAmount = paymentBreakdown.qris; match = displayAmount > 0; }
 
                 if (match) {
                     let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
@@ -9658,9 +9695,9 @@ openDetailStokOpname: function(sku) {
                     
                     details.push({
                         sortTime, dateStr: t.Tanggal, wkt: `${t.Tanggal} ${t.Waktu}`, id: t.ID_TRX, kasir: t.Kasir, outlet: t.Outlet,
-                        nominal: bayar, pcs: pcs, isQris: isQris
+                        nominal: displayAmount, pcs: pcs, isQris: isQris
                     });
-                    totalRp += bayar;
+                    totalRp += displayAmount;
                     totalPcs += pcs;
                     totalStruk++;
                 }
@@ -9930,12 +9967,10 @@ openDetailStokOpname: function(sku) {
                     jamPadat[hour] += bayar;
                     totalRev += bayar;
                     
-                    // 1. Pemisahan Omset Cash dan QRIS
-                    if (String(t.Metode_Bayar).trim().toLowerCase() === 'qris') {
-                        totalQris += bayar;
-                    } else {
-                        totalCash += bayar;
-                    }
+                    // 1. Pemisahan Omset Tunai dan QRIS; mendukung transaksi gabungan.
+                    const paymentBreakdown = aisnackGetPaymentBreakdown(t);
+                    totalCash += paymentBreakdown.cash;
+                    totalQris += paymentBreakdown.qris;
                     
                     let items = []; try { items = JSON.parse(t.Items_JSON || '[]'); } catch(e){}
                     items.forEach(item => {

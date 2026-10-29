@@ -2151,6 +2151,7 @@ pullFreshData: async function(silent = false) {
    _cfdSlides: { standby: [], transaksi: [] },
     _cfdSlideIndex: { standby: 0, transaksi: 0 },
     _cfdSlideTimers: { standby: null, transaksi: null },
+    _cfdSlideRequestToken: { standby: 0, transaksi: 0 },
     _cfdSlideLastChange: { standby: 0, transaksi: 0 },
     _cfdGetSlides: function(type) {
         const listKey = type === 'standby' ? 'cfd_promo_standby_list' : 'cfd_promo_transaksi_list';
@@ -2158,34 +2159,59 @@ pullFreshData: async function(silent = false) {
         let list = [];
         try { const parsed = JSON.parse(localStorage.getItem(listKey) || '[]'); if (Array.isArray(parsed)) list = parsed; } catch (_) {}
         if (!list.length) { const legacy = localStorage.getItem(legacyKey); if (legacy) list = [legacy]; }
-        return list.filter(url => typeof url === 'string' && /^(https?:|data:image\/)/i.test(url));
+        return Array.from(new Set(list.filter(url => typeof url === 'string' && /^(https?:|data:image\/)/i.test(url))));
     },
-    _cfdApplySlide: function(type, index) {
+    _cfdApplySlide: function(type, index, attempt) {
         const el = document.getElementById(type === 'standby' ? 'cfd-bg-standby' : 'cfd-bg-screen');
         const slides = this._cfdSlides[type] || [];
         if (!el || !slides.length) return;
+        const tries = Number(attempt || 0);
+        if (tries >= slides.length) {
+            console.warn('[CFD slideshow] Semua gambar gagal dimuat untuk layar ' + type + '. Periksa akses URL gambar.');
+            return;
+        }
         const safeIndex = ((index % slides.length) + slides.length) % slides.length;
-        this._cfdSlideIndex[type] = safeIndex;
         const url = slides[safeIndex];
-        const apply = () => {
+        const token = ++this._cfdSlideRequestToken[type];
+        let settled = false;
+        const applyOnce = () => {
+            if (settled) return;
+            settled = true;
+            if (token !== this._cfdSlideRequestToken[type]) return;
             el.style.backgroundImage = `url("${String(url).replace(/["\\\n\r]/g, '')}")`;
-            el.classList.remove('cfd-slide-enter'); void el.offsetWidth; el.classList.add('cfd-slide-enter');
+            el.classList.remove('cfd-slide-enter');
+            void el.offsetWidth;
+            el.classList.add('cfd-slide-enter');
+            this._cfdSlideIndex[type] = safeIndex;
             this._cfdSlideLastChange[type] = Date.now();
         };
-        // Preload before swapping so slow connections do not flash a blank background.
-        const img = new Image(); img.onload = apply; img.onerror = () => { if (slides.length > 1) this._cfdApplySlide(type, safeIndex + 1); };
+        const tryNext = () => {
+            if (settled) return;
+            settled = true;
+            if (token !== this._cfdSlideRequestToken[type]) return;
+            console.warn('[CFD slideshow] Gambar tidak dapat dimuat:', url);
+            this._cfdApplySlide(type, safeIndex + 1, tries + 1);
+        };
+        const img = new Image();
+        img.onload = applyOnce;
+        img.onerror = tryNext;
         img.src = url;
-        if (img.complete && img.naturalWidth > 0) apply();
+        // Gunakan callback yang sama untuk gambar cache agar tidak diterapkan dua kali.
+        if (img.complete) {
+            if (img.naturalWidth > 0) applyOnce();
+            else tryNext();
+        }
     },
     _cfdStartSlideshow: function(type) {
         if (this._cfdSlideTimers[type]) clearInterval(this._cfdSlideTimers[type]);
+        this._cfdSlideTimers[type] = null;
+        this._cfdSlideRequestToken[type] = (this._cfdSlideRequestToken[type] || 0) + 1;
         const allSlides = this._cfdGetSlides(type);
         const flagsKey = type === 'standby' ? 'cfd_promo_standby_slide_flags' : 'cfd_promo_transaksi_slide_flags';
         let flags = []; try { flags = JSON.parse(localStorage.getItem(flagsKey) || '[]'); } catch (_) {}
         this._cfdSlides[type] = allSlides.filter((_, i) => flags.length === allSlides.length ? flags[i] !== false : true);
         const enabledKey = type === 'standby' ? 'cfd_promo_standby_enabled' : 'cfd_promo_transaksi_enabled';
         const enabled = localStorage.getItem(enabledKey) !== 'false';
-        const legacy = type === 'standby' ? 'cfd_promo_standby' : 'cfd_promo_transaksi';
         if (!this._cfdSlides[type].length) {
             const fallback = document.getElementById(type === 'standby' ? 'cfd-bg-standby' : 'cfd-bg-screen');
             if (fallback && !fallback.style.backgroundImage) fallback.style.backgroundImage = "url('https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1920')";
@@ -2197,7 +2223,7 @@ pullFreshData: async function(silent = false) {
             this._cfdApplySlide(type, (this._cfdSlideIndex[type] + 1) % this._cfdSlides[type].length);
         }, this._promoGetDuration(type) * 1000);
     },
-    initCFD: function() {
+        initCFD: function() {
         ['login-screen','sidebar','main-app'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('hidden'); });
         const cfdScreen = document.getElementById('cfd-screen'); if (cfdScreen) cfdScreen.classList.remove('hidden');
         window.addEventListener('storage', (e) => {

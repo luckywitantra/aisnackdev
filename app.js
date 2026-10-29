@@ -1305,7 +1305,7 @@ pullFreshData: async function(silent = false) {
         };
         this._backdatedProductOptions = productOptions;
         const paymentWrap=document.getElementById('susulan-payment-splits');
-        const paymentOptions=['Tunai','QRIS','Transfer','Kartu','Lainnya'];
+        const paymentOptions=['Tunai','QRIS'];
         const money=value=>'Rp'+Math.round(Number(value)||0).toLocaleString('id-ID');
         const addPaymentSplit=()=>{
           if(!paymentWrap) return;
@@ -14978,4 +14978,3 @@ setInterval(() => {
         superApp.pullFreshData(true); 
     }
 }, 300000);
-

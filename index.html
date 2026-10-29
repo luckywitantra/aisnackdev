@@ -2810,7 +2810,12 @@
                     <div class="w-14 h-14 bg-gradient-to-br from-emerald-50 to-teal-50 text-emerald-500 rounded-2xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform border border-emerald-100/50 shrink-0"><i class="fas fa-building"></i></div>
                     <div><h4 class="font-extrabold text-slate-800 text-base">Logo Aplikasi Global</h4><p class="text-xs text-slate-500 font-medium mt-1 md:max-w-[220px]">Ubah logo seluruh cabang.</p></div>
                 </div>
-                <button onclick="superApp.changeAppLogo()" class="w-full md:w-auto px-6 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-extrabold rounded-xl text-xs lg:text-sm shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 shrink-0"><i class="fas fa-upload"></i> Unggah Logo</button>
+                <div class="w-full md:w-auto flex flex-col sm:flex-row gap-2 shrink-0">
+                    <label class="flex items-center gap-2 px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-xs font-bold text-emerald-800">Efek logo
+                      <select id="global-logo-effect" onchange="superApp.setGlobalLogoEffect(this.value)" class="bg-white border border-emerald-200 rounded-lg px-2 py-2 text-xs font-bold"><option value="none">Normal</option><option value="shimmer" selected>Berkilau</option><option value="glow">Cahaya</option><option value="float">Mengambang</option><option value="pulse">Denyut lembut</option></select>
+                    </label>
+                    <button onclick="superApp.changeAppLogo()" class="w-full md:w-auto px-6 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-extrabold rounded-xl text-xs lg:text-sm shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 shrink-0"><i class="fas fa-upload"></i> Unggah Logo</button>
+                </div>
             </div>
 
         </div> </div> </div>
@@ -2827,7 +2832,7 @@
           <div class="rounded-2xl border border-slate-200 p-4 bg-slate-50">
             <label for="promo-manager-duration" class="block text-sm font-extrabold text-slate-800 mb-2">Durasi setiap foto</label>
             <div class="flex items-center gap-3"><input id="promo-manager-duration" type="range" min="1" max="30" step="1" value="7" class="w-full accent-blue-600" oninput="superApp.updatePromoDurationLabel(this.value)"><strong id="promo-manager-duration-label" class="min-w-[58px] text-center rounded-xl bg-white border border-slate-200 px-3 py-2 text-sm">7 detik</strong></div>
-            <p class="text-xs text-slate-500 mt-2">Pilihan 3–30 detik. Durasi berlaku untuk layar ini saja.</p>
+            <p class="text-xs text-slate-500 mt-2">Pilihan 1–30 detik. Durasi berlaku untuk layar ini saja.</p>
             <label class="flex items-start gap-3 mt-4 p-3 rounded-xl border border-slate-200 bg-white cursor-pointer"><input id="promo-manager-enabled" type="checkbox" class="mt-1 accent-blue-600" checked><span><strong class="block text-sm text-slate-800">Aktifkan slideshow</strong><small class="text-xs text-slate-500">Jika nonaktif, gambar pertama menjadi gambar tetap.</small></span></label>
             <div class="flex flex-wrap gap-2 mt-4"><button onclick="superApp.changePromoImage(superApp._promoManagerType)" class="px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm"><i class="fas fa-upload mr-2"></i>Tambah foto</button><button onclick="superApp.previewPromoSlideshow()" class="px-4 py-3 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold text-sm"><i class="fas fa-eye mr-2"></i>Preview</button></div>
           </div>

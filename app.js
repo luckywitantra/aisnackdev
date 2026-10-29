@@ -1256,13 +1256,16 @@ pullFreshData: async function(silent = false) {
                   <label class="susulan-field"><span>Waktu transaksi <em>*</em></span><input id="susulan-time" type="time" value="12:00" required></label>
                   <label class="susulan-field"><span>Outlet <em>*</em></span><select id="susulan-outlet" required>${outletOptions}</select></label>
                   <label class="susulan-field"><span>Kasir yang bertugas <em>*</em></span><select id="susulan-cashier" required>${cashierOptions}</select></label>
-                  <label class="susulan-field"><span>Metode pembayaran</span><select id="susulan-payment"><option>Tunai</option><option>QRIS</option><option>Transfer</option><option>Kartu</option><option>Lainnya</option></select></label>
-                  <label class="susulan-field"><span>Nominal dibayar (tunai)</span><input id="susulan-paid" type="number" min="0" value="0" inputmode="numeric"></label>
-                  <div class="susulan-field" style="grid-column:1/-1">
-                    <span>Rincian pembayaran (bisa lebih dari satu metode)</span>
-                    <div id="susulan-payment-splits" class="grid gap-2"></div>
+                  <div class="susulan-field susulan-payment-unified" style="grid-column:1/-1">
+                    <span>Pembayaran transaksi <em>*</em></span>
+                    <div class="susulan-payment-summary">
+                      <div><small>Total transaksi</small><strong id="susulan-payment-total">Rp0</strong></div>
+                      <div><small>Total dibayar</small><strong id="susulan-payment-paid-total">Rp0</strong></div>
+                      <div><small>Selisih</small><strong id="susulan-payment-difference">Rp0</strong></div>
+                    </div>
+                    <div id="susulan-payment-splits" class="susulan-payment-list"></div>
                     <button id="susulan-add-payment" type="button" class="susulan-add-btn mt-2"><i class="fas fa-plus"></i><span>Tambah metode pembayaran</span></button>
-                    <small class="text-slate-500">Gunakan jika satu transaksi dibayar gabungan, misalnya Tunai + QRIS. Total nominal harus sama dengan total transaksi.</small>
+                    <small class="text-slate-500">Isi satu baris untuk pembayaran tunggal. Tambahkan baris jika pembayaran digabung, misalnya Tunai + QRIS. Total pembayaran wajib sama dengan total transaksi.</small>
                   </div>
                 </div>
                 <div class="susulan-subnote"><i class="fas fa-history"></i><span>Gunakan waktu transaksi sebenarnya, bukan waktu saat data dimasukkan.</span></div>
@@ -1301,26 +1304,47 @@ pullFreshData: async function(silent = false) {
             row.querySelector('.susulan-remove').addEventListener('click',()=>{row.remove();this._recalcBackdatedTotal();});
         };
         this._backdatedProductOptions = productOptions;
-        this._recalcBackdatedTotal = function(){
-            let total=0; itemWrap.querySelectorAll('.susulan-item').forEach(r=>{total+=Math.max(0,Number(r.querySelector('.susulan-qty').value)||0)*Math.max(0,Number(r.querySelector('.susulan-price').value)||0);});
-            const el=document.getElementById('susulan-total'); if(el) el.textContent='Rp'+Math.round(total).toLocaleString('id-ID');
-            const pay=document.getElementById('susulan-payment'), paid=document.getElementById('susulan-paid'); if(pay && paid && pay.value!=='Tunai') paid.value=String(Math.round(total));
-            return Math.round(total);
-        };
-        document.getElementById('susulan-add-item').addEventListener('click',addRow);
-        document.getElementById('susulan-outlet').addEventListener('change',()=>{itemWrap.querySelectorAll('.susulan-product').forEach(sel=>sel.dispatchEvent(new Event('change')));});
-        document.getElementById('susulan-payment').addEventListener('change',()=>this._recalcBackdatedTotal());
-        const splitWrap=document.getElementById('susulan-payment-splits');
+        const paymentWrap=document.getElementById('susulan-payment-splits');
         const paymentOptions=['Tunai','QRIS','Transfer','Kartu','Lainnya'];
+        const money=value=>'Rp'+Math.round(Number(value)||0).toLocaleString('id-ID');
         const addPaymentSplit=()=>{
-          if(!splitWrap) return;
+          if(!paymentWrap) return;
           const row=document.createElement('div');
           row.className='susulan-payment-row';
-          row.innerHTML=`<label class="min-w-0"><span class="block text-[10px] font-extrabold text-slate-500 mb-1">Metode</span><select class="susulan-split-method">${paymentOptions.map(p=>`<option>${p}</option>`).join('')}</select></label><label class="min-w-0"><span class="block text-[10px] font-extrabold text-slate-500 mb-1">Nominal (Rp)</span><input class="susulan-split-amount" type="number" min="0" step="1" inputmode="numeric" placeholder="Contoh: 150000"></label><button type="button" class="susulan-remove-payment bg-rose-50 text-rose-600" aria-label="Hapus metode pembayaran" title="Hapus metode"><i class="fas fa-trash"></i></button>`;
-          row.querySelector('.susulan-remove-payment').onclick=()=>{row.remove();this._recalcBackdatedTotal();};
+          row.innerHTML=`<label class="susulan-payment-method"><span>Metode pembayaran</span><select class="susulan-split-method" aria-label="Metode pembayaran">${paymentOptions.map(p=>`<option>${p}</option>`).join('')}</select></label><label class="susulan-payment-amount"><span>Nominal (Rp)</span><input class="susulan-split-amount" type="number" min="0" step="1" inputmode="numeric" placeholder="Masukkan nominal" aria-label="Nominal pembayaran"></label><button type="button" class="susulan-remove-payment" aria-label="Hapus metode pembayaran" title="Hapus metode"><i class="fas fa-trash"></i></button>`;
+          row.querySelector('.susulan-remove-payment').onclick=()=>{
+            if(paymentWrap.querySelectorAll('.susulan-payment-row').length<=1){row.querySelector('.susulan-split-amount').value='';row.querySelector('.susulan-split-method').value='Tunai';}
+            else row.remove();
+            this._recalcBackdatedTotal();
+          };
           row.querySelector('.susulan-split-amount').addEventListener('input',()=>this._recalcBackdatedTotal());
-          splitWrap.appendChild(row);
+          row.querySelector('.susulan-split-method').addEventListener('change',()=>this._recalcBackdatedTotal());
+          paymentWrap.appendChild(row);
+          this._recalcBackdatedTotal();
         };
+        this._recalcBackdatedTotal = function(){
+            let total=0;
+            itemWrap.querySelectorAll('.susulan-item').forEach(r=>{total+=Math.max(0,Number(r.querySelector('.susulan-qty').value)||0)*Math.max(0,Number(r.querySelector('.susulan-price').value)||0);});
+            total=Math.round(total);
+            const totalEl=document.getElementById('susulan-total'); if(totalEl) totalEl.textContent=money(total);
+            const payRows=[...(paymentWrap?.querySelectorAll('.susulan-payment-row')||[])];
+            const paid=payRows.reduce((sum,row)=>sum+Math.max(0,Number(row.querySelector('.susulan-split-amount')?.value)||0),0);
+            const paymentTotal=document.getElementById('susulan-payment-total');
+            const paidTotal=document.getElementById('susulan-payment-paid-total');
+            const difference=document.getElementById('susulan-payment-difference');
+            if(paymentTotal) paymentTotal.textContent=money(total);
+            if(paidTotal) paidTotal.textContent=money(paid);
+            if(difference){
+              const delta=paid-total;
+              difference.textContent=delta===0?'Sesuai':(delta>0?'Lebih '+money(delta):'Kurang '+money(Math.abs(delta)));
+              difference.classList.toggle('is-balanced',total>0&&delta===0);
+              difference.classList.toggle('is-unbalanced',total<=0||delta!==0);
+            }
+            return total;
+        };
+        this._recalcBackdatedTotal();
+        document.getElementById('susulan-add-item').addEventListener('click',addRow);
+        document.getElementById('susulan-outlet').addEventListener('change',()=>{itemWrap.querySelectorAll('.susulan-product').forEach(sel=>sel.dispatchEvent(new Event('change')));});
         document.getElementById('susulan-add-payment')?.addEventListener('click',addPaymentSplit);
         addPaymentSplit();
 
@@ -1333,7 +1357,7 @@ pullFreshData: async function(silent = false) {
     submitBackdatedTransaction: async function(overridePossibleDuplicate) {
         const el=id=>document.getElementById(id);
         const date=el('susulan-date')?.value, time=el('susulan-time')?.value, outlet=el('susulan-outlet')?.value, cashier=el('susulan-cashier')?.value;
-        const payment=el('susulan-payment')?.value, reason=String(el('susulan-reason')?.value||'').trim(), admin=String(el('susulan-admin-user')?.value||'').trim(), pin=String(el('susulan-admin-pin')?.value||'').trim();
+        const reason=String(el('susulan-reason')?.value||'').trim(), admin=String(el('susulan-admin-user')?.value||'').trim(), pin=String(el('susulan-admin-pin')?.value||'').trim();
         const errorBox=el('susulan-error'); if(errorBox){errorBox.classList.add('hidden');errorBox.textContent='';}
         const showError=msg=>{if(errorBox){errorBox.textContent=msg;errorBox.classList.remove('hidden');}else this.showToast(msg,'error');};
         if(!date||!time||!outlet||!cashier||reason.length<10||!/^\d{4}$/.test(pin)) return showError('Lengkapi tanggal, waktu, outlet, kasir, alasan minimal 10 karakter, dan PIN Admin 4 digit.');
@@ -1345,19 +1369,19 @@ pullFreshData: async function(silent = false) {
         });
         if(invalid||!items.length) return showError('Pilih produk dan pastikan kuantitas serta harga setiap item valid.');
         const total=items.reduce((sum,x)=>sum+x.qty*x.price,0);
-        const splitRows=[...document.querySelectorAll('#susulan-payment-splits > div')];
-        const paymentSplits=splitRows.map(row=>({metode:String(row.querySelector('.susulan-split-method')?.value||'').trim(),nominal:Number(row.querySelector('.susulan-split-amount')?.value||0)})).filter(x=>x.metode&&x.nominal>0);
-        const hasSplit=paymentSplits.length>0;
+        const splitRows=[...document.querySelectorAll('#susulan-payment-splits .susulan-payment-row')];
+        const paymentSplits=splitRows.map(row=>({metode:String(row.querySelector('.susulan-split-method')?.value||'').trim(),nominal:Number(row.querySelector('.susulan-split-amount')?.value||0)}));
+        if(!paymentSplits.length || paymentSplits.some(x=>!x.metode||!Number.isFinite(x.nominal)||x.nominal<=0)) return showError('Isi metode dan nominal yang valid pada setiap baris pembayaran, atau hapus baris yang tidak digunakan.');
         const splitTotal=paymentSplits.reduce((s,x)=>s+x.nominal,0);
-        const paid=hasSplit?splitTotal:(payment==='Tunai'?Number(el('susulan-paid')?.value||0):total);
-        const effectivePayment=hasSplit?[...new Set(paymentSplits.map(x=>x.metode))].join(' + '):payment;
-        if(!Number.isFinite(total)||total<=0||!Number.isFinite(paid)||paid<total) return showError('Total harus lebih dari nol dan nominal pembayaran tidak boleh kurang dari total.');
-        if(hasSplit && Math.round(paid)!==Math.round(total)) return showError('Jika memakai beberapa metode pembayaran, jumlah seluruh nominal harus sama persis dengan total transaksi.');
-        if(hasSplit && paymentSplits.length<2) return showError('Tambahkan minimal dua metode pembayaran atau kosongkan seluruh rincian untuk memakai metode tunggal.');
+        const paid=Math.round(splitTotal);
+        const effectivePayment=[...new Set(paymentSplits.map(x=>x.metode))].join(' + ');
+        if(!Number.isFinite(total)||total<=0||!Number.isFinite(paid)) return showError('Total transaksi atau pembayaran tidak valid.');
+        if(Math.round(paid)!==Math.round(total)) return showError('Total pembayaran harus sama persis dengan total transaksi. Periksa nilai Selisih sebelum menyimpan.');
+        if(paymentSplits.some((x,i)=>paymentSplits.some((y,j)=>j<i&&y.metode===x.metode))) return showError('Setiap metode pembayaran hanya boleh satu baris. Gabungkan nominal pada metode yang sama.');
         const stockMode=document.querySelector('input[name="susulan-stock-mode"]:checked')?.value||'kurangi';
         if(stockMode==='sudah_tercermin'&&reason.length<20) return showError('Jika stok sudah tercermin, alasan wajib minimal 20 karakter dan menjelaskan alasannya.');
         const role=String((this.db.users||[]).find(u=>String(u.Username).toLowerCase()===admin.toLowerCase())?.Role||'Kasir');
-        const payload={action:'input_transaksi_susulan',_req_id:'BACKDATED-'+Date.now()+'-'+Math.random().toString(36).slice(2,9),admin_username:admin,admin_pin:pin,tanggal_transaksi:date,waktu_transaksi:time,outlet,kasir:cashier,role_kasir:role,metode_bayar:effectivePayment,dibayar:paid,pembayaran_rinci:paymentSplits,total_konfirmasi:Math.round(total),items,alasan:reason,mode_stok:stockMode,override_possible_duplicate:!!overridePossibleDuplicate};
+        const payload={action:'input_transaksi_susulan',_req_id:'BACKDATED-'+Date.now()+'-'+Math.random().toString(36).slice(2,9),admin_username:admin,admin_pin:pin,tanggal_transaksi:date,waktu_transaksi:time,outlet,kasir:cashier,role_kasir:role,metode_bayar:effectivePayment,dibayar:paid,pembayaran_rinci:paymentSplits,nominal_tunai:paymentSplits.filter(x=>x.metode==='Tunai').reduce((s,x)=>s+x.nominal,0),total_konfirmasi:Math.round(total),items,alasan:reason,mode_stok:stockMode,override_possible_duplicate:!!overridePossibleDuplicate};
         const btn=el('modal-form-btn'); if(btn){btn.disabled=true;btn.textContent='Memvalidasi dan menyimpan…';}
         try {
             const res=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)});

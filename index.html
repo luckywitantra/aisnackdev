@@ -71,7 +71,7 @@
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=20261029.5">
   <script>tailwind.config={darkMode:'class',theme:{extend:{colors:{brand:{50:'var(--brand-50)',100:'var(--brand-100)',500:'var(--brand-500)',600:'var(--brand-600)'}}}}}</script>
   <script>
         if (window.location.search.includes('mode=cfd')) {
@@ -2784,17 +2784,17 @@
             <div id="setting-card-standby" class="bg-white border border-slate-200 rounded-[1.5rem] p-5 lg:p-6 flex flex-col md:flex-row justify-between items-start md:items-center shadow-sm hover:shadow-xl hover:shadow-blue-100/60 hover:border-blue-200 transition-all duration-300 group hover:-translate-y-1 gap-4 hidden">
                 <div class="flex items-center gap-4">
                     <div class="w-14 h-14 bg-gradient-to-br from-blue-50 to-cyan-50 text-blue-500 rounded-2xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform border border-blue-100/50 shrink-0"><i class="fas fa-tv"></i></div>
-                    <div><h4 class="font-extrabold text-slate-800 text-base">Layar Promo Standby</h4><p class="text-xs text-slate-500 font-medium mt-1 md:max-w-[220px]">Gambar layar CFD saat tidak ada pelanggan.</p></div>
+                    <div><h4 class="font-extrabold text-slate-800 text-base">Layar Promo Standby</h4><p class="text-xs text-slate-500 font-medium mt-1 md:max-w-[220px]">Unggah beberapa foto sekaligus. Slideshow otomatis setiap 7 detik saat standby.</p></div>
                 </div>
-                <button onclick="superApp.changePromoImage('standby')" class="w-full md:w-auto px-6 py-3.5 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-extrabold rounded-xl text-xs lg:text-sm shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 shrink-0"><i class="fas fa-upload"></i> Unggah Gambar</button>
+                <button onclick="superApp.changePromoImage('standby')" class="w-full md:w-auto px-6 py-3.5 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-extrabold rounded-xl text-xs lg:text-sm shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 shrink-0"><i class="fas fa-upload"></i> Unggah Foto (Banyak)</button>
             </div>
 
             <div id="setting-card-transaksi" class="bg-white border border-slate-200 rounded-[1.5rem] p-5 lg:p-6 flex flex-col md:flex-row justify-between items-start md:items-center shadow-sm hover:shadow-xl hover:shadow-orange-100/60 hover:border-brand-200 transition-all duration-300 group hover:-translate-y-1 gap-4 hidden">
                 <div class="flex items-center gap-4">
                     <div class="w-14 h-14 bg-gradient-to-br from-brand-50 to-orange-50 text-brand-500 rounded-2xl flex items-center justify-center text-2xl group-hover:scale-110 transition-transform border border-brand-100/50 shrink-0"><i class="fas fa-image"></i></div>
-                    <div><h4 class="font-extrabold text-slate-800 text-base">Layar Promo Transaksi</h4><p class="text-xs text-slate-500 font-medium mt-1 md:max-w-[220px]">Gambar di layar CFD saat kasir input pesanan.</p></div>
+                    <div><h4 class="font-extrabold text-slate-800 text-base">Layar Promo Transaksi</h4><p class="text-xs text-slate-500 font-medium mt-1 md:max-w-[220px]">Slideshow khusus area promosi saat transaksi; pesanan dan total tetap terlihat.</p></div>
                 </div>
-                <button onclick="superApp.changePromoImage('transaksi')" class="w-full md:w-auto px-6 py-3.5 bg-gradient-to-r from-brand-500 to-orange-500 text-white font-extrabold rounded-xl text-xs lg:text-sm shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 shrink-0"><i class="fas fa-upload"></i> Unggah Gambar</button>
+                <button onclick="superApp.changePromoImage('transaksi')" class="w-full md:w-auto px-6 py-3.5 bg-gradient-to-r from-brand-500 to-orange-500 text-white font-extrabold rounded-xl text-xs lg:text-sm shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 shrink-0"><i class="fas fa-upload"></i> Unggah Foto (Banyak)</button>
             </div>
 
             <div id="setting-card-struk" class="bg-white border border-slate-200 rounded-[1.5rem] p-5 lg:p-6 flex flex-col md:flex-row justify-between items-start md:items-center shadow-sm hover:shadow-xl hover:shadow-emerald-100/60 hover:border-emerald-200 transition-all duration-300 group hover:-translate-y-1 gap-4 hidden">
@@ -3537,7 +3537,7 @@
 
   
 <!-- 1. PANGGIL APP.JS TERLEBIH DAHULU -->
-  <script src="app.js?v=20261022.4"></script>
+  <script src="app.js?v=20261029.5"></script>
 <script src="offline-hardening.js?v=20261022.2"></script>
 <script src="pwa-install.js?v=20261023.2" defer></script>
 

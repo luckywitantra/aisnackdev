@@ -2153,6 +2153,7 @@ pullFreshData: async function(silent = false) {
     _cfdSlideTimers: { standby: null, transaksi: null },
     _cfdSlideRequestToken: { standby: 0, transaksi: 0 },
     _cfdSlideLastChange: { standby: 0, transaksi: 0 },
+    _cfdSlideSignature: { standby: null, transaksi: null },
     _cfdGetSlides: function(type) {
         const listKey = type === 'standby' ? 'cfd_promo_standby_list' : 'cfd_promo_transaksi_list';
         const legacyKey = type === 'standby' ? 'cfd_promo_standby' : 'cfd_promo_transaksi';
@@ -2203,27 +2204,59 @@ pullFreshData: async function(silent = false) {
         }
     },
     _cfdStartSlideshow: function(type) {
-        if (this._cfdSlideTimers[type]) clearInterval(this._cfdSlideTimers[type]);
-        this._cfdSlideTimers[type] = null;
-        this._cfdSlideRequestToken[type] = (this._cfdSlideRequestToken[type] || 0) + 1;
+        // Idempotent: repeated init/focus/storage events must not reapply the same image
+        // or restart the timer, because that causes visible flicker on the customer display.
         const allSlides = this._cfdGetSlides(type);
         const flagsKey = type === 'standby' ? 'cfd_promo_standby_slide_flags' : 'cfd_promo_transaksi_slide_flags';
-        let flags = []; try { flags = JSON.parse(localStorage.getItem(flagsKey) || '[]'); } catch (_) {}
-        this._cfdSlides[type] = allSlides.filter((_, i) => flags.length === allSlides.length ? flags[i] !== false : true);
+        let flags = [];
+        try { flags = JSON.parse(localStorage.getItem(flagsKey) || '[]'); } catch (_) {}
+        const slides = allSlides.filter((_, i) => flags.length === allSlides.length ? flags[i] !== false : true);
         const enabledKey = type === 'standby' ? 'cfd_promo_standby_enabled' : 'cfd_promo_transaksi_enabled';
         const enabled = localStorage.getItem(enabledKey) !== 'false';
-        if (!this._cfdSlides[type].length) {
+        const duration = Math.max(2, Number(this._promoGetDuration(type)) || 8);
+        const signature = JSON.stringify({ slides, enabled, duration });
+        const previousSignature = this._cfdSlideSignature && this._cfdSlideSignature[type];
+        const sameConfig = signature === previousSignature;
+        this._cfdSlideSignature = this._cfdSlideSignature || {};
+
+        if (!slides.length) {
+            if (this._cfdSlideTimers[type]) clearInterval(this._cfdSlideTimers[type]);
+            this._cfdSlideTimers[type] = null;
+            this._cfdSlideSignature[type] = signature;
             const fallback = document.getElementById(type === 'standby' ? 'cfd-bg-standby' : 'cfd-bg-screen');
-            if (fallback && !fallback.style.backgroundImage) fallback.style.backgroundImage = "url('https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1920')";
+            if (fallback && !fallback.style.backgroundImage) {
+                fallback.style.backgroundImage = "url('https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1920')";
+            }
             return;
         }
-        this._cfdApplySlide(type, this._cfdSlideIndex[type] || 0);
-        if (enabled && this._cfdSlides[type].length > 1) this._cfdSlideTimers[type] = setInterval(() => {
-            if (document.hidden) return;
-            this._cfdApplySlide(type, (this._cfdSlideIndex[type] + 1) % this._cfdSlides[type].length);
-        }, this._promoGetDuration(type) * 1000);
+
+        // Configuration unchanged: keep current image/index and existing interval.
+        if (sameConfig && this._cfdSlideTimers[type]) return;
+
+        this._cfdSlides[type] = slides;
+        this._cfdSlideSignature[type] = signature;
+        if (this._cfdSlideTimers[type]) clearInterval(this._cfdSlideTimers[type]);
+        this._cfdSlideTimers[type] = null;
+
+        const bg = document.getElementById(type === 'standby' ? 'cfd-bg-standby' : 'cfd-bg-screen');
+        const hasCurrentImage = !!(bg && bg.style.backgroundImage && bg.style.backgroundImage !== 'none');
+        // Only apply immediately for a changed configuration or a blank background.
+        // Do not reanimate the same slide when the tab regains focus.
+        if (!sameConfig || !hasCurrentImage) {
+            const currentIndex = Number(this._cfdSlideIndex[type]) || 0;
+            this._cfdApplySlide(type, currentIndex % slides.length);
+        }
+
+        if (enabled && slides.length > 1) {
+            this._cfdSlideTimers[type] = setInterval(() => {
+                if (document.hidden) return;
+                const current = Number(this._cfdSlideIndex[type]) || 0;
+                this._cfdApplySlide(type, (current + 1) % this._cfdSlides[type].length);
+            }, duration * 1000);
+        }
     },
-        initCFD: function() {
+
+    initCFD: function() {
         ['login-screen','sidebar','main-app'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('hidden'); });
         const cfdScreen = document.getElementById('cfd-screen'); if (cfdScreen) cfdScreen.classList.remove('hidden');
         window.addEventListener('storage', (e) => {

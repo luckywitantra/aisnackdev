@@ -1,4 +1,3 @@
-
 // v4.4.2: Normalize payment breakdown for legacy and split-payment transactions.
 function aisnackGetPaymentBreakdown(transaction) {
     const t = transaction || {};
@@ -120,7 +119,27 @@ const AisnackOfflineStore = (() => {
         });
         db.close(); return items;
     }
-    return { putAll, getAll, saveDatabaseCache, getDatabaseCache };
+    // Atomic single-record writes: checkout is persisted before any network request.
+    async function putOne(item) {
+        if (!item || !item._req_id) throw new Error('ID antrean tidak tersedia');
+        const db = await openDb();
+        await new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE, 'readwrite');
+            tx.objectStore(STORE).put(item);
+            tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error);
+        });
+        db.close();
+    }
+    async function deleteOne(reqId) {
+        const db = await openDb();
+        await new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE, 'readwrite');
+            tx.objectStore(STORE).delete(String(reqId));
+            tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error);
+        });
+        db.close();
+    }
+    return { putAll, getAll, putOne, deleteOne, saveDatabaseCache, getDatabaseCache };
 })();
 
 const API_URL = "https://script.google.com/macros/s/AKfycbwyjTGzyHjswnVFWNTvdbx6U2ukHShfs6YVM_fI7yG2kGLVab66_YCwi4um7V7Sh70n3Q/exec"; // <-- GANTI DENGAN URL API ANDA
@@ -521,7 +540,7 @@ const superApp = {
         document.addEventListener("visibilitychange", () => { if (document.hidden && this.cfdWindow && !this.cfdWindow.closed) { this.cfdWindow.close(); } });
         document.addEventListener("click", () => { if (this.currentUser && localStorage.getItem('cfd_wants_open') === 'true') { if (!this.cfdWindow || this.cfdWindow.closed) { this.openCFD(true); } } });
         window.addEventListener('beforeunload', () => { if (this.cfdWindow && !this.cfdWindow.closed) this.cfdWindow.close(); });
-        window.addEventListener('online', () => { this.isOnline = true; this.syncOfflineQueue(); });
+        window.addEventListener('online', () => { this.isOnline = true; this.syncOfflineQueue().finally(() => { if (typeof this.pullTransactionFastData === 'function') this.pullTransactionFastData(true); }); });
         window.addEventListener('offline', () => { this.isOnline = false; this.updateNetworkUI(); });
         this.initAutoSync();
         
@@ -849,6 +868,8 @@ const superApp = {
 
             // 🚀 PERBAIKAN KRITIS: Panggil refreshData() langsung agar Produk & Header 100% tersinkronisasi!
             this.refreshData(); 
+            // Tarik Laporan Harian segera setelah identitas/outlet user ditetapkan.
+            this.pullLaporanHarianData(true);
             this.updateNetworkUI(); 
             this.syncOfflineQueue(); 
             this.checkShiftStatus(); 
@@ -1060,6 +1081,63 @@ pullFreshData: async function(silent = false) {
         return merged;
     },
     
+    // Fast lane: transaksi operasional terbaru saja, tanpa mengunduh seluruh master data.
+    pullTransactionFastData: async function(silent = true) {
+        if (!navigator.onLine || this._transactionFastPullInFlight) return false;
+        this._transactionFastPullInFlight = true;
+        try {
+            const res = await fetch(API_URL + '?action=get_transactions_fast&history=2&ts=' + Date.now(), { method:'GET', redirect:'follow', cache:'no-store' });
+            const raw = await res.text();
+            if (raw.trim().startsWith('<!DOCTYPE') || raw.trim().startsWith('<html')) throw new Error('Server mengirim HTML, bukan JSON');
+            const data = JSON.parse(raw);
+            if (!res.ok || !data || data.status !== 'sukses' || !Array.isArray(data.transactions)) throw new Error((data && data.pesan) || 'Respons transaksi tidak valid');
+            this.db = this.mergeDatabase(this.db || {}, data);
+            const cacheValue = JSON.stringify(this.db);
+            try { localStorage.setItem('aisnack_db_cache', cacheValue); } catch (_) {}
+            if (typeof AisnackOfflineStore !== 'undefined') await AisnackOfflineStore.saveDatabaseCache(cacheValue).catch(e => console.warn('Cache transaksi IDB gagal:', e));
+            localStorage.setItem('aisnack_last_transaction_sync', String(Date.now()));
+            if (this.currentUser) {
+                if (typeof this.renderReport === 'function' && !document.getElementById('view-report')?.classList.contains('hidden')) this.renderReport();
+                if (typeof this.renderLaporanHarianHistory === 'function' && !document.getElementById('view-lapharian')?.classList.contains('hidden')) this.renderLaporanHarianHistory();
+                if (typeof this.updatePendingNotifications === 'function') this.updatePendingNotifications();
+            }
+            return true;
+        } catch (e) {
+            if (!silent) this.showToast('Sinkronisasi transaksi belum berhasil; data lokal tetap aman.', 'warning');
+            console.warn('Fast transaction sync:', e.message || e);
+            return false;
+        } finally { this._transactionFastPullInFlight = false; }
+    },
+
+    // Sinkronisasi khusus Laporan Harian Ai-CHA: setelah login, saat menu dibuka, dan berkala.
+    pullLaporanHarianData: async function(silent = true) {
+        if (!navigator.onLine || this._laporanHarianPullInFlight) return false;
+        this._laporanHarianPullInFlight = true;
+        try {
+            const res = await fetch(API_URL + '?action=get_laporan_only&history=90&ts=' + Date.now(), { method:'GET', redirect:'follow', cache:'no-store' });
+            const raw = await res.text();
+            if (raw.trim().startsWith('<!DOCTYPE') || raw.trim().startsWith('<html')) throw new Error('Server mengirim HTML, bukan JSON');
+            const data = JSON.parse(raw);
+            if (!res.ok || !data || data.status !== 'sukses' || !Array.isArray(data.laporanHarian)) throw new Error((data && data.pesan) || 'Data Laporan Harian tidak valid');
+            this.db = this.mergeDatabase(this.db || {}, data);
+            const cacheValue = JSON.stringify(this.db);
+            try { localStorage.setItem('aisnack_db_cache', cacheValue); } catch (e) { console.warn('Cache Laporan Harian localStorage penuh:', e.message || e); }
+            if (typeof AisnackOfflineStore !== 'undefined' && AisnackOfflineStore.saveDatabaseCache) await AisnackOfflineStore.saveDatabaseCache(cacheValue).catch(e => console.warn('Cache Laporan Harian IndexedDB gagal:', e));
+            localStorage.setItem('aisnack_last_laporan_sync', String(Date.now()));
+            if (this.currentUser) {
+                if (typeof this.renderLaporanHarianHistory === 'function') this.renderLaporanHarianHistory();
+                if (typeof this.renderExecutiveDashboard === 'function') this.renderExecutiveDashboard();
+                if (typeof this.renderCalendar === 'function' && !document.getElementById('view-lapharian')?.classList.contains('hidden')) this.renderCalendar();
+            }
+            console.info('Laporan Harian Ai-CHA tersinkron:', data.laporanHarian.length, 'baris');
+            return true;
+        } catch (e) {
+            console.warn('Sinkronisasi Laporan Harian gagal; cache lokal dipertahankan:', e.message || e);
+            if (!silent && this.showToast) this.showToast('Laporan Harian belum berhasil diperbarui. Data lokal tetap ditampilkan.', 'warning');
+            return false;
+        } finally { this._laporanHarianPullInFlight = false; }
+    },
+
     // =========================================================================
     // 🚀 2. PENARIK DATA LATAR BELAKANG (DIBATASI 90 HARI & MENGGUNAKAN MERGE)
     // =========================================================================
@@ -1084,6 +1162,7 @@ pullFreshData: async function(silent = false) {
                 if (this.cart.length === 0) this.refreshData();
                 if (typeof this.renderReport === 'function' && !document.getElementById('view-report')?.classList.contains('hidden')) this.renderReport();
                 if (typeof this.generateAIReport === 'function' && !document.getElementById('view-ai')?.classList.contains('hidden')) this.generateAIReport();
+                if (typeof this.renderExecutiveDashboard === 'function') this.renderExecutiveDashboard();
             }
             console.log("✅ Sinkronisasi riwayat 90 hari selesai; master/stok tidak diunduh ulang.");
         } catch (e) { console.warn("Sinkronisasi riwayat latar belakang dilewati:", e.message); }
@@ -1601,8 +1680,10 @@ pullFreshData: async function(silent = false) {
     },
     persistOfflineQueue: async function() {
         const queue = Array.isArray(this.offlineQueue) ? this.offlineQueue : [];
+        // IndexedDB is the durable source of truth; localStorage is only a fast mirror.
+        try { await AisnackOfflineStore.putAll(queue); }
+        catch (e) { console.error('GAGAL menyimpan antrean ke IndexedDB:', e); throw e; }
         try { localStorage.setItem('aisnack_offline_queue', JSON.stringify(queue)); } catch (_) {}
-        try { await AisnackOfflineStore.putAll(queue); } catch (e) { console.warn('Antrean IndexedDB tidak dapat disimpan:', e); }
         if (typeof this.updateNetworkUI === 'function') this.updateNetworkUI();
     },
     enqueueOfflinePayload: async function(payload, reason) {
@@ -1617,9 +1698,18 @@ pullFreshData: async function(silent = false) {
         return { status: 'sukses', is_offline: true, queued: true, trx_id: payload.trx_id || payload.id_shift || payload._req_id };
     },
 
-    // API POST: an ambiguous timeout is queued with the SAME request ID, never silently discarded.
+    // API POST: checkout is durably queued in IndexedDB BEFORE network transmission.
+    // This narrows the power-loss window and preserves the same idempotency key on retries.
     apiPost: async function(payload) {
         if (!payload._req_id) payload._req_id = 'REQ-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+        if (payload.action === 'checkout') {
+            const queued = await this.enqueueOfflinePayload(payload, this.isOnline ? 'preflight-durable' : 'offline');
+            if (this.isOnline) {
+                // Trigger immediate delivery; periodic/reconnect sync remains the fallback.
+                this.syncOfflineQueue().catch(err => console.warn('Pengiriman checkout tertunda:', err));
+            }
+            return queued;
+        }
         if (!this.isOnline) return this.enqueueOfflinePayload(payload, 'offline');
         const rUrl = (typeof API_URL !== 'undefined') ? API_URL : this.webAppUrl;
         return new Promise(resolve => {
@@ -3238,7 +3328,6 @@ pullFreshData: async function(silent = false) {
         let cleanCurrTanggal = String(tglTeks).trim().toLowerCase();
 
         let existingRep = (this.db.laporanHarian || []).find(x => {
-            if (x.Status_Approval === 'Ditolak') return false;
             let xOut = String(x.Outlet || '').replace(/^Ai\-Snack\s+/i, '').replace(/^Ai\-CHA\s+/i, '').trim().toLowerCase();
             let xTgl = String(x.Tanggal || '').trim().toLowerCase();
             return xOut === cleanCurrOutlet.toLowerCase() && xTgl === cleanCurrTanggal;
@@ -3544,8 +3633,7 @@ pullFreshData: async function(silent = false) {
             
             if (isConsolidated || repOutClean === cleanCurrOutlet) {
                 if (activeReportId && String(rep.ID_Laporan).trim() === String(activeReportId).trim()) return;
-                if (rep.Status_Approval === 'Ditolak') return;
-
+                // Status Ditolak menolak revisi, bukan laporan dasar; tetap akumulasikan nilai existing.
                 let rDate = parseAnyDate(rep.Tanggal);
                 if (rDate) {
                     // KUNCI PRESISI: Bulan & Tahun sama, DAN Hari lebih kecil (Tanggal 1 s/d H-1)
@@ -4165,7 +4253,7 @@ pullFreshData: async function(silent = false) {
     },
 
     fetchMasterPengeluaran: function() {
-        if (!typeof API_URL !== 'undefined' && !this.webAppUrl) return;
+        if (typeof API_URL === 'undefined' && !this.webAppUrl) return;
         let targetUrl = (typeof API_URL !== 'undefined') ? API_URL : this.webAppUrl;
         fetch(targetUrl + "?action=get_master_data")
         .then(r => r.json())
@@ -4281,7 +4369,7 @@ pullFreshData: async function(silent = false) {
         // 2. Cari laporan dengan mencocokkan Hari, Bulan, Tahun secara presisi (Matematika)
         let existingReport = (this.db.laporanHarian || []).find(x => {
             let xOutlet = String(x.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
-            if (xOutlet !== cleanOutlet || x.Status_Approval === 'Ditolak') return false;
+            if (xOutlet !== cleanOutlet) return false;
 
             let xDate = this.normalizeDateObj(x.Tanggal);
             return (xDate.getDate() === tDay && xDate.getMonth() === tMonth && xDate.getFullYear() === tYear);
@@ -4537,17 +4625,38 @@ selectOutlet: function(id) {
         // 🚀 KUNCI PERBAIKAN: Gunakan variabel global superApp untuk menampung data item biaya
         this.execExpenseData = {}; 
 
+        // Parser tanggal toleran terhadap format Google Sheets (MM/DD/YYYY atau DD/MM/YYYY),
+        // ISO (YYYY-MM-DD), dan objek Date. Untuk tanggal ambigu, pilih kandidat yang cocok
+        // dengan rentang filter aktif agar locale browser tidak membuat laporan hilang.
+        const parseReportDateCandidates = value => {
+            if (value instanceof Date && !isNaN(value.getTime())) {
+                return [new Date(value.getFullYear(), value.getMonth(), value.getDate())];
+            }
+            const raw = String(value == null ? '' : value).trim().split(',').pop().trim();
+            if (!raw) return [];
+            let m = raw.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+            if (m) return [new Date(+m[1], +m[2]-1, +m[3])];
+            m = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+            if (m) {
+                const a=+m[1], b=+m[2], y=+m[3];
+                // Aplikasi berlokasi di Indonesia: format tanggal bertanda garis miring
+                // selalu DD/MM/YYYY. Jangan menebak MM/DD berdasarkan rentang filter.
+                const day = a, month = b;
+                const parsed = new Date(y, month - 1, day);
+                if (parsed.getFullYear() !== y || parsed.getMonth() !== month - 1 || parsed.getDate() !== day) return [];
+                return [parsed];
+            }
+            const parsed = new Date(raw);
+            return isNaN(parsed.getTime()) ? [] : [new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate())];
+        };
         (this.db.laporanHarian || []).forEach(rep => {
-            if (rep.Status_Approval === 'Ditolak') return;
-
+            // Status Ditolak adalah status revisi; data dasar tetap dihitung.
             if (startObj || endObj) {
-                let cleanStr = (rep.Tanggal || '').split(',').pop().trim();
-                let match = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-                if (match) {
-                    let repDateObj = new Date(parseInt(match[3],10), parseInt(match[2],10)-1, parseInt(match[1],10));
-                    if (startObj && repDateObj < startObj) return;
-                    if (endObj && repDateObj > endObj) return;
-                } else return;
+                const candidates = parseReportDateCandidates(rep.Tanggal);
+                const matchesRange = candidates.some(d =>
+                    (!startObj || d >= startObj) && (!endObj || d <= endObj)
+                );
+                if (!matchesRange) return;
             }
 
             let repOutlet = String(rep.Outlet || 'Lainnya').replace(/^Ai\-Snack\s+/i, '').trim();
@@ -4658,50 +4767,60 @@ selectOutlet: function(id) {
         // 1. Baca filter tanggal eksekutif aktif
         const startInput = document.getElementById('exec-filter-start');
         const endInput = document.getElementById('exec-filter-end');
-        let startObj = (startInput && startInput.value) ? new Date(startInput.value) : null;
-        if (startObj) startObj.setHours(0, 0, 0, 0);
-        let endObj = (endInput && endInput.value) ? new Date(endInput.value) : null;
-        if (endObj) endObj.setHours(23, 59, 59, 999);
+        const startObj = startInput && startInput.value ? new Date(startInput.value + 'T00:00:00') : null;
+        const endObj = endInput && endInput.value ? new Date(endInput.value + 'T23:59:59.999') : null;
 
-        // 2. Kumpulkan metrik khusus cabang ini
+        // Gunakan parser tanggal yang sama untuk format Date, ISO, DD/MM/YYYY dan MM/DD/YYYY.
+        const parseDetailDateCandidates = value => {
+            if (value instanceof Date && !isNaN(value.getTime())) return [new Date(value.getFullYear(), value.getMonth(), value.getDate())];
+            const raw = String(value == null ? '' : value).trim().split(',').pop().trim();
+            if (!raw) return [];
+            let m = raw.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+            if (m) return [new Date(+m[1], +m[2]-1, +m[3])];
+            m = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+            if (m) {
+                const a=+m[1], b=+m[2], y=+m[3];
+                // Aplikasi berlokasi di Indonesia: format tanggal bertanda garis miring
+                // selalu DD/MM/YYYY. Jangan menebak MM/DD berdasarkan rentang filter.
+                const day = a, month = b;
+                const parsed = new Date(y, month - 1, day);
+                if (parsed.getFullYear() !== y || parsed.getMonth() !== month - 1 || parsed.getDate() !== day) return [];
+                return [parsed];
+            }
+            const d = new Date(raw);
+            return isNaN(d.getTime()) ? [] : [new Date(d.getFullYear(),d.getMonth(),d.getDate())];
+        };
+        const normalizeDetailOutlet = value => String(value || '').replace(/^\s*Ai[-\s]?CHA\s+/i, '').replace(/^\s*Ai[-\s]?Snack\s+/i, '').replace(/\s+/g,' ').trim().toLocaleLowerCase('id-ID');
+
+        // 2. Kumpulkan metrik outlet. Status Ditolak tidak menghapus laporan dasar;
+        // hanya pengajuan revisinya yang ditolak. Pending Edit juga tetap memakai nilai dasar.
         let totSales = 0, totCash = 0, totQris = 0, totExp = 0, totBill = 0, totPcs = 0;
         let expItemMap = {};
         let repCount = 0;
+        const requestedOutletKey = normalizeDetailOutlet(outName);
 
         (this.db.laporanHarian || []).forEach(rep => {
-            if (rep.Status_Approval === 'Ditolak') return;
-            let repOutlet = String(rep.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
-            if (repOutlet !== outName) return;
-
+            if (normalizeDetailOutlet(rep.Outlet) !== requestedOutletKey) return;
             if (startObj || endObj) {
-                let cleanStr = (rep.Tanggal || '').split(',').pop().trim();
-                let match = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-                if (match) {
-                    let repDate = new Date(parseInt(match[3],10), parseInt(match[2],10)-1, parseInt(match[1],10));
-                    if (startObj && repDate < startObj) return;
-                    if (endObj && repDate > endObj) return;
-                } else return;
+                const candidates = parseDetailDateCandidates(rep.Tanggal || rep.tanggal || rep.Date || rep.date);
+                if (!candidates.some(d => (!startObj || d >= startObj) && (!endObj || d <= endObj))) return;
             }
-
             repCount++;
-            totSales += Number(rep.Net_Sales || 0);
-            totCash += Number(rep.Cash || 0);
-            totQris += Number(rep.QRIS || 0);
-            totExp += Number(rep.Total_Pengeluaran || 0);
-            totBill += Number(rep.Bill || 0);
-            totPcs += Number(rep.Pcs || 0);
-
+            totSales += Number(rep.Net_Sales || rep.net_sales || 0);
+            totCash += Number(rep.Cash || rep.cash || 0);
+            totQris += Number(rep.QRIS || rep.qris || 0);
+            totExp += Number(rep.Total_Pengeluaran || rep.total_pengeluaran || 0);
+            totBill += Number(rep.Bill || rep.bill || 0);
+            totPcs += Number(rep.Pcs || rep.pcs || 0);
             try {
-                let expArr = JSON.parse(rep.Pengeluaran_JSON || '[]');
+                const rawExp = rep.Pengeluaran_JSON || rep.pengeluaran_json || '[]';
+                const expArr = Array.isArray(rawExp) ? rawExp : JSON.parse(rawExp);
                 expArr.forEach(x => {
-                    let nm = String(x.nama || 'LAINNYA').toUpperCase().trim();
-                    let nmNom = Number(x.nominal || 0);
-                    if (nm !== '' && nmNom > 0) {
-                        if (!expItemMap[nm]) expItemMap[nm] = 0;
-                        expItemMap[nm] += nmNom;
-                    }
+                    const nm = String(x.nama || 'LAINNYA').toUpperCase().trim();
+                    const nmNom = Number(x.nominal || 0);
+                    if (nm && nmNom > 0) expItemMap[nm] = (expItemMap[nm] || 0) + nmNom;
                 });
-            } catch(e){}
+            } catch(e) {}
         });
 
         // 3. Kalkulasi Target Cabang & Rata-rata
@@ -4854,50 +4973,65 @@ selectOutlet: function(id) {
         else if (kpiType === 'pcs') { kpiName = "Rata-rata Pendapatan per Pcs"; kpiColorClass = "text-teal-400"; glowColor = "bg-teal-500/30"; }
         else if (kpiType === 'netlaci') { kpiName = "Net Laci (Cash - OPEX)"; kpiColorClass = "text-emerald-400"; glowColor = "bg-emerald-500/30"; }
 
-        // Penentuan Skala Global vs Lokal
+        // Normalisasi outlet dan parser tanggal kalender (regex literal, bukan teks escapado).
+        const normalizeOutletName = value => String(value || '')
+            .replace(/^\s*Ai[-\s]?CHA\s+/i, '')
+            .replace(/^\s*Ai[-\s]?Snack\s+/i, '')
+            .replace(/\s+/g, ' ').trim().toLocaleLowerCase('id-ID');
+        const parseKpiDateCandidates = value => {
+            if (value instanceof Date && !isNaN(value.getTime())) return [new Date(value.getFullYear(), value.getMonth(), value.getDate())];
+            const raw = String(value == null ? '' : value).trim().split(',').pop().trim();
+            if (!raw) return [];
+            let m = raw.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+            if (m) return [new Date(+m[1], +m[2]-1, +m[3])];
+            m = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+            if (m) {
+                const a=+m[1], b=+m[2], y=+m[3];
+                // Aplikasi berlokasi di Indonesia: format tanggal bertanda garis miring
+                // selalu DD/MM/YYYY. Jangan menebak MM/DD berdasarkan rentang filter.
+                const day = a, month = b;
+                const parsed = new Date(y, month - 1, day);
+                if (parsed.getFullYear() !== y || parsed.getMonth() !== month - 1 || parsed.getDate() !== day) return [];
+                return [parsed];
+            }
+            const d = new Date(raw);
+            return isNaN(d.getTime()) ? [] : [new Date(d.getFullYear(),d.getMonth(),d.getDate())];
+        };
+
         let isGlobal = (outName === 'global');
         let isConsolidated = (this.outlet === 'Pusat' || this.outlet === 'Semua' || !this.outlet);
-        let displayOutletName = isGlobal 
-            ? (isConsolidated ? "Seluruh Outlet (Konsolidasi)" : `Ai-CHA ${String(this.outlet).replace(/^Ai\-Snack\s+/i, '').trim()}`) 
-            : `Ai-CHA ${outName}`;
+        let displayOutletName = isGlobal
+            ? (isConsolidated ? 'Seluruh Outlet (Konsolidasi)' : `Ai-CHA ${String(this.outlet).replace(/^Ai\-Snack\s+/i, '').trim()}`)
+            : `Ai-CHA ${String(outName).replace(/^Ai[-\s]?CHA\s+/i, '').replace(/^Ai[-\s]?Snack\s+/i, '').trim()}`;
 
         document.getElementById('kpi-detail-title').innerText = `Breakdown Harian: ${kpiName}`;
         document.getElementById('kpi-detail-subtitle').innerText = displayOutletName;
         document.getElementById('kpi-detail-glow').className = `absolute -right-4 -top-4 w-16 h-16 rounded-full blur-xl pointer-events-none ${glowColor}`;
 
-        // 🚀 Agregasi Data Berdasarkan Hari (Agar Global Data Digabung)
-        let dateMap = {};
-
+        // Sumber data dan aturan status sama dengan dashboard: laporan dasar tetap dihitung,
+        // termasuk Ditolak dan Pending Edit. Revisi baru berlaku setelah Disetujui.
+        const dateMap = {};
+        const requestedOutletKey = normalizeOutletName(outName);
+        const currentOutletKey = normalizeOutletName(this.outlet);
         (this.db.laporanHarian || []).forEach(rep => {
-            if (rep.Status_Approval === 'Ditolak') return;
-            
-            let repOutlet = String(rep.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
-            let currOutlet = String(this.outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
-            
-            if (!isGlobal && repOutlet !== outName) return; 
-            if (isGlobal && !isConsolidated && repOutlet !== currOutlet) return; 
-
-            let repDateObj = null;
-            let dateStrLokal = rep.Tanggal || '';
-            let cleanStr = dateStrLokal.split(',').pop().trim();
-            let match = cleanStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-            
-            if (match) {
-                repDateObj = new Date(parseInt(match[3],10), parseInt(match[2],10)-1, parseInt(match[1],10));
-                if (startObj && repDateObj < startObj) return;
-                if (endObj && repDateObj > endObj) return;
-            } else return;
-
-            if (!dateMap[dateStrLokal]) {
-                dateMap[dateStrLokal] = { dateObj: repDateObj, s: 0, c: 0, q: 0, o: 0, b: 0, p: 0 };
-            }
-
-            dateMap[dateStrLokal].s += Number(rep.Net_Sales || 0);
-            dateMap[dateStrLokal].c += Number(rep.Cash || 0);
-            dateMap[dateStrLokal].q += Number(rep.QRIS || 0);
-            dateMap[dateStrLokal].o += Number(rep.Total_Pengeluaran || 0);
-            dateMap[dateStrLokal].b += Number(rep.Bill || 0);
-            dateMap[dateStrLokal].p += Number(rep.Pcs || 0);
+            const repOutletKey = normalizeOutletName(rep.Outlet);
+            if (!isGlobal && repOutletKey !== requestedOutletKey) return;
+            if (isGlobal && !isConsolidated && repOutletKey !== currentOutletKey) return;
+            const candidates = parseKpiDateCandidates(rep.Tanggal || rep.tanggal || rep.Date || rep.date);
+            const repDateObj = candidates.find(d => {
+                const afterStart = !startObj || d >= new Date(startObj.getFullYear(), startObj.getMonth(), startObj.getDate());
+                const beforeEnd = !endObj || d <= new Date(endObj.getFullYear(), endObj.getMonth(), endObj.getDate());
+                return afterStart && beforeEnd;
+            });
+            if (!repDateObj) return;
+            const dateKey = `${repDateObj.getFullYear()}-${String(repDateObj.getMonth()+1).padStart(2,'0')}-${String(repDateObj.getDate()).padStart(2,'0')}`;
+            if (!dateMap[dateKey]) dateMap[dateKey] = { dateObj: repDateObj, label: repDateObj.toLocaleDateString('id-ID',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'}), s:0,c:0,q:0,o:0,b:0,p:0 };
+            dateMap[dateKey].s += Number(rep.Net_Sales || rep.net_sales || 0);
+            dateMap[dateKey].c += Number(rep.Cash || rep.cash || 0);
+            dateMap[dateKey].q += Number(rep.QRIS || rep.qris || 0);
+            dateMap[dateKey].o += Number(rep.Total_Pengeluaran || rep.total_pengeluaran || 0);
+            dateMap[dateKey].b += Number(rep.Bill || rep.bill || 0);
+            dateMap[dateKey].p += Number(rep.Pcs || rep.pcs || 0);
         });
 
         // Ekstraksi ke Array untuk ditampilkan
@@ -5035,7 +5169,6 @@ selectOutlet: function(id) {
 
         // Ambil daftar tanggal terisi dari database (untuk bulan yang sedang dibuka di datepicker)
         const terisiDates = (this.db.laporanHarian || []).filter(x => {
-            if (x.Status_Approval === 'Ditolak') return false;
             let repOutlet = String(x.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
             return isConsolidated || repOutlet === currOutletClean;
         }).map(l => {
@@ -5164,7 +5297,6 @@ selectOutlet: function(id) {
 
         // 🚀 KUNCI PERBAIKAN: Ambtil data laporan dinamis mengikuti outlet terpilih
         const terisiDates = (this.db.laporanHarian || []).filter(x => {
-            if (x.Status_Approval === 'Ditolak') return false;
             let repOutlet = String(x.Outlet || '').replace(/^Ai\-Snack\s+/i, '').trim();
             return isConsolidated || repOutlet === currOutletClean;
         }).map(l => {
@@ -6852,6 +6984,7 @@ refreshData: function() {
     }
     if (menu === 'laporan-harian' && typeof this.initLaporanHarian === 'function') {
         this.initLaporanHarian();
+        this.pullLaporanHarianData(true);
     }
     if (menu === 'audit' && typeof this.renderAudit === 'function') this.renderAudit();
     if (menu === 'terima' && typeof this.renderTerimaBarang === 'function') {
@@ -7323,7 +7456,19 @@ refreshData: function() {
 
         let isPrintReady = !!this.printerCharacteristic;
         
-        const payload = { action: 'checkout', trx_id: trxID, outlet: this.outlet, kasir: this.currentUser.Username, metode_bayar: this.payMethod, total: this.payTotal, tunai: this.payCash, kembali: this.payChange, items: this.cart, id_shift: this.activeShiftId, tim_operasional: this.activeStaffTeam, antrian: noAntrian, status_cetak: isPrintReady ? 'Belum' : 'Tidak Dicetak' };
+        const payload = { action: 'checkout', trx_id: trxID, outlet: this.outlet, kasir: this.currentUser.Username, metode_bayar: this.payMethod, total: this.payTotal, tunai: this.payCash, kembali: this.payChange, items: this.cart, id_shift: this.activeShiftId, tim_operasional: this.activeStaffTeam, antrian: noAntrian, status_cetak: isPrintReady ? 'Belum' : 'Tidak Dicetak', _req_id: 'CHECKOUT-' + trxID };
+
+        // PRE-COMMIT: simpan payload transaksi ke IndexedDB sebelum mengosongkan keranjang,
+        // mencetak struk, atau menganggap checkout selesai. Jika penyimpanan gagal, jangan hilangkan keranjang.
+        try {
+            await this.enqueueOfflinePayload(payload, this.isOnline ? 'checkout-precommit' : 'offline-checkout');
+        } catch (durableQueueError) {
+            this.isProcessing = false;
+            if (btnPay) { btnPay.disabled = false; btnPay.innerHTML = originalBtnHtml; btnPay.classList.remove('opacity-70', 'cursor-not-allowed'); }
+            this.showToast('Transaksi belum diproses: penyimpanan antrean aman gagal. Periksa penyimpanan perangkat.', 'error');
+            console.error('Checkout pre-commit gagal:', durableQueueError);
+            return;
+        }
 
         if (!this.db.transactions) this.db.transactions = [];
         this.db.transactions.push({ 
@@ -11240,8 +11385,6 @@ openDetailStokOpname: function(sku) {
 
         // Kumpulkan data riwayat
         (this.db.laporanHarian || []).forEach(rep => {
-            if (rep.Status_Approval === 'Ditolak') return;
-
             let repOutlet = String(rep.Outlet || 'Lainnya').replace(/^Ai\-Snack\s+/i, '').trim();
             if (!isConsolidated && repOutlet !== currOutletClean) return;
 
@@ -14124,7 +14267,6 @@ openAIDeepDive: function(type, param) {
 
         // 1. Ekstrak Laporan Ai-CHA
         (this.db.laporanHarian || []).forEach(rep => {
-            if (rep.Status_Approval === 'Ditolak') return;
             let rOut = String(rep.Outlet).replace(/^Ai\-Snack\s+/i, '').trim();
             if (selOut !== 'Semua' && rOut !== selOut) return;
 
@@ -14831,36 +14973,39 @@ openAIDeepDive: function(type, param) {
 
     
 
-    // 🚀 AUTO-SYNC BACKGROUND PROCESS (Setiap 3 Menit)
+    // CENTRAL SYNC ENGINE: transaksi cepat + sinkronisasi seluruh domain secara berkala.
     initAutoSync: function() {
-        // Cek antrean setiap 3 menit (180.000 milidetik)
-        setInterval(() => {
-            // Pastikan perangkat sedang terhubung ke internet
-            if (navigator.onLine) {
-                let offlineData = []; try { offlineData = JSON.parse(localStorage.getItem('aisnack_offline_queue') || '[]'); } catch (_) {}
-                
-                // Jika ada data yang nyangkut, lakukan sinkronisasi senyap
-                if (offlineData.length > 0) {
-                    console.log("Auto-Sync: Mengirim " + offlineData.length + " data tertunda...");
-                    
-                    // Panggil fungsi sinkronisasi utama Anda (tanpa memunculkan popup loading)
-                    if (typeof this.syncOfflineQueue === 'function') {
-                        this.syncOfflineQueue();
-                    }
-                }
-            }
-        }, 180000); // 180000 ms = 3 menit
-
-        // AUTO-SYNC KETIKA INTERNET KEMBALI MENYALA (Reconnect)
+        if (this._centralSyncInitialized) return;
+        this._centralSyncInitialized = true;
+        const runFast = () => {
+            if (document.hidden || !navigator.onLine) return;
+            this.pullTransactionFastData(true);
+            if (this.offlineQueue && this.offlineQueue.length) this.syncOfflineQueue();
+        };
+        const runFull = () => {
+            if (document.hidden || !navigator.onLine || this.isProcessing || this.isLoadingData) return;
+            this.pullFreshData(true);
+            // Domain-specific data is loaded on demand; trigger reports/history refresh separately.
+            if (typeof this.fetchMasterPengeluaran === 'function') this.fetchMasterPengeluaran();
+        };
+        // Fast transaction lane is intentionally frequent to reduce loss exposure during unstable power.
+        this._transactionSyncTimer = setInterval(runFast, 15000);
+        this._centralSyncTimer = setInterval(runFull, 300000);
+        // Jalur khusus laporan, terpisah dari status menu POS.
+        this._laporanSyncTimer = setInterval(() => {
+            if (!document.hidden && navigator.onLine && this.currentUser) this.pullLaporanHarianData(true);
+        }, 60000);
         window.addEventListener('online', () => {
-            let offlineData = []; try { offlineData = JSON.parse(localStorage.getItem('aisnack_offline_queue') || '[]'); } catch (_) {}
-            if (offlineData.length > 0) {
-                this.showToast('Koneksi pulih. Mengirim data tertunda...', 'success');
-                if (typeof this.syncOfflineQueue === 'function') {
-                    this.syncOfflineQueue();
-                }
-            }
+            this.isOnline = true;
+            // Immediate catch-up on reconnection; queue first, then server snapshot.
+            this.syncOfflineQueue().finally(() => { runFast(); runFull(); });
         });
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && navigator.onLine) { runFast(); runFull(); }
+        });
+        window.addEventListener('focus', () => { if (navigator.onLine) runFast(); });
+        // First fast pull after initialization; does not block login or POS rendering.
+        setTimeout(runFast, 1500);
     },
     
    connectBluetooth: async function(isAuto = false) {
@@ -15220,10 +15365,4 @@ openAIDeepDive: function(type, param) {
 
 window.onload = () => superApp.init();
 
-setInterval(() => {
-    const viewPos = document.getElementById('view-pos');
-    const isPosActive = viewPos && !viewPos.classList.contains('hidden');
-    if (superApp.isOnline && superApp.cart.length === 0 && isPosActive && !superApp.isProcessing && !superApp.isLoadingData) {
-        superApp.pullFreshData(true); 
-    }
-}, 300000);
+// Refresh cadence is managed centrally by initAutoSync() to avoid duplicate polling.
